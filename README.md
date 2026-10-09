@@ -4,7 +4,7 @@ The main goal is to allow to an agent to find a file or files with complex crite
 I will use RUST
 
 Candidate crates: `ignore` (parallel directory walking, `.gitignore` support), `grep-regex` / `grep-searcher` (fast
-content search, binary detection), `globset` (wildcards).
+content search, binary detection), `globset` (wildcards), `pest` or `chumsky` (query parser).
 
 ## Commands
 
@@ -37,73 +37,97 @@ One or more paths to search in. Every path must be inside one of the allowed roo
 
 Search criteria is a query with multiply conditions which can be combined with AND, OR, XOR and NOT logical operators.
 
-The query is a JSON expression tree, so it maps directly to the MCP tool input schema, e.g.
+The query is a compact text expression, e.g.
 
-```json
-{
-  "and": [
-    { "name": { "wildcard": "*.rs" } },
-    { "modified": { "after": "-7d" } },
-    { "not": { "path": { "contains": "/tests/" } } },
-    { "line": { "and": [
-      { "content": { "contains": "unwrap", "case_sensitive": false } },
-      { "not": { "content": { "starts_with": "//" } } }
-    ] } }
-  ]
-}
 ```
+name ~ '*.rs' and modified > -7d and not path has '/tests/'
+and line(text has 'unwrap' /i and not text starts '//')
+```
+
+means: Rust files changed during the last 7 days, not in tests, with a line which contains `unwrap` (any case) and is
+not a `//` comment.
 
 #### Condition scope
 
 Every condition has an explicit scope:
 
-- **file scope** — conditions on file metadata and on the whole file content. `file content contains A AND file content
-  contains B` means A and B can be on different lines. `NOT file content contains X` means files without a match
-  (like `grep -L`).
-- **line scope** — a `line { ... }` group inside a file-level expression. All conditions inside the group must be true
-  for the same line. `NOT` inside the group means lines without a match (like `grep -v`). A file matches the `line`
-  group if at least one of its lines matches it.
+- **file scope** — conditions on file metadata and on the whole file content. `text has 'A' and text has 'B'` means A
+  and B can be on different lines. `not text has 'X'` means files without a match (like `grep -L`).
+- **line scope** — a `line( ... )` group inside a file-level expression. All conditions inside the group must be true
+  for the same line. `not` inside the group means lines without a match (like `grep -v`). A file matches the `line`
+  group if at least one of its lines matches it, so `not line( ... )` means no line of the file matches it.
 
-#### Condition targets
+#### Targets
 
-A condition can be applied on
+| Target     | Scope | Value                                         |
+|------------|-------|-----------------------------------------------|
+| `path`     | file  | file path, text                               |
+| `name`     | file  | file name with extension, text                |
+| `type`     | file  | `file`, `dir`, `link`                         |
+| `size`     | file  | size                                          |
+| `modified` | file  | date                                          |
+| `created`  | file  | date                                          |
+| `accessed` | file  | date                                          |
+| `empty`    | file  | no value, empty file or empty directory       |
+| `text`     | both  | whole file content in file scope, line content inside `line( ... )` |
+| `len`      | line  | line length in characters, number             |
 
-- file path
-- file name with extension
-- file type: file, directory, symlink
-- file modification date, creation date, access date
-- file size
-- empty (empty file or empty directory)
-- file content (file scope)
-- line length (line scope)
-- line content (line scope)
-- proximity: content A within N lines of content B (file scope)
+Directories can be in the result only via metadata conditions (`path`, `name`, `type`, dates, `empty`). Content
+conditions never match a directory.
 
-Directories can be in the result only via metadata conditions (path, name, type, dates, empty). Content conditions
-never match a directory.
+Proximity: `near(<line expr>, <line expr>, N)` — a file scope condition, true if a line matching the first expression
+is within N lines of a line matching the second one, e.g. `near(text has 'lock()', text has 'unwrap', 3)`.
 
-#### Condition operators
+#### Operators
 
-- exact match
-- contains
-- starts with
-- ends with
-- regex
-- wildcard (for the file path and file name with extension)
-- algebraic operators for sizes and dates: `=`, `!=`, `<`, `<=`, `>`, `>=`, between
-- dates are absolute (ISO 8601) or relative (`-2h`, `-7d`)
-- sizes accept units (`10K`, `5M`)
+Text operators (`path`, `name`, `text`)
 
-Text operator options
+| Operator | Meaning                                                                 |
+|----------|-------------------------------------------------------------------------|
+| `=`      | exact match                                                             |
+| `has`    | contains                                                                |
+| `starts` | starts with                                                             |
+| `ends`   | ends with                                                               |
+| `~`      | wildcard: `*`, `**`, `?`, `[abc]`, `{a,b}` (for `path` and `name` only) |
+| `=~`     | regex (Rust `regex` crate syntax)                                       |
 
-- case sensitive (default: yes)
-- whole word
-- multiline (regex may match across lines; for file scope content only)
+Comparison operators (`size`, dates, `len`): `=`, `!=`, `<`, `<=`, `>`, `>=`, `in <from>..<to>`
+
+- sizes accept units: `10`, `10K`, `5M`, `1G`
+- dates are absolute ISO 8601 (`2026-01-01`, `2026-01-01T10:00`) or relative to now (`-30m`, `-2h`, `-7d`, `-2w`),
+  e.g. `modified > -7d` — changed during the last 7 days, `created in 2026-01-01..-7d`
+
+Logical operators: `not`, `and`, `xor`, `or` (precedence from the highest to the lowest), brackets `( )`. Keywords are
+case-insensitive.
+
+#### Strings
+
+- `'...'` and `"..."` — backslash escapes are supported: `\'`, `\"`, `\\`, `\n`, `\t`
+- `` `...` `` — raw string, no escapes at all, everything until the closing backtick is the value
+
+The query itself is sent inside a JSON tool argument, so every `"` in the query becomes `\"` there. Prefer `'...'`, and
+`` `...` `` for regexes and texts with quotes and backslashes.
+
+#### Modifiers
+
+Modifiers are written after a text value and can be combined, e.g. `text has 'todo' /i/w`.
+
+| Modifier              | Meaning                                                                     |
+|-----------------------|-----------------------------------------------------------------------------|
+| `/i`                  | case-insensitive (default: case-sensitive)                                  |
+| `/w`                  | whole word                                                                  |
+| `/m`                  | multiline, regex may match across lines (`=~` on `text` in file scope only) |
+| `/c`                  | ignore matches inside comments                                              |
+| `/e(style, levels)`   | escaping, see below                                                         |
+
+Comments (`/c`): comment syntax is defined per file extension in the configuration (line comment like `//`, `#`,
+block comment like `/* */`). Built-in defaults exist for common languages. Files with an unknown extension are searched
+as is.
 
 #### Escaping
 
-Escaping can be applied to content conditions. It allows to find a text which is stored escaped in the file, e.g. JSON
-inside a string in JSON, where `"` is written as `\"` and on the next nesting level as `\\\"`.
+Escaping allows to find a text which is stored escaped in the file, e.g. JSON inside a string in JSON, where `"` is
+written as `\"` and on the next nesting level as `\\\"`.
 
 The agent writes the pattern unescaped, the server builds the escaped variants of the pattern and matches them.
 
@@ -112,23 +136,51 @@ The agent writes the pattern unescaped, the server builds the escaped variants o
   - `quote_doubling` — SQL, CSV: `'` → `''`, `"` → `""`
   - `xml` — HTML/XML entities: `"` → `&quot;`, `'` → `&apos;` / `&#39;`, `<` → `&lt;`, `>` → `&gt;`, `&` → `&amp;`
   - `url` — percent encoding: `"` → `%22`, space → `%20` / `+`
-- escape levels: a number (`0` — raw, `1` — escaped once, `2` — escaped twice, ...) or a range / `any` (e.g. `0..2`
-  matches raw, once and twice escaped text)
+- escape levels: a number (`0` — raw, `1` — escaped once, `2` — escaped twice, ...), a range (`0..2` matches raw, once
+  and twice escaped text) or `any` (from 0 to the max escape level from the configuration)
 
 Example: find `"name": "x"` raw and inside a JSON string
 
-```json
-{ "content": { "contains": "\"name\": \"x\"", "escape": { "style": "backslash", "levels": "0..1" } } }
+```
+text has `"name": "x"` /e(backslash, 0..1)
 ```
 
 matches both `"name": "x"` and `\"name\": \"x\"`.
 
-Escaping is supported for exact match, contains, starts with and ends with. For regex the agent writes the escaped
-form itself.
+Escaping is supported for `=`, `has`, `starts` and `ends`. For regex the agent writes the escaped form itself.
 
-Exclude block to allow to support comments in programming languages: matches inside comments (and optionally string
-literals) are ignored. Comment syntax is defined per file extension in the configuration (line comment like `//`, `#`,
-block comment like `/* */`). Built-in defaults exist for common languages.
+#### Grammar
+
+```
+query      = or_expr
+or_expr    = xor_expr { "or" xor_expr }
+xor_expr   = and_expr { "xor" and_expr }
+and_expr   = unary { "and" unary }
+unary      = "not" unary | primary
+primary    = "(" or_expr ")" | "line(" or_expr ")" | near | condition
+near       = "near(" or_expr "," or_expr "," number ")"
+condition  = "empty"
+           | "type" ("=" | "!=") ("file" | "dir" | "link")
+           | text_target text_op string { modifier }
+           | cmp_target cmp_op value
+           | cmp_target "in" value ".." value
+text_target = "path" | "name" | "text"
+cmp_target  = "size" | "modified" | "created" | "accessed" | "len"
+text_op    = "=" | "has" | "starts" | "ends" | "~" | "=~"
+cmp_op     = "=" | "!=" | "<" | "<=" | ">" | ">="
+modifier   = "/i" | "/w" | "/m" | "/c" | "/e(" style "," levels ")"
+```
+
+#### Errors
+
+A parse error contains the position and a hint, so the agent can fix the query itself, e.g.
+
+```
+col 23: unknown operator 'contains', expected one of: =, has, starts, ends, ~, =~
+```
+
+Semantic errors are reported the same way, e.g. `len` outside of `line( ... )`, `~` on `text`, `/m` inside
+`line( ... )`.
 
 #### Encoding
 
@@ -178,4 +230,5 @@ The configuration contains default values for
 - traversal options
 - output format
 - comment syntax per file extension
+- max escape level for `any` (default: 3)
 - search timeout
