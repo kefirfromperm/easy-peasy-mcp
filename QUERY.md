@@ -34,7 +34,7 @@ A condition is `<target> <operator> <value>` (only `empty` stands alone), option
 
 ```
 text has 'todo' /i/w @todo
-^^^^ ^^^ ^^^^^^ ^^^^^ ^^^^^
+^^^^ ^^^ ^^^^^^ ^^^^ ^^^^^
  |    |    |      |     label
  |    |    |      modifiers: case-insensitive, whole word
  |    |    value
@@ -150,7 +150,7 @@ Rust files without a license header anywhere in the file (like `grep -L`).
 
 ### Line scope
 
-A `line( ... )` group. All conditions inside it must be true for **the same line**. The file matches the group if at
+A `line( ... )` group. The expression inside it must be true for **the same line**. The file matches the group if at
 least one of its lines matches it.
 
 ```
@@ -511,7 +511,7 @@ The output says on which level each fragment was found, see [OUTPUT.md](OUTPUT.m
 name ~ '*.json' and text has `"type": "admin"` /e(backslash, any)
 ```
 
-`"type": "admin"` in JSON files, also inside stringified JSON on any nesting level.
+`"type": "admin"` in JSON files, also inside stringified JSON nested up to `escape.max_level` levels deep.
 
 ```
 name ~ '*.sql' and text has `O'Brien` /e(quote_doubling, 1)
@@ -700,7 +700,7 @@ and text has 'unwrap(' /c          # real calls, not comments
 
 ## Errors
 
-The query is checked before the search starts. An error has a code, the position, a message and a hint, so the agent
+The query is checked before any file is read. An error has a code, the position, a message and a hint, so the agent
 can fix the query itself. The response format is described in [OUTPUT.md](OUTPUT.md#errors).
 
 ```

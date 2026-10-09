@@ -34,11 +34,12 @@ From the lowest to the highest priority:
 4. `update_config` calls — in memory, until the server stops
 5. fields of the `find` request — for this request only
 
-A request can replace any configuration value — `traversal`, `output`, `escape`, `query` (as the request
-field `query_options`), `kinds`, `git`, `languages` and the `timeout` —
-except the `server` section: the allowed roots, which bound the working directories, can't be changed by a request.
-Values are replaced, not merged: a request `exclude` list replaces the configured list. `languages` are replaced
-one language at a time: a request language replaces the configured language with the same name, the others stay.
+A request can replace any configuration value — `traversal`, `output`, `escape`, `query` (as the request field
+`query_options`), `kinds`, `git`, `languages` — except the `server` section: the allowed roots, which bound the
+working directories, can't be changed by a request; only `server.timeout` and `server.default_dirs` are replaced for
+one request by its `timeout` and `dirs` fields. Values are replaced, not merged: a request `exclude` list replaces
+the configured list. `languages` are replaced one language at a time: a request language replaces the configured
+language with the same name, the others stay.
 
 ```json
 {
@@ -245,7 +246,7 @@ Notes
 - With `follow_symlinks` loops are detected and skipped, and a symlink which points outside of the allowed roots is
   skipped with a `permission_denied` warning.
 - Files reachable several times (overlapping working directories, symlinks, hard links) are returned once, see
-  [OUTPUT.md](OUTPUT.md#paths).
+  [OUTPUT.md](OUTPUT.md#duplicates).
 - `path_case = "native"`: case-sensitive on Linux, case-insensitive on macOS and Windows. `path_case` applies to `=`,
   `has`, `starts`, `ends`, `~`, `=~` on `path` and `name` and to `exclude`; `/i`, `~~` and `/n` are always
   case-insensitive.

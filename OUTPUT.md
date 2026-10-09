@@ -1,7 +1,7 @@
 # Output
 
 What the `find` command returns and how to control it. The query itself is described in [QUERY.md](QUERY.md), the
-defaults of all options in [CONFIG.md](CONFIG.md#output).
+defaults of the options in [CONFIG.md](CONFIG.md#output).
 
 To stay short, most examples leave out the result id and show `dedent = false` and `group_dirs = false`. The
 [Text format](#text-format) and [JSON format](#json-format) sections show the output with the default options in
@@ -28,8 +28,9 @@ full.
 
 ## Options
 
-The `output` field of the `find` request. Every option is optional, missing ones are taken from the configuration.
-The time limit is the `timeout` field of the request, see [TOOLS.md](TOOLS.md#timeout).
+The `output` field of the `find` request. Every option is optional; missing ones are taken from the configuration,
+except `cursor`, which has no default. The time limit is the `timeout` field of the request, see
+[TOOLS.md](TOOLS.md#timeout).
 
 ```json
 {
@@ -115,7 +116,7 @@ Top level
 | `truncated_by`  | all                | which limits were hit, e.g. `["max_files"]`                        |
 | `next_cursor`   | `files`, `lines`   | cursor for the next page, only if truncated                        |
 | `legend`        | `facets`, `files`, `lines` | condition id → condition text, if at least one file matches, see [Condition ids](#condition-ids) |
-| `warnings`      | all                | problems which didn't stop the search, see [Warnings](#warnings)   |
+| `warnings`      | all                | problems which didn't make the request fail, see [Warnings](#warnings) |
 | `files`         | `files`, `lines`   | the matched files                                                  |
 
 Per file
@@ -257,9 +258,9 @@ name ~ '*.rs' and (text has '.unwrap()' @unwrap or text has '.expect(' @expect)
 
 ```
 ...
-src/a.rs  [#1 @unwrap]
-src/b.rs  [#1 @expect]
-src/c.rs  [#1 @unwrap @expect]
+src/a.rs  [#1 @unwrap]  lines: 1  matches: 1
+src/b.rs  [#1 @expect]  lines: 2  matches: 2
+src/c.rs  [#1 @unwrap @expect]  lines: 2  matches: 2
 ```
 
 Which conditions made the file match, from the top of the query down:
@@ -369,7 +370,8 @@ the marker characters, the response has a warning and `columns` should be used.
 When a limit is hit:
 
 - `truncated` is `true`, `truncated_by` names the limits
-- `counts` still contain the real totals, so the agent knows how much is missing
+- `counts` still contain the real totals, so the agent knows how much is missing; after the `timeout` they are only
+  lower bounds, `counts_exact: false`
 - a file cut by `max_matches_per_file` or `max_output_per_file` gets `"truncated": true`, in the text format `(cut)`
   after its counts
 - `next_cursor` is given to get the rest, except for the per file limits, which cut by design, and for `timeout`,
@@ -388,7 +390,7 @@ To get the next page, repeat the same request and add `output.cursor` from `next
 
 - the cursor is opaque, it encodes the request hash, the position (file index and fragment index inside the file)
   and the totals
-- pages don't use the [result cache](#result-ids): every page runs the search again
+- pages are not served from the [result cache](#result-ids): every page runs the search again
 - a cursor with a different request is rejected with `cursor_mismatch`
 - if files change between pages, results can shift; the response has a `results_changed` warning when the totals
   differ from the ones in the cursor
@@ -439,16 +441,16 @@ funnel:
   and text has 'parseQuery'              0
 ```
 
-For a query joined with `or` every branch shows how many files it matched; a file is counted in the first branch
-which matched it, the later branches are not evaluated for it. The steps are counted during the normal search, they
-cost nothing: the evaluation of a file stops anyway at the first false step of an `and` and at the first true branch
-of an `or`. A file for which a step is unknown (see
-[QUERY.md](QUERY.md#files-whose-content-is-not-searched)) doesn't pass the step; the hints count it as skipped.
+For a query joined with `or` every branch shows how many files it matched; a file which matches several branches is
+counted only in the first one. The steps are counted during the normal search, so they cost almost nothing. A file
+for which a step is unknown (see [QUERY.md](QUERY.md#files-whose-content-is-not-searched)) doesn't pass the step; the
+hints count it as skipped.
 
 ### Hints
 
-For an empty result the server tries cheap variations of the condition where the count dropped to 0, only on the
-files which passed the steps before it, and reports the ones which match:
+For an empty result the server tries cheap variations of the condition where the count dropped to 0 on the files which
+passed the steps before it and reports the ones which match; it also counts the skipped files which could match and
+looks for similar paths and names:
 
 | Hint                               | Example                                                         |
 |------------------------------------|-----------------------------------------------------------------|
@@ -545,8 +547,8 @@ Values are sorted by count, more than `facet_limit` values end with `… 5 more 
 
 ## Compact output
 
-Options which save tokens without losing information. `group_dirs` changes only the text format, the others change
-both formats.
+Options which save tokens. `dedent`, `blank_context` and `group_dirs` lose no information; `group_repeated` shows
+only a few locations of a repeated line. `group_dirs` changes only the text format, the others change both formats.
 
 ### Dedent
 
@@ -695,7 +697,7 @@ src/server/mod.rs  [#1 #2]  lines: 2  matches: 2
 
 ## Warnings
 
-Problems which don't stop the search. The search continues, the response has them in `warnings`:
+Problems which don't make the request fail: the response is returned and lists them in `warnings`:
 
 | Code                   | Meaning                                                                    |
 |------------------------|----------------------------------------------------------------------------|

@@ -105,7 +105,7 @@ OUTPUT: output.detail = exists | count | facets | files | lines (default); outpu
 output.budget = N tokens: the server picks the richest detail which fits. Files are sorted by relevance.
 Text response: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match, [#1 @x] matched conditions,
 ⇥N removed indentation. Empty or huge results come with a funnel and hints how to fix the query.
-If truncated, pass next_cursor back as output.cursor with the same request.
+If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
 queries = [{label, query}, ...] runs several queries in one call.
@@ -324,7 +324,7 @@ TOML with the changed keys and their old values in comments, see [CONFIG.md](CON
 
 ## Results
 
-Every tool returns one text content item:
+The result of every tool is one text content item:
 
 ```json
 {
@@ -365,7 +365,7 @@ The error format is in [OUTPUT.md](OUTPUT.md#errors), the query error codes in [
 
 - the request field `timeout` (e.g. `"10s"`), otherwise `server.timeout` from the configuration (default `30s`)
 - `"0s"` — no limit
-- the time counts from the start of the search, query parsing included
+- the time counts from the moment the request arrives, query parsing included
 - when it expires the search stops and the results found so far are returned with `counts_exact: false`,
   `truncated: true`, `truncated_by: ["timeout"]` and a `timeout` warning; there is no `next_cursor`, because the
   unsearched part is unknown — narrow the query or raise the timeout
