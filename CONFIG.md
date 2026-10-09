@@ -388,54 +388,53 @@ Windows paths in TOML are written in single quotes, where `\` is not an escape: 
 Returns the effective configuration: all values after merging built-in defaults, the config file, command line and
 `update_config` calls. The tool definition is in [TOOLS.md](TOOLS.md#get_config).
 
+The result is TOML, the same format as the config file, so it can be copied into `config.toml` as is.
+
 Request — all fields are optional:
 
 ```json
-{ "section": "traversal" }
+{ "section": "traversal", "sources": true }
 ```
 
 | Field     | Meaning                                                               |
 |-----------|-----------------------------------------------------------------------|
 | `section` | `server`, `traversal`, `output`, `escape`, `languages`; not set — all |
-| `sources` | `true` — add where each value comes from                              |
+| `sources` | `true` — add a comment with the source of every value                 |
 
-Response:
+Result:
 
-```json
-{
-  "version": { "server": "0.1.0", "spec": 1, "supported_specs": [1] },
-  "traversal": {
-    "min_depth": 0,
-    "follow_symlinks": false,
-    "hidden": false,
-    "ignore_files": [".gitignore", ".ignore", ".aiignore"],
-    "git_excludes": true,
-    "ignore_paths": [],
-    "exclude": ["**/target/**", "**/node_modules/**"],
-    "path_case": "native",
-    "binary": "skip",
-    "max_file_size": "10M",
-    "encoding": "auto",
-    "archives": "none",
-    "max_archive_size": "100M"
-  },
-  "read_only": ["server.allowed_roots", "server.allow_update"]
-}
+```toml
+# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[traversal]
+min_depth = 0
+follow_symlinks = false
+hidden = false
+ignore_files = [".gitignore", ".ignore", ".aiignore"]
+git_excludes = true
+ignore_paths = []
+exclude = ["**/target/**", "**/node_modules/**"]
+path_case = "native"
+binary = "skip"
+max_file_size = "10M"
+encoding = "auto"
+archives = "none"
+max_archive_size = "100M"
 ```
 
-With `"sources": true`:
+With `"sources": true` every value gets a comment:
 
-```json
-{
-  "traversal": {
-    "exclude": { "value": ["**/target/**", "**/node_modules/**"], "source": "file:/home/me/.config/easy-peasy-mcp/config.toml" },
-    "hidden": { "value": false, "source": "default" },
-    "max_file_size": { "value": "50M", "source": "update" }
-  }
-}
+```toml
+[traversal]
+exclude = ["**/target/**", "**/node_modules/**"]    # file: /home/me/.config/easy-peasy-mcp/config.toml
+hidden = false                                      # default
+max_file_size = "50M"                               # update
+max_depth = 5                                       # cli
 ```
 
-Sources: `default`, `file:<path>`, `cli`, `update`.
+Sources: `default`, `file: <path>`, `cli`, `update`. Values which are not set (e.g. `max_depth` without a limit) are
+written as comments: `# max_depth =  (not set)`.
 
 An agent should call `get_config` once at the start to learn the allowed roots and limits instead of guessing.
 
@@ -444,46 +443,64 @@ An agent should call `get_config` once at the start to learn the allowed roots a
 Changes the configuration in memory until the server stops. The config file is never written. The tool definition is
 in [TOOLS.md](TOOLS.md#update_config).
 
-Request:
+The new values are a TOML fragment in the `set` field, written like the config file. The tool arguments themselves
+are JSON, as MCP requires, so the TOML is a JSON string:
 
 ```json
 {
-  "set": { "output": { "max_files": 30, "context": 2 }, "traversal": { "exclude": ["**/target/**"] } },
+  "set": "[output]\nmax_files = 30\ncontext = 2\n\n[traversal]\nexclude = [\"**/target/**\"]",
   "reset": ["output.format"]
 }
 ```
 
+The `set` value is this TOML:
+
+```toml
+[output]
+max_files = 30
+context = 2
+
+[traversal]
+exclude = ["**/target/**"]
+```
+
+Dotted keys are shorter for one or two values and need no line breaks:
+
+```json
+{ "set": "output.context = 2" }
+```
+
 | Field   | Meaning                                                              |
 |---------|----------------------------------------------------------------------|
-| `set`   | values to change, nested like the config file                        |
-| `reset` | keys to return to the value from the file / command line / default; `"all"` resets everything |
+| `set`   | TOML with the values to change                                       |
+| `reset` | keys to return to the value from the file / command line / default; `["all"]` resets everything |
 
 - lists are replaced, not merged: to add an exclude, send the whole new list
 - the update is atomic: if any value is invalid, nothing is changed
 - `reset` is applied before `set`
 - a search which is already running keeps the configuration it started with
 
-Response — the changed keys with the old and new values:
+Result — TOML with the changed keys, the old value in a comment:
 
-```json
-{
-  "changed": {
-    "output.max_files": { "old": 100, "new": 30 },
-    "output.context": { "old": 0, "new": 2 },
-    "traversal.exclude": { "old": [], "new": ["**/target/**"] },
-    "output.format": { "old": "json", "new": "text" }
-  }
-}
+```toml
+[output]
+max_files = 30          # was 100
+context = 2             # was 0
+format = "text"         # was "json", reset
+
+[traversal]
+exclude = ["**/target/**"]    # was []
 ```
 
 Errors:
 
-| Code             | Example                                             |
-|------------------|-----------------------------------------------------|
-| `read_only`      | `{ "set": { "server": { "allowed_roots": ["/"] } } }` |
-| `update_disabled`| any call with `allow_update = false`                |
-| `unknown_key`    | `{ "set": { "output": { "max_file": 10 } } }` — hint: did you mean `max_files`? |
-| `invalid_value`  | `{ "set": { "output": { "detail": "all" } } }` — hint: exists, count, files, lines |
+| Code             | Example `set`                                       | Hint                                    |
+|------------------|-----------------------------------------------------|-----------------------------------------|
+| `invalid_toml`   | `output.context = `                                 | line 1, col 18: a value is expected     |
+| `read_only`      | `server.allowed_roots = ["/"]`                      | allowed roots are set only at start     |
+| `update_disabled`| any call with `allow_update = false`                |                                         |
+| `unknown_key`    | `output.max_file = 10`                              | did you mean `max_files`?               |
+| `invalid_value`  | `output.detail = "all"`                             | expected one of: exists, count, files, lines |
 
 ## Security
 
@@ -565,7 +582,7 @@ fallback_encoding = "windows-1251"
 The agent wants more context for the rest of the session:
 
 ```json
-{ "set": { "output": { "context": 3 } } }
+{ "set": "output.context = 3" }
 ```
 
 And once searches inside `node_modules`, which is in `.gitignore`, with a short timeout:

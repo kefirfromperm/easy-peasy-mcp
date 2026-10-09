@@ -205,8 +205,8 @@ The response of [OUTPUT.md](OUTPUT.md#response), in the format of `output.format
 #### Description
 
 ```
-Returns the effective configuration of the search server: allowed roots, default directories, traversal and output
-defaults, limits, supported spec versions. Read-only. Call it once before the first find.
+Returns the effective configuration of the search server as TOML: allowed roots, default directories, traversal and
+output defaults, limits, supported spec versions. Read-only. Call it once before the first find.
 ```
 
 #### Input schema
@@ -224,8 +224,7 @@ defaults, limits, supported spec versions. Read-only. Call it once before the fi
 
 #### Result
 
-JSON, see [CONFIG.md](CONFIG.md#get_config). The configuration is read rarely and has many fields, so it is always
-JSON, independent of `output.format`.
+TOML, the same format as the config file, see [CONFIG.md](CONFIG.md#get_config).
 
 ### update_config
 
@@ -233,8 +232,9 @@ JSON, independent of `output.format`.
 
 ```
 Changes the search server configuration in memory until the server stops: defaults of traversal, output, escape,
-languages and the server timeout. Allowed roots can't be changed. Lists are replaced, not merged. Atomic: if any
-value is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.
+languages and the server timeout. `set` is TOML like the config file, e.g. "output.context = 2" or
+"[output]\ncontext = 2\nmax_files = 30". Allowed roots can't be changed. Lists are replaced, not merged. Atomic: if
+any value is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.
 ```
 
 #### Input schema
@@ -244,20 +244,15 @@ value is invalid, nothing changes. To change a value for one search only, pass i
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "set": { "type": "object", "description": "Values to change, nested like the config: {\"output\": {\"context\": 2}}." },
-    "reset": {
-      "oneOf": [
-        { "type": "array", "items": { "type": "string" }, "description": "Keys like 'output.context'." },
-        { "const": "all" }
-      ]
-    }
+    "set": { "type": "string", "description": "TOML with the values to change, like the config file, e.g. 'output.context = 2'." },
+    "reset": { "type": "array", "items": { "type": "string" }, "description": "Keys like 'output.context', or ['all']." }
   }
 }
 ```
 
 #### Result
 
-JSON with the changed keys, see [CONFIG.md](CONFIG.md#update_config).
+TOML with the changed keys and their old values in comments, see [CONFIG.md](CONFIG.md#update_config).
 
 ## Results
 
