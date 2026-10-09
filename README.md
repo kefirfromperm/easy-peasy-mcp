@@ -1,278 +1,76 @@
 # Easy-Peasy MCP Server
 The main goal is to allow to an agent to find a file or files with complex criteria.
 
+It covers `find` and `grep` in one query and adds what they can't do: logical operators over any conditions, several
+conditions on the same line, proximity, matching escaped text, ignoring comments, and telling which condition matched.
+
+```
+name ~ '*.rs' and modified > -7d and not path ~ '**/tests/**'
+and line(text has 'unwrap' /i and not text starts '//')
+```
+
 I will use RUST
 
 Candidate crates: `ignore` (parallel directory walking, `.gitignore` support), `grep-regex` / `grep-searcher` (fast
 content search, binary detection), `globset` (wildcards), `pest` or `chumsky` (query parser).
 
+## Documentation
+
+- [QUERY.md](QUERY.md) — the query language: targets, operators, scopes, modifiers, escaping, proximity, grammar,
+  errors, recipes
+- [OUTPUT.md](OUTPUT.md) — output options, response format, condition ids, fragments, highlight, limits, pagination
+- [CONFIG.md](CONFIG.md) — config file, command line, allowed roots, defaults, comment syntax, `get_config` and
+  `update_config`
+
 ## Commands
 
-- find
-- get config
-- update config
+| Command         | Meaning                                                    |
+|-----------------|------------------------------------------------------------|
+| `find`          | search files                                               |
+| `get_config`    | the effective configuration                                |
+| `update_config` | change the configuration until the server stops            |
 
 ## Request
-The request contains fields
 
-- working directory
-- traversal options
-- search criteria
-- output format
+The `find` request contains fields, all of them optional:
 
-### Working directory
-One or more paths to search in. Every path must be inside one of the allowed roots (see Configuration).
+| Field       | Meaning                                                                      | Details                       |
+|-------------|------------------------------------------------------------------------------|-------------------------------|
+| `dirs`      | one or more working directories, inside the allowed roots                    | [CONFIG.md](CONFIG.md#server) |
+| `query`     | search criteria; empty — all files                                           | [QUERY.md](QUERY.md)          |
+| `traversal` | depth, symlinks, hidden files, ignore files, excludes, binary files, max file size | [CONFIG.md](CONFIG.md#traversal) |
+| `output`    | format, detail level, context, limits, sorting, highlight, cursor           | [OUTPUT.md](OUTPUT.md#options) |
 
-### Traversal options
+Missing fields are taken from the configuration.
 
-- min depth / max depth
-- follow symlinks (default: no; loops are detected, symlinks can't escape the allowed roots)
-- include hidden files (default: no)
-- respect ignore files: `.gitignore`, `.ignore`, global git excludes (default: yes)
-- exclude paths: wildcards for directories/files that are pruned and never walked (e.g. `target/`, `node_modules/`)
-- binary files: skip / search / list only (default: skip for content conditions)
-- max file size to scan content (bigger files are matched only by metadata conditions)
-
-### Search criteria
-
-Search criteria is a query with multiply conditions which can be combined with AND, OR, XOR and NOT logical operators.
-
-The query is a compact text expression, e.g.
-
-```
-name ~ '*.rs' and modified > -7d and not path has '/tests/'
-and line(text has 'unwrap' /i and not text starts '//')
+```json
+{
+  "dirs": ["."],
+  "query": "name ~ '*.rs' and line(text has 'unwrap(' /c @unwrap or text has 'expect(' /c @expect)",
+  "traversal": { "exclude": ["**/target/**"] },
+  "output": { "context": 1, "max_files": 20 }
+}
 ```
 
-means: Rust files changed during the last 7 days, not in tests, with a line which contains `unwrap` (any case) and is
-not a `//` comment.
-
-#### Condition scope
-
-Every condition has an explicit scope:
-
-- **file scope** — conditions on file metadata and on the whole file content. `text has 'A' and text has 'B'` means A
-  and B can be on different lines. `not text has 'X'` means files without a match (like `grep -L`).
-- **line scope** — a `line( ... )` group inside a file-level expression. All conditions inside the group must be true
-  for the same line. `not` inside the group means lines without a match (like `grep -v`). A file matches the `line`
-  group if at least one of its lines matches it, so `not line( ... )` means no line of the file matches it.
-
-#### Targets
-
-| Target     | Scope | Value                                         |
-|------------|-------|-----------------------------------------------|
-| `path`     | file  | file path, text                               |
-| `name`     | file  | file name with extension, text                |
-| `type`     | file  | `file`, `dir`, `link`                         |
-| `size`     | file  | size                                          |
-| `modified` | file  | date                                          |
-| `created`  | file  | date                                          |
-| `accessed` | file  | date                                          |
-| `empty`    | file  | no value, empty file or empty directory       |
-| `text`     | both  | whole file content in file scope, line content inside `line( ... )` |
-| `len`      | line  | line length in characters, number             |
-
-Directories can be in the result only via metadata conditions (`path`, `name`, `type`, dates, `empty`). Content
-conditions never match a directory.
-
-Proximity: `near(<line expr>, <line expr>, N)` — a file scope condition, true if a line matching the first expression
-is within N lines of a line matching the second one, e.g. `near(text has 'lock()', text has 'unwrap', 3)`.
-
-#### Operators
-
-Text operators (`path`, `name`, `text`)
-
-| Operator | Meaning                                                                 |
-|----------|-------------------------------------------------------------------------|
-| `=`      | exact match                                                             |
-| `has`    | contains                                                                |
-| `starts` | starts with                                                             |
-| `ends`   | ends with                                                               |
-| `~`      | wildcard: `*`, `**`, `?`, `[abc]`, `{a,b}` (for `path` and `name` only) |
-| `=~`     | regex (Rust `regex` crate syntax)                                       |
-
-Comparison operators (`size`, dates, `len`): `=`, `!=`, `<`, `<=`, `>`, `>=`, `in <from>..<to>`
-
-- sizes accept units: `10`, `10K`, `5M`, `1G`
-- dates are absolute ISO 8601 (`2026-01-01`, `2026-01-01T10:00`) or relative to now (`-30m`, `-2h`, `-7d`, `-2w`),
-  e.g. `modified > -7d` — changed during the last 7 days, `created in 2026-01-01..-7d`
-
-Logical operators: `not`, `and`, `xor`, `or` (precedence from the highest to the lowest), brackets `( )`. Keywords are
-case-insensitive.
-
-#### Strings
-
-- `'...'` and `"..."` — backslash escapes are supported: `\'`, `\"`, `\\`, `\n`, `\t`
-- `` `...` `` — raw string, no escapes at all, everything until the closing backtick is the value
-
-The query itself is sent inside a JSON tool argument, so every `"` in the query becomes `\"` there. Prefer `'...'`, and
-`` `...` `` for regexes and texts with quotes and backslashes.
-
-#### Modifiers
-
-Modifiers are written after a text value and can be combined, e.g. `text has 'todo' /i/w`.
-
-| Modifier              | Meaning                                                                     |
-|-----------------------|-----------------------------------------------------------------------------|
-| `/i`                  | case-insensitive (default: case-sensitive)                                  |
-| `/w`                  | whole word                                                                  |
-| `/m`                  | multiline, regex may match across lines (`=~` on `text` in file scope only) |
-| `/c`                  | ignore matches inside comments                                              |
-| `/e(style, levels)`   | escaping, see below                                                         |
-
-Comments (`/c`): comment syntax is defined per file extension in the configuration (line comment like `//`, `#`,
-block comment like `/* */`). Built-in defaults exist for common languages. Files with an unknown extension are searched
-as is.
-
-#### Escaping
-
-Escaping allows to find a text which is stored escaped in the file, e.g. JSON inside a string in JSON, where `"` is
-written as `\"` and on the next nesting level as `\\\"`.
-
-The agent writes the pattern unescaped, the server builds the escaped variants of the pattern and matches them.
-
-- escape style
-  - `backslash` — JSON, C, Java, Rust and others: `"` → `\"`, `'` → `\'`, `\` → `\\`, new line → `\n`, tab → `\t`
-  - `quote_doubling` — SQL, CSV: `'` → `''`, `"` → `""`
-  - `xml` — HTML/XML entities: `"` → `&quot;`, `'` → `&apos;` / `&#39;`, `<` → `&lt;`, `>` → `&gt;`, `&` → `&amp;`
-  - `url` — percent encoding: `"` → `%22`, space → `%20` / `+`
-- escape levels: a number (`0` — raw, `1` — escaped once, `2` — escaped twice, ...), a range (`0..2` matches raw, once
-  and twice escaped text) or `any` (from 0 to the max escape level from the configuration)
-
-Example: find `"name": "x"` raw and inside a JSON string
-
 ```
-text has `"name": "x"` /e(backslash, 0..1)
+files: 2  lines: 3  matches: 3
+#1 name ~ '*.rs'
+#2 line(text has 'unwrap(' /c or text has 'expect(' /c)
+@unwrap text has 'unwrap(' /c
+@expect text has 'expect(' /c
+
+src/config.rs  [#1 #2]  lines: 2  matches: 2
+41-    let raw = fs::read_to_string(path)?;
+42:    let cfg: Config = toml::from_str(&raw).⟦#2,@unwrap:unwrap(⟧);
+43:    let port = cfg.port.⟦#2,@expect:expect(⟧"port is required");
+44-    Ok(cfg)
+
+src/main.rs  [#1 #2]  lines: 1  matches: 1
+17-    let args = Args::parse();
+18:    let cfg = config::load(&args.config).⟦#2,@unwrap:unwrap(⟧);
+19-    run(cfg)
 ```
 
-matches both `"name": "x"` and `\"name\": \"x\"`.
-
-Escaping is supported for `=`, `has`, `starts` and `ends`. For regex the agent writes the escaped form itself.
-
-#### Grammar
-
-```
-query      = or_expr
-or_expr    = xor_expr { "or" xor_expr }
-xor_expr   = and_expr { "xor" and_expr }
-and_expr   = unary { "and" unary }
-unary      = "not" unary | primary
-primary    = "(" or_expr ")" | "line(" or_expr ")" | (near | condition) [ label ]
-near       = "near(" or_expr "," or_expr "," number ")"
-condition  = "empty"
-           | "type" ("=" | "!=") ("file" | "dir" | "link")
-           | text_target text_op string { modifier }
-           | cmp_target cmp_op value
-           | cmp_target "in" value ".." value
-text_target = "path" | "name" | "text"
-cmp_target  = "size" | "modified" | "created" | "accessed" | "len"
-text_op    = "=" | "has" | "starts" | "ends" | "~" | "=~"
-cmp_op     = "=" | "!=" | "<" | "<=" | ">" | ">="
-modifier   = "/i" | "/w" | "/m" | "/c" | "/e(" style "," levels ")"
-label      = "@" identifier
-```
-
-#### Errors
-
-A parse error contains the position and a hint, so the agent can fix the query itself, e.g.
-
-```
-col 23: unknown operator 'contains', expected one of: =, has, starts, ends, ~, =~
-```
-
-Semantic errors are reported the same way, e.g. `len` outside of `line( ... )`, `~` on `text`, `/m` inside
-`line( ... )`.
-
-#### Encoding
+## Encoding
 
 Files are read as UTF-8. Invalid byte sequences are replaced (lossy) and do not stop the search.
-
-### Output format
-
-Output can contain fields
-
-- exists YES/NO (true if at least one file is found)
-- files count
-- line count
-- matches count
-- truncated YES/NO (true if any of the max limits is hit; counts above still contain the real totals)
-- next cursor (to continue the search from the place where it was truncated)
-
-Per file fields
-
-- path (relative to the working directory or absolute)
-- file type
-- file size
-- file modification date
-- line count
-- matches count
-- matched conditions: ids of the conditions which are true for the file (shows which `or` branch has matched)
-- matched fragments, see below
-
-Per fragment fields
-
-- line number
-- start and end column of the fragment in the line
-- fragment text
-- condition ids which matched the fragment (one fragment can match several conditions)
-- escape level, if the condition has the `/e` modifier
-- the whole line with lines before and after, with size how many lines before and after have to show; the matched
-  parts are highlighted in them (see highlight style)
-
-#### Condition ids
-
-Every condition in the query has an id, so the output can say which condition matched a file or a fragment.
-
-- by default ids are numbers in the order of appearance in the query: `#1`, `#2`, ...
-- the agent can give a condition a label with `@name` after the condition (and its modifiers), e.g.
-  `text has 'unwrap' /i @unwrap or text has 'expect(' @expect`
-
-The response contains a legend: condition id → condition text as written in the query, e.g.
-
-```
-#1 name ~ '*.rs'
-@unwrap text has 'unwrap' /i
-@expect text has 'expect('
-```
-
-Rules
-
-- only text conditions (`path`, `name`, `text`) and `near` produce fragments; metadata conditions (`size`, dates,
-  `type`, `empty`, `len`) appear only in the file matched conditions
-- a fragment of `near` is tagged with the `near` id and with the id of the inner condition which matched it
-- conditions under `not` never produce fragments, since there is nothing to show for a missing match
-- fragments of different conditions can overlap, each of them is reported
-
-#### Highlight style
-
-How the matched parts are marked in the whole lines and context lines
-
-- `none` — no highlight, use the columns of the fragments
-- `columns` — a list of `start..end → condition ids` per line (default, the line text stays untouched)
-- `markers` — matched parts are wrapped in markers with condition ids, e.g. `let x = ⟦@unwrap:foo.unwrap()⟧;`;
-  markers are configurable, so they don't clash with the file content
-
-Also output format includes
-
-- max file count
-- max line count
-- max matches count
-- max matches per file
-- sort by: path, modification date, size, matches count; ascending / descending
-- path style: relative / absolute
-- highlight style: none / columns / markers
-- cursor (from the previous truncated response)
-
-## Configuration
-
-The configuration contains default values for
-
-- allowed roots (the server never reads outside of them; `update config` can't widen them, they are set only in the
-  config file or the command line at server start)
-- working directory (by default it's only current working directory)
-- traversal options
-- output format
-- comment syntax per file extension
-- max escape level for `any` (default: 3)
-- highlight markers (default: `⟦` and `⟧`)
-- search timeout
