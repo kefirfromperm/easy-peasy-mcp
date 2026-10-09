@@ -152,6 +152,17 @@ Notes
 
 - `path` doesn't include the working directory itself. Searching in `~/project`, the file `~/project/src/main.rs` has
   `path` = `src/main.rs` and `name` = `main.rs`.
+- `/` is the path separator in queries on every platform. On Windows `\` is accepted as a separator too, so in
+  wildcards on Windows a special character is escaped with brackets: `[*]`, `[?]`.
+- Case sensitivity of `path` and `name` follows the platform by default: sensitive on Linux, insensitive on macOS and
+  Windows, see [`traversal.path_case`](CONFIG.md#traversal). `/i` always makes a condition case-insensitive.
+- `path` and `name` are compared in Unicode NFC form, so a name stored decomposed (as macOS may do) matches the
+  composed form written in the query.
+- Inside archives (see [`traversal.archives`](CONFIG.md#archives)) a member's path is
+  `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`, its `name` is `server.log`. A compressed
+  single file (`app.log.gz`) keeps its own path and name, only its content is decompressed.
+- `text` and `len` work on the decoded text, whatever the file encoding is, see
+  [Encoding](CONFIG.md#encoding).
 - `type` checks the entry itself: a symlink is `link` even if `follow_symlinks` is on.
 - If the file system doesn't provide `created` or `accessed`, the condition is false and the output contains a warning.
 - Lines are split by `\n`, a trailing `\r` is removed, so files with `\r\n` line breaks work the same way.
@@ -396,12 +407,30 @@ the escaped match.
 ## Proximity
 
 ```
-near(<line expr>, <line expr>, N)
+near(<A>, <B>, N [, order] [, report])
 ```
 
-A file scope condition: true if a line matching the first expression and a line matching the second one are at most
-`N` lines apart. The arguments are line scope expressions, like the inside of `line( ... )`. The order doesn't matter,
-`N = 0` means the same line.
+A file scope condition: true if a line matching `A` and a line matching `B` are at most `N` lines apart. `A` and `B`
+are line scope expressions, like the inside of `line( ... )`. `N = 0` means the same line.
+
+Options, keywords in any order after `N`:
+
+| Option     | Values                  | Default | Meaning                                                              |
+|------------|-------------------------|---------|----------------------------------------------------------------------|
+| order      | `any`, `ordered`        | `any`   | `ordered`: the `B` line must be after the `A` line; on the same line the `B` match must start after the `A` match |
+| report     | `all`, `closest`, `first` | `all` | which lines are reported in the output, see below                    |
+
+`report` doesn't change whether the file matches, only which lines and fragments are returned and counted:
+
+- `all` — every `A` line which has a `B` line within `N`, and every such `B` line
+- `closest` — for every `A` line only the nearest `B` line; on a tie the earlier one
+- `first` — only the first pair in the file; the fastest, enough to know that the file matches
+
+```
+near(text has 'open(', text has 'close(', 20, ordered, closest)
+```
+
+Every `open(` with the nearest `close(` after it within 20 lines.
 
 ```
 near(text has '.lock()', text has '.await', 3)
@@ -455,7 +484,8 @@ unary       = "not" unary | primary
 primary     = "(" or_expr ")"
             | ( line | near | condition ) [ label ]
 line        = "line" "(" or_expr ")"
-near        = "near" "(" or_expr "," or_expr "," integer ")"
+near        = "near" "(" or_expr "," or_expr "," integer { "," near_option } ")"
+near_option = "any" | "ordered" | "all" | "closest" | "first"
 condition   = "empty"
             | "type" ( "=" | "!=" ) ( "file" | "dir" | "link" )
             | text_target text_op string { modifier }
@@ -511,6 +541,8 @@ error[unknown_operator]: unknown operator 'contains'
 | `line_target_outside`    | `len > 100`                                | `len` works only inside `line( ... )`            |
 | `file_target_inside`     | `line(name ~ '*.rs')`                      | move `name` out of `line( ... )`                 |
 | `nested_line`            | `line(line(text has 'a'))`                 | `line( ... )` can't be nested                    |
+| `invalid_near_option`    | `near(a, b, 3, nearest)`                   | options: any, ordered, all, closest, first       |
+| `conflicting_options`    | `near(a, b, 3, any, ordered)`              | choose one of: any, ordered                      |
 | `invalid_escape_level`   | `/e(backslash, 9)`                         | max level is 3 (configuration `escape.max_level`) |
 | `duplicate_label`        | `text has 'a' @x or text has 'b' @x`       | labels must be unique                            |
 
@@ -607,6 +639,19 @@ Big log files that mention a request id:
 
 ```
 name ~ '*.log' and size > 10M and text has 'req-7f3a9c'
+```
+
+The same in rotated and archived logs too, with [`traversal.archives`](CONFIG.md#archives) = `all`. `*.log` also
+matches `.log` members inside `.zip` and `.tar.gz` archives, because `name` of a member is its own name:
+
+```
+name ~ '*.{log,log.gz}' and text has 'req-7f3a9c'
+```
+
+Only inside archives:
+
+```
+path ~ '**/*!/**' and text has 'req-7f3a9c'
 ```
 
 ## Gotchas

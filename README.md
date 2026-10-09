@@ -11,24 +11,29 @@ and line(text has 'unwrap' /i and not text starts '//')
 
 I will use RUST
 
-Candidate crates: `ignore` (parallel directory walking, `.gitignore` support), `grep-regex` / `grep-searcher` (fast
-content search, binary detection), `globset` (wildcards), `pest` or `chumsky` (query parser).
+Candidate crates: `rmcp` (MCP server), `ignore` (parallel directory walking, `.gitignore` style ignore files),
+`grep-regex` / `grep-searcher` (fast content search, binary detection), `globset` (wildcards), `pest` or `chumsky`
+(query parser), `encoding_rs` (encodings), `flate2` / `zip` / `tar` and friends (archives).
+
+It runs locally over stdio and is built natively for Linux, macOS and Windows.
 
 ## Documentation
 
 - [QUERY.md](QUERY.md) — the query language: targets, operators, scopes, modifiers, escaping, proximity, grammar,
   errors, recipes
 - [OUTPUT.md](OUTPUT.md) — output options, response format, condition ids, fragments, highlight, limits, pagination
-- [CONFIG.md](CONFIG.md) — config file, command line, allowed roots, defaults, comment syntax, `get_config` and
-  `update_config`
+- [CONFIG.md](CONFIG.md) — config file, command line, allowed roots, defaults, ignore files, encodings, archives,
+  comment syntax, platforms, `get_config` and `update_config`
+- [TOOLS.md](TOOLS.md) — MCP side: stdio transport, versioning, tool descriptions and input schemas, results, errors,
+  timeout, progress, cancellation
 
 ## Commands
 
-| Command         | Meaning                                                    |
-|-----------------|------------------------------------------------------------|
-| `find`          | search files                                               |
-| `get_config`    | the effective configuration                                |
-| `update_config` | change the configuration until the server stops            |
+| Command         | Meaning                                                    | Details                           |
+|-----------------|------------------------------------------------------------|-----------------------------------|
+| `find`          | search files                                               | [TOOLS.md](TOOLS.md#find)          |
+| `get_config`    | the effective configuration                                | [TOOLS.md](TOOLS.md#get_config)    |
+| `update_config` | change the configuration until the server stops            | [TOOLS.md](TOOLS.md#update_config) |
 
 ## Request
 
@@ -36,12 +41,17 @@ The `find` request contains fields, all of them optional:
 
 | Field       | Meaning                                                                      | Details                       |
 |-------------|------------------------------------------------------------------------------|-------------------------------|
+| `version`   | spec version to use; not set — the current one                               | [TOOLS.md](TOOLS.md#versioning) |
 | `dirs`      | one or more working directories, inside the allowed roots                    | [CONFIG.md](CONFIG.md#server) |
 | `query`     | search criteria; empty — all files                                           | [QUERY.md](QUERY.md)          |
-| `traversal` | depth, symlinks, hidden files, ignore files, excludes, binary files, max file size | [CONFIG.md](CONFIG.md#traversal) |
+| `timeout`   | max search time, e.g. `10s`                                                  | [TOOLS.md](TOOLS.md#timeout)  |
+| `traversal` | depth, symlinks, hidden files, ignore files, excludes, binary files, max file size, encoding, archives | [CONFIG.md](CONFIG.md#traversal) |
 | `output`    | format, detail level, context, limits, sorting, highlight, cursor           | [OUTPUT.md](OUTPUT.md#options) |
+| `escape`    | max escape level                                                             | [CONFIG.md](CONFIG.md#escape) |
+| `languages` | comment syntax                                                               | [CONFIG.md](CONFIG.md#comment-syntax) |
 
-Missing fields are taken from the configuration.
+Missing fields are taken from the configuration. A request can replace any configuration value except the allowed
+roots.
 
 ```json
 {
@@ -73,4 +83,5 @@ src/main.rs  [#1 #2]  lines: 1  matches: 1
 
 ## Encoding
 
-Files are read as UTF-8. Invalid byte sequences are replaced (lossy) and do not stop the search.
+Files are decoded by their BOM (UTF-8, UTF-16, UTF-32), otherwise as UTF-8 with an optional fallback encoding, see
+[CONFIG.md](CONFIG.md#encoding).

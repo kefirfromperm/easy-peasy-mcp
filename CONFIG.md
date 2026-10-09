@@ -1,7 +1,7 @@
 # Configuration
 
 The configuration holds the security boundaries of the server and the defaults of every `find` request. The query is
-described in [QUERY.md](QUERY.md), the output in [OUTPUT.md](OUTPUT.md).
+described in [QUERY.md](QUERY.md), the output in [OUTPUT.md](OUTPUT.md), the MCP tools in [TOOLS.md](TOOLS.md).
 
 - [Where the values come from](#where-the-values-come-from)
 - [Config file](#config-file)
@@ -9,9 +9,13 @@ described in [QUERY.md](QUERY.md), the output in [OUTPUT.md](OUTPUT.md).
 - [Sections](#sections)
   - [server](#server)
   - [traversal](#traversal)
+  - [Ignore files](#ignore-files)
+  - [Encoding](#encoding)
+  - [Archives](#archives)
   - [output](#output)
   - [escape](#escape)
   - [Comment syntax](#comment-syntax)
+- [Platforms](#platforms)
 - [get_config](#get_config)
 - [update_config](#update_config)
 - [Security](#security)
@@ -27,7 +31,22 @@ From the lowest to the highest priority:
 4. `update_config` calls — in memory, until the server stops
 5. fields of the `find` request — for this request only
 
-Read-only values (`server.allowed_roots`, `server.allow_update`) can be set only by 2 and 3.
+A request can replace any configuration value — `traversal`, `output`, `escape`, `languages` and the `timeout` —
+except the `server` section: the allowed roots, which bound the working directories, can't be changed by a request.
+Values are replaced, not merged: a request `exclude` list replaces the configured list.
+
+```json
+{
+  "dirs": ["."],
+  "query": "text has 'deprecated' /i",
+  "timeout": "5s",
+  "traversal": { "exclude": ["**/target/**", "**/vendor/**"], "archives": "compressed" },
+  "output": { "max_files": 10 }
+}
+```
+
+Read-only values (`server.allowed_roots`, `server.allow_update`) can be set only by the config file and the command
+line.
 
 ## Config file
 
@@ -35,13 +54,19 @@ TOML. The server looks for it in this order and takes the first one found:
 
 1. `--config <path>`
 2. `$EASY_PEASY_CONFIG`
-3. `$XDG_CONFIG_HOME/easy-peasy-mcp/config.toml` (usually `~/.config/easy-peasy-mcp/config.toml`)
+3. the platform config directory:
+
+| Platform | Path                                                                  |
+|----------|-----------------------------------------------------------------------|
+| Linux    | `$XDG_CONFIG_HOME/easy-peasy-mcp/config.toml`, usually `~/.config/easy-peasy-mcp/config.toml` |
+| macOS    | `~/Library/Application Support/easy-peasy-mcp/config.toml`            |
+| Windows  | `%APPDATA%\easy-peasy-mcp\config.toml`                                |
 
 Without a file the built-in defaults are used. An invalid file stops the server at start with an error that names the
 key and the line.
 
 There is no project level config file (e.g. in a repository): a cloned repository must not be able to change what the
-server is allowed to read.
+server is allowed to read. Project specific exclusions are done with [ignore files](#ignore-files) like `.aiignore`.
 
 ### Full example
 
@@ -60,10 +85,17 @@ min_depth = 0
 # max_depth = 10                # not set: unlimited
 follow_symlinks = false
 hidden = false
-ignore_files = true             # .gitignore, .ignore, .git/info/exclude, global git excludes
+ignore_files = [".gitignore", ".ignore", ".aiignore"]
+git_excludes = true             # .git/info/exclude and the global git excludes file
+ignore_paths = []               # extra ignore files applied to every working directory
 exclude = []                    # wildcards of paths which are never walked
+path_case = "native"            # native | sensitive | insensitive
 binary = "skip"                 # skip | search | list
 max_file_size = "10M"
+encoding = "auto"
+# fallback_encoding = "windows-1251"   # not set: invalid bytes are replaced
+archives = "none"               # none | compressed | all
+max_archive_size = "100M"
 
 [output]
 format = "text"                 # text | json
@@ -80,6 +112,8 @@ max_lines = 500
 max_matches = 1000
 max_matches_per_file = 50
 max_line_length = 300
+max_output_per_file = 4000
+max_output = 40000
 sort = "path asc"
 path_style = "relative"         # relative | absolute
 
@@ -108,8 +142,9 @@ easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-
 | `--timeout`      | `server.timeout`               | `--timeout 10s`                          |
 | `--no-update`    | `server.allow_update = false`  |                                          |
 | `--log-level`    | log level to stderr: `error`, `warn`, `info`, `debug` | `--log-level debug` |
+| `--version`      | prints the server and the spec version and exits |                         |
 
-MCP client registration, e.g. `.mcp.json` of Claude Code:
+Registration in an MCP client, e.g. `.mcp.json` of Claude Code, see also [TOOLS.md](TOOLS.md#transport):
 
 ```json
 {
@@ -126,17 +161,19 @@ MCP client registration, e.g. `.mcp.json` of Claude Code:
 
 ### server
 
+Can't be changed by a request, except `timeout` through the request `timeout` field.
+
 | Key             | Type             | Default  | Read-only | Meaning                                                      |
 |-----------------|------------------|----------|-----------|--------------------------------------------------------------|
 | `allowed_roots` | list of paths    | `[]`     | yes       | the server never reads outside of them; empty — the start directory |
 | `default_dirs`  | list of paths    | `["."]`  | no        | working directories of a request without `dirs`              |
-| `timeout`       | duration         | `"30s"`  | no        | max time of one search, units `ms`, `s`, `m`                 |
+| `timeout`       | duration         | `"30s"`  | no        | max time of one search, units `ms`, `s`, `m`; `0` — no limit |
 | `threads`       | number           | `0`      | no        | search threads, `0` — number of CPU cores                    |
 | `allow_update`  | bool             | `true`   | yes       | `false` disables `update_config`                             |
 
 Paths
 
-- `~` is expanded to the home directory
+- `~` is expanded to the home directory (`%USERPROFILE%` on Windows)
 - relative paths are resolved against the directory the server is started in
 - `allowed_roots` are canonicalized at start (symlinks resolved); a root which doesn't exist is an error
 
@@ -145,18 +182,23 @@ A request working directory must be inside an allowed root after canonicalizatio
 
 ### traversal
 
-Can also be set per request in the `traversal` field.
-
-| Key               | Type              | Default  | Meaning                                                              |
-|-------------------|-------------------|----------|----------------------------------------------------------------------|
-| `min_depth`       | number            | `0`      | skip entries closer to the working directory; its direct children are depth 1 |
-| `max_depth`       | number            | not set  | don't descend deeper; not set — unlimited                            |
-| `follow_symlinks` | bool              | `false`  | descend into symlinked directories, read symlinked files             |
-| `hidden`          | bool              | `false`  | include entries starting with `.`                                    |
-| `ignore_files`    | bool              | `true`   | respect `.gitignore`, `.ignore`, `.git/info/exclude`, global git excludes |
-| `exclude`         | list of wildcards | `[]`     | paths which are never walked, matched like `path ~`                  |
-| `binary`          | string            | `"skip"` | binary files: `skip` — content conditions are false, `search` — search them as text, `list` — content conditions are false, but files are still returned by metadata conditions |
-| `max_file_size`   | size              | `"10M"`  | bigger files are not searched by content                             |
+| Key                 | Type              | Default    | Meaning                                                            |
+|---------------------|-------------------|------------|--------------------------------------------------------------------|
+| `min_depth`         | number            | `0`        | skip entries closer to the working directory; its direct children are depth 1 |
+| `max_depth`         | number            | not set    | don't descend deeper; not set — unlimited                          |
+| `follow_symlinks`   | bool              | `false`    | descend into symlinked directories, read symlinked files           |
+| `hidden`            | bool              | `false`    | include hidden entries, see [Platforms](#platforms)                |
+| `ignore_files`      | list of names     | `[".gitignore", ".ignore", ".aiignore"]` | ignore files to respect, see [Ignore files](#ignore-files) |
+| `git_excludes`      | bool              | `true`     | respect `.git/info/exclude` and the global git excludes file       |
+| `ignore_paths`      | list of paths     | `[]`       | extra ignore files applied to every working directory              |
+| `exclude`           | list of wildcards | `[]`       | paths which are never walked, matched like `path ~`                |
+| `path_case`         | string            | `"native"` | case sensitivity of `path` and `name`: `native`, `sensitive`, `insensitive` |
+| `binary`            | string            | `"skip"`   | binary files: `skip` — content conditions are false, `search` — search them as text, `list` — content conditions are false, but files are still returned by metadata conditions |
+| `max_file_size`     | size              | `"10M"`    | bigger files are not searched by content                           |
+| `encoding`          | string            | `"auto"`   | see [Encoding](#encoding)                                          |
+| `fallback_encoding` | string            | not set    | see [Encoding](#encoding)                                          |
+| `archives`          | string            | `"none"`   | see [Archives](#archives)                                          |
+| `max_archive_size`  | size              | `"100M"`   | see [Archives](#archives)                                          |
 
 Notes
 
@@ -165,9 +207,73 @@ Notes
   the top level one.
 - With `follow_symlinks` loops are detected and skipped, and a symlink which points outside of the allowed roots is
   skipped with a `permission_denied` warning.
-- A file is binary if its first 8K contain a zero byte.
-- `.git` is hidden, so it is skipped by default. With `hidden = true` add `**/.git/**` to `exclude` if you don't need
-  it.
+- Files reachable several times (overlapping working directories, symlinks, hard links) are returned once, see
+  [OUTPUT.md](OUTPUT.md#paths).
+- `path_case = "native"`: case-sensitive on Linux, case-insensitive on macOS and Windows.
+
+### Ignore files
+
+Files in the `.gitignore` format which exclude paths from the search. A project can have an `.aiignore` (or any other
+name from `ignore_files`) to hide generated code, fixtures or secrets from the agent without touching `.gitignore`.
+
+- every file name from `ignore_files` is looked up in every directory; its rules apply to that directory and below,
+  exactly like nested `.gitignore` files
+- the rules work in any directory, also outside of a git repository
+- when several files apply, a deeper file wins over an upper one, and at the same level a later name in
+  `ignore_files` wins over an earlier one; so `!` in `.aiignore` can re-include what `.gitignore` excludes
+- `ignore_paths` are ignore files outside of the tree, e.g. a personal `~/.config/easy-peasy-mcp/ignore`; their rules
+  are applied as if the file were in the working directory, with the lowest priority
+- `git_excludes` adds `.git/info/exclude` and the global excludes file of git (`core.excludesFile`)
+- `ignore_files = []` and `git_excludes = false` turn ignoring off completely
+
+```gitignore
+# .aiignore
+fixtures/large/
+*.min.js
+secrets/**
+!secrets/README.md
+```
+
+### Encoding
+
+Text conditions, columns and the output always work on decoded text; the output is UTF-8.
+
+| `encoding`          | Behavior                                                                     |
+|---------------------|------------------------------------------------------------------------------|
+| `auto`              | by the BOM: UTF-8, UTF-16 LE / BE, UTF-32 LE / BE; without a BOM — UTF-8, and `fallback_encoding` if the file is not valid UTF-8 |
+| an encoding name    | every file without a BOM is decoded with it, e.g. `utf-16le`, `windows-1252`  |
+
+- encoding names are the [WHATWG labels](https://encoding.spec.whatwg.org/#names-and-labels): `utf-8`, `utf-16le`,
+  `utf-16be`, `windows-1251`, `windows-1252`, `koi8-r`, `iso-8859-2`, `shift_jis`, `gb18030`, ...
+- `fallback_encoding` is used only by `auto`, only for files which are not valid UTF-8. Without it the invalid bytes
+  are replaced with `�` and the response has a `decode_errors` warning.
+- binary detection runs after the BOM check: a UTF-16 file with a BOM is text even though it contains zero bytes.
+  A UTF-16 file without a BOM is detected by its pattern of zero bytes (every second byte in ASCII text) and decoded
+  as UTF-16, not skipped as binary.
+- the output shows the encoding of every file which is not UTF-8, see [OUTPUT.md](OUTPUT.md#fields)
+- line breaks `\n` and `\r\n` are supported in every encoding
+
+### Archives
+
+Searching inside compressed files and archives, like `rg -z`. Off by default.
+
+| `archives`   | Searched                                                                              |
+|--------------|---------------------------------------------------------------------------------------|
+| `none`       | nothing; archives are binary files                                                    |
+| `compressed` | single compressed files: `.gz`, `.bz2`, `.xz`, `.zst`, `.lz4` — as their decompressed content |
+| `all`        | `compressed` + archives: `.zip`, `.jar`, `.tar`, `.tar.gz` / `.tgz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`, `.7z` |
+
+- a compressed single file keeps its path and name: `logs/app.log.gz`; `size` is the compressed size on disk
+- an archive member has the path `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`; `name`,
+  `size` (uncompressed) and `modified` come from the archive entry; `created` and `accessed` are false
+- the archive itself is also an entry: `name ~ '*.zip'` returns the archive file
+- archives inside archives are not opened
+- `max_file_size` applies to the decompressed content of every member
+- `max_archive_size` limits the total decompressed content of one archive (protection against zip bombs); the rest is
+  skipped with an `archive_too_big` warning
+- encrypted, corrupted and unsupported archives are skipped with an `archive_error` warning
+- members are decompressed in memory, nothing is written to disk; member paths with `..` or absolute paths are
+  reported as they are, they are never resolved against the file system
 
 ### output
 
@@ -189,11 +295,15 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `max_matches`          | number      | `1000`         |
 | `max_matches_per_file` | number      | `50`           |
 | `max_line_length`      | number      | `300`          |
+| `max_output_per_file`  | number      | `4000`         |
+| `max_output`           | number      | `40000`        |
 | `sort`                 | string      | `"path asc"`   |
 | `path_style`           | string      | `"relative"`   |
 
-`markers` is configuration only, a request can't change it. Choose characters which don't appear in your files, e.g.
-`["«", "»"]` or `["[[", "]]"]`.
+`markers`: choose characters which don't appear in your files, e.g. `["«", "»"]` or `["[[", "]]"]`.
+
+`max_output` and `max_output_per_file` are in characters; a token is about 3–4 characters of code, so the default
+`max_output` is about 10–13 thousand tokens.
 
 ### escape
 
@@ -224,6 +334,8 @@ Built-in languages
 | `rust`      | `rs`                                                                  | `//`          | `/* */`, nested    |
 | `css`       | `css`, `scss`, `less`                                                 | `//` (not css) | `/* */`           |
 | `hash`      | `py`, `rb`, `sh`, `bash`, `zsh`, `pl`, `r`, `yml`, `yaml`, `toml`, `conf`, `ini`, `properties`, `env`, `Dockerfile`, `Makefile` | `#` | — |
+| `powershell`| `ps1`, `psm1`                                                         | `#`           | `<# #>`            |
+| `batch`     | `bat`, `cmd`                                                          | `REM`, `::`   | —                  |
 | `sql`       | `sql`                                                                 | `--`          | `/* */`            |
 | `lua`       | `lua`                                                                 | `--`          | `--[[ ]]`          |
 | `haskell`   | `hs`                                                                  | `--`          | `{- -}`, nested    |
@@ -251,10 +363,30 @@ block_comments = [["<!--", "-->"]]
 A language section with the same name as a built-in one replaces it completely. An extension listed in two languages
 is an error at start.
 
+## Platforms
+
+The server is built natively for Linux, macOS and Windows and follows the conventions of each platform.
+
+| Topic                  | Linux                        | macOS                                | Windows                                    |
+|------------------------|------------------------------|--------------------------------------|--------------------------------------------|
+| Output paths           | `/`                          | `/`                                  | `\`                                        |
+| Query paths            | `/`                          | `/`                                  | `/` and `\`                                |
+| `path_case = native`   | case-sensitive               | case-insensitive                     | case-insensitive                           |
+| Hidden entries         | name starts with `.`         | name starts with `.` or the `hidden` flag | name starts with `.` or the hidden attribute |
+| `created`              | if the file system supports it (`statx`) | yes                      | yes                                        |
+| `accessed`             | yes, may be stale with `noatime` / `relatime` | yes                 | yes, may be disabled on NTFS               |
+| `type = link`          | symlinks                     | symlinks                             | symlinks and junctions                     |
+| Duplicate detection    | device + inode               | device + inode                       | volume serial + file index                 |
+| Absolute paths         | `/home/me/p`                 | `/Users/me/p`                        | `C:\Users\me\p`, `\\server\share\p`; the `\\?\` prefix is never shown |
+| Unicode names          | as stored                    | normalized to NFC for matching       | as stored                                  |
+| Config directory       | `~/.config/easy-peasy-mcp`   | `~/Library/Application Support/easy-peasy-mcp` | `%APPDATA%\easy-peasy-mcp`       |
+
+Windows paths in TOML are written in single quotes, where `\` is not an escape: `allowed_roots = ['C:\Users\me\work']`.
+
 ## get_config
 
 Returns the effective configuration: all values after merging built-in defaults, the config file, command line and
-`update_config` calls.
+`update_config` calls. The tool definition is in [TOOLS.md](TOOLS.md#get_config).
 
 Request — all fields are optional:
 
@@ -271,14 +403,21 @@ Response:
 
 ```json
 {
+  "version": { "server": "0.1.0", "spec": 1, "supported_specs": [1] },
   "traversal": {
     "min_depth": 0,
     "follow_symlinks": false,
     "hidden": false,
-    "ignore_files": true,
+    "ignore_files": [".gitignore", ".ignore", ".aiignore"],
+    "git_excludes": true,
+    "ignore_paths": [],
     "exclude": ["**/target/**", "**/node_modules/**"],
+    "path_case": "native",
     "binary": "skip",
-    "max_file_size": "10M"
+    "max_file_size": "10M",
+    "encoding": "auto",
+    "archives": "none",
+    "max_archive_size": "100M"
   },
   "read_only": ["server.allowed_roots", "server.allow_update"]
 }
@@ -302,7 +441,8 @@ An agent should call `get_config` once at the start to learn the allowed roots a
 
 ## update_config
 
-Changes the configuration in memory until the server stops. The config file is never written.
+Changes the configuration in memory until the server stops. The config file is never written. The tool definition is
+in [TOOLS.md](TOOLS.md#update_config).
 
 Request:
 
@@ -321,6 +461,7 @@ Request:
 - lists are replaced, not merged: to add an exclude, send the whole new list
 - the update is atomic: if any value is invalid, nothing is changed
 - `reset` is applied before `set`
+- a search which is already running keeps the configuration it started with
 
 Response — the changed keys with the old and new values:
 
@@ -353,7 +494,9 @@ Errors:
   allowed roots.
 - `..` in `dirs` is allowed as long as the result is inside an allowed root.
 - Files the server process can't read are skipped with a warning; the server never tries to change permissions.
-- `timeout`, `max_file_size` and the output limits protect against huge results and slow regexes on big trees. The
+- Archives are decompressed in memory with `max_file_size` and `max_archive_size` limits, nested archives are not
+  opened, member paths are never resolved against the file system.
+- `timeout`, `max_file_size` and the output limits protect against huge results and slow searches on big trees. The
   `regex` crate itself guarantees linear time, so a single regex can't hang the server.
 
 ## Examples
@@ -372,9 +515,10 @@ context = 1
 max_files = 50
 ```
 
-### Several roots, read-only configuration
+### Several roots, read-only configuration, logs with archives
 
-The agent can search the code and the logs but can't change the configuration:
+The agent can search the code and the logs, including rotated `.gz` and `.zip` logs, but can't change the
+configuration:
 
 ```toml
 [server]
@@ -385,6 +529,8 @@ allow_update = false
 
 [traversal]
 max_file_size = "200M"          # logs are big
+archives = "all"
+max_archive_size = "1G"
 ```
 
 ### Frontend monorepo
@@ -401,20 +547,36 @@ max_file_size = "2M"            # skip bundles and snapshots
 max_line_length = 200           # minified code has huge lines
 ```
 
+### Windows, legacy encoding
+
+Old projects with sources in Windows-1251 next to UTF-8 ones:
+
+```toml
+[server]
+allowed_roots = ['C:\work\legacy', 'D:\src']
+
+[traversal]
+encoding = "auto"
+fallback_encoding = "windows-1251"
+```
+
 ### Tune the session from the agent
 
-The agent wants more context for the rest of the session, and to search inside `node_modules` once:
+The agent wants more context for the rest of the session:
 
 ```json
 { "set": { "output": { "context": 3 } } }
 ```
 
+And once searches inside `node_modules`, which is in `.gitignore`, with a short timeout:
+
 ```json
 {
   "dirs": ["node_modules/some-lib"],
   "query": "text has 'deprecated' /i",
-  "traversal": { "ignore_files": false }
+  "timeout": "5s",
+  "traversal": { "ignore_files": [] }
 }
 ```
 
-The second one changes `ignore_files` for this request only.
+The second request changes `ignore_files` and `timeout` for this request only.

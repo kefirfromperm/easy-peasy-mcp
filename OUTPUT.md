@@ -18,6 +18,7 @@ defaults of all options in [CONFIG.md](CONFIG.md#output).
 ## Options
 
 The `output` field of the `find` request. Every option is optional, missing ones are taken from the configuration.
+The time limit is the `timeout` field of the request, see [TOOLS.md](TOOLS.md#find).
 
 ```json
 {
@@ -47,7 +48,9 @@ The `output` field of the `find` request. Every option is optional, missing ones
 | `max_matches`          | number                                          | `1000`     | max fragments in the response                             |
 | `max_matches_per_file` | number                                          | `50`       | max fragments per file (`grep -m`)                        |
 | `max_line_length`      | number                                          | `300`      | longer lines are cut around the matches                   |
-| `sort`                 | `path`, `modified`, `size`, `matches` + `asc` / `desc` | `path asc` | order of files                                 |
+| `max_output_per_file`  | number                                          | `4000`     | max characters of matched lines and context of one file   |
+| `max_output`           | number                                          | `40000`    | max characters of the whole response                      |
+| `sort`                 | `path`, `modified`, `size`, `matches` + `asc` / `desc` | `path asc` | order of files; equal values are ordered by the full path |
 | `path_style`           | `relative`, `absolute`                          | `relative` | how paths are written                                     |
 | `cursor`               | string                                          | —          | continue a truncated response, see [Pagination](#pagination) |
 
@@ -71,6 +74,7 @@ Top level
 
 | Field           | Levels             | Meaning                                                            |
 |-----------------|--------------------|--------------------------------------------------------------------|
+| `version`       | all, JSON only     | version of the response format, see [TOOLS.md](TOOLS.md#versioning) |
 | `exists`        | all                | `true` if at least one file matches                                |
 | `counts.files`  | `count` and higher | number of matched files                                            |
 | `counts.lines`  | `count` and higher | number of matched lines                                            |
@@ -91,20 +95,32 @@ Per file
 | `type`           | with `meta`      | `file`, `dir`, `link`                                               |
 | `size`           | with `meta`      | size in bytes                                                       |
 | `modified`       | with `meta`      | modification date, ISO 8601 with the offset                         |
+| `encoding`       | `files`, `lines` | only if the file is not UTF-8, e.g. `utf-16le`, `windows-1251`      |
+| `truncated`      | `files`, `lines` | `true` if a per file limit cut the file's lines                     |
 | `lines`          | `files`, `lines` | number of matched lines in the file                                 |
 | `matches`        | `files`, `lines` | number of fragments in the file                                     |
 | `conditions`     | `files`, `lines` | ids of the conditions which are true for this file                  |
 | `path_fragments` | with `path_fragments` | fragments of `path` / `name` conditions                        |
 | `blocks`         | `lines`          | matched lines with context, see [Fragments](#fragments)             |
 
-Paths
+#### Paths
 
 - `relative`: relative to the working directory. With several working directories the directory is written before
   the path as it was given in the request: `dirs: ["../api", "../web"]` → `../api/src/main.rs`, `../web/src/app.ts`.
   The working directory `.` is omitted: `src/main.rs`.
 - `absolute`: the full canonical path.
+- Paths are written in the native form of the platform: `src/main.rs` on Linux and macOS, `src\main.rs` on Windows.
+- A member of an archive: `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`; the part after
+  `!/` always uses `/`.
 
-Counts
+#### Duplicates
+
+Every file is returned once, even if it is reachable several times: through overlapping working directories
+(`dirs: [".", "src"]`), symlinks or hard links. Files are identified by the file system (device and inode on Linux
+and macOS, volume and file index on Windows). A file is reported under the path found first: working directories in
+the order of the request, inside a directory in path order.
+
+#### Counts
 
 - a **matched line** is a line with at least one fragment, or a line matched by a `line( ... )` group
 - a **match** is a content fragment; `path` / `name` fragments are not counted
@@ -114,6 +130,7 @@ Counts
 
 ```json
 {
+  "version": 1,
   "exists": true,
   "counts": { "files": 1, "lines": 1, "matches": 1 },
   "counts_exact": true,
@@ -163,7 +180,8 @@ src/config.rs  [#1 #2]  lines: 1  matches: 1
 
 - the header line: totals and `truncated: yes`, `next cursor: ...` when truncated
 - the legend: one condition per line
-- per file: the path, the matched conditions in `[ ]`, counts; with `meta` also `file 2.1K 2026-10-08 14:03`
+- per file: the path, the matched conditions in `[ ]`, counts, `(cut)` if a per file limit was hit, the encoding if
+  it is not UTF-8; with `meta` also `file 2.1K 2026-10-08 14:03`
 - `42:` — a matched line, `41-` — a context line, `--` — a gap between blocks, like in `grep`
 - warnings at the end, prefixed with `warning:`
 
@@ -176,7 +194,7 @@ The `legend` maps the ids to the condition text as written in the query, without
 
 ### File conditions
 
-`conditions` of a file lists the ids of all conditions which are true for this file, at the file level: simple file
+`conditions` of a file lists the ids of the conditions which **made the file match**, at the file level: simple file
 scope conditions, `line( ... )` groups and `near( ... )`. It shows which branch of `or` / `xor` has matched:
 
 ```
@@ -189,8 +207,22 @@ src/b.rs  [#1 @expect]
 src/c.rs  [#1 @unwrap @expect]
 ```
 
-A condition is listed only if it is true itself. For `not text has 'license' @lic` the file is returned because `@lic`
-is false, so `@lic` is not listed.
+Which conditions made the file match, from the top of the query down:
+
+- the whole query is true, so it contributes
+- a true `and` which contributes — all its parts contribute
+- a true `or` / `xor` which contributes — only its true parts contribute
+- `not` — nothing under it contributes: for `not text has 'license' @lic` the file is returned because `@lic` is
+  false, so `@lic` is not listed
+
+A condition which is true, but in a branch which didn't make the file match, is not listed:
+
+```
+(text has 'TODO' @todo and size > 1M @big) or name ~ '*.md' @md
+```
+
+A small `README.md` with `TODO` inside is listed with `[@md]` only: `@todo` is true, but its branch is false because
+of `@big`. The same rule decides which conditions produce fragments.
 
 Conditions inside `line( ... )` and `near( ... )` are not listed per file — they are true or false for a line, see
 fragments.
@@ -213,11 +245,14 @@ A fragment is a matched part of a line.
 
 Which conditions produce fragments
 
+- only the conditions which made the file match, see [File conditions](#file-conditions); a true condition in a
+  false branch produces nothing
 - `text` conditions with `=`, `has`, `starts`, `ends`, `=~` — the matched text
 - inside `line( ... )`: the fragments get the id of the condition and the id of the group, e.g. `["#2", "#3"]`
 - a `line( ... )` group without positive text conditions (e.g. `line(len > 200)` or `line(not text starts '#')`)
   produces one fragment which is the whole line, with the id of the group
-- inside `near( ... )`: the fragments get the id of the inner condition and the id of `near`; both lines are shown
+- inside `near( ... )`: the fragments get the id of the inner condition and the id of `near`; which lines are
+  reported depends on the `report` option of `near`, see [QUERY.md](QUERY.md#proximity)
 - conditions under `not` never produce fragments: there is nothing to show for a missing match
 - `size`, dates, `type`, `empty`, `len` never produce fragments
 - `path` and `name` conditions produce `path_fragments` only with the `path_fragments` option
@@ -271,13 +306,18 @@ the marker characters, the response has a warning and `columns` should be used.
 | `max_lines`            | matched lines in the response, all files     | next lines are not listed                        |
 | `max_matches`          | fragments in the response, all files         | next fragments are not listed                    |
 | `max_matches_per_file` | fragments of one file                        | next fragments of this file are not listed, the next file is processed |
-| timeout                | [configuration](CONFIG.md#server)            | the search stops, `counts_exact: false`          |
+| `max_output_per_file`  | characters of lines and context of one file  | next lines of this file are not listed, the next file is processed |
+| `max_output`           | characters of the whole response             | next lines and files are not listed              |
+| `timeout`              | request field or [configuration](CONFIG.md#server) | the search stops, the results found so far are returned, `counts_exact: false` |
 
 When a limit is hit:
 
 - `truncated` is `true`, `truncated_by` names the limits
 - `counts` still contain the real totals, so the agent knows how much is missing
-- `next_cursor` is given to get the rest, except for `max_matches_per_file`, which is a per file cut by design
+- a file cut by `max_matches_per_file` or `max_output_per_file` gets `"truncated": true`, in the text format `(cut)`
+  after its counts
+- `next_cursor` is given to get the rest, except for the per file limits, which cut by design, and for `timeout`,
+  where the unsearched part is unknown
 
 The files are sorted before the limits are applied, so `sort: "modified desc", max_files: 10` returns the 10 most
 recently changed matching files.
@@ -306,7 +346,9 @@ Problems which don't stop the search. The search continues, the response has the
 | `permission_denied`    | a file or directory can't be read, it is skipped                           |
 | `too_big`              | a file is bigger than `max_file_size`, content conditions are false for it |
 | `binary_skipped`       | a binary file is skipped by content conditions                             |
-| `invalid_utf8`         | a file has invalid UTF-8, the bad bytes are replaced with `�`              |
+| `decode_errors`        | a file has bytes invalid in its encoding, they are replaced with `�`       |
+| `archive_error`        | an archive can't be read (corrupted, encrypted, unsupported), it is skipped |
+| `archive_too_big`      | decompressed content exceeds `max_archive_size`, the rest is skipped       |
 | `date_unsupported`     | the file system has no `created` / `accessed` dates                        |
 | `marker_in_content`    | a line contains the highlight markers                                      |
 | `timeout`              | the search was stopped by the timeout                                      |
@@ -322,7 +364,8 @@ Warnings of the same code are grouped, with a few example paths:
 
 ## Errors
 
-If the request can't be executed, the tool returns an MCP error (`isError: true`) with one error.
+If the request can't be executed, the tool returns a result with `isError: true` and one error, see
+[TOOLS.md](TOOLS.md#errors). A cancelled request returns nothing, as MCP requires.
 
 ```json
 {
@@ -354,6 +397,7 @@ Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 | `invalid_option`    | an unknown output / traversal option or a wrong value      |
 | `cursor_mismatch`   | the cursor belongs to another request                      |
 | `cursor_invalid`    | the cursor can't be decoded                                |
+| `unsupported_version` | the requested `version` is not supported, see [TOOLS.md](TOOLS.md#versioning) |
 
 ## Examples
 

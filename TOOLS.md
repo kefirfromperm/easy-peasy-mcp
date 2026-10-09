@@ -1,0 +1,362 @@
+# MCP Tools
+
+How the server talks to an MCP client: transport, versioning, tool definitions, results, errors, progress,
+cancellation and timeouts. The query is described in [QUERY.md](QUERY.md), the output in [OUTPUT.md](OUTPUT.md), the
+configuration in [CONFIG.md](CONFIG.md).
+
+- [Transport](#transport)
+- [Versioning](#versioning)
+- [Tools](#tools)
+  - [find](#find)
+  - [get_config](#get_config)
+  - [update_config](#update_config)
+- [Results](#results)
+- [Errors](#errors)
+- [Timeout](#timeout)
+- [Progress](#progress)
+- [Cancellation](#cancellation)
+- [Concurrency](#concurrency)
+- [Session example](#session-example)
+
+## Transport
+
+Local **stdio** only. The client starts the server as a child process and talks JSON-RPC 2.0 over its stdin and
+stdout, one message per line.
+
+- stdout carries only protocol messages
+- logs go to stderr (`--log-level`, see [CONFIG.md](CONFIG.md#command-line))
+- the server stops when stdin is closed
+- the MCP protocol revision is negotiated in `initialize`
+
+Server capabilities announced in `initialize`:
+
+```json
+{
+  "capabilities": { "tools": { "listChanged": false } },
+  "serverInfo": { "name": "easy-peasy-mcp", "version": "0.1.0" },
+  "instructions": "File search: find + grep in one query. Call get_config first to learn allowed roots and defaults. Spec version 1."
+}
+```
+
+## Versioning
+
+Two independent versions:
+
+| Version          | Example  | Covers                                                                         |
+|------------------|----------|--------------------------------------------------------------------------------|
+| server version   | `0.1.0`  | the program, semantic versioning; in `serverInfo` and `--version`              |
+| spec version     | `1`      | the contract with the agent: query language, request fields, response format   |
+
+The spec version is an integer, it grows only on a breaking change.
+
+| Breaking — new spec version                                | Not breaking — same spec version                     |
+|------------------------------------------------------------|------------------------------------------------------|
+| a field, operator, target or modifier removed or renamed   | a new optional request field or output option        |
+| a changed meaning of existing syntax or field              | a new operator, target, modifier, escape style       |
+| a changed default which changes the results                | a new warning or error code                          |
+| a changed text format layout                               | a new response field in JSON                         |
+
+- A request can pin the spec version with `"version": 1`. Without it the current version is used.
+- The server supports the current spec version and may keep older ones; `get_config` lists them in
+  `version.supported_specs`.
+- An unsupported version fails with `unsupported_version` and the list of supported ones.
+- The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
+- The tool descriptions say which spec version they describe.
+
+## Tools
+
+| Tool            | Annotations                                                         | Meaning                          |
+|-----------------|---------------------------------------------------------------------|----------------------------------|
+| `find`          | `readOnlyHint: true`, `openWorldHint: false`                        | search files                     |
+| `get_config`    | `readOnlyHint: true`, `openWorldHint: false`                        | the effective configuration      |
+| `update_config` | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | change the configuration in memory |
+
+`update_config` is not listed when `server.allow_update = false`.
+
+### find
+
+#### Description
+
+The description is what the agent reads to learn the query language, so it is a compact cheat sheet. The full text
+sent in `tools/list`:
+
+```
+Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
+Call get_config once first to learn the allowed roots and defaults.
+
+QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. Empty query = all files.
+  name ~ '*.rs'                  wildcard on the file name: * ? ** [abc] [!abc] {a,b}
+  path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator
+  text has 'TODO'                content contains; also: = starts ends, =~ regex (Rust syntax)
+  size > 1M  modified > -7d  created  accessed  type = dir  empty
+  line(text has 'a' and not text has 'b')    conditions on the same line; len > 120 works inside line()
+  near(text has 'lock', text has 'await', 3[, ordered][, closest|first])   lines within 3 of each other
+Modifiers after a text value: /i ignore case, /w whole word, /m multiline regex, /c skip comments,
+  /e(backslash|quote_doubling|xml|url, 0..2|any) also match the escaped text (JSON inside JSON etc.)
+Labels: text has 'x' @name — the output shows which condition matched.
+Strings: '...' or "..." with \ escapes; `...` raw, best for regex.
+Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
+
+OUTPUT: output.detail = exists | count | files | lines (default); output.context = N lines around matches.
+Text response: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match, [#1 @x] matched conditions.
+If truncated, pass next_cursor back as output.cursor with the same request.
+
+EXAMPLES
+  name ~ '*.py' and text has 'import requests'
+  not text has 'license' /i                                   files without a match
+  name ~ '*.{ts,tsx}' and line(text has 'any' /w and not text starts '//')
+  text has `"role": "admin"` /e(backslash, any)               also inside stringified JSON
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max search time, e.g. '10s'. '0s': no limit." },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "list"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "detail": { "enum": ["exists", "count", "files", "lines"] },
+        "meta": { "type": "boolean" },
+        "context": { "type": "integer", "minimum": 0 },
+        "before": { "type": "integer", "minimum": 0 },
+        "after": { "type": "integer", "minimum": 0 },
+        "path_fragments": { "type": "boolean" },
+        "highlight": { "enum": ["auto", "none", "columns", "markers"] },
+        "markers": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+        "max_files": { "type": "integer", "minimum": 1 },
+        "max_lines": { "type": "integer", "minimum": 1 },
+        "max_matches": { "type": "integer", "minimum": 1 },
+        "max_matches_per_file": { "type": "integer", "minimum": 1 },
+        "max_line_length": { "type": "integer", "minimum": 20 },
+        "max_output_per_file": { "type": "integer", "minimum": 100 },
+        "max_output": { "type": "integer", "minimum": 100 },
+        "sort": { "type": "string", "pattern": "^(path|modified|size|matches)( (asc|desc))?$" },
+        "path_style": { "enum": ["relative", "absolute"] },
+        "cursor": { "type": "string" }
+      }
+    },
+    "escape": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "max_level": { "type": "integer", "minimum": 0 } }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Comment syntax per language, replaces the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
+```
+
+All fields are optional; missing ones come from the configuration, see
+[CONFIG.md](CONFIG.md#where-the-values-come-from). The meaning of the `traversal` fields is in
+[CONFIG.md](CONFIG.md#traversal), of the `output` fields in [OUTPUT.md](OUTPUT.md#options).
+
+#### Result
+
+The response of [OUTPUT.md](OUTPUT.md#response), in the format of `output.format`.
+
+### get_config
+
+#### Description
+
+```
+Returns the effective configuration of the search server: allowed roots, default directories, traversal and output
+defaults, limits, supported spec versions. Read-only. Call it once before the first find.
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "section": { "enum": ["server", "traversal", "output", "escape", "languages"] },
+    "sources": { "type": "boolean", "description": "Add where each value comes from." }
+  }
+}
+```
+
+#### Result
+
+JSON, see [CONFIG.md](CONFIG.md#get_config). The configuration is read rarely and has many fields, so it is always
+JSON, independent of `output.format`.
+
+### update_config
+
+#### Description
+
+```
+Changes the search server configuration in memory until the server stops: defaults of traversal, output, escape,
+languages and the server timeout. Allowed roots can't be changed. Lists are replaced, not merged. Atomic: if any
+value is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "set": { "type": "object", "description": "Values to change, nested like the config: {\"output\": {\"context\": 2}}." },
+    "reset": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" }, "description": "Keys like 'output.context'." },
+        { "const": "all" }
+      ]
+    }
+  }
+}
+```
+
+#### Result
+
+JSON with the changed keys, see [CONFIG.md](CONFIG.md#update_config).
+
+## Results
+
+Every tool returns one text content item:
+
+```json
+{
+  "content": [ { "type": "text", "text": "files: 1  lines: 1  matches: 1\n#1 text has 'TODO'\n\nsrc/main.rs  [#1]  lines: 1  matches: 1\n12:// ⟦#1:TODO⟧ remove\n" } ],
+  "isError": false
+}
+```
+
+- plain text, no `structuredContent`: the compact text format is the point, it saves tokens
+- with `output.format = "json"` the text item contains the JSON document
+- warnings are part of the response text, they don't make `isError` true
+- a timeout is not an error: the partial result is returned with a `timeout` warning
+
+## Errors
+
+Two kinds:
+
+| Kind              | When                                                              | How                                        |
+|-------------------|-------------------------------------------------------------------|--------------------------------------------|
+| tool error        | invalid query, invalid option, directory not allowed, bad cursor, unsupported version, ... | a normal result with `isError: true` |
+| protocol error    | unknown tool, malformed JSON-RPC                                  | a JSON-RPC error                           |
+
+Tool errors are results, not JSON-RPC errors, so the agent sees the message and the hint and can fix the request.
+Input which doesn't match the schema is also a tool error (`invalid_option`) for the same reason.
+
+```json
+{
+  "content": [ { "type": "text", "text": "error[unknown_operator]: unknown operator 'contains'\n  name ~ '*.rs' and text contains 'x'\n                         ^^^^^^^^\n  hint: expected one of: =, has, starts, ends, ~, =~\n" } ],
+  "isError": true
+}
+```
+
+The error format is in [OUTPUT.md](OUTPUT.md#errors), the query error codes in [QUERY.md](QUERY.md#errors).
+
+## Timeout
+
+- the request field `timeout` (e.g. `"10s"`), otherwise `server.timeout` from the configuration (default `30s`)
+- `"0s"` — no limit
+- the time counts from the start of the search, query parsing included
+- when it expires the search stops and the results found so far are returned with `counts_exact: false`,
+  `truncated: true`, `truncated_by: ["timeout"]` and a `timeout` warning; there is no `next_cursor`, because the
+  unsearched part is unknown — narrow the query or raise the timeout
+
+## Progress
+
+If the request has a progress token, the server sends progress notifications about once a second while searching.
+
+```json
+{ "jsonrpc": "2.0", "id": 7, "method": "tools/call",
+  "params": { "name": "find", "arguments": { "query": "text has 'req-7f3a9c'" }, "_meta": { "progressToken": "p7" } } }
+```
+
+```json
+{ "jsonrpc": "2.0", "method": "notifications/progress",
+  "params": { "progressToken": "p7", "progress": 12400, "message": "scanned 12400 files, 37 matched, 3.2s" } }
+```
+
+- `progress` is the number of scanned files, it only grows
+- `total` is not sent: the size of the tree is unknown until the walk ends
+- no notifications for searches shorter than one second
+
+## Cancellation
+
+The client cancels a running search with:
+
+```json
+{ "jsonrpc": "2.0", "method": "notifications/cancelled", "params": { "requestId": 7, "reason": "user aborted" } }
+```
+
+- the walk and all search threads stop as soon as possible
+- no response is sent for the cancelled request, as MCP requires
+- a cancellation for an unknown or finished request is ignored
+
+## Concurrency
+
+- several `find` calls may run at the same time; they share the thread pool of `server.threads`
+- every `find` takes a snapshot of the configuration when it starts; `update_config` during a search doesn't affect it
+- `update_config` calls are applied one after another
+
+## Session example
+
+```
+→ initialize
+← serverInfo easy-peasy-mcp 0.1.0, capabilities: tools
+→ tools/list
+← find, get_config, update_config
+→ tools/call get_config {}
+← allowed roots ["/home/me/projects/app"], defaults, spec 1
+→ tools/call find { "query": "name ~ '*.rs' and text has 'unwrap(' /c", "output": { "detail": "count" } }
+← files: 14  lines: 52  matches: 57
+→ tools/call find { "query": "name ~ '*.rs' and text has 'unwrap(' /c", "output": { "detail": "files", "sort": "matches desc", "max_files": 5 } }
+← 5 files with the most unwraps, truncated: yes (max_files)
+→ tools/call find { "dirs": ["src/parser"], "query": "text has 'unwrap(' /c", "output": { "context": 2 } }
+← matched lines with context
+```
+
+Count first, then list the files, then look at the lines: cheap questions first, the expensive output only where it is
+needed.
