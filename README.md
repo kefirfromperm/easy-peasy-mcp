@@ -157,7 +157,7 @@ or_expr    = xor_expr { "or" xor_expr }
 xor_expr   = and_expr { "xor" and_expr }
 and_expr   = unary { "and" unary }
 unary      = "not" unary | primary
-primary    = "(" or_expr ")" | "line(" or_expr ")" | near | condition
+primary    = "(" or_expr ")" | "line(" or_expr ")" | (near | condition) [ label ]
 near       = "near(" or_expr "," or_expr "," number ")"
 condition  = "empty"
            | "type" ("=" | "!=") ("file" | "dir" | "link")
@@ -169,6 +169,7 @@ cmp_target  = "size" | "modified" | "created" | "accessed" | "len"
 text_op    = "=" | "has" | "starts" | "ends" | "~" | "=~"
 cmp_op     = "=" | "!=" | "<" | "<=" | ">" | ">="
 modifier   = "/i" | "/w" | "/m" | "/c" | "/e(" style "," levels ")"
+label      = "@" identifier
 ```
 
 #### Errors
@@ -205,10 +206,51 @@ Per file fields
 - file modification date
 - line count
 - matches count
-- matched fragments with
-- matched fragments line numbers
-- the whole lines of matched fragments with lines before and after with size how many lines before and after have
-  to show
+- matched conditions: ids of the conditions which are true for the file (shows which `or` branch has matched)
+- matched fragments, see below
+
+Per fragment fields
+
+- line number
+- start and end column of the fragment in the line
+- fragment text
+- condition ids which matched the fragment (one fragment can match several conditions)
+- escape level, if the condition has the `/e` modifier
+- the whole line with lines before and after, with size how many lines before and after have to show; the matched
+  parts are highlighted in them (see highlight style)
+
+#### Condition ids
+
+Every condition in the query has an id, so the output can say which condition matched a file or a fragment.
+
+- by default ids are numbers in the order of appearance in the query: `#1`, `#2`, ...
+- the agent can give a condition a label with `@name` after the condition (and its modifiers), e.g.
+  `text has 'unwrap' /i @unwrap or text has 'expect(' @expect`
+
+The response contains a legend: condition id → condition text as written in the query, e.g.
+
+```
+#1 name ~ '*.rs'
+@unwrap text has 'unwrap' /i
+@expect text has 'expect('
+```
+
+Rules
+
+- only text conditions (`path`, `name`, `text`) and `near` produce fragments; metadata conditions (`size`, dates,
+  `type`, `empty`, `len`) appear only in the file matched conditions
+- a fragment of `near` is tagged with the `near` id and with the id of the inner condition which matched it
+- conditions under `not` never produce fragments, since there is nothing to show for a missing match
+- fragments of different conditions can overlap, each of them is reported
+
+#### Highlight style
+
+How the matched parts are marked in the whole lines and context lines
+
+- `none` — no highlight, use the columns of the fragments
+- `columns` — a list of `start..end → condition ids` per line (default, the line text stays untouched)
+- `markers` — matched parts are wrapped in markers with condition ids, e.g. `let x = ⟦@unwrap:foo.unwrap()⟧;`;
+  markers are configurable, so they don't clash with the file content
 
 Also output format includes
 
@@ -218,6 +260,7 @@ Also output format includes
 - max matches per file
 - sort by: path, modification date, size, matches count; ascending / descending
 - path style: relative / absolute
+- highlight style: none / columns / markers
 - cursor (from the previous truncated response)
 
 ## Configuration
@@ -231,4 +274,5 @@ The configuration contains default values for
 - output format
 - comment syntax per file extension
 - max escape level for `any` (default: 3)
+- highlight markers (default: `⟦` and `⟧`)
 - search timeout
