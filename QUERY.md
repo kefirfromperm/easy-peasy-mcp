@@ -29,8 +29,8 @@ Rust files changed during the last 7 days, outside of `tests` directories, with 
 
 ## Basics
 
-A condition is `<target> <operator> <value>`, optionally followed by [modifiers](#modifiers) and a
-[label](#labels-and-condition-ids):
+A condition is `<target> <operator> <value>` (only `empty` stands alone), optionally followed by
+[modifiers](#modifiers) and a [label](#labels-and-condition-ids):
 
 ```
 text has 'todo' /i/w @todo
@@ -61,21 +61,31 @@ is `(name ~ '*.rs' and text has 'tokio') or text has 'async-std'`. Use brackets 
 name ~ '*.rs' and (text has 'tokio' or text has 'async-std')
 ```
 
-Keywords (targets, operators, `and`, `line`, ...) are case-insensitive, values are not: `NAME ~ '*.RS'` matches
-`MAIN.RS`, but not `main.rs`.
+Keywords (targets, operators, `and`, `line`, ...) and the values of `type`, `lang`, `kind` and `git` are
+case-insensitive. Text values are case-sensitive unless `/i` is used: `TEXT HAS 'TODO'` matches `TODO`, but not
+`todo`. For `path` and `name` the default depends on the platform, see [Targets](#targets).
 
-An empty query matches every file.
+An empty query matches every file which the [traversal options](CONFIG.md#traversal) let through.
 
 ### Files and directories
 
 If the query contains no `type` condition, an implicit `type = file` is added, so only files are returned, like
-`grep -r` does. To get directories, ask for them explicitly:
+`grep -r` does. To get directories or symlinks, ask for them explicitly:
 
 ```
-type = dir and name = 'node_modules'
+type = dir and name = 'migrations'
 ```
 
-Content conditions (`text`, `len`, `line(...)`, `near(...)`) never match a directory.
+| Value  | Matches                                                                                  |
+|--------|------------------------------------------------------------------------------------------|
+| `file` | regular files; with [`follow_symlinks`](CONFIG.md#traversal) also symlinks to files      |
+| `dir`  | directories; with `follow_symlinks` also symlinks to directories                         |
+| `link` | symlinks (on Windows also junctions), whether `follow_symlinks` is on or not             |
+
+With `follow_symlinks` a symlink to a file is both `file` and `link`, its target is read. Without it a symlink is
+only `link` and its target is not read.
+
+Content conditions (`text`, `len`, `line(...)`, `near(...)`) are false for directories: a directory has no content.
 
 ### Generated files
 
@@ -88,6 +98,34 @@ kind = generated and text has 'version'
 ```
 
 The default is [`traversal.skip_generated`](CONFIG.md#traversal).
+
+### Files whose content is not searched
+
+The content of some files is not searched: binary files (unless [`traversal.binary`](CONFIG.md#traversal) is
+`search`), files bigger than [`traversal.max_file_size`](CONFIG.md#traversal), archives which are not opened and
+archive members over the limits. For such a file every content condition (`text`, `line( ... )`, `near( ... )`) is
+**unknown**: neither true nor false. The same holds for a date which the file system doesn't provide (`created`,
+`accessed`).
+
+Unknown spreads like in SQL:
+
+| Expression          | Result  |
+|---------------------|---------|
+| `not unknown`       | unknown |
+| `true and unknown`  | unknown |
+| `false and unknown` | false   |
+| `true or unknown`   | true    |
+| `false or unknown`  | unknown |
+| `xor` with unknown  | unknown |
+
+A file is returned only if the whole query is true. So such a file is never returned because of its content —
+neither by `text has 'x'` nor by `not text has 'x'` — but it can be returned by the other conditions:
+
+```
+name ~ '*.png' or text has 'logo'        # PNG files by the name, text files by the content
+```
+
+For an empty result the [hints](OUTPUT.md#hints) show how many files were skipped this way.
 
 ## Condition scope
 
@@ -158,7 +196,7 @@ Rules
 | `created`  | file  | date       | creation date (if the file system supports it)                 |
 | `accessed` | file  | date       | last access date (if the file system tracks it)                |
 | `empty`    | file  | —          | empty file (size 0) or directory without entries               |
-| `lang`     | file  | language   | programming language, see below                                |
+| `lang`     | file  | language   | programming language or data format, see below                 |
 | `kind`     | file  | kind       | `source`, `test`, `config`, `doc`, `generated`, `other`        |
 | `git`      | file  | git status | `modified`, `staged`, `untracked`, `conflicted`, `changed`, `branch`, `clean` |
 | `text`     | both  | text       | whole file content in file scope, line content in line scope   |
@@ -168,10 +206,11 @@ Notes
 
 - `path` doesn't include the working directory itself. Searching in `~/project`, the file `~/project/src/main.rs` has
   `path` = `src/main.rs` and `name` = `main.rs`.
-- `/` is the path separator in queries on every platform. On Windows `\` is accepted as a separator too, so in
-  wildcards on Windows a special character is escaped with brackets: `[*]`, `[?]`.
+- `/` is the path separator in queries on every platform. On Windows `\` is accepted as a separator too. In
+  wildcards a special character is escaped with brackets on every platform: `[*]`, `[?]`, `[[]`, `[{]`.
 - Case sensitivity of `path` and `name` follows the platform by default: sensitive on Linux, insensitive on macOS and
-  Windows, see [`traversal.path_case`](CONFIG.md#traversal). `/i` always makes a condition case-insensitive.
+  Windows, see [`traversal.path_case`](CONFIG.md#traversal). `/i` always makes a condition case-insensitive; `~~` and
+  `/n` are always case-insensitive.
 - `path` and `name` are compared in Unicode NFC form, so a name stored decomposed (as macOS may do) matches the
   composed form written in the query.
 - Inside archives (see [`traversal.archives`](CONFIG.md#archives)) a member's path is
@@ -179,6 +218,11 @@ Notes
   single file (`app.log.gz`) keeps its own path and name, only its content is decompressed.
 - `text` and `len` work on the decoded text, whatever the file encoding is, see
   [Encoding](CONFIG.md#encoding).
+- If the file system doesn't provide `created` or `accessed`, the condition is unknown (see
+  [Files whose content is not searched](#files-whose-content-is-not-searched)) and the output has a
+  `date_unsupported` warning.
+- Lines are split by `\n`, a trailing `\r` is removed, so files with `\r\n` line breaks work the same way.
+- `len` counts Unicode characters, a tab is one character.
 
 ### lang
 
@@ -203,12 +247,13 @@ What the file is for. Every file has exactly one kind, the first which matches i
 |-------------|--------------------------------------------------------------------------------------|
 | `generated` | a marker in the first 5 lines (`@generated`, `DO NOT EDIT`, `Code generated by`, `auto-generated`), lock files, `*.min.js`, `*.min.css`, `*.pb.go`, `*_pb2.py`, `*.g.dart`, ... |
 | `test`      | test directories and names: `**/test/**`, `**/tests/**`, `**/__tests__/**`, `*_test.go`, `test_*.py`, `*_test.py`, `*.test.ts`, `*.spec.ts`, `*Test.java`, ... |
-| `doc`       | `*.md`, `*.rst`, `*.adoc`, `*.txt`, `docs/**`, `LICENSE*`, `CHANGELOG*`, ...          |
-| `config`    | `*.toml`, `*.yaml`, `*.yml`, `*.ini`, `*.conf`, `*.properties`, `*.env`, `*.json` in the project root and `config/**`, `Dockerfile`, `Makefile`, CI files, ... |
-| `source`    | a known programming language                                                         |
+| `doc`       | `*.md`, `*.rst`, `*.adoc`, `README*`, `LICENSE*`, `CHANGELOG*`, files in `docs` directories, ... |
+| `config`    | `*.toml`, `*.yaml`, `*.yml`, `*.ini`, `*.cfg`, `*.conf`, `*.properties`, `*.env`, `package.json`, `tsconfig*.json`, `*.config.js`, `Dockerfile`, `Makefile`, `requirements*.txt`, CI files, ... |
+| `source`    | a programming language: a [language](CONFIG.md#languages) with `source = true`; data and markup formats like JSON, XML and YAML are not source |
 | `other`     | everything else: data, images, binaries                                              |
 
-The rules are wildcards and markers in the [configuration](CONFIG.md#kinds) and can be changed.
+The rules are wildcards and markers in the [configuration](CONFIG.md#kinds) and can be changed. The default wildcards
+start with `**/`, so the kind of a file doesn't depend on the working directory.
 
 ```
 kind = source and text has 'TODO'          # TODOs in the code, not in docs and tests
@@ -232,18 +277,14 @@ directories, nested repositories and monorepos work.
 | `clean`      | is tracked and has no changes                                                  |
 
 A file can have several statuses at once (`modified` and `staged`); `git = x` is true if the file has the status `x`.
-Outside of a repository and inside archives every `git` condition is false, the response has a `not_a_git_repo`
-warning.
+Outside of a repository and inside archives every `git` condition is false. For files outside of a repository the
+response has a `not_a_git_repo` warning.
 
 ```
 git = changed and text has 'dbg!('              # debug leftovers in my uncommitted changes
 git = branch and kind = source                  # the code changed in this branch
 git = conflicted                                # files with conflicts
 ```
-- `type` checks the entry itself: a symlink is `link` even if `follow_symlinks` is on.
-- If the file system doesn't provide `created` or `accessed`, the condition is false and the output contains a warning.
-- Lines are split by `\n`, a trailing `\r` is removed, so files with `\r\n` line breaks work the same way.
-- `len` counts Unicode characters, a tab is one character.
 
 ## Operators
 
@@ -261,8 +302,8 @@ For `path`, `name`, `text`.
 | `~~`     | fuzzy        | `name ~~ 'cfgldr'`               |
 | `=~`     | regex        | ``text =~ `fn \w+_test\(` ``     |
 
-For `text` in file scope `=`, `starts` and `ends` work on the whole file content: `text starts '#!/bin/bash'` is a
-file whose first line starts with the shebang.
+For `text` in file scope `=`, `has`, `starts` and `ends` work on the whole file content, so a value with `'\n'` can
+match across lines: `text starts '#!/bin/bash'` is a file whose first line starts with the shebang.
 
 #### Wildcards
 
@@ -397,8 +438,8 @@ text has 'parse query' /n      # parseQuery, parse_query, ParseQuery, PARSE_QUER
 
 ## Comments
 
-`/c` ignores matches which are inside comments. Comment syntax is chosen by the file extension, see
-[comment syntax in the configuration](CONFIG.md#comment-syntax). Files with an unknown extension are searched as is.
+`/c` ignores matches which are inside comments. Comment syntax is taken from the [language](CONFIG.md#languages) of
+the file, see [comment syntax](CONFIG.md#comment-syntax). Files of an unknown language are searched as is.
 
 ```
 // let x = foo.unwrap();     <- ignored with /c
@@ -488,8 +529,8 @@ text has 'q=hello world' /e(url, 1)
 
 `q%3Dhello%20world` or `q%3Dhello+world`.
 
-Escaping combines with other modifiers: `/i` is applied to the escaped variants, `/w` checks the boundaries around
-the escaped match.
+Escaping combines with `/i`, `/w` and `/c`: `/i` is applied to the escaped variants, `/w` checks the boundaries
+around the escaped match. It can't be combined with `/n`.
 
 ## Proximity
 
@@ -592,7 +633,8 @@ Every condition gets an id, so the output can tell which condition matched a fil
 [OUTPUT.md](OUTPUT.md#condition-ids).
 
 - By default the ids are `#1`, `#2`, ... in the order of appearance in the query. Simple conditions, `line( ... )`
-  groups and `near( ... )` get ids, logical operators don't.
+  groups and `near( ... )` get ids, logical operators don't. Only conditions without a label are numbered, so the
+  numbers have no gaps: in `text has 'a' @x or text has 'b'` the second condition is `#1`.
 - A label `@name` after a condition (after its modifiers) or after a `line( ... )` / `near( ... )` replaces the number.
   A label starts with a letter or `_` and contains letters, digits, `_` and `-`. Labels must be unique.
 
@@ -639,6 +681,10 @@ levels      = integer | integer ".." integer | "any"
 label       = "@" ( letter | "_" ) { letter | digit | "_" | "-" }
 string      = "'" ... "'" | '"' ... '"' | "`" ... "`"
 value       = size | date | integer
+word        = letter { letter | digit | "_" | "-" }
+integer     = digit { digit }
+size        = integer [ "." integer ] [ "B" | "K" | "M" | "G" ]
+date        = ISO 8601 date or date-time | "-" integer ( "s" | "m" | "h" | "d" | "w" )
 ```
 
 Whitespace between tokens is free, line breaks are allowed. `#` outside of strings starts a comment until the end of
@@ -659,7 +705,7 @@ can fix the query itself. The response format is described in [OUTPUT.md](OUTPUT
 error[unknown_operator]: unknown operator 'contains'
   name ~ '*.rs' and text contains 'x'
                          ^^^^^^^^
-  hint: expected one of: =, has, starts, ends, ~, =~
+  hint: did you mean 'has'? expected one of: =, has, starts, ends, ~, ~~, =~
 ```
 
 | Code                     | Example                                    | Hint                                             |
@@ -667,7 +713,7 @@ error[unknown_operator]: unknown operator 'contains'
 | `unexpected_token`       | `name ~ '*.rs' text has 'x'`               | missing `and` / `or` between conditions?         |
 | `unexpected_end`         | `name ~ '*.rs' and`                        | a condition is expected after `and`              |
 | `unknown_target`         | `content has 'x'`                          | did you mean `text`?                             |
-| `unknown_operator`       | `text contains 'x'`                        | did you mean `has`?                              |
+| `unknown_operator`       | `text contains 'x'`                        | did you mean `has`? expected one of: =, has, starts, ends, ~, ~~, =~ |
 | `operator_not_allowed`   | `text ~ '*foo*'`                           | wildcards work on `path` and `name`; use `has`   |
 | `modifier_not_allowed`   | `name = 'a' /m`                            | `/m` works with `=~` on `text` in file scope     |
 | `unterminated_string`    | `text has 'abc`                            | closing `'` is missing                           |
@@ -680,9 +726,9 @@ error[unknown_operator]: unknown operator 'contains'
 | `file_target_inside`     | `line(name ~ '*.rs')`                      | move `name` out of `line( ... )`                 |
 | `nested_line`            | `line(line(text has 'a'))`                 | `line( ... )` can't be nested                    |
 | `unknown_value`          | `lang = rusty`                             | did you mean `rust`?                             |
-| `invalid_near_option`    | `near(a, b, 3, nearest)`                   | options: any, ordered, all, closest, first       |
-| `conflicting_options`    | `near(a, b, 3, any, ordered)`              | choose one of: any, ordered                      |
-| `invalid_escape_level`   | `/e(backslash, 9)`                         | max level is 3 (configuration `escape.max_level`) |
+| `invalid_near_option`    | `near(text has 'a', text has 'b', 3, nearest)` | options: any, ordered, all, closest, first   |
+| `conflicting_options`    | `near(text has 'a', text has 'b', 3, any, ordered)` | choose one of: any, ordered             |
+| `invalid_escape_level`   | `text has 'a' /e(backslash, 9)`            | max level is 3 (configuration `escape.max_level`) |
 | `duplicate_label`        | `text has 'a' @x or text has 'b' @x`       | labels must be unique                            |
 
 ## Recipes
@@ -697,8 +743,8 @@ error[unknown_operator]: unknown operator 'contains'
 | By path                                  | `find . -path '*/migrations/*.sql'`     | `path ~ '**/migrations/*.sql'`                 |
 | Empty directories                        | `find . -type d -empty`                 | `type = dir and empty`                         |
 | Big files                                | `find . -size +100M`                    | `size > 100M`                                  |
-| Changed today                            | `find . -mtime -1`                      | `modified > -1d`                               |
-| Not changed for a year                   | `find . -mtime +365`                    | `modified < -52w`                              |
+| Changed in the last 24 hours             | `find . -mtime -1`                      | `modified > -1d`                               |
+| Not changed for a year                   | `find . -mtime +365`                    | `modified < -365d`                             |
 | Symlinks                                 | `find . -type l`                        | `type = link`                                  |
 | Everything except a directory            | `find . -not -path './vendor/*'`        | `not path starts 'vendor/'`                    |
 
@@ -709,7 +755,7 @@ error[unknown_operator]: unknown operator 'contains'
 | Fixed string                             | `grep -rn 'TODO' .`                     | `text has 'TODO'`                              |
 | Case-insensitive whole word              | `grep -rniw 'error' .`                  | `text has 'error' /i/w`                        |
 | Regex                                    | `grep -rnE 'fn \w+_test' .`             | ``text =~ `fn \w+_test` ``                     |
-| Files without a match                    | `grep -rL 'license' .`                  | `not text has 'license' /i`                    |
+| Files without a match                    | `grep -rLi 'license' .`                 | `not text has 'license' /i`                    |
 | Lines without a match                    | `grep -v '^#' app.conf`                 | `name = 'app.conf' and line(not text starts '#')` |
 | Only in some files                       | `grep -rn --include='*.py' 'import os'` | `name ~ '*.py' and text has 'import os'`       |
 
@@ -735,10 +781,11 @@ Exactly one of two logging libraries — files mixing them are excluded:
 name ~ '*.rs' and (text has 'log::' xor text has 'tracing::')
 ```
 
-Minified or generated JavaScript — very long lines:
+JavaScript with very long lines — minified code. Generated files are skipped by default, the `kind` condition brings
+them back (see [Generated files](#generated-files)):
 
 ```
-name ~ '*.js' and line(len > 500)
+lang = javascript and kind in (source, generated) and line(len > 500)
 ```
 
 Rust files which don't end with a line break (a quoted string, because `` `\n` `` would be two characters):
@@ -747,13 +794,14 @@ Rust files which don't end with a line break (a quoted string, because `` `\n` `
 name ~ '*.rs' and not text ends '\n'
 ```
 
-A test function on the line after `#[test]`, multiline regex:
+A test function whose name ends with `_slow`, on the line after `#[test]`, multiline regex:
 
 ```
 name ~ '*.rs' and text =~ `#\[test\]\s*\n\s*fn \w+_slow` /m
 ```
 
-Real `unwrap()` calls in non-test Rust code changed this week, with labels to see which pattern matched:
+Real `unwrap()` calls in Rust code outside of `tests` directories, changed this week, with labels to see which
+pattern matched:
 
 ```
 name ~ '*.rs'
@@ -768,20 +816,22 @@ Configuration files where a password key has a non-empty literal value:
 name ~ '*.{yml,yaml,env,properties}' and line(text =~ `(?i)password\s*[:=]\s*\S+` and not text starts '#')
 ```
 
-A role check inside stringified JSON in test fixtures:
+A role check in test fixtures, also inside stringified JSON:
 
 ```
 path ~ '**/fixtures/**' and text has `"role": "admin"` /e(backslash, any)
 ```
 
-Big log files that mention a request id:
+Big log files that mention a request id. Files bigger than [`traversal.max_file_size`](CONFIG.md#traversal) (default
+10M) are not searched by content, so the request raises it, e.g. `"traversal": { "max_file_size": "1G" }`:
 
 ```
 name ~ '*.log' and size > 10M and text has 'req-7f3a9c'
 ```
 
-The same in rotated and archived logs too, with [`traversal.archives`](CONFIG.md#archives) = `all`. `*.log` also
-matches `.log` members inside `.zip` and `.tar.gz` archives, because `name` of a member is its own name:
+Log files of any size that mention the request id, also rotated and archived ones, with
+[`traversal.archives`](CONFIG.md#archives) = `all`. `*.log` also matches `.log` members inside `.zip` and `.tar.gz`
+archives, because `name` of a member is its own name:
 
 ```
 name ~ '*.{log,log.gz}' and text has 'req-7f3a9c'
@@ -795,7 +845,7 @@ path ~ '**/*!/**' and text has 'req-7f3a9c'
 
 ### Finding a place by a vague idea
 
-A class for loading the configuration, exact name unknown:
+The file of a class which loads the configuration, exact name unknown:
 
 ```
 kind = source and (name has 'config loader' /n or name ~~ 'cfgload')
@@ -820,9 +870,11 @@ git = branch and kind in (source, test) and text has 'TODO'
 - `name ~ '*.rs' and text has 'a' or text has 'b'` — `and` binds tighter than `or`, use brackets.
 - `text has 'a' and text has 'b'` means anywhere in the file, `line(text has 'a' and text has 'b')` means the same
   line.
-- Inside raw strings `` `...` `` there are no escapes: `` `\n` `` is two characters. For a line break use `'\n'`.
+- Inside raw strings `` `...` `` there are no escapes: `` `\n` `` is two characters. For a line break in `=`, `has`,
+  `starts`, `ends` use `'\n'`; in a regex `` `\n` `` works, because the regex itself understands `\n`.
 - `.` in a regex matches any character; ``name =~ `.rs$` `` also matches `furs`. Use `name ~ '*.rs'` or
   ``name =~ `\.rs$` ``.
 - Regex without anchors finds a match anywhere: ``name =~ `test` `` matches `contest.rs`.
 - Files bigger than [`traversal.max_file_size`](CONFIG.md#traversal) and binary files are not searched by content:
-  `not text has 'x'` is false for them, they are never returned by content conditions.
+  both `text has 'x'` and `not text has 'x'` are unknown for them, so they are never returned because of their
+  content, see [Files whose content is not searched](#files-whose-content-is-not-searched).

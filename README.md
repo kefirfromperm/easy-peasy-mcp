@@ -23,11 +23,12 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
 
 ## Documentation
 
-- [QUERY.md](QUERY.md) — the query language: targets, operators, scopes, modifiers, escaping, proximity, grammar,
-  errors, recipes
-- [OUTPUT.md](OUTPUT.md) — output options, response format, condition ids, fragments, highlight, limits, pagination
+- [QUERY.md](QUERY.md) — the query language: targets (including `lang`, `kind`, `git`), operators, scopes, modifiers,
+  escaping, proximity, identifiers and fuzzy names, grammar, errors, recipes
+- [OUTPUT.md](OUTPUT.md) — output options, response format, condition ids, fragments, highlight, limits, pagination,
+  relevance, funnel, budget, facets, compact output, result ids, batches
 - [CONFIG.md](CONFIG.md) — config file, command line, allowed roots, defaults, ignore files, encodings, archives,
-  comment syntax, platforms, `get_config` and `update_config`
+  kinds, git, languages and comment syntax, platforms, `get_config` and `update_config`
 - [TOOLS.md](TOOLS.md) — MCP side: stdio transport, versioning, tool descriptions and input schemas, results, errors,
   timeout, progress, cancellation
 
@@ -60,8 +61,9 @@ The `find` request contains fields, all of them optional:
 | `git`       | base of `git = branch`                                                       | [CONFIG.md](CONFIG.md#git)    |
 | `languages` | languages: extensions, names, shebangs, comment syntax                       | [CONFIG.md](CONFIG.md#languages) |
 
-Missing fields are taken from the configuration. A request can replace any configuration value except the allowed
-roots.
+Missing fields are taken from the configuration. A request can replace any configuration value except the `server`
+section; its `dirs` and `timeout` replace `server.default_dirs` and `server.timeout`, see
+[CONFIG.md](CONFIG.md#where-the-values-come-from).
 
 ```json
 {
@@ -95,5 +97,5 @@ main.rs  [#1 #2]  lines: 1  matches: 1
 
 ## Encoding
 
-Files are decoded by their BOM (UTF-8, UTF-16, UTF-32), otherwise as UTF-8 with an optional fallback encoding, see
-[CONFIG.md](CONFIG.md#encoding).
+Files are decoded by their BOM (UTF-8, UTF-16, UTF-32). Without a BOM, UTF-16 is recognized by its zero bytes, other
+files are read as UTF-8 with an optional fallback encoding, see [CONFIG.md](CONFIG.md#encoding).

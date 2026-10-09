@@ -55,13 +55,14 @@ The spec version is an integer, it grows only on a breaking change.
 | a changed meaning of existing syntax or field              | a new operator, target, modifier, escape style       |
 | a changed default which changes the results                | a new warning or error code                          |
 | a changed text format layout                               | a new response field in JSON                         |
+|                                                            | tuned relevance weights: the order of `sort = relevance` is a ranking, not a contract |
 
 - A request can pin the spec version with `"version": 1`. Without it the current version is used.
-- The server supports the current spec version and may keep older ones; `get_config` lists them in
-  `version.supported_specs`.
+- The server supports the current spec version and may keep older ones; `get_config` lists them in the first comment
+  line of its result: `# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1`.
 - An unsupported version fails with `unsupported_version` and the list of supported ones.
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
-- The tool descriptions say which spec version they describe.
+- The `find` description and the server `instructions` say which spec version they describe.
 
 ## Tools
 
@@ -71,7 +72,7 @@ The spec version is an integer, it grows only on a breaking change.
 | `get_config`    | `readOnlyHint: true`, `openWorldHint: false`                        | the effective configuration      |
 | `update_config` | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | change the configuration in memory |
 
-`update_config` is not listed when `server.allow_update = false`.
+`update_config` is not listed when `server.allow_update = false`; a call made anyway fails with `update_disabled`.
 
 ### find
 
@@ -105,7 +106,8 @@ output.budget = N tokens: the server picks the richest detail which fits. Files 
 Text response: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match, [#1 @x] matched conditions,
 ⇥N removed indentation. Empty or huge results come with a funnel and hints how to fix the query.
 If truncated, pass next_cursor back as output.cursor with the same request.
-Every response has a result id (r12): within = "r12" searches only its files, since = "r12" returns only changes.
+Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
+searches only its files, since = "r12" returns only the changes.
 queries = [{label, query}, ...] runs several queries in one call.
 
 EXAMPLES
@@ -135,6 +137,7 @@ EXAMPLES
       "description": "Several queries in one call instead of `query`.",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["query"],
         "properties": {
           "label": { "type": "string" },
@@ -162,7 +165,7 @@ EXAMPLES
         "ignore_paths": { "type": "array", "items": { "type": "string" } },
         "exclude": { "type": "array", "items": { "type": "string" } },
         "path_case": { "enum": ["native", "sensitive", "insensitive"] },
-        "binary": { "enum": ["skip", "search", "list"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
         "max_file_size": { "type": "string" },
         "encoding": { "type": "string" },
         "fallback_encoding": { "type": "string" },
@@ -247,7 +250,8 @@ EXAMPLES
           "line_comments": { "type": "array", "items": { "type": "string" } },
           "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
           "nested_block_comments": { "type": "boolean" },
-          "strings": { "type": "array", "items": { "type": "string" } }
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
         }
       }
     }
@@ -295,10 +299,10 @@ TOML, the same format as the config file, see [CONFIG.md](CONFIG.md#get_config).
 #### Description
 
 ```
-Changes the search server configuration in memory until the server stops: defaults of traversal, output, escape,
-languages and the server timeout. `set` is TOML like the config file, e.g. "output.context = 2" or
-"[output]\ncontext = 2\nmax_files = 30". Allowed roots can't be changed. Lists are replaced, not merged. Atomic: if
-any value is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.
+Changes the search server configuration in memory until the server stops: any value except server.allowed_roots and
+server.allow_update. `set` is TOML like the config file, e.g. "output.context = 2" or
+"[output]\ncontext = 2\nmax_files = 30". Lists are replaced, not merged. Atomic: if any value is invalid, nothing
+changes. To change a value for one search only, pass it in the find request instead.
 ```
 
 #### Input schema
@@ -324,7 +328,7 @@ Every tool returns one text content item:
 
 ```json
 {
-  "content": [ { "type": "text", "text": "files: 1  lines: 1  matches: 1\n#1 text has 'TODO'\n\nsrc/main.rs  [#1]  lines: 1  matches: 1\n12:// ⟦#1:TODO⟧ remove\n" } ],
+  "content": [ { "type": "text", "text": "files: 1  lines: 1  matches: 1  result: r1\n#1 text has 'TODO remove'\n\nsrc/\nmain.rs  [#1]  lines: 1  matches: 1\n12:// ⟦#1:TODO remove⟧\n" } ],
   "isError": false
 }
 ```
@@ -344,11 +348,13 @@ Two kinds:
 | protocol error    | unknown tool, malformed JSON-RPC                                  | a JSON-RPC error                           |
 
 Tool errors are results, not JSON-RPC errors, so the agent sees the message and the hint and can fix the request.
-Input which doesn't match the schema is also a tool error (`invalid_option`) for the same reason.
+Input which doesn't match the schema is also a tool error (`invalid_option`) for the same reason. In a batch an
+invalid query gets its error in its own section and the others still run; `isError` is true only if all queries
+fail, see [OUTPUT.md](OUTPUT.md#batch).
 
 ```json
 {
-  "content": [ { "type": "text", "text": "error[unknown_operator]: unknown operator 'contains'\n  name ~ '*.rs' and text contains 'x'\n                         ^^^^^^^^\n  hint: expected one of: =, has, starts, ends, ~, =~\n" } ],
+  "content": [ { "type": "text", "text": "error[unknown_operator]: unknown operator 'contains'\n  name ~ '*.rs' and text contains 'x'\n                         ^^^^^^^^\n  hint: did you mean 'has'? expected one of: =, has, starts, ends, ~, ~~, =~\n" } ],
   "isError": true
 }
 ```
@@ -409,10 +415,10 @@ The client cancels a running search with:
 ← find, get_config, update_config
 → tools/call get_config {}
 ← allowed roots ["/home/me/projects/app"], defaults, spec 1
-→ tools/call find { "query": "name ~ '*.rs' and text has 'unwrap(' /c", "output": { "detail": "count" } }
-← files: 14  lines: 52  matches: 57
-→ tools/call find { "query": "name ~ '*.rs' and text has 'unwrap(' /c", "output": { "detail": "files", "sort": "matches desc", "max_files": 5 } }
-← 5 files with the most unwraps, truncated: yes (max_files)
+→ tools/call find { "query": "lang = rust and text has 'unwrap(' /c", "output": { "detail": "count" } }
+← files: 14  lines: 52  matches: 57  result: r1
+→ tools/call find { "within": "r1", "query": "text has 'unwrap(' /c", "output": { "detail": "files", "sort": "matches desc", "max_files": 5 } }
+← 5 files with the most unwraps, truncated: yes (max_files), result: r2
 → tools/call find { "dirs": ["src/parser"], "query": "text has 'unwrap(' /c", "output": { "context": 2 } }
 ← matched lines with context
 ```
