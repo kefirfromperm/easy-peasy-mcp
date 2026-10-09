@@ -100,7 +100,31 @@ Text operator options
 - whole word
 - multiline (regex may match across lines; for file scope content only)
 
-Escape operators can be applied for the string content in conditions
+#### Escaping
+
+Escaping can be applied to content conditions. It allows to find a text which is stored escaped in the file, e.g. JSON
+inside a string in JSON, where `"` is written as `\"` and on the next nesting level as `\\\"`.
+
+The agent writes the pattern unescaped, the server builds the escaped variants of the pattern and matches them.
+
+- escape style
+  - `backslash` — JSON, C, Java, Rust and others: `"` → `\"`, `'` → `\'`, `\` → `\\`, new line → `\n`, tab → `\t`
+  - `quote_doubling` — SQL, CSV: `'` → `''`, `"` → `""`
+  - `xml` — HTML/XML entities: `"` → `&quot;`, `'` → `&apos;` / `&#39;`, `<` → `&lt;`, `>` → `&gt;`, `&` → `&amp;`
+  - `url` — percent encoding: `"` → `%22`, space → `%20` / `+`
+- escape levels: a number (`0` — raw, `1` — escaped once, `2` — escaped twice, ...) or a range / `any` (e.g. `0..2`
+  matches raw, once and twice escaped text)
+
+Example: find `"name": "x"` raw and inside a JSON string
+
+```json
+{ "content": { "contains": "\"name\": \"x\"", "escape": { "style": "backslash", "levels": "0..1" } } }
+```
+
+matches both `"name": "x"` and `\"name\": \"x\"`.
+
+Escaping is supported for exact match, contains, starts with and ends with. For regex the agent writes the escaped
+form itself.
 
 Exclude block to allow to support comments in programming languages: matches inside comments (and optionally string
 literals) are ignored. Comment syntax is defined per file extension in the configuration (line comment like `//`, `#`,
