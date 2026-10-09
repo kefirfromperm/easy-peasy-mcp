@@ -309,7 +309,8 @@ Searching inside compressed files and archives, like `rg -z`. Off by default.
   which is binary; its members are searched only with `all`
 - an archive member has the path `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`; `name`,
   `size` (uncompressed) and `modified` come from the archive entry; `created` and `accessed` are unknown
-- the archive itself is also an entry: `name ~ '*.zip'` returns the archive file
+- the archive itself is also an entry: `name ~ '*.zip'` returns the archive file; it is a binary file, so with
+  `binary = exclude` it is not returned
 - archives inside archives are not opened
 - `max_file_size` applies to the decompressed content of every compressed file and every member
 - `max_archive_size` limits the total decompressed content of one archive (protection against zip bombs); the rest is

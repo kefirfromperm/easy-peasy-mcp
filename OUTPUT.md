@@ -255,6 +255,7 @@ name ~ '*.rs' and (text has '.unwrap()' @unwrap or text has '.expect(' @expect)
 ```
 
 ```
+...
 src/a.rs  [#1 @unwrap]
 src/b.rs  [#1 @expect]
 src/c.rs  [#1 @unwrap @expect]
@@ -286,7 +287,7 @@ Every fragment lists the ids of the conditions which produced it, see [Fragments
 
 ## Fragments
 
-A fragment is a matched part of a line.
+A fragment is a matched part of a line, or of several lines for a multiline match (see `to`).
 
 | Field    | Meaning                                                                                  |
 |----------|------------------------------------------------------------------------------------------|
@@ -551,6 +552,7 @@ both formats.
 once at the start of the block, `col` still refers to the original line:
 
 ```
+...
 src/server/handlers.rs  [#1]  lines: 1  matches: 1
 ⇥12
 140-let user = session.user()?;
@@ -588,6 +590,7 @@ A matched line which is identical (ignoring leading and trailing whitespace, wit
 locations:
 
 ```
+...
 repeated:
   ×37 use anyhow::⟦#1:Result⟧;    src/main.rs:3, src/config.rs:5, src/eval/mod.rs:2, … 34 more
 ```
@@ -610,8 +613,8 @@ their matched lines.
 
 Searches only the files of result `r12`: "of those, which also have X?". There is no directory walk, so it is fast,
 and the agent doesn't have to repeat the first query. `dirs` and the walk options of `traversal` (depth, symlinks,
-hidden files, ignore files, `exclude`) are ignored; the file options (`binary`, `max_file_size`, `skip_generated`,
-`encoding`, `fallback_encoding`, `archives`, `max_archive_size`) apply. The files are read again, so changes are
+hidden files, ignore files, `exclude`) are ignored; the file and matching options (`binary`, `max_file_size`,
+`skip_generated`, `encoding`, `fallback_encoding`, `archives`, `max_archive_size`, `path_case`) apply. The files are read again, so changes are
 seen. Files deleted since `r12` are skipped. The paths are the ones of `r12`: they are written as in `r12`, and `path`
 conditions see them relative to the working directories of `r12`.
 
