@@ -62,8 +62,9 @@ name ~ '*.rs' and (text has 'tokio' or text has 'async-std')
 ```
 
 Keywords (targets, operators, `and`, `line`, ...) and the values of `type`, `lang`, `kind` and `git` are
-case-insensitive. Text values are case-sensitive unless `/i` is used: `TEXT HAS 'TODO'` matches `TODO`, but not
-`todo`. For `path` and `name` the default depends on the platform, see [Targets](#targets).
+case-insensitive. Text values are case-sensitive unless `/i` is used (`~~` and `/n` are always case-insensitive):
+`TEXT HAS 'TODO'` matches `TODO`, but not `todo`. For `path` and `name` the default depends on the platform, see
+[Targets](#targets).
 
 An empty query matches every file which the [traversal options](CONFIG.md#traversal) let through.
 
@@ -164,7 +165,7 @@ Files with a line which contains both `serde` and `tokio`.
 name = 'nginx.conf' and line(not text starts '#' and len > 0)
 ```
 
-Lines of `nginx.conf` which are not comments and not empty.
+Lines of `nginx.conf` which don't start with `#` and are not empty.
 
 `not` before the group means that no line of the file matches it:
 
@@ -196,7 +197,7 @@ Rules
 | `created`  | file  | date       | creation date (if the file system supports it)                 |
 | `accessed` | file  | date       | last access date (if the file system tracks it)                |
 | `empty`    | file  | —          | empty file (size 0) or directory without entries               |
-| `lang`     | file  | language   | programming language or data format, see below                 |
+| `lang`     | file  | language   | language or format of the file, see below                      |
 | `kind`     | file  | kind       | `source`, `test`, `config`, `doc`, `generated`, `other`        |
 | `git`      | file  | git status | `modified`, `staged`, `untracked`, `conflicted`, `changed`, `branch`, `clean` |
 | `text`     | both  | text       | whole file content in file scope, line content in line scope   |
@@ -249,11 +250,12 @@ What the file is for. Every file has exactly one kind, the first which matches i
 | `test`      | test directories and names: `**/test/**`, `**/tests/**`, `**/__tests__/**`, `*_test.go`, `test_*.py`, `*_test.py`, `*.test.ts`, `*.spec.ts`, `*Test.java`, ... |
 | `doc`       | `*.md`, `*.rst`, `*.adoc`, `README*`, `LICENSE*`, `CHANGELOG*`, files in `docs` directories, ... |
 | `config`    | `*.toml`, `*.yaml`, `*.yml`, `*.ini`, `*.cfg`, `*.conf`, `*.properties`, `*.env`, `package.json`, `tsconfig*.json`, `*.config.js`, `Dockerfile`, `Makefile`, `requirements*.txt`, CI files, ... |
-| `source`    | a programming language: a [language](CONFIG.md#languages) with `source = true`; data and markup formats like JSON, XML and YAML are not source |
+| `source`    | code: a [language](CONFIG.md#languages) with `source = true`; data and document formats like JSON, XML, YAML and Markdown are not source |
 | `other`     | everything else: data, images, binaries                                              |
 
-The rules are wildcards and markers in the [configuration](CONFIG.md#kinds) and can be changed. The default wildcards
-start with `**/`, so the kind of a file doesn't depend on the working directory.
+The table summarizes the default rules: wildcards and markers in the [configuration](CONFIG.md#kinds), which can be
+changed. There every wildcard starts with `**/` (`*_test.go` is matched by `**/*_test.*`), so the kind of a file
+doesn't depend on the working directory.
 
 ```
 kind = source and text has 'TODO'          # TODOs in the code, not in docs and tests
@@ -290,7 +292,7 @@ git = conflicted                                # files with conflicts
 
 ### Text operators
 
-For `path`, `name`, `text`.
+For `path`, `name`, `text`; `~` and `~~` only for `path` and `name`.
 
 | Operator | Meaning      | Example                          |
 |----------|--------------|----------------------------------|
@@ -722,7 +724,7 @@ error[unknown_operator]: unknown operator 'contains'
 | `invalid_size`           | `size > 10MB`                              | units: B, K, M, G                                |
 | `invalid_date`           | `modified > -1y`                           | units: s, m, h, d, w                             |
 | `invalid_range`          | `size in 10M..1M`                          | the start must not be greater than the end       |
-| `line_target_outside`    | `len > 100`                                | `len` works only inside `line( ... )`            |
+| `line_target_outside`    | `len > 100`                                | `len` works only inside `line( ... )` or `near( ... )` |
 | `file_target_inside`     | `line(name ~ '*.rs')`                      | move `name` out of `line( ... )`                 |
 | `nested_line`            | `line(line(text has 'a'))`                 | `line( ... )` can't be nested                    |
 | `unknown_value`          | `lang = rusty`                             | did you mean `rust`?                             |
@@ -759,7 +761,8 @@ error[unknown_operator]: unknown operator 'contains'
 | Lines without a match                    | `grep -v '^#' app.conf`                 | `name = 'app.conf' and line(not text starts '#')` |
 | Only in some files                       | `grep -rn --include='*.py' 'import os'` | `name ~ '*.py' and text has 'import os'`       |
 
-`-l`, `-c`, `-o`, `-A/-B/-C`, `-m` are output options, see [OUTPUT.md](OUTPUT.md#options).
+`-q`, `-c` and `-l` are [detail levels](OUTPUT.md#detail-levels), `-A/-B/-C` and `-m` are
+[output options](OUTPUT.md#options), and `-o` is the `text` of the [fragments](OUTPUT.md#fragments).
 
 ### Beyond `grep` and `find`
 
@@ -800,8 +803,8 @@ A test function whose name ends with `_slow`, on the line after `#[test]`, multi
 name ~ '*.rs' and text =~ `#\[test\]\s*\n\s*fn \w+_slow` /m
 ```
 
-Real `unwrap()` calls in Rust code outside of `tests` directories, changed this week, with labels to see which
-pattern matched:
+Real `unwrap()` calls in Rust code outside of `tests` directories, changed during the last 7 days, with labels to see
+which pattern matched:
 
 ```
 name ~ '*.rs'
@@ -829,9 +832,9 @@ Big log files that mention a request id. Files bigger than [`traversal.max_file_
 name ~ '*.log' and size > 10M and text has 'req-7f3a9c'
 ```
 
-Log files of any size that mention the request id, also rotated and archived ones, with
-[`traversal.archives`](CONFIG.md#archives) = `all`. `*.log` also matches `.log` members inside `.zip` and `.tar.gz`
-archives, because `name` of a member is its own name:
+Log files that mention the request id, also rotated and archived ones, with
+[`traversal.archives`](CONFIG.md#archives) = `all`; big ones only with the raised `max_file_size`, as above. `*.log`
+also matches `.log` members inside `.zip` and `.tar.gz` archives, because `name` of a member is its own name:
 
 ```
 name ~ '*.{log,log.gz}' and text has 'req-7f3a9c'
@@ -875,6 +878,7 @@ git = branch and kind in (source, test) and text has 'TODO'
 - `.` in a regex matches any character; ``name =~ `.rs$` `` also matches `furs`. Use `name ~ '*.rs'` or
   ``name =~ `\.rs$` ``.
 - Regex without anchors finds a match anywhere: ``name =~ `test` `` matches `contest.rs`.
-- Files bigger than [`traversal.max_file_size`](CONFIG.md#traversal) and binary files are not searched by content:
-  both `text has 'x'` and `not text has 'x'` are unknown for them, so they are never returned because of their
-  content, see [Files whose content is not searched](#files-whose-content-is-not-searched).
+- Files bigger than [`traversal.max_file_size`](CONFIG.md#traversal) and, with the default `traversal.binary = skip`,
+  binary files are not searched by content: both `text has 'x'` and `not text has 'x'` are unknown for them, so they
+  are never returned because of their content, see
+  [Files whose content is not searched](#files-whose-content-is-not-searched).

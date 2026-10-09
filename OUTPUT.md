@@ -229,8 +229,9 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 - `funnel:` and `hints:`, when present, after the legend, see [Funnel](#funnel)
 - `src/` — a directory header, the files under it are written relative to it, see
   [Directory groups](#directory-groups)
-- per file: the path, the matched conditions in `[ ]`, counts, `(cut)` if a per file limit was hit, the encoding if
-  it is not UTF-8; with `meta` also type, size, date, language, kind and, with `sort = relevance`, the score:
+- per file: the path, the matched conditions in `[ ]`, counts (left out when they are 0), `(cut)` if a per file
+  limit was hit, the encoding if it is not UTF-8; with `meta` also type, size, date, language, kind and, with
+  `sort = relevance`, the score:
   `file 2.1K 2026-10-08 14:03 rust source 0.82`
 - `⇥4` — the indentation removed from the block, see [Dedent](#dedent)
 - `42:` — a matched line, `41-` — a context line, `--` — a gap between blocks, like in `grep`
@@ -294,7 +295,7 @@ A fragment is a matched part of a line, or of several lines for a multiline matc
 | `col`    | `[start, end]`: 1-based, in Unicode characters, `end` is exclusive                       |
 | `text`   | the matched text as it is in the file                                                    |
 | `ids`    | the conditions which produced it                                                         |
-| `escape` | the escape level, only for conditions with `/e`                                          |
+| `escape` | the escape level (`0` — unescaped), only for conditions with `/e`                       |
 | `to`     | only for multiline matches: `{ "n": 58, "col": 12 }` — the line and the exclusive end column |
 
 Which conditions produce fragments
@@ -471,8 +472,8 @@ hints:
            1 too big (traversal.max_file_size)
 ```
 
-The hints use at most 20% of the timeout, or 5 seconds without a timeout. For a huge result the hints are the top
-values of the `dir` and `lang` facets, to show where to narrow:
+The hints use at most 20% of the timeout, or 5 seconds without a timeout. For a huge result the hints show where the
+matches are — the top values of the `dir` and `lang` facets — and a few ways to narrow the query:
 
 ```
 files: 1840  lines: 9211  matches: 10380  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNGE3ZCIsImYiOjEwMCwidCI6WzE4NDAsOTIxMSwxMDM4MF19
@@ -480,7 +481,8 @@ files: 1840  lines: 9211  matches: 10380  truncated: yes (max_files)  next curso
 funnel:
   text has 'error'                    1840
 hints:
-  most in: vendor/ 1210 · src/ 402 · tests/ 228
+  dir: vendor/tokio/ 610 · vendor/hyper/ 600 · src/parser/ 402 · tests/integration/ 228
+  lang: rust 1790 · c 50
   narrow with: not path ~ 'vendor/**', kind = source, /w
 
 ... the first 100 files
@@ -614,9 +616,9 @@ their matched lines.
 Searches only the files of result `r12`: "of those, which also have X?". There is no directory walk, so it is fast,
 and the agent doesn't have to repeat the first query. `dirs` and the walk options of `traversal` (depth, symlinks,
 hidden files, ignore files, `exclude`) are ignored; the file and matching options (`binary`, `max_file_size`,
-`skip_generated`, `encoding`, `fallback_encoding`, `archives`, `max_archive_size`, `path_case`) apply. The files are read again, so changes are
-seen. Files deleted since `r12` are skipped. The paths are the ones of `r12`: they are written as in `r12`, and `path`
-conditions see them relative to the working directories of `r12`.
+`skip_generated`, `encoding`, `fallback_encoding`, `archives`, `max_archive_size`, `path_case`) apply. The files are
+read again, so changes are seen. Files deleted since `r12` are skipped. The paths are the ones of `r12`: they are
+written as in `r12`, and `path` conditions see them relative to the working directories of `r12`.
 
 ### Changes: `since`
 
@@ -826,7 +828,6 @@ src/config.rs  [#1 #2]  lines: 2  matches: 2
 42:    let cfg: Config = toml::from_str(&raw).⟦#2,@unwrap:unwrap(⟧);
 43:    let port = cfg.port.⟦#2,@expect:expect(⟧"port is required");
 44-    Ok(cfg)
-
 src/main.rs  [#1 #2]  lines: 1  matches: 1
 17-    let args = Args::parse();
 18:    let cfg = config::load(&args.config).⟦#2,@unwrap:unwrap(⟧);
@@ -868,6 +869,7 @@ files: 1  lines: 2  matches: 2
 
 config/app.conf  [#1 #2]  lines: 2  matches: 2
 4:⟦#2:listen = 8080⟧
+--
 9:⟦#2:log_level = debug⟧
 ```
 

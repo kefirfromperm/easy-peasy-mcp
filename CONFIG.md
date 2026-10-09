@@ -427,7 +427,7 @@ modifier.
 | `block_comments`        | list of `[start, end]`    | start and end of a block comment                              |
 | `nested_block_comments` | bool                      | block comments can be nested (Rust, Haskell)                  |
 | `strings`               | list of strings           | string delimiters; comment markers inside strings are ignored |
-| `source`                | bool                      | `true` (default) — a programming language, its files are `kind = source`; `false` — a data or markup format |
+| `source`                | bool                      | `true` (default) — code (programming languages, also HTML and CSS), its files are `kind = source`; `false` — a data or document format |
 
 #### Built-in languages
 
@@ -475,7 +475,7 @@ modifier.
 | `dockerfile` | `dockerfile`; `Dockerfile`                                       | `#`           | —                  |
 | `makefile`   | `mk`; `Makefile`, `GNUmakefile`                                  | `#`           | —                  |
 
-Data and markup formats have `source = false`: `json`, `jsonc`, `yaml`, `toml`, `ini`, `properties`, `dotenv`, `xml`,
+Data and document formats have `source = false`: `json`, `jsonc`, `yaml`, `toml`, `ini`, `properties`, `dotenv`, `xml`,
 `markdown`. They are found by `lang`, but their files are not `kind = source`; without a matching `config` or `doc`
 rule they are `other`.
 
@@ -533,7 +533,7 @@ The result is TOML, the same format as the config file, so it can be copied into
 Request — all fields are optional:
 
 ```json
-{ "section": "traversal", "sources": true }
+{ "section": "traversal" }
 ```
 
 | Field     | Meaning                                                               |
@@ -558,7 +558,7 @@ ignore_paths = []
 exclude = ["**/target/**", "**/node_modules/**"]
 path_case = "native"
 binary = "skip"
-max_file_size = "10M"
+max_file_size = "50M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
@@ -651,7 +651,7 @@ Errors:
   the config file.
 - `allowed_roots` can't be changed by the agent: neither `update_config` nor a request can widen them.
 - Every working directory, every symlink target and every file of a `within` result is canonicalized and checked
-  against the allowed roots; a cursor holds only a position, no paths.
+  against the allowed roots; a cursor holds no paths, only the request hash, a position and the totals.
 - `..` in `dirs` is allowed as long as the result is inside an allowed root.
 - Files the server process can't read are skipped with a warning; the server never tries to change permissions.
 - Archives are decompressed in memory with `max_file_size` and `max_archive_size` limits, nested archives are not

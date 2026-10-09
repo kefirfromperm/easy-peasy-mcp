@@ -142,8 +142,8 @@ EXAMPLES
         "properties": {
           "label": { "type": "string" },
           "query": { "type": "string" },
-          "dirs": { "type": "array", "items": { "type": "string" } },
-          "timeout": { "type": "string" },
+          "dirs": { "$ref": "#/properties/dirs" },
+          "timeout": { "$ref": "#/properties/timeout" },
           "traversal": { "$ref": "#/properties/traversal" },
           "output": { "$ref": "#/properties/output" }
         }
@@ -204,7 +204,7 @@ EXAMPLES
         "blank_context": { "type": "boolean" },
         "group_dirs": { "type": "boolean" },
         "group_repeated": { "type": "integer", "minimum": 0 },
-        "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches)( (asc|desc))?)$" },
+        "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
         "path_style": { "enum": ["relative", "absolute"] },
         "cursor": { "type": "string" }
       }
