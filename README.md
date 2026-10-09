@@ -13,7 +13,11 @@ I will use RUST
 
 Candidate crates: `rmcp` (MCP server), `ignore` (parallel directory walking, `.gitignore` style ignore files),
 `grep-regex` / `grep-searcher` (fast content search, binary detection), `globset` (wildcards), `pest` or `chumsky`
-(query parser), `encoding_rs` (encodings), `flate2` / `zip` / `tar` and friends (archives).
+(query parser), `encoding_rs` (encodings), `flate2` / `zip` / `tar` and friends (archives), `gix` (git status).
+
+It is built to help an agent find the exact file and place with as few tokens and round trips as possible:
+identifier-aware and fuzzy matching, relevance sorting, a funnel that explains empty results, a token budget, facets,
+compact output, refining previous results and batches of queries.
 
 It runs locally over stdio and is built natively for Linux, macOS and Windows.
 
@@ -44,11 +48,17 @@ The `find` request contains fields, all of them optional:
 | `version`   | spec version to use; not set — the current one                               | [TOOLS.md](TOOLS.md#versioning) |
 | `dirs`      | one or more working directories, inside the allowed roots                    | [CONFIG.md](CONFIG.md#server) |
 | `query`     | search criteria; empty — all files                                           | [QUERY.md](QUERY.md)          |
+| `queries`   | several queries in one call, instead of `query`                              | [OUTPUT.md](OUTPUT.md#batch)  |
+| `within`    | result id: search only the files of a previous result                        | [OUTPUT.md](OUTPUT.md#result-ids) |
+| `since`     | result id: return only the differences to a previous result                  | [OUTPUT.md](OUTPUT.md#result-ids) |
 | `timeout`   | max search time, e.g. `10s`                                                  | [TOOLS.md](TOOLS.md#timeout)  |
 | `traversal` | depth, symlinks, hidden files, ignore files, excludes, binary files, max file size, encoding, archives | [CONFIG.md](CONFIG.md#traversal) |
-| `output`    | format, detail level, context, limits, sorting, highlight, cursor           | [OUTPUT.md](OUTPUT.md#options) |
+| `output`    | format, detail level, budget, funnel, facets, context, limits, sorting, compaction, highlight, cursor | [OUTPUT.md](OUTPUT.md#options) |
 | `escape`    | max escape level                                                             | [CONFIG.md](CONFIG.md#escape) |
-| `languages` | comment syntax                                                               | [CONFIG.md](CONFIG.md#comment-syntax) |
+| `query_options` | fuzzy match threshold                                                    | [CONFIG.md](CONFIG.md#query)  |
+| `kinds`     | rules of `kind`: generated, test, doc, config                                | [CONFIG.md](CONFIG.md#kinds)  |
+| `git`       | base of `git = branch`                                                       | [CONFIG.md](CONFIG.md#git)    |
+| `languages` | languages: extensions, names, shebangs, comment syntax                       | [CONFIG.md](CONFIG.md#languages) |
 
 Missing fields are taken from the configuration. A request can replace any configuration value except the allowed
 roots.
@@ -63,22 +73,24 @@ roots.
 ```
 
 ```
-files: 2  lines: 3  matches: 3
+files: 2  lines: 3  matches: 3  result: r1
 #1 name ~ '*.rs'
 #2 line(text has 'unwrap(' /c or text has 'expect(' /c)
 @unwrap text has 'unwrap(' /c
 @expect text has 'expect(' /c
 
-src/config.rs  [#1 #2]  lines: 2  matches: 2
-41-    let raw = fs::read_to_string(path)?;
-42:    let cfg: Config = toml::from_str(&raw).⟦#2,@unwrap:unwrap(⟧);
-43:    let port = cfg.port.⟦#2,@expect:expect(⟧"port is required");
-44-    Ok(cfg)
-
-src/main.rs  [#1 #2]  lines: 1  matches: 1
-17-    let args = Args::parse();
-18:    let cfg = config::load(&args.config).⟦#2,@unwrap:unwrap(⟧);
-19-    run(cfg)
+src/
+config.rs  [#1 #2]  lines: 2  matches: 2
+⇥4
+41-let raw = fs::read_to_string(path)?;
+42:let cfg: Config = toml::from_str(&raw).⟦#2,@unwrap:unwrap(⟧);
+43:let port = cfg.port.⟦#2,@expect:expect(⟧"port is required");
+44-Ok(cfg)
+main.rs  [#1 #2]  lines: 1  matches: 1
+⇥4
+17-let args = Args::parse();
+18:let cfg = config::load(&args.config).⟦#2,@unwrap:unwrap(⟧);
+19-run(cfg)
 ```
 
 ## Encoding

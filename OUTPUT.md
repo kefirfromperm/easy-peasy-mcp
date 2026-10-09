@@ -11,6 +11,13 @@ defaults of all options in [CONFIG.md](CONFIG.md#output).
 - [Highlight](#highlight)
 - [Limits and truncation](#limits-and-truncation)
 - [Pagination](#pagination)
+- [Relevance](#relevance)
+- [Funnel](#funnel)
+- [Budget](#budget)
+- [Facets](#facets)
+- [Compact output](#compact-output)
+- [Result ids](#result-ids)
+- [Batch](#batch)
 - [Warnings](#warnings)
 - [Errors](#errors)
 - [Examples](#examples)
@@ -36,7 +43,12 @@ The time limit is the `timeout` field of the request, see [TOOLS.md](TOOLS.md#fi
 | Option                 | Values                                          | Default    | Meaning                                                   |
 |------------------------|-------------------------------------------------|------------|-----------------------------------------------------------|
 | `format`               | `text`, `json`                                  | `text`     | response format                                           |
-| `detail`               | `exists`, `count`, `files`, `lines`             | `lines`    | how much to return, see [Detail levels](#detail-levels)   |
+| `detail`               | `exists`, `count`, `facets`, `files`, `lines`   | `lines`    | how much to return, see [Detail levels](#detail-levels)   |
+| `budget`               | number of tokens                                | not set    | fit the response into the budget, see [Budget](#budget)   |
+| `funnel`               | `auto`, `always`, `never`                       | `auto`     | explain empty and huge results, see [Funnel](#funnel)     |
+| `facets`               | list of `dir`, `ext`, `lang`, `kind`, `git`, `condition` | `[dir, lang, kind, condition]` | facets, see [Facets](#facets) |
+| `facet_depth`          | number                                          | `2`        | directory depth of the `dir` facet                        |
+| `facet_limit`          | number                                          | `8`        | max values per facet                                      |
 | `meta`                 | `true`, `false`                                 | `false`    | add file type, size and modification date to every file   |
 | `context`              | number                                          | `0`        | lines before and after every matched line (`grep -C`)     |
 | `before`               | number                                          | `context`  | lines before (`grep -B`)                                  |
@@ -50,7 +62,11 @@ The time limit is the `timeout` field of the request, see [TOOLS.md](TOOLS.md#fi
 | `max_line_length`      | number                                          | `300`      | longer lines are cut around the matches                   |
 | `max_output_per_file`  | number                                          | `4000`     | max characters of matched lines and context of one file   |
 | `max_output`           | number                                          | `40000`    | max characters of the whole response                      |
-| `sort`                 | `path`, `modified`, `size`, `matches` + `asc` / `desc` | `path asc` | order of files; equal values are ordered by the full path |
+| `dedent`               | `true`, `false`                                 | `true`     | remove the common indentation of every block, see [Compact output](#compact-output) |
+| `blank_context`        | `true`, `false`                                 | `false`    | keep empty context lines                                  |
+| `group_dirs`           | `true`, `false`                                 | `true`     | text format: group files under directory headers          |
+| `group_repeated`       | number                                          | `3`        | a matched line repeated in this many files is printed once; `0` — off |
+| `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
 | `path_style`           | `relative`, `absolute`                          | `relative` | how paths are written                                     |
 | `cursor`               | string                                          | —          | continue a truncated response, see [Pagination](#pagination) |
 
@@ -60,11 +76,13 @@ The time limit is the `timeout` field of the request, see [TOOLS.md](TOOLS.md#fi
 |----------|------------------------------------------------------------------|-------------------------|
 | `exists` | only whether at least one file matches; stops at the first match | `grep -q`               |
 | `count`  | totals: files, lines, matches                                    | `grep -c`, `find \| wc` |
+| `facets` | totals + counts of files per directory, language, kind, condition | —                      |
 | `files`  | totals + the list of files with their counts and conditions      | `find`, `grep -l`       |
 | `lines`  | totals + files + matched lines with fragments and context        | `grep -n -C`            |
 
 Use the smallest level which answers the question: `exists` and `count` are cheap in tokens, `exists` is also the
-fastest.
+fastest. A typical way to the exact place: `facets` to see where the matches are, then `files` in the right
+directory, then `lines` for a few files. Or just set a [budget](#budget) and let the server choose.
 
 ## Response
 
@@ -76,6 +94,13 @@ Top level
 |-----------------|--------------------|--------------------------------------------------------------------|
 | `version`       | all, JSON only     | version of the response format, see [TOOLS.md](TOOLS.md#versioning) |
 | `exists`        | all                | `true` if at least one file matches                                |
+| `result`        | `count` and higher | id of this result, see [Result ids](#result-ids)                   |
+| `detail_used`   | `count` and higher | only if the [budget](#budget) lowered the detail level              |
+| `funnel`        | `count` and higher | see [Funnel](#funnel)                                              |
+| `hints`         | `count` and higher | see [Funnel](#funnel)                                              |
+| `facets`        | `facets`           | see [Facets](#facets)                                              |
+| `repeated`      | `lines`            | matched lines repeated in many files, see [Compact output](#compact-output) |
+| `unchanged`     | with `since`       | number of files which match as before, see [Result ids](#result-ids) |
 | `counts.files`  | `count` and higher | number of matched files                                            |
 | `counts.lines`  | `count` and higher | number of matched lines                                            |
 | `counts.matches`| `count` and higher | number of content fragments                                        |
@@ -94,8 +119,11 @@ Per file
 | `path`           | `files`, `lines` | file path, see below                                                |
 | `type`           | with `meta`      | `file`, `dir`, `link`                                               |
 | `size`           | with `meta`      | size in bytes                                                       |
+| `lang`, `kind`   | with `meta`      | language and kind of the file                                       |
 | `modified`       | with `meta`      | modification date, ISO 8601 with the offset                         |
 | `encoding`       | `files`, `lines` | only if the file is not UTF-8, e.g. `utf-16le`, `windows-1251`      |
+| `score`          | with `meta`      | relevance score, 0–1                                                |
+| `change`         | with `since`     | `added`, `removed`, `changed`, see [Result ids](#result-ids)        |
 | `truncated`      | `files`, `lines` | `true` if a per file limit cut the file's lines                     |
 | `lines`          | `files`, `lines` | number of matched lines in the file                                 |
 | `matches`        | `files`, `lines` | number of fragments in the file                                     |
@@ -178,7 +206,7 @@ src/config.rs  [#1 #2]  lines: 1  matches: 1
 43-    Ok(cfg)
 ```
 
-- the header line: totals and `truncated: yes`, `next cursor: ...` when truncated
+- the header line: totals, `result: r12`, and `truncated: yes`, `next cursor: ...` when truncated
 - the legend: one condition per line
 - per file: the path, the matched conditions in `[ ]`, counts, `(cut)` if a per file limit was hit, the encoding if
   it is not UTF-8; with `meta` also `file 2.1K 2026-10-08 14:03`
@@ -337,6 +365,268 @@ from `next_cursor`:
 - if files change between pages, results can shift; the response has a warning when the totals differ from the
   previous page
 
+## Relevance
+
+`sort = relevance` (the default) puts the files most likely to be the one the agent is looking for first, so a small
+`max_files` returns the right files, not the first ones in alphabetical order.
+
+The score of a file, from 0 to 1, combines:
+
+| Signal                         | Effect                                                                     |
+|--------------------------------|----------------------------------------------------------------------------|
+| fuzzy score                    | the best score of the `~~` conditions                                      |
+| query words in the path        | words of the `text` values found in the file name, then in the path: searching `'parse query' /n` ranks `parse_query.rs` high |
+| match density                  | matches per line of the file, log-scaled: a small file full of matches beats a huge file with a few |
+| matched conditions             | more contributing conditions of an `or` / `xor` — higher                   |
+| kind                           | `source` > `test` > `config` > `doc` > `other`, a light weight             |
+| recency                        | recently modified files get a light bonus                                  |
+| depth                          | shallower paths get a light bonus                                          |
+
+- the score is deterministic for the same files and query, equal scores are ordered by the full path
+- with `meta` every file shows its `score`
+- the weights are internal and may be tuned without a new spec version: the order is a ranking, not a contract
+
+## Funnel
+
+When a query returns nothing or far too much, the agent usually guesses and retries several times. The funnel
+explains the result, so it can be fixed in one step.
+
+`funnel = auto` adds it when the result is empty, or when the number of matched files is more than 10 times
+`max_files`. `always` adds it to every response with `count` detail or higher, `never` — never.
+
+### Steps
+
+For a query of conditions joined with `and`, every step shows how many files are left after the condition, in the
+order of the query. A part in brackets or a `line( ... )` / `near( ... )` group is one step:
+
+```
+files: 0
+funnel:
+  lang = rust                          312
+  and modified > -7d                    41
+  and text has 'parseQuery'              0
+```
+
+For a query joined with `or` every branch shows its own count. The steps are counted during the normal search, they
+cost nothing: the evaluation of a file stops at the first false condition anyway.
+
+### Hints
+
+For an empty result the server tries cheap variations of the condition where the count dropped to 0, only on the
+files which passed the steps before it, and reports the ones which match:
+
+| Hint                               | Example                                                         |
+|------------------------------------|-----------------------------------------------------------------|
+| other case                         | `text has 'parseQuery' /i` → 2 files                            |
+| other naming style                 | `text has 'parseQuery' /n` → 4 files (`parse_query`)            |
+| without `/w`, `has` instead of `=` | `name has 'config'` → 3 files                                   |
+| skipped files                      | 5 matching files ignored by `.gitignore`, 2 generated, 1 too big |
+| similar paths                      | `path starts 'src/parsers/'`: no such directory, similar: `src/parser/` |
+| similar names                      | `name = 'config.yml'`: similar: `config.yaml`                   |
+
+```
+files: 0
+funnel:
+  lang = rust                          312
+  and modified > -7d                    41
+  and text has 'parseQuery'              0
+hints:
+  text has 'parseQuery' /n             4 files: parse_query
+  skipped: 5 ignored by .gitignore (traversal.ignore_files)
+```
+
+The hints use at most 20% of the timeout. For a huge result the hints are the top values of the `dir` and `lang`
+facets, to show where to narrow:
+
+```
+files: 1840  lines: 9211  matches: 10380  truncated: yes (max_files)
+funnel:
+  text has 'error'                    1840
+hints:
+  most in: vendor/ 1210 · src/ 402 · tests/ 228
+  narrow with: not path ~ 'vendor/**', kind = source, /w
+```
+
+## Budget
+
+`budget` is the max size of the response in tokens. The server estimates tokens as characters divided by
+[`output.chars_per_token`](CONFIG.md#output) (default 4) and lowers the detail step by step until the response fits:
+
+1. as requested
+2. without context lines
+3. lines cut to 120 characters
+4. `detail = files`, the list truncated to the budget with a cursor, if at least 10 files (or all of them) fit
+5. `detail = facets`
+6. `detail = count`
+
+- the response says which level was used: `detail: files (budget 2000)`, in JSON `"detail_used": "files"`
+- the budget never raises the detail above the requested one
+- the `max_*` limits still apply; the budget is a limit on top of them
+
+```json
+{ "query": "lang = rust and text has 'unwrap(' /c", "output": { "budget": 1500 } }
+```
+
+The agent gets the most useful answer which costs at most about 1500 tokens, without guessing `max_files` and
+`context`.
+
+## Facets
+
+`detail = facets` returns the totals and the number of matched files per value of every facet: a cheap map of where
+the matches are.
+
+```
+files: 162  lines: 410  matches: 455
+dir:   tests/integration/ 88 · src/parser/ 41 · tests/unit/ 24 · src/eval/ 9
+lang:  rust 150 · toml 12
+kind:  test 112 · source 38 · config 12
+cond:  #1 162 · @unwrap 120 · @expect 61
+```
+
+| Facet       | Values                                                                        |
+|-------------|-------------------------------------------------------------------------------|
+| `dir`       | directories at `facet_depth` levels below the working directory; files higher up are counted in their own directory |
+| `ext`       | file extensions                                                               |
+| `lang`      | languages                                                                     |
+| `kind`      | kinds                                                                         |
+| `git`       | git statuses                                                                  |
+| `condition` | condition ids, the files where the condition contributed                     |
+
+Values are sorted by count, more than `facet_limit` values end with `… 5 more (21)`. In JSON:
+`"facets": { "dir": { "tests/integration/": 88, ... } }`.
+
+## Compact output
+
+Text format options which save tokens without losing information.
+
+### Dedent
+
+`dedent = true` removes the common leading whitespace of every block. The number of removed characters is written
+once at the start of the block, `col` still refers to the original line:
+
+```
+src/server/handlers.rs  [#1]  lines: 1  matches: 1
+⇥12
+140-let user = session.user()?;
+141:let id = user.⟦#1:unwrap(⟧).id;
+142-audit(id);
+```
+
+In JSON the block has `"indent": 12`.
+
+### Blank context lines
+
+With `blank_context = false` empty and whitespace-only context lines are skipped; the line numbers show the gap.
+
+### Directory groups
+
+With `group_dirs = true` files are written under a directory header, with paths relative to it:
+
+```
+src/parser/
+lexer.rs  [#1]  lines: 2  matches: 2
+...
+ast.rs  [#1]  lines: 1  matches: 1
+...
+src/eval/
+mod.rs  [#1]  lines: 1  matches: 1
+...
+```
+
+JSON paths are always full.
+
+### Repeated lines
+
+A matched line which is identical (ignoring leading and trailing whitespace, with the same condition ids) in at least
+`group_repeated` files is printed once in a `repeated` section before the files, with the number of files and a few
+locations:
+
+```
+repeated:
+  ×37 use anyhow::⟦#1:Result⟧;    src/main.rs:3, src/config.rs:5, src/eval/mod.rs:2, … 34 more
+```
+
+In the files below these lines are not repeated. A file which has no other matched lines is not printed in `lines`
+detail at all; `detail = files` still lists every file. The counts are not changed.
+
+## Result ids
+
+Every response with `count` detail or higher has a result id, e.g. `result: r12` in the header. The server keeps the
+last [`server.result_cache`](CONFIG.md#server) results in memory (default 50, until the server stops): the request,
+all matched files (not only the shown ones) and a fingerprint of their matched lines.
+
+### Refine: `within`
+
+```json
+{ "within": "r12", "query": "text has 'retry'" }
+```
+
+Searches only the files of result `r12`: "of those, which also have X?". There is no directory walk, so it is fast,
+and the agent doesn't have to repeat the first query. `dirs` and `traversal` of the request are ignored, the files are
+read again, so changes are seen. Files deleted since `r12` are skipped.
+
+### Changes: `since`
+
+```json
+{ "since": "r12", "query": "lang = rust and text has 'unwrap(' /c" }
+```
+
+Runs the request and returns only the differences to `r12`: useful while the agent edits files and checks its
+progress.
+
+| Mark | `change`  | The file                                                     |
+|------|-----------|--------------------------------------------------------------|
+| `+`  | `added`   | matches now, didn't match in `r12`                           |
+| `-`  | `removed` | matched in `r12`, doesn't match now (or is deleted)          |
+| `~`  | `changed` | matches in both, but the matched lines are different         |
+
+```
+files: 12  lines: 30  matches: 31  result: r15  since: r12  unchanged: 10
++ src/cache.rs  [#1]  lines: 1  matches: 1
+57:let v = map.get(k).⟦#1:unwrap(⟧);
+~ src/config.rs  [#1]  lines: 1  matches: 1
+42:let cfg: Config = toml::from_str(&raw).⟦#1:unwrap(⟧);
+- src/main.rs
+```
+
+Changed files show all their current matched lines, removed files only the path. The counts are of the current
+result.
+
+## Batch
+
+Several queries in one call: one round trip, one response.
+
+```json
+{
+  "dirs": ["."],
+  "output": { "detail": "files", "budget": 3000 },
+  "queries": [
+    { "label": "defs", "query": "lang = rust and text =~ `fn\\s+load_config`" },
+    { "label": "calls", "query": "lang = rust and text has 'load_config(' and not text =~ `fn\\s+load_config`" },
+    { "label": "tests", "query": "kind = test and text has 'load_config' /n", "output": { "detail": "count" } }
+  ]
+}
+```
+
+- `queries` replaces `query`; every item has a `query`, an optional `label` and may override `dirs`, `timeout`,
+  `traversal` and `output`
+- the other fields of the request are shared by all queries
+- the queries run in parallel; queries with the same `dirs` and `traversal` share one directory walk
+- `budget` and `max_output` are for the whole response, split equally between the queries; what a query doesn't use
+  goes to the next ones
+- every query has its own result id, legend and funnel
+- an invalid query has an error in its section, the others still run; `isError` is true only if all of them fail
+
+```
+== defs ==  files: 1  result: r20
+src/config.rs  [#1]  lines: 1  matches: 1
+== calls ==  files: 3  result: r21
+src/main.rs  [#1]  lines: 1  matches: 1
+src/cli.rs  [#1]  lines: 1  matches: 1
+src/server/mod.rs  [#1]  lines: 2  matches: 2
+== tests ==  files: 2  lines: 5  matches: 5  result: r22
+```
+
 ## Warnings
 
 Problems which don't stop the search. The search continues, the response has them in `warnings`:
@@ -353,13 +643,24 @@ Problems which don't stop the search. The search continues, the response has the
 | `marker_in_content`    | a line contains the highlight markers                                      |
 | `timeout`              | the search was stopped by the timeout                                      |
 | `results_changed`      | totals differ from the previous page                                       |
+| `not_a_git_repo`       | the query has `git` conditions, but a file is outside of a repository      |
 
 Warnings of the same code are grouped, with a few example paths:
 
 ```json
-"warnings": [
-  { "code": "permission_denied", "count": 3, "paths": ["secrets/a.key", "secrets/b.key", "root-only/"] }
-]
+{
+  "warnings": [
+    {
+      "code": "permission_denied",
+      "count": 3,
+      "paths": [
+        "secrets/a.key",
+        "secrets/b.key",
+        "root-only/"
+      ]
+    }
+  ]
+}
 ```
 
 ## Errors
@@ -397,11 +698,13 @@ Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 | `invalid_option`    | an unknown output / traversal option or a wrong value      |
 | `cursor_mismatch`   | the cursor belongs to another request                      |
 | `cursor_invalid`    | the cursor can't be decoded                                |
+| `result_expired`    | `within` / `since` refers to a result which is unknown or was evicted      |
 | `unsupported_version` | the requested `version` is not supported, see [TOOLS.md](TOOLS.md#versioning) |
 
 ## Examples
 
-All examples search in a small Rust project.
+All examples search in a small Rust project. To keep them focused, they leave out the result id and use
+`dedent = false` and `group_dirs = false`; see [Compact output](#compact-output) for how these look.
 
 ### Does anything match?
 

@@ -89,23 +89,32 @@ QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. 
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator
   text has 'TODO'                content contains; also: = starts ends, =~ regex (Rust syntax)
   size > 1M  modified > -7d  created  accessed  type = dir  empty
+  lang = rust   kind in (source, test)   git = changed|branch|staged|untracked
+  name ~~ 'cfgldr'               fuzzy file name (also path ~~)
   line(text has 'a' and not text has 'b')    conditions on the same line; len > 120 works inside line()
   near(text has 'lock', text has 'await', 3[, ordered][, closest|first])   lines within 3 of each other
 Modifiers after a text value: /i ignore case, /w whole word, /m multiline regex, /c skip comments,
+  /n any naming style ('parse query' = parseQuery, parse_query, PARSE_QUERY ...),
   /e(backslash|quote_doubling|xml|url, 0..2|any) also match the escaped text (JSON inside JSON etc.)
 Labels: text has 'x' @name — the output shows which condition matched.
 Strings: '...' or "..." with \ escapes; `...` raw, best for regex.
 Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 
-OUTPUT: output.detail = exists | count | files | lines (default); output.context = N lines around matches.
-Text response: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match, [#1 @x] matched conditions.
+OUTPUT: output.detail = exists | count | facets | files | lines (default); output.context = N lines around.
+output.budget = N tokens: the server picks the richest detail which fits. Files are sorted by relevance.
+Text response: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match, [#1 @x] matched conditions,
+⇥N removed indentation. Empty or huge results come with a funnel and hints how to fix the query.
 If truncated, pass next_cursor back as output.cursor with the same request.
+Every response has a result id (r12): within = "r12" searches only its files, since = "r12" returns only changes.
+queries = [{label, query}, ...] runs several queries in one call.
 
 EXAMPLES
   name ~ '*.py' and text has 'import requests'
   not text has 'license' /i                                   files without a match
   name ~ '*.{ts,tsx}' and line(text has 'any' /w and not text starts '//')
   text has `"role": "admin"` /e(backslash, any)               also inside stringified JSON
+  kind = source and name has 'config loader' /n               a file by a vague name
+  git = changed and text has 'dbg!('                          leftovers in uncommitted changes
 ```
 
 #### Input schema
@@ -121,6 +130,24 @@ EXAMPLES
       "description": "Working directories inside the allowed roots. Default: server.default_dirs."
     },
     "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." },
+    "queries": {
+      "type": "array", "minItems": 1,
+      "description": "Several queries in one call instead of `query`.",
+      "items": {
+        "type": "object",
+        "required": ["query"],
+        "properties": {
+          "label": { "type": "string" },
+          "query": { "type": "string" },
+          "dirs": { "type": "array", "items": { "type": "string" } },
+          "timeout": { "type": "string" },
+          "traversal": { "$ref": "#/properties/traversal" },
+          "output": { "$ref": "#/properties/output" }
+        }
+      }
+    },
+    "within": { "type": "string", "description": "Result id: search only the files of that result." },
+    "since": { "type": "string", "description": "Result id: return only the differences to that result." },
     "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max search time, e.g. '10s'. '0s': no limit." },
     "traversal": {
       "type": "object",
@@ -140,7 +167,8 @@ EXAMPLES
         "encoding": { "type": "string" },
         "fallback_encoding": { "type": "string" },
         "archives": { "enum": ["none", "compressed", "all"] },
-        "max_archive_size": { "type": "string" }
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
       }
     },
     "output": {
@@ -148,7 +176,13 @@ EXAMPLES
       "additionalProperties": false,
       "properties": {
         "format": { "enum": ["text", "json"] },
-        "detail": { "enum": ["exists", "count", "files", "lines"] },
+        "detail": { "enum": ["exists", "count", "facets", "files", "lines"] },
+        "budget": { "type": "integer", "minimum": 100, "description": "Max response size in tokens." },
+        "chars_per_token": { "type": "number", "exclusiveMinimum": 0 },
+        "funnel": { "enum": ["auto", "always", "never"] },
+        "facets": { "type": "array", "items": { "enum": ["dir", "ext", "lang", "kind", "git", "condition"] } },
+        "facet_depth": { "type": "integer", "minimum": 1 },
+        "facet_limit": { "type": "integer", "minimum": 1 },
         "meta": { "type": "boolean" },
         "context": { "type": "integer", "minimum": 0 },
         "before": { "type": "integer", "minimum": 0 },
@@ -163,7 +197,11 @@ EXAMPLES
         "max_line_length": { "type": "integer", "minimum": 20 },
         "max_output_per_file": { "type": "integer", "minimum": 100 },
         "max_output": { "type": "integer", "minimum": 100 },
-        "sort": { "type": "string", "pattern": "^(path|modified|size|matches)( (asc|desc))?$" },
+        "dedent": { "type": "boolean" },
+        "blank_context": { "type": "boolean" },
+        "group_dirs": { "type": "boolean" },
+        "group_repeated": { "type": "integer", "minimum": 0 },
+        "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches)( (asc|desc))?)$" },
         "path_style": { "enum": ["relative", "absolute"] },
         "cursor": { "type": "string" }
       }
@@ -173,14 +211,39 @@ EXAMPLES
       "additionalProperties": false,
       "properties": { "max_level": { "type": "integer", "minimum": 0 } }
     },
+    "query_options": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The [query] section of the configuration.",
+      "properties": { "fuzzy_min_score": { "type": "number", "minimum": 0, "maximum": 1 } }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "base": { "type": "string" } }
+    },
     "languages": {
       "type": "object",
-      "description": "Comment syntax per language, replaces the configured languages with the same name.",
+      "description": "Languages, replace the configured languages with the same name.",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
           "line_comments": { "type": "array", "items": { "type": "string" } },
           "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
           "nested_block_comments": { "type": "boolean" },
@@ -192,7 +255,8 @@ EXAMPLES
 }
 ```
 
-All fields are optional; missing ones come from the configuration, see
+All fields are optional; `query` and `queries` exclude each other. The `[query]` section of the configuration is
+passed as `query_options`, because `query` is the query itself. Missing fields come from the configuration, see
 [CONFIG.md](CONFIG.md#where-the-values-come-from). The meaning of the `traversal` fields is in
 [CONFIG.md](CONFIG.md#traversal), of the `output` fields in [OUTPUT.md](OUTPUT.md#options).
 
@@ -216,7 +280,7 @@ output defaults, limits, supported spec versions. Read-only. Call it once before
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "section": { "enum": ["server", "traversal", "output", "escape", "languages"] },
+    "section": { "enum": ["server", "traversal", "output", "escape", "query", "kinds", "git", "languages"] },
     "sources": { "type": "boolean", "description": "Add where each value comes from." }
   }
 }
