@@ -9,7 +9,8 @@ and line(text has 'unwrap' /i and not text starts '//')
 ```
 
 Rust files changed during the last 7 days, outside of `tests` directories, with at least one line which contains
-`unwrap` in any case and doesn't start with `//`.
+`unwrap` in any case and doesn't start with `//`. The examples assume the default configuration unless they say
+otherwise.
 
 - [Basics](#basics)
 - [Condition scope](#condition-scope)
@@ -90,9 +91,9 @@ Content conditions (`text`, `len`, `line(...)`, `near(...)`) are false for direc
 
 ### Generated files
 
-Generated files (`kind = generated`: lock files, minified code, files with an `@generated` or `DO NOT EDIT` header,
-see [kinds](CONFIG.md#kinds)) are skipped by default, they waste tokens and must not be edited anyway. If the query
-contains a `kind` condition, nothing is skipped implicitly:
+Generated files (`kind = generated`: lock files, `*.min.js`, files with an `@generated` or `DO NOT EDIT` marker in
+the first lines, see [kinds](CONFIG.md#kinds)) are skipped by default, they waste tokens and must not be edited
+anyway. If the query contains a `kind` condition, nothing is skipped implicitly:
 
 ```
 kind = generated and text has 'version'
@@ -126,7 +127,7 @@ neither by `text has 'x'` nor by `not text has 'x'` — but it can be returned b
 name ~ '*.png' or text has 'logo'        # PNG files by the name, text files by the content
 ```
 
-For an empty result the [hints](OUTPUT.md#hints) show how many files were skipped this way.
+For an empty result the [hints](OUTPUT.md#hints) (on by default) show how many files were skipped this way.
 
 ## Condition scope
 
@@ -146,7 +147,7 @@ Files which contain both `serde` and `tokio`, possibly on different lines.
 name ~ '*.rs' and not text has 'SPDX-License-Identifier'
 ```
 
-Rust files without a license header anywhere in the file (like `grep -L`).
+Rust files without `SPDX-License-Identifier` anywhere in the file (like `grep -L`).
 
 ### Line scope
 
@@ -259,7 +260,7 @@ doesn't depend on the working directory.
 
 ```
 kind = source and text has 'TODO'          # TODOs in the code, not in docs and tests
-kind = test and text has 'sleep('          # slow tests
+kind = test and text has 'sleep('          # tests which mention sleep(
 kind in (source, test) and lang = python
 ```
 
@@ -283,7 +284,7 @@ Outside of a repository and inside archives every `git` condition is false. For 
 response has a `not_a_git_repo` warning.
 
 ```
-git = changed and text has 'dbg!('              # debug leftovers in my uncommitted changes
+git = changed and text has 'dbg!('              # debug leftovers in files with uncommitted changes
 git = branch and kind = source                  # the code changed in this branch
 git = conflicted                                # files with conflicts
 ```
@@ -456,7 +457,7 @@ With `not` the meaning is "no match outside of comments":
 name ~ '*.rs' and not text has 'unsafe' /c
 ```
 
-Rust files without real `unsafe` code, even if `unsafe` is mentioned in comments.
+Rust files where `unsafe` appears only in comments, if at all.
 
 ## Escaping
 
@@ -626,8 +627,8 @@ path ~~ 'srv hndl'             # src/server/handlers.rs, services/http/handler.g
 
 Every match gets a score from 0 to 1. It is higher when the characters are at word starts (after `/`, `_`, `-`, `.`
 and case changes), consecutive, in the file name rather than in directories, and when the value is shorter. Matches
-below [`query.fuzzy_min_score`](CONFIG.md#query) (default 0.5) are dropped. With
-[`sort = relevance`](OUTPUT.md#relevance) the best scores come first.
+below [`query.fuzzy_min_score`](CONFIG.md#query) (default 0.5) are dropped. The score is one of the
+[relevance](OUTPUT.md#relevance) signals, so with the default `sort = relevance` the best matches tend to come first.
 
 ## Labels and condition ids
 
@@ -695,7 +696,7 @@ the line, so long queries can be documented:
 ```
 name ~ '*.rs'                      # Rust only
 and not path ~ '**/tests/**'       # skip tests
-and text has 'unwrap(' /c          # real calls, not comments
+and text has 'unwrap(' /c          # outside of comments
 ```
 
 ## Errors
@@ -778,14 +779,14 @@ Both words in the file, any lines:
 text has 'tokio' and text has 'rayon'
 ```
 
-Exactly one of two logging libraries — files mixing them are excluded:
+Rust files which mention exactly one of two logging libraries — files mentioning both are excluded:
 
 ```
 name ~ '*.rs' and (text has 'log::' xor text has 'tracing::')
 ```
 
-JavaScript with very long lines — minified code. Generated files are skipped by default, the `kind` condition brings
-them back (see [Generated files](#generated-files)):
+JavaScript with very long lines, usually minified code. Generated files are skipped by default, the `kind` condition
+brings them back (see [Generated files](#generated-files)):
 
 ```
 lang = javascript and kind in (source, generated) and line(len > 500)
@@ -797,14 +798,14 @@ Rust files which don't end with a line break (a quoted string, because `` `\n` `
 name ~ '*.rs' and not text ends '\n'
 ```
 
-A test function whose name ends with `_slow`, on the line after `#[test]`, multiline regex:
+A test function whose name ends with `_slow`, after `#[test]` with only whitespace between, multiline regex:
 
 ```
 name ~ '*.rs' and text =~ `#\[test\]\s*\n\s*fn \w+_slow` /m
 ```
 
-Real `unwrap()` calls in Rust code outside of `tests` directories, changed during the last 7 days, with labels to see
-which pattern matched:
+`.unwrap()` and `.expect(` outside of comments, in Rust files outside of `tests` directories changed during the last 7
+days, with labels to see which pattern matched:
 
 ```
 name ~ '*.rs'
@@ -813,13 +814,14 @@ and not path ~ '**/tests/**'
 and (text has '.unwrap()' /c @unwrap or text has '.expect(' /c @expect)
 ```
 
-Configuration files where a password key has a non-empty literal value:
+YAML, `.env` and `.properties` files with a line where a password key has a non-empty value, except lines starting
+with `#`:
 
 ```
 name ~ '*.{yml,yaml,env,properties}' and line(text =~ `(?i)password\s*[:=]\s*\S+` and not text starts '#')
 ```
 
-A role check in test fixtures, also inside stringified JSON:
+The admin role in test fixtures, also inside stringified JSON:
 
 ```
 path ~ '**/fixtures/**' and text has `"role": "admin"` /e(backslash, any)
@@ -832,7 +834,7 @@ Big log files that mention a request id. Files bigger than [`traversal.max_file_
 name ~ '*.log' and size > 10M and text has 'req-7f3a9c'
 ```
 
-Log files that mention the request id, also rotated and archived ones, with
+Log files that mention the request id, also compressed (`.log.gz`) and archived ones, with
 [`traversal.archives`](CONFIG.md#archives) = `all`; big ones only with the raised `max_file_size`, as above. `*.log`
 also matches `.log` members inside `.zip` and `.tar.gz` archives, because `name` of a member is its own name:
 
@@ -854,13 +856,13 @@ The file of a class which loads the configuration, exact name unknown:
 kind = source and (name has 'config loader' /n or name ~~ 'cfgload')
 ```
 
-Where a function is defined, any language and naming style:
+Where a function is defined, in languages with an `fn`, `def`, `func` or `function` keyword, any naming style:
 
 ```
 kind = source and line(text has 'parse query' /n/w and text =~ `\b(fn|def|func|function)\b`)
 ```
 
-What I changed in this branch that still has a TODO:
+Source and test files changed in this branch which still have a TODO:
 
 ```
 git = branch and kind in (source, test) and text has 'TODO'

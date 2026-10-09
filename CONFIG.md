@@ -72,7 +72,7 @@ Without a file the built-in defaults are used. An invalid file stops the server 
 key and the line.
 
 There is no project level config file (e.g. in a repository): a cloned repository must not be able to change what the
-server is allowed to read. Project specific exclusions are done with [ignore files](#ignore-files) like `.aiignore`.
+server is allowed to search. Project specific exclusions are done with [ignore files](#ignore-files) like `.aiignore`.
 
 ### Full example
 
@@ -201,7 +201,7 @@ Can't be changed by a request; only `timeout` and `default_dirs` are replaced fo
 
 | Key             | Type             | Default  | Read-only | Meaning                                                      |
 |-----------------|------------------|----------|-----------|--------------------------------------------------------------|
-| `allowed_roots` | list of paths    | `[]`     | yes       | the server never reads outside of them; empty — the start directory |
+| `allowed_roots` | list of paths    | `[]`     | yes       | the server never searches outside of them; empty — the start directory |
 | `default_dirs`  | list of paths    | `["."]`  | no        | working directories of a request without `dirs`              |
 | `timeout`       | duration         | `"30s"`  | no        | max time of one search, units `ms`, `s`, `m`; `"0s"` — no limit |
 | `threads`       | number           | `0`      | no        | search threads, `0` — number of CPU cores                    |
@@ -702,7 +702,7 @@ allowed_roots = ["~/work/web"]
 
 [traversal]
 exclude = ["**/node_modules/**", "**/dist/**", "**/.next/**", "**/coverage/**"]
-max_file_size = "2M"            # skip bundles and snapshots
+max_file_size = "2M"            # don't search the content of big bundles and snapshots
 
 [output]
 max_line_length = 200           # minified code has huge lines

@@ -102,9 +102,10 @@ Strings: '...' or "..." with \ escapes; `...` raw, best for regex.
 Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 
 OUTPUT: output.detail = exists | count | facets | files | lines (default); output.context = N lines around.
-output.budget = N tokens: the server picks the richest detail which fits. Files are sorted by relevance.
-Text response: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match, [#1 @x] matched conditions,
-⇥N removed indentation. Empty or huge results come with a funnel and hints how to fix the query.
+output.budget = N tokens: the server picks the richest detail which fits. By default files are sorted by relevance.
+Text response with the default options: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match,
+[#1 @x] matched conditions, ⇥N removed indentation; empty or huge results come with a funnel and hints how to fix
+the query.
 If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
@@ -116,7 +117,7 @@ EXAMPLES
   name ~ '*.{ts,tsx}' and line(text has 'any' /w and not text starts '//')
   text has `"role": "admin"` /e(backslash, any)               also inside stringified JSON
   kind = source and name has 'config loader' /n               a file by a vague name
-  git = changed and text has 'dbg!('                          leftovers in uncommitted changes
+  git = changed and text has 'dbg!('                          leftovers in files with uncommitted changes
 ```
 
 #### Input schema
@@ -347,7 +348,8 @@ Two kinds:
 | tool error        | invalid query, invalid option, directory not allowed, bad cursor, unsupported version, ... | a normal result with `isError: true` |
 | protocol error    | unknown tool, malformed JSON-RPC                                  | a JSON-RPC error                           |
 
-Tool errors are results, not JSON-RPC errors, so the agent sees the message and the hint and can fix the request.
+Tool errors are results, not JSON-RPC errors, so the agent sees the message and the hint, if any, and can fix the
+request.
 Input which doesn't match the schema is also a tool error (`invalid_option`) for the same reason. In a batch an
 invalid query gets its error in its own section and the others still run; `isError` is true only if all queries
 fail, see [OUTPUT.md](OUTPUT.md#batch).

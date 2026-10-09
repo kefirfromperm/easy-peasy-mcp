@@ -107,6 +107,7 @@ Top level
 | `hints`         | `count` and higher | see [Funnel](#funnel)                                              |
 | `facets`        | `facets`           | see [Facets](#facets)                                              |
 | `repeated`      | `lines`            | matched lines repeated in many files, see [Compact output](#compact-output) |
+| `since`         | with `since`       | the result id the differences are to, see [Result ids](#result-ids) |
 | `unchanged`     | with `since`       | number of files which match as before, see [Result ids](#result-ids) |
 | `counts.files`  | `count` and higher | number of matched files                                            |
 | `counts.lines`  | `count` and higher | number of matched lines                                            |
@@ -225,7 +226,9 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 ```
 
 - the header line: totals, `result: r1`, `detail: files (budget 2000)` when the [budget](#budget) lowered the
-  detail, and `truncated: yes (...)`, `next cursor: ...` when something was cut
+  detail, `since: r12  unchanged: 10` with [`since`](#changes-since), and `truncated: yes (...)`, `next cursor: ...`
+  when something was cut; with `detail = exists` the header is `exists: yes` or `exists: no`, after a timeout also
+  `truncated: yes (timeout)`
 - the legend: one condition per line
 - `funnel:` and `hints:`, when present, after the legend, see [Funnel](#funnel)
 - `src/` — a directory header, the files under it are written relative to it, see
@@ -600,7 +603,7 @@ repeated:
 ```
 
 In the files below these lines are not repeated. A file which has no other matched lines is not printed in `lines`
-detail at all; `detail = files` still lists every file. The counts are not changed.
+detail at all; `detail = files` still lists such a file. The counts are not changed.
 
 ## Result ids
 
@@ -649,8 +652,8 @@ files: 12  lines: 30  matches: 31  result: r15  since: r12  unchanged: 10
 - src/main.rs
 ```
 
-Changed files show all their current matched lines, removed files only the path. The counts are of the current
-result.
+Changed files show their current matched lines, not only the changed ones; removed files show only the path. The
+counts are of the current result.
 
 ## Batch
 
@@ -675,7 +678,9 @@ Several queries in one call: one round trip, one response.
 - `budget` and `max_output` are for the whole response, split equally between the queries; what a query doesn't use
   goes to the next ones; a query which sets its own `output.budget` or `output.max_output` gets exactly that, the
   rest is split between the others
-- every query has its own result id, legend and funnel
+- result ids, legends and funnels are per query, each where it applies (a `count` query has no legend)
+- in the text format every section starts with `== label ==` (the number of the query if it has no label) on its
+  header line
 - an invalid query has an error in its section, the others still run; `isError` is true only if all of them fail
 
 ```
@@ -733,7 +738,7 @@ Warnings of the same code are grouped, with a few example paths:
 
 ## Errors
 
-If the request can't be executed, the tool returns a result with `isError: true` and one error, see
+If the request can't be executed, the tool returns a result with `isError: true` and the error, see
 [TOOLS.md](TOOLS.md#errors); in a [batch](#batch) every invalid query has its own error in its section. A cancelled
 request returns nothing, as MCP requires.
 

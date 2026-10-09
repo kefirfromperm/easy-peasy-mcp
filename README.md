@@ -97,5 +97,5 @@ main.rs  [#1 #2]  lines: 1  matches: 1
 
 ## Encoding
 
-Files are decoded by their BOM (UTF-8, UTF-16, UTF-32). Without a BOM, UTF-16 is recognized by its zero bytes, other
-files are read as UTF-8 with an optional fallback encoding, see [CONFIG.md](CONFIG.md#encoding).
+By default files are decoded by their BOM (UTF-8, UTF-16, UTF-32). Without a BOM, UTF-16 is recognized by its zero
+bytes, other files are read as UTF-8 with an optional fallback encoding, see [CONFIG.md](CONFIG.md#encoding).
