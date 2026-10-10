@@ -126,10 +126,10 @@ fn unknown_argument() {
 }
 
 #[test]
-fn keys_not_implemented_yet() {
+fn an_invalid_value_at_start() {
     let dir = fixture();
     let config = dir.temp().join("config.toml");
-    std::fs::write(&config, "[output]\nchars_per_token = 3.5\n").unwrap();
+    std::fs::write(&config, "[output]\nchars_per_token = 0\n").unwrap();
     let out = server_command(&dir.root, dir.temp())
         .arg("--config")
         .arg(&config)
@@ -139,7 +139,7 @@ fn keys_not_implemented_yet() {
     assert_eq!(
         String::from_utf8(out.stderr).unwrap(),
         format!(
-            "easy-peasy-mcp: {}:2: the key 'output.chars_per_token' is not implemented yet\n",
+            "easy-peasy-mcp: {}:2: invalid value for 'output.chars_per_token': a positive number is expected\n",
             config.display()
         )
     );

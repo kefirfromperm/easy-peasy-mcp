@@ -281,7 +281,9 @@ impl Engine {
             timed_out,
         };
         Ok(match settings.opt_whole(Key::Budget) {
-            Some(budget) => output::fit(response, budget, CHARS_PER_TOKEN, json),
+            Some(budget) => {
+                output::fit(response, budget, settings.number(Key::CharsPerToken), json)
+            }
             None if json => response.to_json(),
             None => response.to_text(),
         })
@@ -599,9 +601,6 @@ fn facet_names(settings: &Settings, detail: Detail, options: &mut SearchOptions)
     options.git_status = names.iter().any(|f| f == "git");
     names
 }
-
-/// The characters of a token of the budget (`output.chars_per_token` comes with task 109).
-const CHARS_PER_TOKEN: f64 = 4.0;
 
 /// How much the response returns.
 fn detail(settings: &Settings) -> Detail {
