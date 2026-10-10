@@ -1,6 +1,6 @@
 # Task 91: `output.meta`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 79, task 16
 
