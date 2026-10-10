@@ -1,6 +1,6 @@
 # Task 100: `output.max_output`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 94
 
