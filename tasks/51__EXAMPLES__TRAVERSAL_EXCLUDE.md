@@ -59,6 +59,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E51.2 Every `target` directory
@@ -179,6 +180,7 @@ ignore_paths = []    # default
 exclude = ['**/target/**']    # update
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ## E51.6 An invalid value in a request
@@ -266,6 +268,7 @@ ignore_paths = []    # default
 exclude = ['**/target/**']    # file: conf/e.toml
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 2. `find`

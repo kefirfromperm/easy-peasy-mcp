@@ -54,6 +54,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E47.2 Hidden files in the request
@@ -138,6 +139,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ## E47.5 An invalid value in a request
@@ -199,6 +201,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 2. `find`
