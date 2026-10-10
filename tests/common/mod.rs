@@ -139,7 +139,7 @@ impl McpServer {
             stdin: self.stdin,
             messages,
             log: Vec::new(),
-            next: 0,
+            taken: Vec::new(),
         }
     }
 }
@@ -151,8 +151,8 @@ pub struct Exchange {
     messages: std::sync::mpsc::Receiver<Value>,
     /// Every message received.
     pub log: Vec<Value>,
-    /// The first message of the log which no `receive` has passed yet.
-    next: usize,
+    /// Per message of the log whether a `receive` took it.
+    taken: Vec<bool>,
 }
 
 impl Exchange {
@@ -161,20 +161,21 @@ impl Exchange {
         self.stdin.flush().unwrap();
     }
 
-    /// The next message which matches `expected`, skipping the others; `None` when none arrives within `timeout`.
+    /// The first message which matches `expected` and which no earlier `receive` took; `None` when none arrives
+    /// within `timeout`.
     pub fn receive(&mut self, expected: &Value, timeout: std::time::Duration) -> Option<Value> {
         let deadline = std::time::Instant::now() + timeout;
         loop {
-            while self.next < self.log.len() {
-                let message = &self.log[self.next];
-                self.next += 1;
-                if matches(expected, message) {
-                    return Some(message.clone());
-                }
+            if let Some(i) =
+                (0..self.log.len()).find(|&i| !self.taken[i] && matches(expected, &self.log[i]))
+            {
+                self.taken[i] = true;
+                return Some(self.log[i].clone());
             }
             let left = deadline.checked_duration_since(std::time::Instant::now())?;
             let message = self.messages.recv_timeout(left).ok()?;
             self.log.push(message);
+            self.taken.push(false);
         }
     }
 
@@ -183,7 +184,10 @@ impl Exchange {
         let deadline = std::time::Instant::now() + wait;
         while let Some(left) = deadline.checked_duration_since(std::time::Instant::now()) {
             match self.messages.recv_timeout(left) {
-                Ok(message) => self.log.push(message),
+                Ok(message) => {
+                    self.log.push(message);
+                    self.taken.push(false);
+                }
                 Err(_) => break,
             }
         }

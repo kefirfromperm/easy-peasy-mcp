@@ -38,6 +38,8 @@ pub enum ErrorCode {
     CursorInvalid,
     UnsupportedVersion,
     ResultExpired,
+    /// A cancelled request: its response is never sent (TOOLS.md#cancellation).
+    Cancelled,
     NotImplemented,
 }
 
@@ -78,6 +80,7 @@ impl ErrorCode {
             Self::CursorInvalid => "cursor_invalid",
             Self::UnsupportedVersion => "unsupported_version",
             Self::ResultExpired => "result_expired",
+            Self::Cancelled => "cancelled",
             Self::NotImplemented => "not_implemented",
         }
     }

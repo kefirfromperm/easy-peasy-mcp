@@ -106,6 +106,66 @@ pub struct Engine {
     settings: RwLock<Settings>,
     /// The results kept for `within` and `since`.
     results: Mutex<ResultCache>,
+    /// The threads shared by the running searches.
+    slots: Arc<Slots>,
+}
+
+/// The threads of `server.threads`, shared by the running searches (TOOLS.md#concurrency): the number taken.
+#[derive(Debug, Default)]
+struct Slots {
+    busy: Mutex<usize>,
+    freed: std::sync::Condvar,
+}
+
+impl Slots {
+    /// Takes the free ones of `capacity` threads, at least one, waiting while none is free; `None` when `stop` says
+    /// the search is over while it waits (its deadline, its cancellation).
+    fn acquire(self: &Arc<Self>, capacity: usize, stop: &dyn Fn() -> bool) -> Option<Lease> {
+        let capacity = capacity.max(1);
+        let mut busy = self.busy.lock().unwrap_or_else(PoisonError::into_inner);
+        while *busy >= capacity {
+            if stop() {
+                return None;
+            }
+            busy = self
+                .freed
+                .wait_timeout(busy, std::time::Duration::from_millis(50))
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+        let count = capacity - *busy;
+        *busy += count;
+        Some(Lease {
+            slots: Arc::clone(self),
+            count,
+        })
+    }
+}
+
+/// Threads taken by a search, given back when it is dropped.
+#[derive(Debug)]
+struct Lease {
+    slots: Arc<Slots>,
+    count: usize,
+}
+
+impl Lease {
+    /// The number of threads.
+    fn count(&self) -> usize {
+        self.count
+    }
+}
+
+impl Drop for Lease {
+    fn drop(&mut self) {
+        let mut busy = self
+            .slots
+            .busy
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        *busy -= self.count;
+        self.slots.freed.notify_all();
+    }
 }
 
 impl Engine {
@@ -119,6 +179,7 @@ impl Engine {
             settings: RwLock::new(options.settings.clone()),
             options,
             results: Mutex::default(),
+            slots: Arc::default(),
         }
     }
 
@@ -296,6 +357,13 @@ impl Engine {
             .with(&request.config, &request.languages)
             .map_err(|p| p.request_report())?;
         let run = self.run(&request, &settings, arguments, arrival, progress)?;
+        if progress.is_some_and(|p| p.is_cancelled()) {
+            // no response is sent and no result is kept for a cancelled request
+            return Err(Report::new(
+                ErrorCode::Cancelled,
+                "the request was cancelled",
+            ));
+        }
         Ok(self.respond(&settings, arguments, run))
     }
 
@@ -329,6 +397,16 @@ impl Engine {
         let detail = detail(settings);
         search.funnel = settings.text(Key::Funnel) != "never" && detail >= Detail::Count;
         let facet_names = facet_names(settings, detail, &mut search);
+        let threads = match search.threads {
+            0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
+            n => n,
+        };
+        let stop = || {
+            deadline.is_some_and(|d| std::time::Instant::now() >= d)
+                || progress.is_some_and(|p| p.is_cancelled())
+        };
+        let lease = self.slots.acquire(threads, &stop);
+        search.threads = lease.as_ref().map_or(1, Lease::count);
         let mut result = search_sorted(
             settings,
             &working_dirs,
@@ -350,6 +428,7 @@ impl Engine {
             facet_names,
             since,
             result,
+            _lease: lease,
         })
     }
 
@@ -365,6 +444,7 @@ impl Engine {
             limit,
             facet_names,
             since,
+            _lease,
             result:
                 search::SearchResult {
                     mut files,
@@ -945,6 +1025,8 @@ struct Run {
     /// The kept result of `since`.
     since: Option<CachedResult>,
     result: search::SearchResult,
+    /// The threads of the search, given back with the response.
+    _lease: Option<Lease>,
 }
 
 /// How the fragments are shown: `auto` is markers in text and columns in JSON.
@@ -1051,4 +1133,35 @@ fn fingerprint(file: &search::Found) -> u64 {
         }
     }
     hasher.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn searches_share_the_threads() {
+        let slots = std::sync::Arc::new(Slots::default());
+        let never = || false;
+        let first = slots.acquire(3, &never).unwrap();
+        assert_eq!(first.count(), 3, "all the free threads");
+        let waiting = {
+            let slots = std::sync::Arc::clone(&slots);
+            std::thread::spawn(move || slots.acquire(3, &|| false).unwrap().count())
+        };
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(!waiting.is_finished(), "no thread is free");
+        drop(first);
+        assert_eq!(waiting.join().unwrap(), 3);
+        assert!(
+            slots.acquire(2, &|| true).is_some(),
+            "free threads don't wait"
+        );
+        let busy = slots.acquire(1, &never).unwrap();
+        assert!(
+            slots.acquire(1, &|| true).is_none(),
+            "a stopped search doesn't wait"
+        );
+        drop(busy);
+    }
 }
