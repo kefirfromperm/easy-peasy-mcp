@@ -53,6 +53,7 @@ encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
 max_archive_size = "100M"
+skip_generated = true
 ```
 
 ## E56.2 A fallback in a request
@@ -154,6 +155,7 @@ encoding = "auto"    # default
 fallback_encoding = "windows-1252"    # update
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 4. `update_config`
@@ -231,6 +233,7 @@ encoding = "auto"    # default
 fallback_encoding = "windows-1252"    # file: conf/f.toml
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 2. `find`
