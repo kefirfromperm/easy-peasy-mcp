@@ -23,6 +23,8 @@ are UTC.
 
 ## E103.1 Other case, other naming style, skipped files
 
+The warnings of the search are written after the hints.
+
 Fixture: `hints`
 
 ```json request
@@ -37,6 +39,9 @@ hints:
   text has 'parseQuery' /i               1 file: ParseQuery
   text has 'parseQuery' /n               2 files: ParseQuery, parse_query
   skipped: 1 ignored (traversal.ignore_files), 1 generated (traversal.skip_generated), 1 too big (traversal.max_file_size), 1 binary (traversal.binary)
+
+warning: too_big (1): big.txt
+warning: binary_skipped (1): data.bin
 ```
 
 ## E103.2 On the files of the steps before
@@ -62,6 +67,8 @@ hints:
 
 ## E103.3 Without `/w`
 
+`Query` is in `src/parser/mod.rs` and in `big.txt`; `data.bin` is not searched.
+
 Fixture: `hints`
 
 ```json request
@@ -73,7 +80,9 @@ files: 0  lines: 0  matches: 0  result: r1
 funnel:
   text has 'Query' /w                    0
 hints:
-  text has 'Query'                       1 file: Query
+  text has 'Query'                       2 files: Query
+
+warning: binary_skipped (1): data.bin
 ```
 
 ## E103.4 `has` instead of `=`
@@ -179,4 +188,6 @@ funnel:
 src/parser/
 mod.rs  [#1]  lines: 1  matches: 1
 1:fn parse() { ⟦#1:ParseQuery⟧::new() }
+
+warning: binary_skipped (1): data.bin
 ```
