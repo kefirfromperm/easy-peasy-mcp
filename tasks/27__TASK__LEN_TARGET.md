@@ -1,6 +1,6 @@
 # Task 27: `len` target
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 26
 
