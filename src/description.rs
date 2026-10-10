@@ -45,7 +45,9 @@ Modifiers after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i;
 (markers in strings are text; files of an unknown language are searched as is): text has 'unsafe' /c;
 /e(backslash|quote_doubling|xml|url, 0..2|1|any) on = has starts ends of text also matches the value escaped that
 many times (JSON inside JSON etc.), e.g. text has `\"type\": \"admin\"` /e(backslash, any); any = 0..3; the
-level of each match is shown after the ids: ⟦#1/e1:...⟧.
+level of each match is shown after the ids: ⟦#1/e1:...⟧; /n any naming style on = has starts ends of text, name
+and path, case-insensitive: text has 'parse query' /n matches parseQuery ParseQuery parse_query PARSE_QUERY
+parse-query parse.query parsequery; with /w the whole identifier; not with /e.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.

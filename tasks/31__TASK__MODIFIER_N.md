@@ -1,6 +1,6 @@
 # Task 31: `/n` any naming style
 
-Status: not implemented
+Status: implemented, see [31__SUMMARY__MODIFIER_N.md](31__SUMMARY__MODIFIER_N.md)
 
 Depends on: task 23
 
