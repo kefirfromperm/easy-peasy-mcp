@@ -127,7 +127,7 @@ fn compile(patterns: &[String], case_insensitive: bool) -> Vec<Regex> {
     patterns
         .iter()
         .map(|p| {
-            wildcard::compile(&crate::query::nfc(p), case_insensitive)
+            wildcard::compile(&crate::query::path_wildcard(p), case_insensitive)
                 .expect("the wildcards of the kinds are checked with their keys")
         })
         .collect()

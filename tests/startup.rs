@@ -71,7 +71,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
             .output()
             .map_err(|e| e.to_string())?;
         let stderr = String::from_utf8_lossy(&output.stderr);
-        if output.status.code() != Some(code) || stderr != expected || !output.stdout.is_empty() {
+        if output.status.code() != Some(code)
+            || !common::same_response(example, &block.info, &expected, &stderr)
+            || !output.stdout.is_empty()
+        {
             return Err(format!(
                 "expected exit {code} and stderr:\n{expected}\nactual exit {:?}, stdout {} bytes, stderr:\n{stderr}",
                 output.status.code(),
@@ -93,6 +96,7 @@ fn run_session(server: McpServer, example: &Example, fixture_path: &str) -> Resu
         return Err(format!("the server didn't start: {status}"));
     };
     let mut exchange = server.into_exchange();
+    exchange.slashed = common::slashed(example);
     exchange.record(initialized);
     let result = run_blocks(&mut exchange, example, fixture_path);
     let _ = exchange.child.kill();
@@ -160,11 +164,7 @@ fn run_blocks(
                     .text
                     .replace("<version>", env!("CARGO_PKG_VERSION"))
                     .replace("<fixture>", fixture_path);
-                let same = if expected.info.starts_with("json ") {
-                    common::same_json(&expected_text, text)
-                } else {
-                    text == expected_text
-                };
+                let same = common::same_response(example, &expected.info, &expected_text, text);
                 if is_error != expected.info.ends_with(" error") || !same {
                     return Err(format!(
                         "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"

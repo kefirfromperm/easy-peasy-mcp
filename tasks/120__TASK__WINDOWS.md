@@ -1,6 +1,6 @@
 # Task 120: Windows specifics
 
-Status: not implemented
+Status: implemented, see [120__SUMMARY__WINDOWS.md](120__SUMMARY__WINDOWS.md)
 
 Depends on: task 118, task 47, task 52, task 9
 

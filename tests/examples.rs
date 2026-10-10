@@ -77,11 +77,7 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
             .text
             .replace("<version>", env!("CARGO_PKG_VERSION"))
             .replace("<fixture>", &dir.root.to_string_lossy());
-        let same = if expected.info.starts_with("json ") {
-            common::same_json(&expected_text, &output.text)
-        } else {
-            output.text == expected_text
-        };
+        let same = common::same_response(example, &expected.info, &expected_text, &output.text);
         if output.is_error != want_error || !same {
             return Err(format!(
                 "step {step}: expected {kind} (isError: {want_error}):\n{expected_text}\nactual (isError: {}):\n{}",

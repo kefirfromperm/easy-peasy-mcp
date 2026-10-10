@@ -543,6 +543,7 @@ impl Engine {
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),
             languages,
+            backslash_separator: query::BACKSLASH_SEPARATOR,
             max_escape_level: settings.whole(Key::MaxLevel),
             fuzzy_min_score: settings.number(Key::FuzzyMinScore),
         }
@@ -607,7 +608,7 @@ impl Engine {
                 .list(Key::Exclude)
                 .iter()
                 .map(|w| {
-                    query::wildcard::compile(&query::nfc(w), case_insensitive_paths)
+                    query::wildcard::compile(&query::path_wildcard(w), case_insensitive_paths)
                         .expect("the wildcards of exclude are checked with their key")
                 })
                 .collect(),
@@ -724,7 +725,7 @@ impl Engine {
                 format!("the working directory '{dir}' is not a directory"),
             ));
         }
-        let canonical = std::fs::canonicalize(&path).unwrap_or(path);
+        let canonical = crate::paths::canonicalize(&path).unwrap_or(path);
         if !settings.is_allowed(&canonical) {
             return Err(Report::new(
                 ErrorCode::DirNotAllowed,
@@ -789,7 +790,7 @@ fn search_within(
         let mut visited = Vec::new();
         for file in files.iter().filter(|f| f.root == index) {
             let full = path.join(&file.rel);
-            match std::fs::canonicalize(&full) {
+            match crate::paths::canonicalize(&full) {
                 Ok(canonical) if !settings.is_allowed(&canonical) => {
                     warnings.add(WarningCode::PermissionDenied, prefix.join(&file.rel), false);
                 }

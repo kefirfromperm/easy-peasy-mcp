@@ -200,6 +200,7 @@ mod tests {
             now: jiff::Timestamp::UNIX_EPOCH,
             time_zone: jiff::tz::TimeZone::UTC,
             languages: std::sync::Arc::new(crate::languages::LanguageTable::builtin()),
+            backslash_separator: false,
             max_escape_level: 3,
             fuzzy_min_score: 0.5,
         };

@@ -320,7 +320,7 @@ impl Settings {
         };
         let mut allowed_roots = Vec::new();
         for root in &roots {
-            let canonical = std::fs::canonicalize(start_dir.join(expand_home(root, home)))
+            let canonical = crate::paths::canonicalize(&start_dir.join(expand_home(root, home)))
                 .map_err(|_| StartError {
                     path: file.filter(|_| line.is_some()).map(|f| f.path.clone()),
                     line,
@@ -487,7 +487,7 @@ pub fn expand_home(path: &str, home: Option<&Path>) -> PathBuf {
 
 /// The canonical form of `path`, or `path` itself when it can't be resolved.
 fn canonical_or_same(path: &Path) -> PathBuf {
-    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+    crate::paths::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 /// A duration of the configuration: a whole number and `ms`, `s` or `m` (`CONFIG.md#server`).

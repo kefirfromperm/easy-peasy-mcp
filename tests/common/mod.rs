@@ -140,6 +140,7 @@ impl McpServer {
             messages,
             log: Vec::new(),
             taken: Vec::new(),
+            slashed: false,
         }
     }
 }
@@ -153,12 +154,19 @@ pub struct Exchange {
     pub log: Vec<Value>,
     /// Per message of the log whether a `receive` took it.
     taken: Vec<bool>,
+    /// Whether every `\` of the strings of a message is read as `/`: an example of the Linux conventions on Windows
+    /// (AGENTS.md).
+    pub slashed: bool,
 }
 
 impl Exchange {
     /// Adds a message read before the exchange started, e.g. the response to `initialize`.
     pub fn record(&mut self, message: Value) {
-        self.log.push(message);
+        self.log.push(if self.slashed {
+            slashed_json(message)
+        } else {
+            message
+        });
         self.taken.push(false);
     }
 
@@ -180,8 +188,7 @@ impl Exchange {
             }
             let left = deadline.checked_duration_since(std::time::Instant::now())?;
             let message = self.messages.recv_timeout(left).ok()?;
-            self.log.push(message);
-            self.taken.push(false);
+            self.record(message);
         }
     }
 
@@ -190,10 +197,7 @@ impl Exchange {
         let deadline = std::time::Instant::now() + wait;
         while let Some(left) = deadline.checked_duration_since(std::time::Instant::now()) {
             match self.messages.recv_timeout(left) {
-                Ok(message) => {
-                    self.log.push(message);
-                    self.taken.push(false);
-                }
+                Ok(message) => self.record(message),
                 Err(_) => break,
             }
         }
@@ -239,6 +243,46 @@ fn glob(pattern: &str, text: &str) -> bool {
         }
     }
     true
+}
+
+/// Whether the example is compared with every `\` read as `/`: on Windows, unless it is marked with a platform
+/// (AGENTS.md).
+pub fn slashed(example: &Example) -> bool {
+    cfg!(windows) && example.platform.is_none()
+}
+
+/// A JSON value with every `\` of its strings read as `/`.
+pub fn slashed_json(value: Value) -> Value {
+    match value {
+        Value::String(s) => Value::String(s.replace('\\', "/")),
+        Value::Array(items) => Value::Array(items.into_iter().map(slashed_json).collect()),
+        Value::Object(map) => {
+            Value::Object(map.into_iter().map(|(k, v)| (k, slashed_json(v))).collect())
+        }
+        other => other,
+    }
+}
+
+/// Whether `actual` is the text or the JSON document (`json` blocks) of the block `expected` of `example`.
+pub fn same_response(example: &Example, info: &str, expected: &str, actual: &str) -> bool {
+    if !slashed(example) {
+        return if info.starts_with("json ") {
+            same_json(expected, actual)
+        } else {
+            actual == expected
+        };
+    }
+    if info.starts_with("json ") {
+        let (Ok(want), Ok(got)) = (
+            serde_json::from_str::<Value>(expected),
+            serde_json::from_str::<Value>(actual),
+        ) else {
+            return false;
+        };
+        slashed_json(want) == slashed_json(got) && !actual.trim_end().contains('\n')
+    } else {
+        actual.replace('\\', "/") == expected.replace('\\', "/")
+    }
 }
 
 /// Whether `actual` is the JSON document of the block `expected`: one line, the same JSON value.
@@ -552,7 +596,7 @@ pub fn setup_fixture(fixture: &Fixture) -> FixtureDir {
         restricted.push(p);
     }
     FixtureDir {
-        root: fs::canonicalize(&root).unwrap(),
+        root: without_verbatim_prefix(fs::canonicalize(&root).unwrap()),
         permissions_removed,
         restricted,
         tmp,
@@ -619,6 +663,12 @@ fn run_setup(root: &Path, action: &str) {
             fs::write(p, bytes).unwrap();
         }
         "hide" => hide(&root.join(rest.trim())),
+        "junction" => {
+            let (link, target) = rest
+                .split_once(" -> ")
+                .expect("junction <path> -> <target>");
+            junction(target.trim(), &root.join(link.trim()));
+        }
         "git" | "git!" => {
             let (dir, args) = rest.trim().split_once(' ').expect("git <dir> <args>");
             let status = std::process::Command::new("git")
@@ -641,6 +691,39 @@ fn run_setup(root: &Path, action: &str) {
         }
         other => panic!("unknown setup action {other}"),
     }
+}
+
+/// A canonical path in the form the server shows it: on Windows without the `\\?\` prefix (OUTPUT.md#paths).
+fn without_verbatim_prefix(path: PathBuf) -> PathBuf {
+    let text = path.to_string_lossy();
+    let plain = if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        Some(PathBuf::from(format!(r"\\{rest}")))
+    } else {
+        text.strip_prefix(r"\\?\")
+            .filter(|rest| rest.as_bytes().get(1) == Some(&b':'))
+            .map(PathBuf::from)
+    };
+    plain.unwrap_or(path)
+}
+
+/// A junction on Windows (`mklink /J`).
+#[cfg(windows)]
+fn junction(target: &str, link: &Path) {
+    let target = link.parent().unwrap().join(target.replace('/', "\\"));
+    let status = std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(link)
+        .arg(&target)
+        .stdout(std::process::Stdio::null())
+        .status()
+        .expect("cmd runs");
+    assert!(status.success(), "mklink /J {}", link.display());
+}
+
+/// Elsewhere a symlink to the directory stands for a junction.
+#[cfg(not(windows))]
+fn junction(target: &str, link: &Path) {
+    symlink(target, link);
 }
 
 /// Sets the `hidden` flag of macOS or the hidden attribute of Windows; Linux has neither.
@@ -673,6 +756,7 @@ fn symlink(target: &str, link: &Path) {
 
 #[cfg(windows)]
 fn symlink(target: &str, link: &Path) {
+    let target = &target.replace('/', "\\");
     let resolved = link.parent().unwrap().join(target);
     if resolved.is_dir() {
         std::os::windows::fs::symlink_dir(target, link).unwrap();

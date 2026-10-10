@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 
 use crate::error::{ErrorCode, Report};
-use crate::query::{nfc, parse_size, wildcard};
+use crate::query::{parse_size, path_wildcard, wildcard};
 
 /// A key which `update_config` and the request change: every key of the spec except the read-only ones, as far as
 /// it is implemented. The order of the variants is the order of the spec.
@@ -466,7 +466,7 @@ impl Type {
         match (self, value) {
             (Self::Wildcards, Value::List(items)) => {
                 for item in items {
-                    if let Err(e) = wildcard::compile(&nfc(item), false) {
+                    if let Err(e) = wildcard::compile(&path_wildcard(item), false) {
                         return Err(Problem::Wildcard {
                             wildcard: item.clone(),
                             hint: e.0,

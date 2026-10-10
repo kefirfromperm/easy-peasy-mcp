@@ -18,6 +18,7 @@ mod hints;
 mod languages;
 pub mod mcp;
 mod output;
+mod paths;
 mod query;
 mod relevance;
 mod request;
