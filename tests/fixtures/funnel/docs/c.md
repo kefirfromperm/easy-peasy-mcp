@@ -1,0 +1,1 @@
+parseQuery is documented here
