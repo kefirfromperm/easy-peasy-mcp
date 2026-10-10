@@ -1,6 +1,6 @@
 # Task 38: `server.allowed_roots`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 34
 
