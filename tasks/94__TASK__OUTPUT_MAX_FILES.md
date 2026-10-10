@@ -1,6 +1,6 @@
 # Task 94: `output.max_files`
 
-Status: in progress
+Status: implemented, see [94__SUMMARY__OUTPUT_MAX_FILES.md](94__SUMMARY__OUTPUT_MAX_FILES.md)
 
 Depends on: task 92
 
