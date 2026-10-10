@@ -1,6 +1,6 @@
 //! The `easy-peasy-mcp` binary: command line, logging, the MCP server over stdio.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use anyhow::Context as _;
@@ -14,7 +14,11 @@ const USAGE: &str = "usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [
 /// What the command line asks for.
 enum Command {
     Version,
-    Serve { config: Option<PathBuf> },
+    Serve {
+        config: Option<PathBuf>,
+        /// The `tracing` filter of `--log-level`.
+        log_level: &'static str,
+    },
 }
 
 /// Why the command line is rejected.
@@ -26,6 +30,7 @@ enum ArgError {
 
 fn parse_args(args: &[String]) -> Result<Command, ArgError> {
     let mut config = None;
+    let mut log_level = None;
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -33,13 +38,25 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
             "--config" if config.is_none() => {
                 config = Some(PathBuf::from(args.next().ok_or(ArgError::Usage)?));
             }
-            "--root" | "--timeout" | "--no-update" | "--log-level" => {
+            "--log-level" if log_level.is_none() => {
+                let level = args.next().ok_or(ArgError::Usage)?;
+                log_level = Some(
+                    ["error", "warn", "info", "debug"]
+                        .into_iter()
+                        .find(|l| l == level)
+                        .ok_or(ArgError::Usage)?,
+                );
+            }
+            "--root" | "--timeout" | "--no-update" => {
                 return Err(ArgError::NotImplemented(arg.clone()));
             }
             _ => return Err(ArgError::Usage),
         }
     }
-    Ok(Command::Serve { config })
+    Ok(Command::Serve {
+        config,
+        log_level: log_level.unwrap_or("warn"),
+    })
 }
 
 fn main() -> ExitCode {
@@ -52,18 +69,23 @@ fn main() -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Ok(Command::Serve { config }) => {
+        Ok(Command::Serve { config, log_level }) => {
+            tracing_subscriber::fmt()
+                .with_writer(std::io::stderr)
+                .with_ansi(false)
+                .with_env_filter(tracing_subscriber::EnvFilter::new(log_level))
+                .init();
             let env = |name: &str| std::env::var(name).ok();
             let file = config::locate(config.as_deref(), &env, std::env::consts::OS, &|p| {
                 p.is_file()
             });
-            if let Some(file) = file
-                && let Err(e) = config::load(&file)
+            if let Some(file) = &file
+                && let Err(e) = config::load(file)
             {
                 eprintln!("easy-peasy-mcp: {e}");
                 return ExitCode::FAILURE;
             }
-            match run() {
+            match run(file.as_deref()) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("easy-peasy-mcp: {e:#}");
@@ -82,13 +104,14 @@ fn main() -> ExitCode {
     }
 }
 
-fn run() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .with_ansi(false)
-        .with_env_filter(tracing_subscriber::EnvFilter::new("warn"))
-        .init();
+fn run(config_file: Option<&Path>) -> anyhow::Result<()> {
     let start_dir = std::env::current_dir().context("the current directory is not readable")?;
+    tracing::info!(
+        "easy-peasy-mcp {} started in {}, config file: {}",
+        env!("CARGO_PKG_VERSION"),
+        start_dir.display(),
+        config_file.map_or_else(|| "none".to_string(), |f| f.display().to_string())
+    );
     let server = Server::new(Engine::new(EngineOptions::new(start_dir)));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

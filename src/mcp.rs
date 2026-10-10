@@ -100,11 +100,19 @@ impl ServerHandler for Server {
             ));
         }
         let arguments = request.arguments.map_or(Value::Null, Value::Object);
+        tracing::debug!("tools/call {name} {arguments}");
+        let started = std::time::Instant::now();
         let engine = Arc::clone(&self.engine);
-        let output = tokio::task::spawn_blocking(move || engine.call(&name, &arguments))
+        let tool = name.clone();
+        let output = tokio::task::spawn_blocking(move || engine.call(&tool, &arguments))
             .await
             .map_err(|e| ErrorData::internal_error(format!("the search failed: {e}"), None))?
             .map_err(|e| ErrorData::invalid_params(e.to_string(), None))?;
+        tracing::debug!(
+            "tools/call {name} done in {} ms, error: {}",
+            started.elapsed().as_millis(),
+            output.is_error
+        );
         let content = vec![ContentBlock::text(output.text)];
         let result = if output.is_error {
             CallToolResult::error(content)
