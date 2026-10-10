@@ -8,11 +8,6 @@ use super::blocks::Block;
 use crate::content::Content;
 use crate::query::ast::CondId;
 
-/// The opening marker of `highlight = markers`.
-const OPEN: &str = "⟦";
-/// The closing marker of `highlight = markers`.
-const CLOSE: &str = "⟧";
-
 /// A matched part of the content: a byte range of the normalized text, the conditions which produced it with
 /// their order of appearance in the query and, for a condition with `/e`, the escape level it was found on.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,7 +74,7 @@ pub fn render(
     content: &Content,
     fragments: &[Fragment],
     blocks: &[Block],
-    highlight: Highlight,
+    highlight: Highlight<'_>,
 ) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
@@ -117,7 +112,7 @@ pub fn shown_line(
     fragments: &[Fragment],
     i: usize,
     skip: usize,
-    highlight: Highlight,
+    highlight: Highlight<'_>,
 ) -> String {
     let mut out = String::new();
     write_styled(
@@ -138,10 +133,10 @@ fn write_styled(
     parts: &[Part],
     i: usize,
     skip: usize,
-    highlight: Highlight,
+    highlight: Highlight<'_>,
 ) {
-    if highlight == Highlight::Markers {
-        write_marked(out, content, parts, i, skip);
+    if let Highlight::Markers(open, close) = highlight {
+        write_marked(out, content, parts, i, skip, [open, close]);
     } else {
         let (start, end) = content.line_range(i);
         out.push_str(&content.text()[(start + skip).min(end)..end]);
@@ -212,8 +207,15 @@ pub(super) fn columns(content: &Content, f: &Fragment, i: usize) -> Columns {
     }
 }
 
-/// Writes the line `i` with its marked parts, from its byte `skip`.
-fn write_marked(out: &mut String, content: &Content, parts: &[Part], i: usize, skip: usize) {
+/// Writes the line `i` with its parts marked with the opening and the closing marker, from its byte `skip`.
+fn write_marked(
+    out: &mut String,
+    content: &Content,
+    parts: &[Part],
+    i: usize,
+    skip: usize,
+    [open, close]: [&str; 2],
+) {
     let (start, end) = content.line_range(i);
     let mut pos = (start + skip).min(end);
     for part in parts.iter().filter(|p| {
@@ -223,7 +225,7 @@ fn write_marked(out: &mut String, content: &Content, parts: &[Part], i: usize, s
         if part.range.start >= start {
             out.push_str(&content.text()[pos..part.range.start]);
             let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
-            let _ = write!(out, "{OPEN}{}", ids.join(","));
+            let _ = write!(out, "{open}{}", ids.join(","));
             for level in &part.escapes {
                 let _ = write!(out, "/e{level}");
             }
@@ -232,10 +234,10 @@ fn write_marked(out: &mut String, content: &Content, parts: &[Part], i: usize, s
         }
         // a part which ends with the line break closes at the end of the line
         if part.range.end <= end + 1 {
-            let close = part.range.end.min(end).max(pos);
-            out.push_str(&content.text()[pos..close]);
-            out.push_str(CLOSE);
-            pos = close;
+            let to = part.range.end.min(end).max(pos);
+            out.push_str(&content.text()[pos..to]);
+            out.push_str(close);
+            pos = to;
         }
     }
     out.push_str(&content.text()[pos..end]);
@@ -282,7 +284,7 @@ mod tests {
     fn render_plain(c: &Content, fragments: &[Fragment]) -> String {
         let blocks =
             super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
-        render(c, fragments, &blocks, Highlight::Markers)
+        render(c, fragments, &blocks, Highlight::Markers("⟦", "⟧"))
     }
 
     fn frag(range: std::ops::Range<usize>, ids: &[u32]) -> Fragment {

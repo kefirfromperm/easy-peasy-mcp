@@ -293,10 +293,7 @@ mod tests {
         );
         assert_eq!(
             config(&json!({ "output": { "markers": ["<", ">"] } })),
-            [(
-                Key::Markers,
-                KeyValue::List(vec!["<".into(), ">".into()])
-            )]
+            [(Key::Markers, KeyValue::List(vec!["<".into(), ">".into()]))]
         );
         assert_eq!(
             text(&json!({ "output": { "path_fragments": true } })),

@@ -190,7 +190,7 @@ impl Response<'_> {
                 &[]
             }),
             warnings: self
-                .warnings
+                .all_warnings()
                 .groups()
                 .into_iter()
                 .map(|(code, count, paths)| Warning { code, count, paths })
@@ -234,7 +234,7 @@ fn blocks(
     content: &Content,
     fragments: &[super::Fragment],
     options: &BlockOptions,
-    highlight: Highlight,
+    highlight: Highlight<'_>,
 ) -> Vec<Block> {
     super::blocks::blocks(content, fragments, options)
         .into_iter()
@@ -256,7 +256,7 @@ fn json_line(
     fragments: &[super::Fragment],
     line: BlockLine,
     indent: usize,
-    highlight: Highlight,
+    highlight: Highlight<'_>,
 ) -> Line {
     let i = line.index;
     Line {
