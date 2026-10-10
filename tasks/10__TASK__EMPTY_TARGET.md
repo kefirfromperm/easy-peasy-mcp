@@ -1,6 +1,6 @@
 # Task 10: `empty` target
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 9
 
