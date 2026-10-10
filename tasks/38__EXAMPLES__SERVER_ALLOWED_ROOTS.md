@@ -123,7 +123,6 @@ Platform: `linux`
 ```toml conf/roots.toml
 [server]
 allowed_roots = ["src", "."]
-default_dirs = ['.']
 ```
 
 ```text command
@@ -162,7 +161,6 @@ Fixture: `roots`
 ```toml conf/roots.toml
 [server]
 allowed_roots = ["src"]
-default_dirs = ['.']
 ```
 
 ```text command
