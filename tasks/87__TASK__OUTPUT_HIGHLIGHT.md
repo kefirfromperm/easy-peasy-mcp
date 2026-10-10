@@ -1,6 +1,6 @@
 # Task 87: `output.highlight`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 78
 
