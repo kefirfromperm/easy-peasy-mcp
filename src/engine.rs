@@ -1052,3 +1052,28 @@ fn fingerprint(file: &search::Found) -> u64 {
     }
     hasher.finish()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn searches_share_the_threads() {
+        let slots = std::sync::Arc::new(Slots::default());
+        let never = || false;
+        let first = slots.acquire(3, &never).unwrap();
+        assert_eq!(first.count(), 3, "all the free threads");
+        let waiting = {
+            let slots = std::sync::Arc::clone(&slots);
+            std::thread::spawn(move || slots.acquire(3, &|| false).unwrap().count())
+        };
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(!waiting.is_finished(), "no thread is free");
+        drop(first);
+        assert_eq!(waiting.join().unwrap(), 3);
+        assert!(slots.acquire(2, &|| true).is_some(), "free threads don't wait");
+        let busy = slots.acquire(1, &never).unwrap();
+        assert!(slots.acquire(1, &|| true).is_none(), "a stopped search doesn't wait");
+        drop(busy);
+    }
+}
