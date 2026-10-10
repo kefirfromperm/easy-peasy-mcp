@@ -745,6 +745,43 @@ mod tests {
     }
 
     #[test]
+    fn ranges_in_the_path() {
+        let filter = |target: TextTarget, matcher: TextMatcher| Filter::Text {
+            id: CondId::Number(1),
+            order: 1,
+            target,
+            matcher,
+        };
+        let regex = |r: &str| TextMatcher::Regex(Regex::new(r).unwrap());
+        let path = "src/config_con.rs";
+        assert_eq!(
+            filter(TextTarget::Name, regex("con")).path_ranges("config_con.rs", path),
+            [4..7, 11..14]
+        );
+        assert_eq!(
+            filter(TextTarget::Path, regex("^src/.*$")).path_ranges("config_con.rs", path),
+            [0..path.len()]
+        );
+        let fuzzy = TextMatcher::Fuzzy {
+            fuzzy: Fuzzy::new("cfg", false),
+            min_score: 0.0,
+        };
+        assert_eq!(
+            filter(TextTarget::Name, fuzzy).path_ranges("config", "x/config"),
+            [2..3, 5..6, 7..8]
+        );
+        let fuzzy = TextMatcher::Fuzzy {
+            fuzzy: Fuzzy::new("on", false),
+            min_score: 0.0,
+        };
+        assert_eq!(
+            filter(TextTarget::Path, fuzzy).path_ranges("é/on", "é/on"),
+            [3..5],
+            "runs of characters in bytes"
+        );
+    }
+
+    #[test]
     fn and_lists_all_parts() {
         let f = Filter::And(vec![text(1, "a.*"), text(2, ".*z")]);
         assert_eq!(ids(&f, "abz"), Some(vec!["#1".into(), "#2".into()]));

@@ -233,6 +233,25 @@ mod tests {
     }
 
     #[test]
+    fn positions_of_the_best_alignment() {
+        let fuzzy = |value: &str| Fuzzy::new(value, false);
+        // r after the dot starts a word, the r of loader doesn't
+        assert_eq!(
+            fuzzy("cfgldr").positions("config_loader.rs"),
+            Some(vec![0, 3, 5, 7, 10, 14])
+        );
+        assert_eq!(
+            fuzzy("load").positions("config_loader.rs"),
+            Some(vec![7, 8, 9, 10])
+        );
+        assert_eq!(
+            fuzzy("cfg rs").positions("config.rs"),
+            Some(vec![0, 3, 5, 7, 8])
+        );
+        assert_eq!(fuzzy("dlc").positions("config_loader.rs"), None);
+    }
+
+    #[test]
     fn shorter_haystacks_score_higher() {
         assert!(name("ab", "ab").unwrap() > name("ab", "ab_c").unwrap());
         assert!(close(name("ab", "ab"), 0.9));
