@@ -232,8 +232,24 @@ mod tests {
     #[test]
     fn spec_fields_are_not_implemented() {
         assert_eq!(
-            text(&json!({ "query": "x", "output": {} })),
-            "error[not_implemented]: the field 'output' is not implemented yet\n"
+            text(&json!({ "query": "x", "within": "r1" })),
+            "error[not_implemented]: the field 'within' is not implemented yet\n"
+        );
+    }
+
+    #[test]
+    fn output() {
+        assert_eq!(
+            config(&json!({ "output": { "format": "json" } })),
+            [(Key::Format, KeyValue::Text("json".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "format": "xml" } })),
+            "error[invalid_option]: 'output.format' must be one of: text, json\n"
+        );
+        assert_eq!(
+            text(&json!({ "output": { "detail": "files" } })),
+            "error[not_implemented]: the field 'output.detail' is not implemented yet\n"
         );
     }
 
