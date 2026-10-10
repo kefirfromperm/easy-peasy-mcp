@@ -53,7 +53,7 @@ pub struct Request {
 
 /// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
 fn is_implemented(field: &str) -> bool {
-    ["query", "dirs", "timeout", "languages"].contains(&field)
+    ["version", "query", "dirs", "timeout", "languages"].contains(&field)
         || SECTION_FIELDS
             .iter()
             .any(|(f, section)| *f == field && Key::ALL.iter().any(|k| k.section() == *section))
@@ -89,6 +89,9 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         .find(|f| !is_implemented(f) && object.contains_key(**f))
     {
         return Err(Report::not_implemented(&format!("the field '{field}'")));
+    }
+    if let Some(version) = object.get("version") {
+        check_version(version)?;
     }
     let dirs = match object.get("dirs") {
         None => None,
@@ -224,6 +227,28 @@ fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report>
         }
     }
     Ok((config, cursor))
+}
+
+/// The spec versions this server supports (TOOLS.md#versioning).
+pub const SPEC_VERSIONS: [u64; 1] = [1];
+
+/// Checks the `version` field: a whole number of at least 1 and a supported spec version.
+fn check_version(version: &Value) -> Result<(), Report> {
+    let Some(version) = version.as_u64().filter(|v| *v >= 1) else {
+        return Err(Report::new(
+            ErrorCode::InvalidOption,
+            "'version' must be a whole number of at least 1",
+        ));
+    };
+    if SPEC_VERSIONS.contains(&version) {
+        return Ok(());
+    }
+    let supported: Vec<String> = SPEC_VERSIONS.iter().map(ToString::to_string).collect();
+    Err(Report::new(
+        ErrorCode::UnsupportedVersion,
+        format!("the spec version {version} is not supported"),
+    )
+    .hint(format!("supported spec versions: {}", supported.join(", "))))
 }
 
 /// The error of a `dirs` field which doesn't match the schema.

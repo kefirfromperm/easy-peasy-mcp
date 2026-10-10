@@ -88,6 +88,7 @@ pub fn find_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
+            "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one (1)." },
             "dirs": {
                 "type": "array", "items": { "type": "string" }, "minItems": 1,
                 "description": "Working directories inside the allowed roots. Default: server.default_dirs."
