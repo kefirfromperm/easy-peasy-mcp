@@ -144,6 +144,7 @@ pub fn find_schema() -> Value {
                     "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." },
                     "dedent": { "type": "boolean", "description": "Remove the common indentation of every block, written once as ⇥N (indent in JSON). Default: true." },
                     "group_dirs": { "type": "boolean", "description": "Text: files under directory headers, with paths relative to them; false: the full path on every file line. Default: true." },
+                    "group_repeated": { "type": "integer", "minimum": 0, "description": "Lines detail: a matched line identical (ignoring leading and trailing whitespace) in this many files is printed once in a repeated section with a few locations, and left out of the files; 0: off. Default: 3." },
                     "blank_context": { "type": "boolean", "description": "Keep empty and whitespace-only context lines; the line numbers show the skipped ones. Default: false." }
                 }
             },

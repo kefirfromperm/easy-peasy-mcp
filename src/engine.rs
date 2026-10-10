@@ -232,6 +232,7 @@ impl Engine {
         let response = Response {
             detail,
             group_dirs: settings.bool(Key::GroupDirs),
+            group_repeated: settings.whole(Key::GroupRepeated),
             blocks: BlockOptions {
                 before: settings.opt_whole(Key::Before).unwrap_or(context),
                 after: settings.opt_whole(Key::After).unwrap_or(context),
