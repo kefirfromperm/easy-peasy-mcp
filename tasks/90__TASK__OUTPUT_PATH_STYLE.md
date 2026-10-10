@@ -1,6 +1,6 @@
 # Task 90: `output.path_style`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 39
 
