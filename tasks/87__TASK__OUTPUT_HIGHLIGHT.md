@@ -1,6 +1,6 @@
 # Task 87: `output.highlight`
 
-Status: in progress
+Status: implemented, see [87__SUMMARY__OUTPUT_HIGHLIGHT.md](87__SUMMARY__OUTPUT_HIGHLIGHT.md)
 
 Depends on: task 78
 
