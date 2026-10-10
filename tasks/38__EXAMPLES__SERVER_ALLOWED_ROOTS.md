@@ -23,13 +23,14 @@ Fixture: `roots`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ## E38.2 With the source
@@ -42,13 +43,14 @@ Fixture: `roots`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ## E38.3 Another section
@@ -63,7 +65,7 @@ Fixture: `roots`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 ```
 
 ## E38.4 A root from the command line
@@ -80,13 +82,14 @@ easy-peasy-mcp --root .
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # cli
 default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ```json request
@@ -141,13 +144,14 @@ easy-peasy-mcp --config conf/roots.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>/src', '<fixture>']    # file: conf/roots.toml
 default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ```json request
@@ -181,13 +185,14 @@ easy-peasy-mcp --config conf/roots.toml --root .
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ```json request
@@ -222,13 +227,14 @@ easy-peasy-mcp --root ~
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ## E38.9 An invalid value

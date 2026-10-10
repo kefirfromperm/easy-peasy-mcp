@@ -22,13 +22,14 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ## E35.2 One section
@@ -41,7 +42,7 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 ```
 
 ## E35.3 With the sources
@@ -54,13 +55,14 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ## E35.4 An unknown section

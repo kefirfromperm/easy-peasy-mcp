@@ -1,0 +1,158 @@
+# Examples for task 42
+
+Examples with a command line are startup examples (AGENTS.md).
+
+## Fixtures
+
+### allow-update
+
+```text tree
+src/main.rs                2026-10-01 10:00
+```
+
+File contents are in `tests/fixtures/allow-update/`. Times are UTC.
+
+## E42.1 The default
+
+Fixture: `allow-update`
+
+```json request get_config
+{ "section": "server" }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[server]
+allowed_roots = ['<fixture>']
+default_dirs = ['.']
+timeout = "30s"
+threads = 0
+allow_update = true
+```
+
+## E42.2 Read-only for `update_config`
+
+Fixture: `allow-update`
+
+```json request update_config
+{"set": "server.allow_update = false"}
+```
+
+```text error
+error[read_only]: 'server.allow_update' is read-only
+  hint: allow_update is set only at start
+```
+
+## E42.3 `--no-update`
+
+`update_config` is not listed in `tools/list`; a call made anyway fails.
+
+Fixture: `allow-update`
+
+```text command
+easy-peasy-mcp --no-update
+```
+
+1. `update_config`
+
+```json request update_config
+{"set": "server.threads = 1"}
+```
+
+```text error
+error[update_disabled]: update_config is disabled
+  hint: the configuration has server.allow_update = false
+```
+
+2. `get_config`
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
+timeout = "30s"    # default
+threads = 0    # default
+allow_update = false    # cli
+```
+
+3. `find`
+
+```json request
+{ "query": "name = 'main.rs'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 name = 'main.rs'
+
+src/
+main.rs  [#1]
+```
+
+## E42.4 From the config file
+
+Fixture: `allow-update`
+
+```toml conf/u.toml
+[server]
+allow_update = false
+```
+
+```text command
+easy-peasy-mcp --config conf/u.toml
+```
+
+1. `get_config`
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
+timeout = "30s"    # default
+threads = 0    # default
+allow_update = false    # file: conf/u.toml
+```
+
+2. `update_config`
+
+```json request update_config
+{}
+```
+
+```text error
+error[update_disabled]: update_config is disabled
+  hint: the configuration has server.allow_update = false
+```
+
+## E42.5 An invalid value in the config file
+
+Fixture: `allow-update`
+
+```toml conf/u.toml
+[server]
+allow_update = "no"
+```
+
+```text command
+easy-peasy-mcp --config conf/u.toml
+```
+
+```text stderr exit 1
+easy-peasy-mcp: conf/u.toml:2: invalid value for 'server.allow_update': true or false is expected
+```

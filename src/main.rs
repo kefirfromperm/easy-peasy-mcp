@@ -26,8 +26,6 @@ enum Command {
 /// Why the command line is rejected.
 enum ArgError {
     Usage,
-    /// An option of the spec this version doesn't implement yet.
-    NotImplemented(String),
 }
 
 fn parse_args(args: &[String]) -> Result<Command, ArgError> {
@@ -56,9 +54,7 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
                 config::parse_duration(timeout).ok_or(ArgError::Usage)?;
                 cli.timeout = Some(timeout.clone());
             }
-            "--no-update" => {
-                return Err(ArgError::NotImplemented(arg.clone()));
-            }
+            "--no-update" if !cli.no_update => cli.no_update = true,
             _ => return Err(ArgError::Usage),
         }
     }
@@ -96,10 +92,6 @@ fn main() -> ExitCode {
                     ExitCode::FAILURE
                 }
             }
-        }
-        Err(ArgError::NotImplemented(option)) => {
-            eprintln!("easy-peasy-mcp: the option '{option}' is not implemented yet");
-            ExitCode::from(2)
         }
         Err(ArgError::Usage) => {
             eprintln!("{USAGE}");

@@ -190,13 +190,14 @@ Fixture: `dirs`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ## E39.12 Changing the default working directories in a session
@@ -222,13 +223,14 @@ default_dirs = ['api']    # was ['.']
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['api']    # update
 timeout = "30s"    # default
 threads = 0    # default
+allow_update = true    # default
 ```
 
 3. `find`
@@ -291,13 +293,14 @@ error[invalid_value]: invalid value for 'server.default_dirs'
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ## E39.14 The default working directories from the config file
@@ -321,13 +324,14 @@ easy-peasy-mcp --config conf/dirs.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['web']    # file: conf/dirs.toml
 timeout = "30s"    # default
 threads = 0    # default
+allow_update = true    # default
 ```
 
 2. `find`

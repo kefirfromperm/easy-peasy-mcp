@@ -171,11 +171,12 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 4] = [
+const IMPLEMENTED: [(&str, &str); 5] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
     ("server", "threads"),
+    ("server", "allow_update"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -211,6 +212,8 @@ pub struct FileValues {
     pub timeout: Option<String>,
     /// `server.threads`.
     pub threads: Option<usize>,
+    /// `server.allow_update`.
+    pub allow_update: Option<bool>,
 }
 
 /// A checked config file.
@@ -235,6 +238,9 @@ pub struct Settings {
     /// `server.threads`: `0` — the number of CPU cores.
     pub threads: usize,
     pub threads_source: Source,
+    /// `server.allow_update`: whether `update_config` is available.
+    pub allow_update: bool,
+    pub allow_update_source: Source,
 }
 
 impl Settings {
@@ -250,6 +256,8 @@ impl Settings {
             timeout_source: Source::Default,
             threads: 0,
             threads_source: Source::Default,
+            allow_update: true,
+            allow_update_source: Source::Default,
         }
     }
 
@@ -278,6 +286,16 @@ impl Settings {
         {
             settings.threads = threads;
             settings.threads_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(allow_update) = file.values.allow_update
+        {
+            settings.allow_update = allow_update;
+            settings.allow_update_source = Source::File(file.path.clone());
+        }
+        if cli.no_update {
+            settings.allow_update = false;
+            settings.allow_update_source = Source::Cli;
         }
         if let Some(timeout) = &cli.timeout {
             settings.timeout.clone_from(timeout);
@@ -468,6 +486,8 @@ pub struct CommandLine {
     pub roots: Vec<String>,
     /// `--timeout`, a valid duration.
     pub timeout: Option<String>,
+    /// `--no-update`.
+    pub no_update: bool,
 }
 
 /// A list of strings as TOML.
@@ -591,6 +611,19 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
             },
             Entry::Key {
                 section: "server",
+                key: "allow_update",
+                item,
+            } => match item.as_bool() {
+                Some(allow_update) => {
+                    values.allow_update = Some(allow_update);
+                    continue;
+                }
+                None => {
+                    "invalid value for 'server.allow_update': true or false is expected".to_string()
+                }
+            },
+            Entry::Key {
+                section: "server",
                 key: key @ ("default_dirs" | "timeout" | "threads"),
                 item,
             } => match Mutable::find("server", key).map(|m| m.parse(item)) {
@@ -698,6 +731,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             (
                 format!("threads = {}", settings.value(Mutable::Threads)),
                 &settings.threads_source,
+            ),
+            (
+                format!("allow_update = {}", settings.allow_update),
+                &settings.allow_update_source,
             ),
         ];
         out.push_str("\n[server]\n");
@@ -1117,13 +1154,13 @@ mod tests {
             ..Settings::defaults(Path::new("/"))
         };
         let first = format!(
-            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots\n",
+            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update\n",
             env!("CARGO_PKG_VERSION")
         );
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\n"
             )
         );
         assert_eq!(
@@ -1133,7 +1170,7 @@ mod tests {
             )
             .unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\n"
             )
         );
         assert_eq!(
@@ -1268,7 +1305,7 @@ mod tests {
             let cli: Vec<String> = cli.iter().map(ToString::to_string).collect();
             let cli = CommandLine {
                 roots: cli,
-                timeout: None,
+                ..CommandLine::default()
             };
             Settings::resolve(None, &cli, &start, Some(&home))
         };
@@ -1309,16 +1346,20 @@ mod tests {
                 default_dirs: Some(vec!["src".into()]),
                 timeout: Some("1m".into()),
                 threads: Some(2),
+                allow_update: Some(false),
             },
         };
         let cli = CommandLine {
             roots: Vec::new(),
             timeout: Some("5s".into()),
+            no_update: false,
         };
         let settings = Settings::resolve(Some(&empty), &cli, &start, None).unwrap();
         assert_eq!(settings.timeout, "5s");
         assert_eq!(settings.timeout_source, Source::Cli);
         assert_eq!(settings.threads, 2);
+        assert!(!settings.allow_update);
+        assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
         assert_eq!(settings.allowed_roots_source, Source::File("c.toml".into()));

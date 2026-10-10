@@ -84,7 +84,13 @@ impl ServerHandler for Server {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
-        Ok(ListToolsResult::with_all_items(Self::tools()))
+        let listed = self.engine.tools();
+        Ok(ListToolsResult::with_all_items(
+            Self::tools()
+                .into_iter()
+                .filter(|t| listed.contains(&t.name.as_ref()))
+                .collect(),
+        ))
     }
 
     async fn call_tool(
