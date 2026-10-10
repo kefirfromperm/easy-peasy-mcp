@@ -70,126 +70,167 @@ base = "auto"
 
 [languages.c]
 extensions = ['c', 'h']
+names = []
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+names = []
 
 [languages.csharp]
 extensions = ['cs']
+names = []
 
 [languages.java]
 extensions = ['java']
+names = []
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
+names = []
 
 [languages.scala]
 extensions = ['scala', 'sc']
+names = []
 
 [languages.go]
 extensions = ['go']
+names = []
 
 [languages.swift]
 extensions = ['swift']
+names = []
 
 [languages.dart]
 extensions = ['dart']
+names = []
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
+names = []
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
+names = []
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
+names = []
 
 [languages.rust]
 extensions = ['rs']
+names = []
 
 [languages.php]
 extensions = ['php']
+names = []
 
 [languages.css]
 extensions = ['css']
+names = []
 
 [languages.scss]
 extensions = ['scss', 'less']
+names = []
 
 [languages.python]
 extensions = ['py', 'pyi']
+names = []
 
 [languages.ruby]
 extensions = ['rb']
+names = ['Gemfile', 'Rakefile']
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
+names = []
 
 [languages.perl]
 extensions = ['pl', 'pm']
+names = []
 
 [languages.r]
 extensions = ['r']
+names = []
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
+names = []
 
 [languages.batch]
 extensions = ['bat', 'cmd']
+names = []
 
 [languages.sql]
 extensions = ['sql']
+names = []
 
 [languages.lua]
 extensions = ['lua']
+names = []
 
 [languages.haskell]
 extensions = ['hs']
+names = []
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
+names = []
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
+names = []
 
 [languages.html]
 extensions = ['html', 'htm']
+names = []
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
+names = []
 
 [languages.vue]
 extensions = ['vue']
+names = []
 
 [languages.markdown]
 extensions = ['md', 'markdown']
+names = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
+names = []
 
 [languages.toml]
 extensions = ['toml']
+names = []
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
+names = []
 
 [languages.properties]
 extensions = ['properties']
+names = []
 
 [languages.dotenv]
 extensions = ['env']
+names = ['.env']
 
 [languages.json]
 extensions = ['json']
+names = []
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
+names = []
 
 [languages.dockerfile]
 extensions = ['dockerfile']
+names = ['Dockerfile']
 
 [languages.makefile]
 extensions = ['mk']
+names = ['Makefile', 'GNUmakefile']
 ```
 
 ## E38.2 With the source
@@ -249,126 +290,167 @@ base = "auto"    # default
 
 [languages.c]
 extensions = ['c', 'h']    # default
+names = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+names = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
+names = []    # default
 
 [languages.java]
 extensions = ['java']    # default
+names = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
+names = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
+names = []    # default
 
 [languages.go]
 extensions = ['go']    # default
+names = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
+names = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
+names = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
+names = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+names = []    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+names = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
+names = []    # default
 
 [languages.php]
 extensions = ['php']    # default
+names = []    # default
 
 [languages.css]
 extensions = ['css']    # default
+names = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
+names = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
+names = []    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
+names = ['Gemfile', 'Rakefile']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
+names = []    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
+names = []    # default
 
 [languages.r]
 extensions = ['r']    # default
+names = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
+names = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
+names = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
+names = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
+names = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
+names = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
+names = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
+names = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
+names = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+names = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
+names = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
+names = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
+names = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
+names = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
+names = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
+names = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
+names = ['.env']    # default
 
 [languages.json]
 extensions = ['json']    # default
+names = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
+names = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
+names = ['Dockerfile']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
+names = ['Makefile', 'GNUmakefile']    # default
 ```
 
 ## E38.3 Another section
@@ -447,126 +529,167 @@ base = "auto"    # default
 
 [languages.c]
 extensions = ['c', 'h']    # default
+names = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+names = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
+names = []    # default
 
 [languages.java]
 extensions = ['java']    # default
+names = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
+names = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
+names = []    # default
 
 [languages.go]
 extensions = ['go']    # default
+names = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
+names = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
+names = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
+names = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+names = []    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+names = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
+names = []    # default
 
 [languages.php]
 extensions = ['php']    # default
+names = []    # default
 
 [languages.css]
 extensions = ['css']    # default
+names = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
+names = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
+names = []    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
+names = ['Gemfile', 'Rakefile']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
+names = []    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
+names = []    # default
 
 [languages.r]
 extensions = ['r']    # default
+names = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
+names = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
+names = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
+names = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
+names = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
+names = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
+names = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
+names = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
+names = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+names = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
+names = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
+names = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
+names = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
+names = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
+names = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
+names = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
+names = ['.env']    # default
 
 [languages.json]
 extensions = ['json']    # default
+names = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
+names = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
+names = ['Dockerfile']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
+names = ['Makefile', 'GNUmakefile']    # default
 ```
 
 ```json request
@@ -668,126 +791,167 @@ base = "auto"    # default
 
 [languages.c]
 extensions = ['c', 'h']    # default
+names = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+names = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
+names = []    # default
 
 [languages.java]
 extensions = ['java']    # default
+names = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
+names = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
+names = []    # default
 
 [languages.go]
 extensions = ['go']    # default
+names = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
+names = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
+names = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
+names = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+names = []    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+names = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
+names = []    # default
 
 [languages.php]
 extensions = ['php']    # default
+names = []    # default
 
 [languages.css]
 extensions = ['css']    # default
+names = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
+names = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
+names = []    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
+names = ['Gemfile', 'Rakefile']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
+names = []    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
+names = []    # default
 
 [languages.r]
 extensions = ['r']    # default
+names = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
+names = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
+names = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
+names = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
+names = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
+names = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
+names = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
+names = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
+names = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+names = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
+names = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
+names = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
+names = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
+names = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
+names = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
+names = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
+names = ['.env']    # default
 
 [languages.json]
 extensions = ['json']    # default
+names = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
+names = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
+names = ['Dockerfile']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
+names = ['Makefile', 'GNUmakefile']    # default
 ```
 
 ```json request
@@ -868,126 +1032,167 @@ base = "auto"
 
 [languages.c]
 extensions = ['c', 'h']
+names = []
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+names = []
 
 [languages.csharp]
 extensions = ['cs']
+names = []
 
 [languages.java]
 extensions = ['java']
+names = []
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
+names = []
 
 [languages.scala]
 extensions = ['scala', 'sc']
+names = []
 
 [languages.go]
 extensions = ['go']
+names = []
 
 [languages.swift]
 extensions = ['swift']
+names = []
 
 [languages.dart]
 extensions = ['dart']
+names = []
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
+names = []
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
+names = []
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
+names = []
 
 [languages.rust]
 extensions = ['rs']
+names = []
 
 [languages.php]
 extensions = ['php']
+names = []
 
 [languages.css]
 extensions = ['css']
+names = []
 
 [languages.scss]
 extensions = ['scss', 'less']
+names = []
 
 [languages.python]
 extensions = ['py', 'pyi']
+names = []
 
 [languages.ruby]
 extensions = ['rb']
+names = ['Gemfile', 'Rakefile']
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
+names = []
 
 [languages.perl]
 extensions = ['pl', 'pm']
+names = []
 
 [languages.r]
 extensions = ['r']
+names = []
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
+names = []
 
 [languages.batch]
 extensions = ['bat', 'cmd']
+names = []
 
 [languages.sql]
 extensions = ['sql']
+names = []
 
 [languages.lua]
 extensions = ['lua']
+names = []
 
 [languages.haskell]
 extensions = ['hs']
+names = []
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
+names = []
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
+names = []
 
 [languages.html]
 extensions = ['html', 'htm']
+names = []
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
+names = []
 
 [languages.vue]
 extensions = ['vue']
+names = []
 
 [languages.markdown]
 extensions = ['md', 'markdown']
+names = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
+names = []
 
 [languages.toml]
 extensions = ['toml']
+names = []
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
+names = []
 
 [languages.properties]
 extensions = ['properties']
+names = []
 
 [languages.dotenv]
 extensions = ['env']
+names = ['.env']
 
 [languages.json]
 extensions = ['json']
+names = []
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
+names = []
 
 [languages.dockerfile]
 extensions = ['dockerfile']
+names = ['Dockerfile']
 
 [languages.makefile]
 extensions = ['mk']
+names = ['Makefile', 'GNUmakefile']
 ```
 
 ```json request
@@ -1069,126 +1274,167 @@ base = "auto"
 
 [languages.c]
 extensions = ['c', 'h']
+names = []
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+names = []
 
 [languages.csharp]
 extensions = ['cs']
+names = []
 
 [languages.java]
 extensions = ['java']
+names = []
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
+names = []
 
 [languages.scala]
 extensions = ['scala', 'sc']
+names = []
 
 [languages.go]
 extensions = ['go']
+names = []
 
 [languages.swift]
 extensions = ['swift']
+names = []
 
 [languages.dart]
 extensions = ['dart']
+names = []
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
+names = []
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
+names = []
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
+names = []
 
 [languages.rust]
 extensions = ['rs']
+names = []
 
 [languages.php]
 extensions = ['php']
+names = []
 
 [languages.css]
 extensions = ['css']
+names = []
 
 [languages.scss]
 extensions = ['scss', 'less']
+names = []
 
 [languages.python]
 extensions = ['py', 'pyi']
+names = []
 
 [languages.ruby]
 extensions = ['rb']
+names = ['Gemfile', 'Rakefile']
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
+names = []
 
 [languages.perl]
 extensions = ['pl', 'pm']
+names = []
 
 [languages.r]
 extensions = ['r']
+names = []
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
+names = []
 
 [languages.batch]
 extensions = ['bat', 'cmd']
+names = []
 
 [languages.sql]
 extensions = ['sql']
+names = []
 
 [languages.lua]
 extensions = ['lua']
+names = []
 
 [languages.haskell]
 extensions = ['hs']
+names = []
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
+names = []
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
+names = []
 
 [languages.html]
 extensions = ['html', 'htm']
+names = []
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
+names = []
 
 [languages.vue]
 extensions = ['vue']
+names = []
 
 [languages.markdown]
 extensions = ['md', 'markdown']
+names = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
+names = []
 
 [languages.toml]
 extensions = ['toml']
+names = []
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
+names = []
 
 [languages.properties]
 extensions = ['properties']
+names = []
 
 [languages.dotenv]
 extensions = ['env']
+names = ['.env']
 
 [languages.json]
 extensions = ['json']
+names = []
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
+names = []
 
 [languages.dockerfile]
 extensions = ['dockerfile']
+names = ['Dockerfile']
 
 [languages.makefile]
 extensions = ['mk']
+names = ['Makefile', 'GNUmakefile']
 ```
 
 ## E38.9 An invalid value
