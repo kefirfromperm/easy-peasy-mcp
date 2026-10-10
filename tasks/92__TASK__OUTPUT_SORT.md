@@ -1,6 +1,6 @@
 # Task 92: `output.sort`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 79
 
