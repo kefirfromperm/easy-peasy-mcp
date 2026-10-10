@@ -157,7 +157,8 @@ Per file
 Every file is returned once, even if it is reachable several times: through overlapping working directories
 (`dirs: [".", "src"]`), symlinks or hard links. Files are identified by the file system (device and inode on Linux
 and macOS, volume and file index on Windows). A file is reported under the path found first: working directories in
-the order of the request, inside a directory in path order.
+the order of the request, inside a directory in path order. The files are listed in the same order: by working
+directory, then by path (until the relevance order).
 
 #### Counts
 

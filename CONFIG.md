@@ -235,6 +235,12 @@ A request working directory must be inside an allowed root after canonicalizatio
 `dir_not_allowed`: `error[dir_not_allowed]: the working directory '<dir>' is outside of the allowed roots`, hint
 `get_config shows the allowed roots`.
 
+Working directories (`dirs` of a request, else `server.default_dirs`) are resolved against the start directory and
+checked in their order: one which doesn't exist is `dir_not_found` (`the working directory '<dir>' doesn't exist`, or
+`... is not a directory`), one outside of the roots `dir_not_allowed`. `default_dirs` must be a non-empty list of
+paths (`invalid value for 'server.default_dirs': a non-empty list of paths is expected`); its directories are checked
+by every request, not at start.
+
 A root which doesn't exist stops the server with `the allowed root '<root>' doesn't exist` — after `<path>:<line>: `
 when it comes from the config file, see [Config file](#config-file).
 
@@ -669,7 +675,10 @@ Dotted keys are shorter for one or two values and need no line breaks:
 - `reset` is applied before `set`
 - a search which is already running keeps the configuration it started with
 
-Result — TOML with the changed keys, the old value in a comment:
+Result — TOML with the keys whose value changed (in the order of the spec), the old value in a comment four spaces
+after the longest line of the section, like in `get_config`; `, reset` when the value comes from `reset`. A key which
+is both reset and set gets the value of `set`. A changed value has the source `update` in `get_config`; a reset value
+gets its source back.
 
 ```toml
 [output]
