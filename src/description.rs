@@ -149,7 +149,8 @@ pub fn find_schema() -> Value {
                 "additionalProperties": {
                     "type": "object",
                     "properties": {
-                        "extensions": { "type": "array", "items": { "type": "string" }, "description": "File extensions without the dot, compared in any case." }
+                        "extensions": { "type": "array", "items": { "type": "string" }, "description": "File extensions without the dot, compared in any case." },
+                        "names": { "type": "array", "items": { "type": "string" }, "description": "Full file names, e.g. Dockerfile, compared in any case." }
                     }
                 }
             }
