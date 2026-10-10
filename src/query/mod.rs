@@ -20,7 +20,8 @@ use ast::{
 use lexer::Token;
 
 pub use eval::{
-    ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget, Truth,
+    ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget,
+    Truth, content_matches,
 };
 pub(crate) use suggest::did_you_mean;
 
@@ -254,6 +255,13 @@ fn validate_condition(
     ) {
         validate_dates(text, &c.value, options, errors);
     }
+    if let (Some((Op::Regex, _)), Value::Str(s)) = (&c.op, &c.value)
+        && let Err(hint) = user_regex(&s.value, false)
+    {
+        errors.push(
+            QueryError::new(ErrorCode::InvalidRegex, "invalid regex", s.span.clone()).hint(hint),
+        );
+    }
     for modifier in &c.modifiers {
         if let Some(hint) = modifier_not_allowed(c, modifier, in_line) {
             errors.push(
@@ -269,6 +277,26 @@ fn validate_condition(
             );
         }
     }
+}
+
+/// A regex of the query (QUERY.md#regex); the error is the hint of `invalid_regex`.
+fn user_regex(pattern: &str, case_insensitive: bool) -> Result<Regex, String> {
+    regex::RegexBuilder::new(pattern)
+        .case_insensitive(case_insensitive)
+        .build()
+        .map_err(|e| {
+            let text = e.to_string();
+            if text.contains("look-around") {
+                "look-arounds are not supported".to_string()
+            } else if text.contains("backreference") {
+                "backreferences are not supported".to_string()
+            } else {
+                text.lines()
+                    .find_map(|l| l.strip_prefix("error: "))
+                    .unwrap_or("the regex can't be compiled")
+                    .to_string()
+            }
+        })
 }
 
 /// `invalid_size` for every value which is not a size, `invalid_range` for a range whose start is greater than its
@@ -550,9 +578,25 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
             Some(Op::Ends) => format!(r"{escaped}\z"),
             _ => escaped,
         };
+        if c.op.as_ref().map(|(op, _)| *op) == Some(Op::Regex) {
+            let insensitive = c.modifiers.iter().any(|m| m.name == "i");
+            let regex =
+                user_regex(&s.value, insensitive).expect("regexes are validated before compiling");
+            return Filter::Content {
+                id,
+                order,
+                regex,
+                per_line: true,
+            };
+        }
         let regex =
             Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex");
-        return Filter::Content { id, order, regex };
+        return Filter::Content {
+            id,
+            order,
+            regex,
+            per_line: false,
+        };
     }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
         unreachable!("name and path conditions have an operator and a string")
@@ -561,6 +605,8 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
     let insensitive = options.case_insensitive_paths || c.modifiers.iter().any(|m| m.name == "i");
     let regex = if *op == Op::Wildcard {
         wildcard::compile(&value, insensitive).expect("wildcards are validated before compiling")
+    } else if *op == Op::Regex {
+        user_regex(&value, insensitive).expect("regexes are validated before compiling")
     } else {
         let escaped = regex::escape(&value);
         let pattern = match op {
@@ -983,6 +1029,30 @@ mod tests {
         assert!(content_matches("text ends '\n'", "a\r\n"));
         assert!(!content_matches("text ends '\n'", "a"));
         assert!(content_matches("text ends 'A' /i", "xa"));
+    }
+
+    #[test]
+    fn regex_per_line() {
+        assert!(content_matches("text =~ `^b$`", "a\nb\nc"));
+        assert!(!content_matches("text =~ `a\\s+b`", "a\nb"));
+        assert!(content_matches("text =~ `A\\d` /i", "xa1"));
+        assert!(matcher("name =~ `^[a-c]\\.rs$`", false).is_match("b.rs"));
+        assert!(matcher("name =~ `README` /i", false).is_match("readme.md"));
+        assert!(matcher("path =~ `src/` ", false).is_match("a/src/b"));
+    }
+
+    #[test]
+    fn invalid_regexes() {
+        let hint = |q: &str| {
+            let e = parse(q, &SENSITIVE).unwrap_err();
+            assert_eq!(e.code, ErrorCode::InvalidRegex, "{q}");
+            e.hint.unwrap()
+        };
+        assert_eq!(hint("text =~ `(?<=a)b`"), "look-arounds are not supported");
+        assert_eq!(hint("text =~ `(a)\\1`"), "backreferences are not supported");
+        assert_eq!(hint("name =~ `(x`"), "unclosed group");
+        let e = parse("name =~ `(x`", &SENSITIVE).unwrap_err();
+        assert_eq!((e.message.as_str(), e.span), ("invalid regex", 8..12));
     }
 
     #[test]

@@ -19,6 +19,7 @@ pub enum ErrorCode {
     InvalidSize,
     InvalidRange,
     InvalidDate,
+    InvalidRegex,
     InvalidOption,
     NotImplemented,
 }
@@ -41,6 +42,7 @@ impl ErrorCode {
             Self::InvalidSize => "invalid_size",
             Self::InvalidRange => "invalid_range",
             Self::InvalidDate => "invalid_date",
+            Self::InvalidRegex => "invalid_regex",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

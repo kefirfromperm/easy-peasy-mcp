@@ -15,7 +15,7 @@ Empty query = all files.
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
                                  [*] [?] [[] [{] match the character itself
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
-  path starts 'docs/'            =, has, starts, ends work on paths too
+  path starts 'docs/'            =, has, starts, ends, =~ (regex) work on paths and names too
   size > 1M                      also: = != < <= >= and size in 10K..1M; units B K M G (1024)
   modified > -7d                 also: modified = 2026-10-01 (the whole day), modified in -7d..-1d;
                                  dates 2026-10-01, 2026-10-01T14:30, ...T14:30:00Z, ...+02:00 (local time without
@@ -31,6 +31,7 @@ Empty query = all files.
                                  false outside of a repository
   text has 'TODO'                content contains, /i ignore case; a value with '\n' matches across lines;
                                  also = starts ends on the whole content: text starts '#!/bin/bash';
+                                 text =~ `fn \\w+_test` regex (Rust syntax), per line: ^ $ are line ends;
                                  binary files are not searched: content conditions are unknown for them
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type

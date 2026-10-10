@@ -1,6 +1,6 @@
 # Task 22: Regex operator `=~`
 
-Status: not implemented
+Status: implemented, see [22__SUMMARY__REGEX.md](22__SUMMARY__REGEX.md)
 
 Depends on: task 21
 
