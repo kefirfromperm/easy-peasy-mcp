@@ -246,7 +246,8 @@ An invalid `server.timeout` is `invalid value for 'server.timeout': a duration l
 m)` at start and the same hint for `invalid_value` of `update_config`; an invalid `--timeout` prints the usage.
 `get_config` shows the duration as written. An invalid `server.threads` is `invalid value for 'server.threads': a whole
 number is expected (0: the number of CPU cores)`, an invalid `server.allow_update` `invalid value for
-'server.allow_update': true or false is expected`.
+'server.allow_update': true or false is expected`, an invalid `server.result_cache` `invalid value for
+'server.result_cache': a whole number is expected (0: off)`.
 
 A root which doesn't exist stops the server with `the allowed root '<root>' doesn't exist` — after `<path>:<line>: `
 when it comes from the config file, see [Config file](#config-file).

@@ -73,6 +73,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E40.4 A timeout for the session
@@ -108,6 +109,7 @@ default_dirs = ['.']    # default
 timeout = "200ms"    # update
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 3. `find`
@@ -174,6 +176,7 @@ default_dirs = ['.']    # default
 timeout = "5s"    # cli
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -203,6 +206,7 @@ default_dirs = ['.']    # default
 timeout = "1m"    # file: conf/t.toml
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -232,6 +236,7 @@ default_dirs = ['.']    # default
 timeout = "5s"    # cli
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

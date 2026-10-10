@@ -13,7 +13,8 @@ pub use lines::{Fragment, matched_lines, merge_identical};
 
 /// The response of a `find` call with `detail = lines`, for a query of file conditions only.
 pub struct Response<'a> {
-    pub result_id: &'a str,
+    /// `None` when the result cache is off.
+    pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
     pub files: &'a [Found],
     /// Printed after the files.
@@ -37,12 +38,15 @@ impl Response<'_> {
                 .sum()
         };
         let mut out = format!(
-            "files: {}  lines: {}  matches: {}  result: {}\n",
+            "files: {}  lines: {}  matches: {}",
             self.files.len(),
             count(|m| m.lines),
             count(|m| m.fragments.len()),
-            self.result_id
         );
+        if let Some(id) = self.result_id {
+            let _ = write!(out, "  result: {id}");
+        }
+        out.push('\n');
         if self.timed_out {
             out.insert_str(out.len() - 1, "  truncated: yes (timeout)");
         }
@@ -159,7 +163,7 @@ mod tests {
         ];
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
         let text = Response {
-            result_id: "r3",
+            result_id: Some("r3"),
             legend: &legend,
             files: &files,
             warnings: &Warnings::default(),
@@ -186,7 +190,7 @@ mod tests {
             id: None,
         }];
         let text = Response {
-            result_id: "r1",
+            result_id: Some("r1"),
             legend: &[],
             files: &files,
             warnings: &Warnings::default(),
@@ -207,7 +211,7 @@ mod tests {
         let files = [dir];
         let legend = [(CondId::Number(1), "type = dir".to_string())];
         let text = Response {
-            result_id: "r1",
+            result_id: Some("r1"),
             legend: &legend,
             files: &files,
             warnings: &Warnings::default(),
@@ -224,7 +228,7 @@ mod tests {
     #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
-            result_id: "r1",
+            result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],
             warnings: &Warnings::default(),

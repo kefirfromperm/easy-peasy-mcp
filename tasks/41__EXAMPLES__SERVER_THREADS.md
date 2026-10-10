@@ -85,6 +85,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 1    # update
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ## E41.2 The default
@@ -105,6 +106,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E41.3 An invalid value for `update_config`
@@ -149,6 +151,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 2    # file: conf/t.toml
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 2. `find`

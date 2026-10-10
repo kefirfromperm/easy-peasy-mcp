@@ -30,6 +30,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E35.2 One section
@@ -63,6 +64,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ## E35.4 An unknown section
