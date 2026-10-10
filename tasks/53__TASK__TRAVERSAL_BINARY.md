@@ -1,6 +1,6 @@
 # Task 53: `traversal.binary`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 20, task 44
 
