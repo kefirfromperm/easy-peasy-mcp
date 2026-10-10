@@ -113,6 +113,124 @@ impl McpServer {
     }
 }
 
+impl McpServer {
+    /// The server as an exchange: its messages are read by a thread from now on.
+    pub fn into_exchange(self) -> Exchange {
+        let (sender, messages) = std::sync::mpsc::channel();
+        let mut stdout = self.stdout;
+        std::thread::spawn(move || {
+            loop {
+                let mut line = String::new();
+                match stdout.read_line(&mut line) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {
+                        let Ok(message) = serde_json::from_str::<Value>(&line) else {
+                            continue;
+                        };
+                        if sender.send(message).is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+        Exchange {
+            child: self.child,
+            stdin: self.stdin,
+            messages,
+            log: Vec::new(),
+            next: 0,
+        }
+    }
+}
+
+/// A JSON-RPC exchange with a running server: the messages it sent, in their order.
+pub struct Exchange {
+    pub child: Child,
+    stdin: ChildStdin,
+    messages: std::sync::mpsc::Receiver<Value>,
+    /// Every message received.
+    pub log: Vec<Value>,
+    /// The first message of the log which no `receive` has passed yet.
+    next: usize,
+}
+
+impl Exchange {
+    pub fn send(&mut self, message: &Value) {
+        writeln!(self.stdin, "{message}").unwrap();
+        self.stdin.flush().unwrap();
+    }
+
+    /// The next message which matches `expected`, skipping the others; `None` when none arrives within `timeout`.
+    pub fn receive(&mut self, expected: &Value, timeout: std::time::Duration) -> Option<Value> {
+        let deadline = std::time::Instant::now() + timeout;
+        loop {
+            while self.next < self.log.len() {
+                let message = &self.log[self.next];
+                self.next += 1;
+                if matches(expected, message) {
+                    return Some(message.clone());
+                }
+            }
+            let left = deadline.checked_duration_since(std::time::Instant::now())?;
+            let message = self.messages.recv_timeout(left).ok()?;
+            self.log.push(message);
+        }
+    }
+
+    /// A message which matches `pattern`: one received so far or within `wait`.
+    pub fn never(&mut self, pattern: &Value, wait: std::time::Duration) -> Option<Value> {
+        let deadline = std::time::Instant::now() + wait;
+        while let Some(left) = deadline.checked_duration_since(std::time::Instant::now()) {
+            match self.messages.recv_timeout(left) {
+                Ok(message) => self.log.push(message),
+                Err(_) => break,
+            }
+        }
+        self.log.iter().find(|m| matches(pattern, m)).cloned()
+    }
+
+    /// Sends a request and waits for its response.
+    pub fn request(&mut self, id: i64, method: &str, params: &Value) -> Option<Value> {
+        self.send(&json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
+        self.receive(&json!({ "id": id }), std::time::Duration::from_secs(60))
+    }
+}
+
+/// Whether `actual` matches the block `expected`: every key of an object of the block is in the message with a
+/// matching value, arrays match item by item, a string `*` matches any value and a `*` inside a string any
+/// characters.
+pub fn matches(expected: &Value, actual: &Value) -> bool {
+    match (expected, actual) {
+        (Value::String(want), _) if want == "*" => true,
+        (Value::String(want), Value::String(got)) if want.contains('*') => glob(want, got),
+        (Value::Object(want), Value::Object(got)) => want
+            .iter()
+            .all(|(key, value)| got.get(key).is_some_and(|g| matches(value, g))),
+        (Value::Array(want), Value::Array(got)) => {
+            want.len() == got.len() && want.iter().zip(got).all(|(w, g)| matches(w, g))
+        }
+        _ => expected == actual,
+    }
+}
+
+/// Whether `text` matches `pattern`, where `*` matches any characters.
+fn glob(pattern: &str, text: &str) -> bool {
+    let parts: Vec<&str> = pattern.split('*').collect();
+    let (first, last) = (parts[0], parts[parts.len() - 1]);
+    if !text.starts_with(first) || text.len() < first.len() + last.len() || !text.ends_with(last) {
+        return false;
+    }
+    let mut rest = &text[first.len()..text.len() - last.len()];
+    for part in &parts[1..parts.len() - 1] {
+        match rest.find(part) {
+            Some(i) => rest = &rest[i + part.len()..],
+            None => return false,
+        }
+    }
+    true
+}
+
 /// Whether `actual` is the JSON document of the block `expected`: one line, the same JSON value.
 pub fn same_json(expected: &str, actual: &str) -> bool {
     let (Ok(want), Ok(got)) = (
