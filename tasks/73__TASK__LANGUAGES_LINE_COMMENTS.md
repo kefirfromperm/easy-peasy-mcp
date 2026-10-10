@@ -1,6 +1,6 @@
 # Task 73: `languages.<name>.line_comments`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 29, task 70
 
