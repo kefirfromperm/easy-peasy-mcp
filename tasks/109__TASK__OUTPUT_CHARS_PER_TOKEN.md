@@ -1,6 +1,6 @@
 # Task 109: `output.chars_per_token`
 
-Status: in progress
+Status: implemented, see [109__SUMMARY__OUTPUT_CHARS_PER_TOKEN.md](109__SUMMARY__OUTPUT_CHARS_PER_TOKEN.md)
 
 Depends on: task 108
 
