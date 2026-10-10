@@ -548,6 +548,12 @@ mod tests {
                 .strings,
             ["\""]
         );
+        assert!(
+            !parse(&json!({ "languages": { "hcl": { "source": false } } }))
+                .unwrap()
+                .languages[0]
+                .source
+        );
         assert_eq!(
             text(&json!({ "languages": { "terraform": { "extensions": "tf" } } })),
             "error[invalid_option]: 'languages.terraform.extensions' must be a list of strings\n"

@@ -20,17 +20,6 @@ pub const KEYS: [&str; 8] = [
     "source",
 ];
 
-/// The keys this server version implements.
-const IMPLEMENTED: [&str; 7] = [
-    "extensions",
-    "names",
-    "shebangs",
-    "line_comments",
-    "block_comments",
-    "nested_block_comments",
-    "strings",
-];
-
 /// What every language name must be.
 pub const NAME_EXPECTED: &str = "a letter, then letters, digits, _ and - are expected";
 
@@ -54,8 +43,6 @@ pub enum Problem {
         key: String,
         close: Option<&'static str>,
     },
-    /// A key of the spec which isn't implemented yet.
-    NotImplemented { language: String, key: String },
     /// A value of a wrong type, and what it must be.
     Value {
         language: String,
@@ -77,9 +64,7 @@ impl Problem {
     pub fn key(&self) -> String {
         match self {
             Self::Name(name) | Self::NotATable(name) => format!("languages.{name}"),
-            Self::UnknownKey { language, key, .. } | Self::NotImplemented { language, key } => {
-                format!("languages.{language}.{key}")
-            }
+            Self::UnknownKey { language, key, .. } => format!("languages.{language}.{key}"),
             Self::Value { language, key, .. } | Self::Conflict { language, key, .. } => {
                 format!("languages.{language}.{key}")
             }
@@ -119,9 +104,6 @@ impl Problem {
                 ),
                 None => format!("unknown key '{}'", self.key()),
             },
-            Self::NotImplemented { .. } => {
-                format!("the key '{}' is not implemented yet", self.key())
-            }
             Self::Value { .. } | Self::Conflict { .. } => {
                 format!("invalid value for '{}': {}", self.key(), self.expected())
             }
@@ -155,9 +137,6 @@ impl Problem {
                     None => report,
                 }
             }
-            Self::NotImplemented { .. } => {
-                Report::not_implemented(&format!("the key '{}'", self.key()))
-            }
             Self::Value { .. } | Self::Conflict { .. } => Report::new(
                 ErrorCode::InvalidValue,
                 format!("invalid value for '{}'", self.key()),
@@ -190,9 +169,6 @@ impl Problem {
                     format!("unknown field '{}'", self.key()),
                 )
                 .hint(hint)
-            }
-            Self::NotImplemented { .. } => {
-                Report::not_implemented(&format!("the field '{}'", self.key()))
             }
             Self::Value { expected, .. } => Report::new(
                 ErrorCode::InvalidOption,
@@ -320,7 +296,7 @@ impl Raw<'_> {
     }
 }
 
-/// Checks a key of a language and sets it: unknown, not implemented, of a wrong type.
+/// Checks a key of a language and sets it: unknown, of a wrong type.
 fn set_key(language: &mut Language, key: &str, raw: Raw<'_>) -> Result<(), Problem> {
     let Some(key) = KEYS.into_iter().find(|k| *k == key) else {
         return Err(Problem::UnknownKey {
@@ -329,12 +305,6 @@ fn set_key(language: &mut Language, key: &str, raw: Raw<'_>) -> Result<(), Probl
             close: did_you_mean(key, &KEYS),
         });
     };
-    if !IMPLEMENTED.contains(&key) {
-        return Err(Problem::NotImplemented {
-            language: language.name.clone(),
-            key: key.to_string(),
-        });
-    }
     let ty = KeyType::of(key);
     let invalid = || Problem::Value {
         language: language.name.clone(),
@@ -501,7 +471,7 @@ pub fn render(languages: &[LanguageSetting], sources: bool) -> String {
     let mut out = String::new();
     for setting in languages {
         let _ = writeln!(out, "\n[languages.{}]", setting.language.name);
-        for key in IMPLEMENTED {
+        for key in KEYS {
             let line = format!("{key} = {}", value(&setting.language, key));
             if sources {
                 let _ = writeln!(out, "{line}    # {}", setting.source);
@@ -542,7 +512,7 @@ pub fn changes(
             ""
         };
         let mut header = false;
-        for key in IMPLEMENTED {
+        for key in KEYS {
             let before = was.as_ref().map(|l| value(l, key));
             let after = now.as_ref().map(|l| value(l, key));
             if before == after {
@@ -605,10 +575,9 @@ mod tests {
                 close: Some("extensions")
             }
         );
-        assert!(matches!(
-            toml("[languages.x]\nsource = true\n").unwrap_err().0,
-            Problem::NotImplemented { .. }
-        ));
+        let x = toml("[languages.x]\nsource = false\nblock_comments = [['(*', '*)']]\n").unwrap();
+        assert!(!x.source);
+        assert_eq!(x.block_comments, [("(*".to_string(), "*)".to_string())]);
         assert_eq!(
             toml("languages.rust = 1\n").unwrap_err().0,
             Problem::NotATable("rust".into())

@@ -56,6 +56,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
@@ -65,6 +66,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.csharp]
 extensions = ['cs']
@@ -74,6 +76,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.java]
 extensions = ['java']
@@ -83,6 +86,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
@@ -92,6 +96,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
 strings = ['"', "'"]
+source = true
 
 [languages.scala]
 extensions = ['scala', 'sc']
@@ -101,6 +106,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
 strings = ['"', "'"]
+source = true
 
 [languages.go]
 extensions = ['go']
@@ -110,6 +116,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', '`']
+source = true
 
 [languages.swift]
 extensions = ['swift']
@@ -119,6 +126,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
 strings = ['"', "'"]
+source = true
 
 [languages.dart]
 extensions = ['dart']
@@ -128,6 +136,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
 strings = ['"', "'"]
+source = true
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
@@ -137,6 +146,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
@@ -146,6 +156,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'", '`']
+source = true
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
@@ -155,6 +166,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'", '`']
+source = true
 
 [languages.rust]
 extensions = ['rs']
@@ -164,6 +176,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
 strings = ['"']
+source = true
 
 [languages.php]
 extensions = ['php']
@@ -173,6 +186,7 @@ line_comments = ['//', '#']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.css]
 extensions = ['css']
@@ -182,6 +196,7 @@ line_comments = []
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.scss]
 extensions = ['scss', 'less']
@@ -191,6 +206,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.python]
 extensions = ['py', 'pyi']
@@ -200,6 +216,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.ruby]
 extensions = ['rb']
@@ -209,6 +226,7 @@ line_comments = ['#']
 block_comments = [['=begin', '=end']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
@@ -218,6 +236,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.perl]
 extensions = ['pl', 'pm']
@@ -227,6 +246,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.r]
 extensions = ['r']
@@ -236,6 +256,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
@@ -245,6 +266,7 @@ line_comments = ['#']
 block_comments = [['<#', '#>']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.batch]
 extensions = ['bat', 'cmd']
@@ -254,6 +276,7 @@ line_comments = ['REM', '::']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = true
 
 [languages.sql]
 extensions = ['sql']
@@ -263,6 +286,7 @@ line_comments = ['--']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.lua]
 extensions = ['lua']
@@ -272,6 +296,7 @@ line_comments = ['--']
 block_comments = [['--[[', ']]']]
 nested_block_comments = false
 strings = ['"', "'"]
+source = true
 
 [languages.haskell]
 extensions = ['hs']
@@ -281,6 +306,7 @@ line_comments = ['--']
 block_comments = [['{-', '-}']]
 nested_block_comments = true
 strings = ['"']
+source = true
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
@@ -290,6 +316,7 @@ line_comments = [';']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = true
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
@@ -299,6 +326,7 @@ line_comments = [';']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = true
 
 [languages.html]
 extensions = ['html', 'htm']
@@ -308,6 +336,7 @@ line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
 strings = ['"']
+source = true
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
@@ -317,6 +346,7 @@ line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.vue]
 extensions = ['vue']
@@ -326,6 +356,7 @@ line_comments = ['//']
 block_comments = [['<!--', '-->'], ['/*', '*/']]
 nested_block_comments = false
 strings = ['"', "'", '`']
+source = true
 
 [languages.markdown]
 extensions = ['md', 'markdown']
@@ -335,6 +366,7 @@ line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
 strings = []
+source = false
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
@@ -344,6 +376,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.toml]
 extensions = ['toml']
@@ -353,6 +386,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
@@ -362,6 +396,7 @@ line_comments = ['#', ';']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.properties]
 extensions = ['properties']
@@ -371,6 +406,7 @@ line_comments = ['#', '!']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.dotenv]
 extensions = ['env']
@@ -380,6 +416,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.json]
 extensions = ['json']
@@ -389,6 +426,7 @@ line_comments = []
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
@@ -398,6 +436,7 @@ line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
 strings = ['"']
+source = false
 
 [languages.dockerfile]
 extensions = ['dockerfile']
@@ -407,6 +446,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = true
 
 [languages.makefile]
 extensions = ['mk']
@@ -416,6 +456,7 @@ line_comments = ['#']
 block_comments = []
 nested_block_comments = false
 strings = ['"']
+source = true
 ```
 
 ## E70.2 A new language in a request
@@ -502,6 +543,7 @@ line_comments = []    # was (not set)
 block_comments = []    # was (not set)
 nested_block_comments = false    # was (not set)
 strings = []    # was (not set)
+source = true    # was (not set)
 ```
 
 2. `find`
@@ -534,6 +576,7 @@ vars.tfvars  [#1]
 # block_comments =  (not set)    # was [], reset
 # nested_block_comments =  (not set)    # was false, reset
 # strings =  (not set)    # was [], reset
+# source =  (not set)    # was true, reset
 ```
 
 ## E70.7 A built-in language for the session

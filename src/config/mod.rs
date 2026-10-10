@@ -1355,13 +1355,6 @@ mod tests {
             )
         );
         assert_eq!(
-            error("[languages.terraform]\nsource = false\n"),
-            (
-                2,
-                "the key 'languages.terraform.source' is not implemented yet".into()
-            )
-        );
-        assert_eq!(
             error("[languages.terraform]\nextension = []\n"),
             (
                 2,
