@@ -1,6 +1,6 @@
 # Task 41: `server.threads`
 
-Status: in progress
+Status: implemented, see [41__SUMMARY__SERVER_THREADS.md](41__SUMMARY__SERVER_THREADS.md)
 
 Depends on: task 40
 
