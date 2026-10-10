@@ -1,6 +1,6 @@
 # Task 66: `kinds.test`
 
-Status: in progress
+Status: implemented, see [66__SUMMARY__KINDS_TEST.md](66__SUMMARY__KINDS_TEST.md)
 
 Depends on: task 63
 
