@@ -1,6 +1,6 @@
 # Task 21: `text` with `=`, `starts`, `ends`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 19
 
