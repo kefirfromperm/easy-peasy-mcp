@@ -176,4 +176,41 @@ mod tests {
         assert_eq!(listed_lines(&one, &files), [vec![0], vec![]]);
         assert!(matches!(one.files[1], Listed::Lines(ref f) if f.is_empty()));
     }
+
+    #[test]
+    fn the_first_matches() {
+        // three fragments on line 0, one on line 1; the multiline fragment of the second file is one match
+        let files = [file("aaa\na\n"), file("x\ny\na\n")];
+        let listing = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_matches: 2,
+                ..Limits::default()
+            },
+        );
+        assert!(matches!(&listing.files[0], Listed::Lines(f) if f.len() == 2));
+        assert_eq!(listed_lines(&listing, &files), [vec![0], vec![]]);
+        assert_eq!(listing.truncated_by, ["max_matches"]);
+        let both = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_lines: 3,
+                max_matches: 5,
+                ..Limits::default()
+            },
+        );
+        assert_eq!(listed_lines(&both, &files), [vec![0, 1], vec![]]);
+        assert_eq!(both.truncated_by, ["max_lines"]);
+        let matches_left = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_matches: 5,
+                ..Limits::default()
+            },
+        );
+        assert_eq!(listed_lines(&matches_left, &files), [vec![0, 1], vec![0, 1]]);
+    }
 }
