@@ -225,6 +225,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2

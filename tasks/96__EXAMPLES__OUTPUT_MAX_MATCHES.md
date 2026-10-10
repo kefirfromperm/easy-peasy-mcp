@@ -19,6 +19,7 @@ Fixture: `sorting`
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -192,6 +193,7 @@ a.txt  [#1]  lines: 1  matches: 1
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default

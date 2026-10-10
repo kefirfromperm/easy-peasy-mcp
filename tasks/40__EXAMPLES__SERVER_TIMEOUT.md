@@ -132,6 +132,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -672,6 +673,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -1175,6 +1177,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -1678,6 +1681,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default

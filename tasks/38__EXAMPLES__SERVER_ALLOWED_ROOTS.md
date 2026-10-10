@@ -54,6 +54,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -548,6 +549,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -1018,6 +1020,7 @@ Fixture: `roots`
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -1089,6 +1092,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -1625,6 +1629,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -2140,6 +2145,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -2656,6 +2662,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
