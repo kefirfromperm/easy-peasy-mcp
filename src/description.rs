@@ -96,6 +96,21 @@ pub fn find_schema() -> Value {
             "within": { "type": "string", "description": "A result id like r12: search only the files of that result, without a walk; dirs and the walk options of traversal are ignored, the paths are written as in that result." },
             "since": { "type": "string", "description": "A result id like r12: return only the differences to that result — + added, ~ changed (other matched lines), - removed files, and the number of unchanged ones; the counts are of the current result." },
             "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." },
+            "queries": {
+                "type": "array", "minItems": 1,
+                "description": "Several queries in one call instead of query: every query in its section (== label ==) with its own result id; dirs, timeout, traversal and output of an item override the shared ones; budget and max_output are split between the queries.",
+                "items": {
+                    "type": "object", "additionalProperties": false, "required": ["query"],
+                    "properties": {
+                        "label": { "type": "string" },
+                        "query": { "type": "string" },
+                        "dirs": { "$ref": "#/properties/dirs" },
+                        "timeout": { "$ref": "#/properties/timeout" },
+                        "traversal": { "$ref": "#/properties/traversal" },
+                        "output": { "$ref": "#/properties/output" }
+                    }
+                }
+            },
             "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max search time, e.g. '10s'. '0s': no limit." },
             "traversal": {
                 "type": "object",

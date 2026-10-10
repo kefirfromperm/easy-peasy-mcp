@@ -368,7 +368,8 @@ mod tests {
     }
 
     #[test]
-    fn spec_fields_are_not_implemented() {
+    fn queries_are_a_batch() {
+        // the engine hands them to the batch, a single request doesn't have them
         assert_eq!(
             text(&json!({ "queries": [] })),
             "error[not_implemented]: the field 'queries' is not implemented yet\n"

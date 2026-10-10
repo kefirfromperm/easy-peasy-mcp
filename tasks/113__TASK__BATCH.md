@@ -1,6 +1,6 @@
 # Task 113: Several queries in one call: `queries`
 
-Status: not implemented
+Status: implemented, see [113__SUMMARY__BATCH.md](113__SUMMARY__BATCH.md)
 
 Depends on: task 110, task 108
 

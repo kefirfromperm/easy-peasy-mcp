@@ -6,6 +6,7 @@
 #![recursion_limit = "256"]
 
 mod archive;
+mod batch;
 mod cache;
 mod comments;
 mod compressed;

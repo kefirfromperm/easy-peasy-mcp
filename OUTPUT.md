@@ -852,6 +852,16 @@ Several queries in one call: one round trip, one response.
 - in the text format every section starts with `== label ==` (the number of the query if it has no label) on its
   header line
 - an invalid query has an error in its section, the others still run; `isError` is true only if all of them fail
+- the first line of a section is `== label ==`, two spaces and the first line of the response of the query (its
+  header or its error line); the rest of its response follows
+- an item is an object with a string `query`, an optional string `label` and the overrides; `traversal` and `output`
+  of an item are merged into the shared ones key by key; a wrong item is an error in its section, a wrong shared
+  field fails the whole request; `query` and `queries` together are `invalid_option`: `'query' and 'queries' can't
+  be used together`, a `queries` which is not a non-empty list of objects: `'queries' must be a non-empty list of
+  objects`
+- the format is the shared one; in JSON the response is `{ "version": 1, "queries": [...] }`, every item the response
+  of its query without `version` and with `"label"` first (the number as a string without a label), an invalid one
+  `{ "label": ..., "error": {...} }`
 
 ```
 == defs ==  files: 1  lines: 1  matches: 1  result: r20
