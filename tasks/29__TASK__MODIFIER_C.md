@@ -1,6 +1,6 @@
 # Task 29: `/c` ignore matches in comments
 
-Status: in progress
+Status: implemented, see [29__SUMMARY__MODIFIER_C.md](29__SUMMARY__MODIFIER_C.md)
 
 Depends on: task 26
 
