@@ -404,6 +404,10 @@ mod tests {
             config(&json!({ "output": { "funnel": "never" } })),
             [(Key::Funnel, KeyValue::Text("never".into()))]
         );
+        assert_eq!(
+            config(&json!({ "output": { "facet_depth": 1 } })),
+            [(Key::FacetDepth, KeyValue::Whole(1))]
+        );
     }
 
     #[test]
