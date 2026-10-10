@@ -18,6 +18,10 @@ pub struct EngineOptions {
     pub start_dir: PathBuf,
     /// Whether the global excludes file of git (`core.excludesFile`) is respected.
     pub git_global_excludes: bool,
+    /// A fixed moment for relative dates; `None` — the clock when a request arrives.
+    pub now: Option<jiff::Timestamp>,
+    /// The local time zone of dates without an offset.
+    pub time_zone: jiff::tz::TimeZone,
 }
 
 impl EngineOptions {
@@ -27,6 +31,8 @@ impl EngineOptions {
         Self {
             start_dir,
             git_global_excludes: true,
+            now: None,
+            time_zone: jiff::tz::TimeZone::system(),
         }
     }
 }
@@ -105,9 +111,11 @@ impl Engine {
         let request = request::parse(arguments)?;
         let options = ParseOptions {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
+            now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
+            time_zone: self.options.time_zone.clone(),
         };
         let query =
-            query::parse(&request.query, options).map_err(|e| e.into_report(&request.query))?;
+            query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
         let search_options = SearchOptions {
             git_global_excludes: self.options.git_global_excludes,
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,

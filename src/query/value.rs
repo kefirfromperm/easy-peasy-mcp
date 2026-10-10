@@ -80,6 +80,13 @@ pub struct DateValue {
     pub end: f64,
 }
 
+impl DateValue {
+    /// Whether the date is a moment, not an interval.
+    pub fn is_moment(&self) -> bool {
+        self.end <= self.start
+    }
+}
+
 static ABSOLUTE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(\.\d{1,9})?)?(Z|[+-]\d{2}:\d{2})?)?$")
         .expect("a valid regex")
@@ -167,14 +174,14 @@ pub fn parse_date(text: &str, now: Timestamp, tz: &TimeZone) -> Option<DateValue
 
 /// The interval of `<op> a`, or of `in a..b` when `b` is given (QUERY.md#dates).
 pub fn date_bounds(op: Op, a: DateValue, b: Option<DateValue>) -> Bounds {
-    let moment = a.start == a.end;
+    let moment = a.is_moment();
     let bounds = |min, max| Bounds {
         min,
         max,
         negated: false,
     };
     match (op, b) {
-        (Op::In, Some(b)) => bounds(Some((a.start, true)), Some((b.end, b.start == b.end))),
+        (Op::In, Some(b)) => bounds(Some((a.start, true)), Some((b.end, b.is_moment()))),
         (Op::Ne, _) => Bounds {
             negated: true,
             ..date_bounds(Op::Eq, a, None)
@@ -188,6 +195,7 @@ pub fn date_bounds(op: Op, a: DateValue, b: Option<DateValue>) -> Bounds {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)] // the compared values are whole or half seconds, exact in f64
 mod tests {
     use super::*;
 

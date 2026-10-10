@@ -25,10 +25,14 @@ pub(crate) use suggest::did_you_mean;
 use crate::error::{ErrorCode, QueryError};
 
 /// Settings which change how the query is compiled.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ParseOptions {
     /// `path_case`: whether `path` and `name` are compared case-insensitively.
     pub case_insensitive_paths: bool,
+    /// The moment the search starts: relative dates are relative to it.
+    pub now: jiff::Timestamp,
+    /// The local time zone of dates without an offset.
+    pub time_zone: jiff::tz::TimeZone,
 }
 
 /// A parsed and compiled query.
@@ -42,12 +46,12 @@ pub struct Query {
     pub has_type: bool,
     /// Whether the query has an `empty` condition, so the search must find out whether entries are empty.
     pub needs_empty: bool,
-    /// Whether the query looks at the metadata of entries: `size`.
+    /// Whether the query looks at the metadata of entries: `size`, `modified`.
     pub needs_metadata: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
-pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
+pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
     let lexed = lexer::lex(text);
     let mut expr = parser::parse(text, &lexed)?;
     let mut legend = Vec::new();
@@ -79,7 +83,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
             if let NodeKind::Condition(c) = &node.kind {
                 has_type |= c.target == Target::Type;
                 needs_empty |= c.target == Target::Empty;
-                needs_metadata |= c.target == Target::Size;
+                needs_metadata |= matches!(c.target, Target::Size | Target::Modified);
             }
         });
     }
@@ -127,7 +131,7 @@ fn validate(
     text: &str,
     expr: &Expr,
     in_line: bool,
-    options: ParseOptions,
+    options: &ParseOptions,
     errors: &mut Vec<QueryError>,
 ) {
     match expr {
@@ -152,7 +156,7 @@ fn validate_condition(
     text: &str,
     c: &Condition,
     in_line: bool,
-    options: ParseOptions,
+    options: &ParseOptions,
     errors: &mut Vec<QueryError>,
 ) {
     if let (Some((Op::Wildcard, _)), Value::Str(s), Target::Name | Target::Path) =
@@ -185,6 +189,9 @@ fn validate_condition(
     }
     if c.target == Target::Size {
         validate_sizes(text, &c.value, errors);
+    }
+    if c.target == Target::Modified {
+        validate_dates(text, &c.value, options, errors);
     }
     for modifier in &c.modifiers {
         if let Some(hint) = modifier_not_allowed(c, modifier, in_line) {
@@ -228,19 +235,58 @@ fn validate_sizes(text: &str, value: &Value, errors: &mut Vec<QueryError>) {
             if let (Some(a), Some(b)) = (size(from, errors), size(to, errors))
                 && a > b
             {
-                let span = from.span.start..to.span.end;
-                errors.push(
-                    QueryError::new(
-                        ErrorCode::InvalidRange,
-                        format!("invalid range '{}'", &text[span.clone()]),
-                        span,
-                    )
-                    .hint("the start must not be greater than the end"),
-                );
+                errors.push(invalid_range(text, from, to));
             }
         }
         _ => {}
     }
+}
+
+/// `invalid_date` for every value which is not a date, `invalid_range` for a range whose start is after its start.
+fn validate_dates(text: &str, value: &Value, options: &ParseOptions, errors: &mut Vec<QueryError>) {
+    let date = |s: &Spanned, errors: &mut Vec<QueryError>| {
+        let parsed = value::parse_date(&s.text, options.now, &options.time_zone);
+        if parsed.is_none() {
+            let hint = if value::is_relative(&s.text) {
+                "units: s, m, h, d, w"
+            } else {
+                "ISO 8601: 2026-10-01, 2026-10-01T14:30, 2026-10-01T14:30:00Z, 2026-10-01T14:30:00+02:00"
+            };
+            errors.push(
+                QueryError::new(
+                    ErrorCode::InvalidDate,
+                    format!("invalid date '{}'", s.text),
+                    s.span.clone(),
+                )
+                .hint(hint),
+            );
+        }
+        parsed
+    };
+    match value {
+        Value::Scalar(s) => {
+            date(s, errors);
+        }
+        Value::Range(from, to) => {
+            if let (Some(a), Some(b)) = (date(from, errors), date(to, errors))
+                && a.start > b.start
+            {
+                errors.push(invalid_range(text, from, to));
+            }
+        }
+        _ => {}
+    }
+}
+
+/// `invalid_range` from the start of `from` to the end of `to`.
+fn invalid_range(text: &str, from: &Spanned, to: &Spanned) -> QueryError {
+    let span = from.span.start..to.span.end;
+    QueryError::new(
+        ErrorCode::InvalidRange,
+        format!("invalid range '{}'", &text[span.clone()]),
+        span,
+    )
+    .hint("the start must not be greater than the end")
 }
 
 /// `unknown_value` for a word which is not one of `names`.
@@ -311,7 +357,7 @@ pub fn nfc(s: &str) -> String {
 }
 
 /// Compiles a checked query: every condition is in the implemented subset and valid.
-fn compile(expr: &Expr, options: ParseOptions) -> Filter {
+fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
     let all = |items: &[Expr]| items.iter().map(|e| compile(e, options)).collect();
     match expr {
         Expr::Or(items) => Filter::Or(all(items)),
@@ -323,7 +369,7 @@ fn compile(expr: &Expr, options: ParseOptions) -> Filter {
     }
 }
 
-fn compile_node(node: &Node, options: ParseOptions) -> Filter {
+fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
         unreachable!("the subset check allows only conditions")
     };
@@ -339,6 +385,23 @@ fn compile_node(node: &Node, options: ParseOptions) -> Filter {
             id: node.id.clone(),
             order: node.tokens.start,
             target: NumberTarget::Size,
+            bounds,
+        };
+    }
+    if c.target == Target::Modified {
+        let date = |s: &Spanned| {
+            value::parse_date(&s.text, options.now, &options.time_zone)
+                .expect("dates are validated before compiling")
+        };
+        let bounds = match (&c.op, &c.value) {
+            (Some((op, _)), Value::Scalar(v)) => value::date_bounds(*op, date(v), None),
+            (Some((op, _)), Value::Range(a, b)) => value::date_bounds(*op, date(a), Some(date(b))),
+            _ => unreachable!("date conditions have an operator and a value"),
+        };
+        return Filter::Number {
+            id: node.id.clone(),
+            order: node.tokens.start,
+            target: NumberTarget::Modified,
             bounds,
         };
     }
@@ -400,6 +463,8 @@ mod tests {
 
     const SENSITIVE: ParseOptions = ParseOptions {
         case_insensitive_paths: false,
+        now: jiff::Timestamp::UNIX_EPOCH,
+        time_zone: jiff::tz::TimeZone::UTC,
     };
 
     fn legend(q: &str) -> Vec<String> {
@@ -441,7 +506,7 @@ mod tests {
 
     #[test]
     fn compiles_name_conditions() {
-        let q = parse("name ~ '*.rs'", SENSITIVE).unwrap();
+        let q = parse("name ~ '*.rs'", &SENSITIVE).unwrap();
         assert_eq!(q.legend, [(CondId::Number(1), "name ~ '*.rs'".to_string())]);
         let Some(Filter::Text { matcher, .. }) = q.filter else {
             panic!()
@@ -449,8 +514,9 @@ mod tests {
         assert!(matcher.is_match("a.rs"));
         let Some(Filter::Text { matcher, .. }) = parse(
             "name = 'A.rs'",
-            ParseOptions {
+            &ParseOptions {
                 case_insensitive_paths: true,
+                ..SENSITIVE
             },
         )
         .unwrap()
@@ -460,7 +526,7 @@ mod tests {
         };
         assert!(matcher.is_match("a.RS"));
         let Some(Filter::Text { matcher, .. }) =
-            parse("name = 'caf\u{e9}'", SENSITIVE).unwrap().filter
+            parse("name = 'caf\u{e9}'", &SENSITIVE).unwrap().filter
         else {
             panic!()
         };
@@ -470,8 +536,9 @@ mod tests {
     fn matcher(q: &str, insensitive: bool) -> TextMatcher {
         let options = ParseOptions {
             case_insensitive_paths: insensitive,
+            ..SENSITIVE
         };
-        let Some(Filter::Text { matcher, .. }) = parse(q, options).unwrap().filter else {
+        let Some(Filter::Text { matcher, .. }) = parse(q, &options).unwrap().filter else {
             panic!("{q}")
         };
         matcher
@@ -481,7 +548,7 @@ mod tests {
     fn path_conditions() {
         let Some(Filter::Text {
             target, matcher, ..
-        }) = parse("path ~ 'src/**/*.rs'", SENSITIVE).unwrap().filter
+        }) = parse("path ~ 'src/**/*.rs'", &SENSITIVE).unwrap().filter
         else {
             panic!()
         };
@@ -515,7 +582,7 @@ mod tests {
     }
 
     fn not_allowed(q: &str) -> (String, Range<usize>, String) {
-        let e = parse(q, SENSITIVE).unwrap_err();
+        let e = parse(q, &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::ModifierNotAllowed, "{q}: {e:?}");
         (e.message, e.span, e.hint.unwrap())
     }
@@ -525,7 +592,7 @@ mod tests {
         let lexed = lexer::lex(q);
         let expr = parser::parse(q, &lexed).unwrap().unwrap();
         let mut errors = Vec::new();
-        validate(q, &expr, false, SENSITIVE, &mut errors);
+        validate(q, &expr, false, &SENSITIVE, &mut errors);
         assert_eq!(errors[0].code, ErrorCode::ModifierNotAllowed, "{q}");
         errors[0].hint.clone().unwrap()
     }
@@ -576,7 +643,7 @@ mod tests {
             "name has 'a b' /n",
             "line(text has 'a' /n /i)",
         ] {
-            let e = parse(q, SENSITIVE).unwrap_err();
+            let e = parse(q, &SENSITIVE).unwrap_err();
             assert_eq!(e.code, ErrorCode::NotImplemented, "{q}: {e:?}");
         }
     }
@@ -589,21 +656,22 @@ mod tests {
 
     #[test]
     fn comments_only_is_the_empty_query() {
-        let q = parse("# a\n  # b", SENSITIVE).unwrap();
+        let q = parse("# a\n  # b", &SENSITIVE).unwrap();
         assert!(q.filter.is_none());
-        let q = parse("name = 'a#b' # c\nor name = 'd'", SENSITIVE).unwrap();
+        let q = parse("name = 'a#b' # c\nor name = 'd'", &SENSITIVE).unwrap();
         let texts: Vec<&str> = q.legend.iter().map(|(_, t)| t.as_str()).collect();
         assert_eq!(texts, ["name = 'a#b'", "name = 'd'"]);
     }
 
     fn matches(q: &str, name: &str, entry_type: EntryType) -> bool {
-        let query = parse(q, SENSITIVE).unwrap();
+        let query = parse(q, &SENSITIVE).unwrap();
         let file = FileValues {
             name,
             path: name,
             entry_type,
             empty: name.is_empty(),
             size: name.len() as u64,
+            modified: 0.0,
         };
         query.filter.unwrap().eval(&file)
     }
@@ -624,8 +692,12 @@ mod tests {
         assert!(matches("empty", "", EntryType::File));
         assert!(!matches("empty", "a", EntryType::File));
         assert!(matches("not empty and name = 'a'", "a", EntryType::Dir));
-        assert!(parse("name = 'a' or empty", SENSITIVE).unwrap().needs_empty);
-        assert!(!parse("name = 'a'", SENSITIVE).unwrap().needs_empty);
+        assert!(
+            parse("name = 'a' or empty", &SENSITIVE)
+                .unwrap()
+                .needs_empty
+        );
+        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().needs_empty);
     }
 
     #[test]
@@ -637,13 +709,13 @@ mod tests {
             EntryType::File
         ));
         assert!(!matches("size > 3", "abc", EntryType::File));
-        assert!(parse("size > 1", SENSITIVE).unwrap().needs_metadata);
-        assert!(!parse("name = 'a'", SENSITIVE).unwrap().needs_metadata);
+        assert!(parse("size > 1", &SENSITIVE).unwrap().needs_metadata);
+        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().needs_metadata);
     }
 
     #[test]
     fn size_errors() {
-        let e = parse("size > 10MB", SENSITIVE).unwrap_err();
+        let e = parse("size > 10MB", &SENSITIVE).unwrap_err();
         assert_eq!(
             (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
             (
@@ -653,9 +725,9 @@ mod tests {
                 Some("units: B, K, M, G")
             )
         );
-        let e = parse("size in 1K..1x", SENSITIVE).unwrap_err();
+        let e = parse("size in 1K..1x", &SENSITIVE).unwrap_err();
         assert_eq!((e.code, e.span), (ErrorCode::InvalidSize, 12..14));
-        let e = parse("size in 10M..1M", SENSITIVE).unwrap_err();
+        let e = parse("size in 10M..1M", &SENSITIVE).unwrap_err();
         assert_eq!(
             (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
             (
@@ -669,18 +741,18 @@ mod tests {
 
     #[test]
     fn has_type_anywhere() {
-        assert!(!parse("name = 'a'", SENSITIVE).unwrap().has_type);
+        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().has_type);
         assert!(
-            parse("name = 'a' or not type = dir", SENSITIVE)
+            parse("name = 'a' or not type = dir", &SENSITIVE)
                 .unwrap()
                 .has_type
         );
-        assert!(!parse("", SENSITIVE).unwrap().has_type);
+        assert!(!parse("", &SENSITIVE).unwrap().has_type);
     }
 
     #[test]
     fn unknown_type_values() {
-        let e = parse("type = folder", SENSITIVE).unwrap_err();
+        let e = parse("type = folder", &SENSITIVE).unwrap_err();
         assert_eq!(
             (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
             (
@@ -690,21 +762,21 @@ mod tests {
                 Some("did you mean 'dir'? expected one of: file, dir, link")
             )
         );
-        let e = parse("type in (file, sym)", SENSITIVE).unwrap_err();
+        let e = parse("type in (file, sym)", &SENSITIVE).unwrap_err();
         assert_eq!(e.span, 15..18);
         assert_eq!(e.hint.as_deref(), Some("expected one of: file, dir, link"));
     }
 
     #[test]
     fn the_empty_query_has_no_filter_and_no_legend() {
-        let q = parse(" \n ", SENSITIVE).unwrap();
+        let q = parse(" \n ", &SENSITIVE).unwrap();
         assert!(q.filter.is_none());
         assert!(q.legend.is_empty());
     }
 
     #[test]
     fn invalid_wildcard() {
-        let e = parse("name ~ '[a-'", SENSITIVE).unwrap_err();
+        let e = parse("name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(
             (e.code, e.message.as_str(), e.span, e.hint.unwrap().as_str()),
             (
@@ -720,7 +792,7 @@ mod tests {
     fn duplicate_labels() {
         let e = parse(
             "name = 'a' @x or (name = 'b' @y and name = 'c' @x)",
-            SENSITIVE,
+            &SENSITIVE,
         )
         .unwrap_err();
         assert_eq!(
@@ -736,16 +808,16 @@ mod tests {
 
     #[test]
     fn labelled_ids_in_the_filter() {
-        let q = parse("name = 'a' @x or name = 'b'", SENSITIVE).unwrap();
+        let q = parse("name = 'a' @x or name = 'b'", &SENSITIVE).unwrap();
         let ids: Vec<String> = q.legend.iter().map(|(id, _)| id.to_string()).collect();
         assert_eq!(ids, ["@x", "#1"]);
     }
 
     #[test]
     fn the_earliest_error_wins() {
-        let e = parse("name ~ '[a-' and path ~ 'x'", SENSITIVE).unwrap_err();
+        let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("lang = rust and name ~ '[a-'", SENSITIVE).unwrap_err();
+        let e = parse("lang = rust and name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }
