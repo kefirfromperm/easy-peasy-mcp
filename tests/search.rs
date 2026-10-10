@@ -152,11 +152,7 @@ fn a_cancelled_search_stops_soon() {
         std::thread::sleep(std::time::Duration::from_millis(300));
         cancel.cancel();
     });
-    let _ = engine.call_with(
-        "find",
-        &json!({ "query": "text has 'x'" }),
-        Some(&progress),
-    );
+    let _ = engine.call_with("find", &json!({ "query": "text has 'x'" }), Some(&progress));
     canceller.join().unwrap();
     assert!(
         started.elapsed() < std::time::Duration::from_secs(3),

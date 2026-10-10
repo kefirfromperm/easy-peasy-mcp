@@ -28,6 +28,7 @@ mod search;
 mod warning;
 
 pub use engine::{Engine, EngineOptions, ToolOutput, UnknownTool};
+pub use search::Progress;
 
 /// The spec version this server implements (TOOLS.md#versioning).
 pub const SPEC_VERSION: u32 = 1;
