@@ -475,4 +475,27 @@ mod tests {
         assert_eq!(paths.shown, 1);
         assert_eq!(Listing::without_lines(&files, &limits(0)).shown, 0);
     }
+
+    #[test]
+    fn where_the_next_page_starts() {
+        let files = [file("a\naa\n"), file("a\n")];
+        let limits = |max_matches: usize| Limits {
+            max_matches,
+            ..Limits::default()
+        };
+        let options = BlockOptions::default();
+        // the third fragment, the second one of line 1
+        let listing = Listing::new(&files, &Repeated::default(), &limits(2), &options, 0);
+        assert_eq!(listing.next, Some((0, 2)));
+        let listing = Listing::new(&files, &Repeated::default(), &limits(3), &options, 0);
+        assert_eq!(listing.next, Some((1, 0)));
+        assert_eq!(
+            Listing::new(&files, &Repeated::default(), &limits(4), &options, 0).next,
+            None
+        );
+        // a page which starts inside the first file
+        let listing = Listing::new(&files, &Repeated::default(), &limits(1), &options, 2);
+        assert_eq!(listed_lines(&listing, &files)[0], [1]);
+        assert_eq!(listing.next, Some((1, 0)));
+    }
 }

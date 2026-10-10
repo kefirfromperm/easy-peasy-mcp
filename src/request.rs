@@ -314,6 +314,20 @@ mod tests {
     }
 
     #[test]
+    fn cursor() {
+        assert_eq!(
+            parse(&json!({ "output": { "cursor": "abc" } })).unwrap().cursor,
+            Some("abc".to_string())
+        );
+        assert_eq!(parse(&json!({})).unwrap().cursor, None);
+        assert_eq!(
+            text(&json!({ "output": { "cursor": 5 } })),
+            "error[invalid_option]: 'output.cursor' must be a string\n"
+        );
+        assert!(text(&json!({ "output": { "cursr": "a" } })).ends_with(", path_style, cursor\n"));
+    }
+
+    #[test]
     fn output_limits() {
         assert_eq!(
             config(&json!({ "output": { "max_files": 1 } })),
