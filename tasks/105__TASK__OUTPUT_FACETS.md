@@ -1,6 +1,6 @@
 # Task 105: `output.facets`
 
-Status: in progress
+Status: implemented, see [105__SUMMARY__OUTPUT_FACETS.md](105__SUMMARY__OUTPUT_FACETS.md)
 
 Depends on: task 79, task 16, task 17
 
