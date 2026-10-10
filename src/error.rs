@@ -25,6 +25,7 @@ pub enum ErrorCode {
     LineTargetOutside,
     InvalidNearOption,
     ConflictingOptions,
+    InvalidEscapeLevel,
     InvalidOption,
     NotImplemented,
 }
@@ -53,6 +54,7 @@ impl ErrorCode {
             Self::LineTargetOutside => "line_target_outside",
             Self::InvalidNearOption => "invalid_near_option",
             Self::ConflictingOptions => "conflicting_options",
+            Self::InvalidEscapeLevel => "invalid_escape_level",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

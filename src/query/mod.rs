@@ -1,6 +1,7 @@
 //! The query language (QUERY.md): text → tokens → syntax tree → condition ids and legend → compiled filter.
 
 pub mod ast;
+mod escape;
 mod eval;
 mod lexer;
 mod parser;
@@ -1015,6 +1016,40 @@ mod tests {
             validation_hint("text ends 'a' /n /e(xml, 1)"),
             "'/e' can't be combined with '/n'"
         );
+    }
+
+    #[test]
+    fn escape_errors() {
+        let code_span = |q: &str| {
+            let (code, _, span, _) = error(q);
+            (code, span)
+        };
+        assert_eq!(
+            code_span("text has 'a' /e(backslash, 4)"),
+            (ErrorCode::InvalidEscapeLevel, 27..28)
+        );
+        assert_eq!(
+            code_span("text has 'a' /e(xml, 1..9)"),
+            (ErrorCode::InvalidEscapeLevel, 24..25)
+        );
+        assert_eq!(
+            code_span("text has 'a' /e(xml, every)"),
+            (ErrorCode::InvalidEscapeLevel, 21..26)
+        );
+        assert_eq!(
+            code_span("text has 'a' /e(xml, 1.5)"),
+            (ErrorCode::InvalidEscapeLevel, 21..24)
+        );
+        assert_eq!(
+            code_span("text has 'a' /e(xml, 2..0)"),
+            (ErrorCode::InvalidRange, 21..25)
+        );
+        assert_eq!(
+            code_span("text has 'a' /e(html, 1)"),
+            (ErrorCode::UnknownValue, 16..20)
+        );
+        assert!(parse("text has 'a' /e(Backslash, ANY) /w /c", &SENSITIVE).is_ok());
+        assert!(parse("text = 'a' /e(url, 0..3) /i", &SENSITIVE).is_ok());
     }
 
     #[test]
