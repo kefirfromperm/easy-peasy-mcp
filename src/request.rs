@@ -414,6 +414,14 @@ mod tests {
             text(&json!({ "kinds": { "generated_markers": "AUTOGEN" } })),
             "error[invalid_option]: 'kinds.generated_markers' must be a list of strings\n"
         );
+        assert_eq!(
+            config(&json!({ "kinds": { "generated_marker_lines": 2 } })),
+            [(Key::GeneratedMarkerLines, KeyValue::Whole(2))]
+        );
+        assert_eq!(
+            text(&json!({ "kinds": { "generated_marker_lines": 0 } })),
+            "error[invalid_option]: 'kinds.generated_marker_lines' must be a whole number of at least 1\n"
+        );
     }
 
     #[test]
