@@ -87,10 +87,15 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
             let path = slash_path(rel);
             let name = nfc(&entry.file_name().to_string_lossy());
             let nfc_path = nfc(&path);
+            let empty = query.needs_empty
+                && entry
+                    .metadata()
+                    .is_ok_and(|m| is_empty(entry.path(), entry_type, &m));
             let file = FileValues {
                 name: &name,
                 path: &nfc_path,
                 entry_type,
+                empty,
             };
             let conditions = match &query.filter {
                 None => Vec::new(),
@@ -128,6 +133,15 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
         .collect()
 }
 
+/// A regular file of size 0 or a directory without any entry on disk; a symlink is never empty.
+fn is_empty(path: &Path, entry_type: EntryType, metadata: &std::fs::Metadata) -> bool {
+    match entry_type {
+        EntryType::File => metadata.len() == 0,
+        EntryType::Dir => std::fs::read_dir(path).is_ok_and(|mut d| d.next().is_none()),
+        EntryType::Link => false,
+    }
+}
+
 /// A relative path with `/` separators.
 pub fn slash_path(rel: &Path) -> String {
     let parts: Vec<String> = rel
@@ -154,6 +168,30 @@ fn file_id(_metadata: &std::fs::Metadata) -> Option<FileId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn emptiness() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        std::fs::create_dir(root.join("empty")).unwrap();
+        std::fs::create_dir(root.join("hidden")).unwrap();
+        std::fs::write(root.join("hidden/.keep"), "").unwrap();
+        std::fs::write(root.join("zero"), "").unwrap();
+        std::fs::write(root.join("one"), "1").unwrap();
+        let meta = |p: &str| std::fs::metadata(root.join(p)).unwrap();
+        assert!(is_empty(
+            &root.join("empty"),
+            EntryType::Dir,
+            &meta("empty")
+        ));
+        assert!(!is_empty(
+            &root.join("hidden"),
+            EntryType::Dir,
+            &meta("hidden")
+        ));
+        assert!(is_empty(&root.join("zero"), EntryType::File, &meta("zero")));
+        assert!(!is_empty(&root.join("one"), EntryType::File, &meta("one")));
+    }
 
     #[test]
     fn slash_paths() {

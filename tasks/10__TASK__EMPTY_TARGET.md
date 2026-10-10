@@ -1,6 +1,6 @@
 # Task 10: `empty` target
 
-Status: not implemented
+Status: implemented, see [10__SUMMARY__EMPTY_TARGET.md](10__SUMMARY__EMPTY_TARGET.md)
 
 Depends on: task 9
 

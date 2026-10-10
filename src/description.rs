@@ -16,6 +16,7 @@ Empty query = all files.
                                  [*] [?] [[] [{] match the character itself
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends work on paths too
+  empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'
 Modifier after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i.

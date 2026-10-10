@@ -39,6 +39,8 @@ pub struct Query {
     pub filter: Option<Filter>,
     /// Whether the query has a `type` condition; without one only regular files are returned.
     pub has_type: bool,
+    /// Whether the query has an `empty` condition, so the search must find out whether entries are empty.
+    pub needs_empty: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -68,10 +70,13 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     {
         return Err(first);
     }
-    let mut has_type = false;
+    let (mut has_type, mut needs_empty) = (false, false);
     if let Some(expr) = &expr {
         expr.visit_nodes(&mut |node| {
-            has_type |= matches!(&node.kind, NodeKind::Condition(c) if c.target == Target::Type);
+            if let NodeKind::Condition(c) = &node.kind {
+                has_type |= c.target == Target::Type;
+                needs_empty |= c.target == Target::Empty;
+            }
         });
     }
     let filter = expr.map(|expr| compile(&expr, options));
@@ -79,6 +84,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
         legend,
         filter,
         has_type,
+        needs_empty,
     })
 }
 
@@ -273,6 +279,12 @@ fn compile_node(node: &Node, options: ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
         unreachable!("the subset check allows only conditions")
     };
+    if c.target == Target::Empty {
+        return Filter::Empty {
+            id: node.id.clone(),
+            order: node.tokens.start,
+        };
+    }
     if c.target == Target::Type {
         let words = match &c.value {
             Value::Word(w) => vec![w],
@@ -527,6 +539,7 @@ mod tests {
             name,
             path: name,
             entry_type,
+            empty: name.is_empty(),
         };
         query.filter.unwrap().eval(&file)
     }
@@ -540,6 +553,15 @@ mod tests {
         assert!(!matches("type != file", "a", EntryType::File));
         assert!(matches("type in (file, link)", "a", EntryType::Link));
         assert!(!matches("type in (file, link)", "a", EntryType::Dir));
+    }
+
+    #[test]
+    fn empty_conditions() {
+        assert!(matches("empty", "", EntryType::File));
+        assert!(!matches("empty", "a", EntryType::File));
+        assert!(matches("not empty and name = 'a'", "a", EntryType::Dir));
+        assert!(parse("name = 'a' or empty", SENSITIVE).unwrap().needs_empty);
+        assert!(!parse("name = 'a'", SENSITIVE).unwrap().needs_empty);
     }
 
     #[test]
