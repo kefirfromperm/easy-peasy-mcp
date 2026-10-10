@@ -370,6 +370,22 @@ mod tests {
     }
 
     #[test]
+    fn escape() {
+        assert_eq!(
+            config(&json!({ "escape": { "max_level": 1 } })),
+            [(Key::MaxLevel, KeyValue::Whole(1))]
+        );
+        assert_eq!(
+            text(&json!({ "escape": { "max_level": -1 } })),
+            "error[invalid_option]: 'escape.max_level' must be a whole number\n"
+        );
+        assert_eq!(
+            text(&json!({ "escape": { "depth": 1 } })),
+            "error[invalid_option]: unknown field 'escape.depth'\n  hint: expected one of: max_level\n"
+        );
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
