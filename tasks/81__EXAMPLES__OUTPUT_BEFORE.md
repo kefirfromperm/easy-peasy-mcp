@@ -41,6 +41,7 @@ config.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -156,6 +157,7 @@ config.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 before = 2    # update
@@ -229,6 +231,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 before = 2    # file: conf/o.toml

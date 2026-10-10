@@ -4,7 +4,7 @@ mod kinds;
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
 use std::time::{Duration, Instant};
 
 use ignore::{WalkBuilder, WalkState};
@@ -22,7 +22,7 @@ use crate::languages::{Language, LanguageTable};
 use crate::output::{Fragment, matched_lines, merge_identical};
 use crate::query::UNKNOWN_LANG;
 use crate::query::{
-    ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, nfc,
+    ContentState, EntryType, FileValues, Filter, FunnelKind, Kind, Query, Truth, ast::CondId, nfc,
 };
 use crate::relevance::{self, Signals};
 use crate::warning::{WarningCode, Warnings};
@@ -83,6 +83,8 @@ pub struct SearchOptions {
     pub meta: bool,
     /// Give every matched entry the signals of its relevance (`sort = relevance`).
     pub rank: bool,
+    /// Count the files of the steps of the funnel (OUTPUT.md#funnel).
+    pub funnel: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -327,6 +329,8 @@ pub struct SearchResult {
     pub warnings: Warnings,
     /// Whether the search was stopped at the deadline: the files are those found so far.
     pub timed_out: bool,
+    /// The number of files of every step of the funnel, with `funnel`.
+    pub funnel: Vec<usize>,
 }
 
 /// A device and inode pair which identifies a file reachable by several hard links.
@@ -404,6 +408,9 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         warnings: Mutex::default(),
         timed_out: AtomicBool::new(false),
         done: AtomicBool::new(false),
+        funnel: (0..query.funnel.as_ref().map_or(0, |f| f.steps.len()))
+            .map(|_| AtomicUsize::new(0))
+            .collect(),
     };
     builder.build_parallel().run(|| {
         let walk = &walk;
@@ -457,6 +464,11 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         files,
         warnings,
         timed_out: walk.timed_out.into_inner(),
+        funnel: walk
+            .funnel
+            .into_iter()
+            .map(AtomicUsize::into_inner)
+            .collect(),
     }
 }
 
@@ -469,6 +481,8 @@ struct Walk<'a> {
     git: GitIndex,
     found: Mutex<Vec<Found>>,
     warnings: Mutex<Warnings>,
+    /// The files of every step of the funnel.
+    funnel: Vec<AtomicUsize>,
     /// Set when the deadline passed.
     timed_out: AtomicBool,
     /// Set when the walk can stop: `first_only` and an entry was found.
@@ -499,6 +513,8 @@ struct Evaluated {
     path_fragments: Option<PathFragments>,
     /// The signals of the relevance, with `rank`.
     signals: Option<Signals>,
+    /// Its point in the funnel, see `Walk::funnel_point`.
+    funnel: usize,
 }
 
 /// What the visit of an entry already knows for its metadata.
@@ -589,6 +605,7 @@ impl Walk<'_> {
         if self.left_out(entry, rel, entry_type, &name, &path, evaluated.text) {
             return None;
         }
+        self.count_funnel(evaluated.funnel);
         let meta = self.options.meta.then(|| {
             let known = Known {
                 metadata: metadata.as_ref(),
@@ -746,6 +763,7 @@ impl Walk<'_> {
         warn: &dyn Fn(WarningCode),
     ) -> Option<Evaluated> {
         if filter.eval(&file) == Truth::False {
+            self.count_funnel(self.funnel_point(filter, &file, false));
             return None;
         }
         let content: Content;
@@ -790,6 +808,7 @@ impl Walk<'_> {
             }
         }
         if !filter.matches(&file) {
+            self.count_funnel(self.funnel_point(filter, &file, false));
             return None;
         }
         let leaves = filter.contributing_leaves(&file);
@@ -824,7 +843,53 @@ impl Walk<'_> {
             text,
             path_fragments,
             signals,
+            funnel: self.funnel_point(filter, &file, true),
         })
+    }
+
+    /// The point of an entry in the funnel: for `and` the number of the leading steps it passes (a matched entry
+    /// passes all; the last step isn't evaluated for one which doesn't match, it can't pass it), for `or` the number of
+    /// its first true branch from 1, for one step 1 when it matches; 0 without a funnel. Unknown doesn't pass.
+    fn funnel_point(&self, filter: &Filter, file: &FileValues<'_>, matched: bool) -> usize {
+        let Some(funnel) = self.query.funnel.as_ref().filter(|_| self.options.funnel) else {
+            return 0;
+        };
+        let ((FunnelKind::And, Filter::And(items)) | (FunnelKind::Or, Filter::Or(items))) =
+            (funnel.kind, filter)
+        else {
+            return usize::from(matched);
+        };
+        let passes = |item: usize| items[item].eval(file) == Truth::True;
+        if funnel.kind == FunnelKind::Or {
+            return funnel
+                .steps
+                .iter()
+                .position(|step| passes(step.item))
+                .map_or(0, |n| n + 1);
+        }
+        if matched {
+            return funnel.steps.len();
+        }
+        let last = funnel.steps.len() - 1;
+        funnel.steps[..last]
+            .iter()
+            .take_while(|step| passes(step.item))
+            .count()
+    }
+
+    /// Adds an entry at its point to the numbers of the steps of the funnel.
+    fn count_funnel(&self, point: usize) {
+        let Some(funnel) = &self.query.funnel else {
+            return;
+        };
+        let steps = if funnel.kind == FunnelKind::Or {
+            point.checked_sub(1).map_or(0..0, |n| n..n + 1)
+        } else {
+            0..point
+        };
+        for step in &self.funnel[steps] {
+            step.fetch_add(1, AtomicOrdering::Relaxed);
+        }
     }
 
     /// Visits the members of an archive with `archives = all`: the matched members go to the found entries; an
@@ -968,6 +1033,7 @@ impl Walk<'_> {
                 return None;
             }
         }
+        self.count_funnel(evaluated.funnel);
         Some(Found {
             rel: rel.to_path_buf(),
             member: Some(member.path.clone()),

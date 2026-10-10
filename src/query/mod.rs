@@ -63,6 +63,34 @@ pub struct Query {
     pub needs: Needs,
     /// What the relevance score looks at.
     pub ranking: crate::relevance::Ranking,
+    /// The steps of the funnel; `None` for the empty query.
+    pub funnel: Option<Funnel>,
+}
+
+/// How the steps of a funnel are joined (OUTPUT.md#steps).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FunnelKind {
+    /// The items of a top-level `and`: a file is left after a step when it passes it and the steps before.
+    And,
+    /// The branches of a top-level `or`: a file is counted in its first true branch.
+    Or,
+    /// Any other query: one step.
+    One,
+}
+
+/// A step of the funnel: its text as in the legend (with `and ` / `or ` before all but the first) and the index of
+/// its item in the top-level `and` / `or` of the filter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FunnelStep {
+    pub text: String,
+    pub item: usize,
+}
+
+/// The steps of the funnel of a query, in their order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Funnel {
+    pub kind: FunnelKind,
+    pub steps: Vec<FunnelStep>,
 }
 
 /// What the search must find out about every entry for the query.
@@ -150,6 +178,9 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         });
     }
     ranking.content = needs.content;
+    let funnel = expr
+        .as_ref()
+        .map(|expr| funnel_steps(text, &lexed.tokens, expr));
     let filter = expr.map(|expr| compile(&expr, options));
     ranking.conditions = filter.as_ref().map_or(0, crate::relevance::conditions);
     Ok(Query {
@@ -158,7 +189,90 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         has_type,
         needs,
         ranking,
+        funnel,
     })
+}
+
+/// The steps of the funnel of a query (OUTPUT.md#steps): the items of a top-level `and`, the metadata ones first and
+/// then the ones with content conditions, each in the order of the query; the branches of a top-level `or`; or the
+/// whole query. Brackets around the whole query don't count.
+fn funnel_steps(text: &str, tokens: &[Token], expr: &Expr) -> Funnel {
+    let mut top = expr;
+    let mut brackets = 0;
+    while let Expr::Group(inner) = top {
+        top = inner;
+        brackets += 1;
+    }
+    let step = |prefix: &str, item: &Expr| {
+        format!(
+            "{prefix}{}",
+            legend_text(text, tokens, item_tokens(item, tokens))
+        )
+    };
+    let (kind, items, joint) = match top {
+        Expr::And(items) => (FunnelKind::And, items.as_slice(), "and "),
+        Expr::Or(items) => (FunnelKind::Or, items.as_slice(), "or "),
+        _ => {
+            // the brackets around the whole query are not written
+            let range = item_tokens(top, tokens);
+            return Funnel {
+                kind: FunnelKind::One,
+                steps: vec![FunnelStep {
+                    text: legend_text(text, tokens, range.start + brackets..range.end - brackets),
+                    item: 0,
+                }],
+            };
+        }
+    };
+    let mut order: Vec<usize> = (0..items.len()).collect();
+    if kind == FunnelKind::And {
+        order.sort_by_key(|&i| has_content(&items[i]));
+    }
+    Funnel {
+        kind,
+        steps: order
+            .into_iter()
+            .enumerate()
+            .map(|(n, item)| FunnelStep {
+                text: step(if n == 0 { "" } else { joint }, &items[item]),
+                item,
+            })
+            .collect(),
+    }
+}
+
+/// Whether an expression has a content condition: `text`, `len`, `line( ... )`, `near( ... )`.
+fn has_content(expr: &Expr) -> bool {
+    let mut content = false;
+    expr.visit_nodes(&mut |node| {
+        content |= match &node.kind {
+            NodeKind::Condition(c) => matches!(c.target, Target::Text | Target::Len),
+            NodeKind::Line(_) | NodeKind::Near(_) => true,
+        };
+    });
+    content
+}
+
+/// The tokens of an expression: from its first to its last node, with the brackets around it and a `not` before it.
+fn item_tokens(expr: &Expr, tokens: &[Token]) -> Range<usize> {
+    let (mut start, mut end) = (usize::MAX, 0);
+    expr.visit_nodes(&mut |node| {
+        start = start.min(node.tokens.start);
+        end = end.max(node.tokens.end);
+    });
+    let is = |i: usize, tok: &lexer::Tok| tokens.get(i).is_some_and(|t| t.tok == *tok);
+    loop {
+        if start > 0 && is(start - 1, &lexer::Tok::LParen) && is(end, &lexer::Tok::RParen) {
+            start -= 1;
+            end += 1;
+        } else if start > 0
+            && matches!(&tokens[start - 1].tok, lexer::Tok::Word(w) if w.eq_ignore_ascii_case("not"))
+        {
+            start -= 1;
+        } else {
+            return start..end;
+        }
+    }
 }
 
 /// Gives every node its id: its label, or the next number for nodes without a label.
@@ -1002,6 +1116,62 @@ mod tests {
             max_escape_level: 3,
             fuzzy_min_score: 0.5,
         });
+
+    fn funnel(q: &str) -> Option<(FunnelKind, Vec<String>)> {
+        parse(q, &SENSITIVE)
+            .unwrap()
+            .funnel
+            .map(|f| (f.kind, f.steps.into_iter().map(|s| s.text).collect()))
+    }
+
+    #[test]
+    fn the_steps_of_the_funnel() {
+        assert_eq!(
+            funnel("text has 'parse' and lang = rust"),
+            Some((
+                FunnelKind::And,
+                vec!["lang = rust".into(), "and text has 'parse'".into()]
+            ))
+        );
+        assert_eq!(
+            funnel("lang = rust and (text has 'a' or text has 'b') and not size > 1K"),
+            Some((
+                FunnelKind::And,
+                vec![
+                    "lang = rust".into(),
+                    "and not size > 1K".into(),
+                    "and (text has 'a' or text has 'b')".into()
+                ]
+            ))
+        );
+        assert_eq!(
+            funnel("line(text has 'a')   and name ~ '*.rs'"),
+            Some((
+                FunnelKind::And,
+                vec!["name ~ '*.rs'".into(), "and line(text has 'a')".into()]
+            ))
+        );
+        assert_eq!(
+            funnel("name = 'a' or not lang = rust"),
+            Some((
+                FunnelKind::Or,
+                vec!["name = 'a'".into(), "or not lang = rust".into()]
+            ))
+        );
+        assert_eq!(
+            funnel("((size > 1K))"),
+            Some((FunnelKind::One, vec!["size > 1K".into()]))
+        );
+        assert_eq!(
+            funnel("name = 'a' xor name = 'b'"),
+            Some((FunnelKind::One, vec!["name = 'a' xor name = 'b'".into()]))
+        );
+        assert_eq!(funnel(""), None);
+        // the steps point at the items of the compiled filter
+        let q = parse("text has 'x' and lang = rust", &SENSITIVE).unwrap();
+        let order: Vec<usize> = q.funnel.unwrap().steps.iter().map(|s| s.item).collect();
+        assert_eq!(order, [1, 0]);
+    }
 
     fn legend(q: &str) -> Vec<String> {
         let lexed = lexer::lex(q);

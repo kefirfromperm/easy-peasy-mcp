@@ -31,6 +31,7 @@ pub enum Key {
     SkipGenerated,
     Format,
     Detail,
+    Funnel,
     Meta,
     Context,
     Before,
@@ -64,7 +65,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 51] = [
+    pub const ALL: [Key; 52] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -87,6 +88,7 @@ impl Key {
         Self::SkipGenerated,
         Self::Format,
         Self::Detail,
+        Self::Funnel,
         Self::Meta,
         Self::Context,
         Self::Before,
@@ -170,6 +172,11 @@ impl Key {
             Self::BlankContext => ("output", "blank_context", Type::Bool),
             Self::PathFragments => ("output", "path_fragments", Type::Bool),
             Self::Meta => ("output", "meta", Type::Bool),
+            Self::Funnel => (
+                "output",
+                "funnel",
+                Type::Choice(&["auto", "always", "never"]),
+            ),
             Self::Highlight => (
                 "output",
                 "highlight",
@@ -255,7 +262,9 @@ impl Key {
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
-            Self::Encoding | Self::Base | Self::Highlight => Value::Text("auto".to_string()),
+            Self::Encoding | Self::Base | Self::Highlight | Self::Funnel => {
+                Value::Text("auto".to_string())
+            }
             Self::Archives => Value::Text("none".to_string()),
             Self::Format => Value::Text("text".to_string()),
             Self::PathStyle => Value::Text("relative".to_string()),

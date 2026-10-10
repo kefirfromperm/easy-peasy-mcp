@@ -394,6 +394,10 @@ mod tests {
             text(&json!({ "output": { "budget": 1000 } })),
             "error[not_implemented]: the field 'output.budget' is not implemented yet\n"
         );
+        assert_eq!(
+            config(&json!({ "output": { "funnel": "never" } })),
+            [(Key::Funnel, KeyValue::Text("never".into()))]
+        );
     }
 
     #[test]

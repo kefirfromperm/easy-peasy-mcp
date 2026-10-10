@@ -1,6 +1,6 @@
 # Task 102: `output.funnel`
 
-Status: not implemented
+Status: implemented, see [102__SUMMARY__OUTPUT_FUNNEL.md](102__SUMMARY__OUTPUT_FUNNEL.md)
 
 Depends on: task 94
 

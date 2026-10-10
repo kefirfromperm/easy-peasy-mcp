@@ -255,6 +255,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -827,6 +828,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default

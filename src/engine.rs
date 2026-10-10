@@ -192,19 +192,7 @@ impl Engine {
         let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
-        let dirs = request
-            .dirs
-            .as_deref()
-            .unwrap_or_else(|| settings.list(Key::DefaultDirs));
-        let mut working_dirs = dirs
-            .iter()
-            .map(|dir| self.working_dir(dir, &settings))
-            .collect::<Result<Vec<_>, _>>()?;
-        if settings.text(Key::PathStyle) == "absolute" {
-            for (path, prefix) in &mut working_dirs {
-                *prefix = without_verbatim(path);
-            }
-        }
+        let working_dirs = self.working_dirs(request.dirs.as_deref(), &settings)?;
         let case_insensitive_paths = match settings.text(Key::PathCase) {
             "sensitive" => false,
             "insensitive" => true,
@@ -224,18 +212,19 @@ impl Engine {
         let mut search_options =
             self.search_options(&settings, deadline, case_insensitive_paths, languages);
         search_options.first_only = settings.text(Key::Detail) == "exists";
-        let detail = match settings.text(Key::Detail) {
-            "exists" => Detail::Exists,
-            "count" => Detail::Count,
-            "files" => Detail::Files,
-            _ => Detail::Lines,
-        };
+        let detail = detail(&settings);
         let sort = Sort::parse(settings.text(Key::Sort));
         let meta = settings.bool(Key::Meta);
         search_options.meta = meta || sort.needs_meta();
         search_options.rank = sort == Sort::Relevance;
-        let (mut files, mut warnings, timed_out) =
-            search_all(&working_dirs, &query, &search_options);
+        let funnel = settings.text(Key::Funnel);
+        search_options.funnel = funnel != "never" && detail >= Detail::Count;
+        let search::SearchResult {
+            mut files,
+            mut warnings,
+            timed_out,
+            funnel: funnel_counts,
+        } = search_all(&working_dirs, &query, &search_options);
         if cursor_totals.is_some_and(|totals| totals != totals_of(&files)) {
             warnings.add_global(WarningCode::ResultsChanged);
         }
@@ -262,15 +251,15 @@ impl Engine {
             highlight: highlight(&settings, json),
             time_zone: self.options.time_zone.clone(),
             page,
-            limits: Limits {
-                max_files: settings.whole(Key::MaxFiles),
-                max_lines: settings.whole(Key::MaxLines),
-                max_matches: settings.whole(Key::MaxMatches),
-                max_matches_per_file: settings.whole(Key::MaxMatchesPerFile),
-                max_line_length: settings.whole(Key::MaxLineLength),
-                max_output_per_file: settings.whole(Key::MaxOutputPerFile),
-                max_output: settings.whole(Key::MaxOutput),
-            },
+            funnel: shown_funnel(
+                &query,
+                funnel_counts,
+                funnel,
+                files.len(),
+                settings.whole(Key::MaxFiles),
+            )
+            .filter(|_| search_options.funnel),
+            limits: limits(&settings),
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),
             legend: &query.legend,
@@ -283,6 +272,26 @@ impl Engine {
         } else {
             response.to_text()
         })
+    }
+
+    /// The working directories of a request (`server.default_dirs` without `dirs`) and their prefixes: as written,
+    /// or the canonical directories with `path_style = absolute`.
+    fn working_dirs(
+        &self,
+        dirs: Option<&[String]>,
+        settings: &Settings,
+    ) -> Result<Vec<(PathBuf, PathBuf)>, Report> {
+        let mut working_dirs = dirs
+            .unwrap_or_else(|| settings.list(Key::DefaultDirs))
+            .iter()
+            .map(|dir| self.working_dir(dir, settings))
+            .collect::<Result<Vec<_>, _>>()?;
+        if settings.text(Key::PathStyle) == "absolute" {
+            for (path, prefix) in &mut working_dirs {
+                *prefix = without_verbatim(path);
+            }
+        }
+        Ok(working_dirs)
     }
 
     /// The options of the walk and the search of one request.
@@ -361,6 +370,7 @@ impl Engine {
             path_fragments: settings.bool(Key::PathFragments),
             meta: settings.bool(Key::Meta),
             rank: false,
+            funnel: false,
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
@@ -467,6 +477,28 @@ fn page(arguments: &Value, cursor: Option<&str>) -> Result<(Page, Option<[usize;
     ))
 }
 
+/// The steps of the funnel with their numbers of files, when it is shown: `always`, or `auto` for no files or more
+/// than 10 × `max_files` (OUTPUT.md#funnel).
+fn shown_funnel(
+    query: &query::Query,
+    counts: Vec<usize>,
+    setting: &str,
+    files: usize,
+    max_files: usize,
+) -> Option<Vec<(String, usize)>> {
+    let funnel = query.funnel.as_ref()?;
+    let shown = setting == "always"
+        || (setting == "auto" && (files == 0 || files > max_files.saturating_mul(10)));
+    shown.then(|| {
+        funnel
+            .steps
+            .iter()
+            .zip(counts.into_iter().chain(std::iter::repeat(0)))
+            .map(|(step, count)| (step.text.clone(), count))
+            .collect()
+    })
+}
+
 /// The counts of a result: files, matched lines, fragments.
 fn totals_of(files: &[search::Found]) -> [usize; 3] {
     let (lines, matches) = files
@@ -476,6 +508,29 @@ fn totals_of(files: &[search::Found]) -> [usize; 3] {
             (lines + m.lines, matches + m.fragments.len())
         });
     [files.len(), lines, matches]
+}
+
+/// How much the response returns.
+fn detail(settings: &Settings) -> Detail {
+    match settings.text(Key::Detail) {
+        "exists" => Detail::Exists,
+        "count" => Detail::Count,
+        "files" => Detail::Files,
+        _ => Detail::Lines,
+    }
+}
+
+/// The limits of what is listed.
+fn limits(settings: &Settings) -> Limits {
+    Limits {
+        max_files: settings.whole(Key::MaxFiles),
+        max_lines: settings.whole(Key::MaxLines),
+        max_matches: settings.whole(Key::MaxMatches),
+        max_matches_per_file: settings.whole(Key::MaxMatchesPerFile),
+        max_line_length: settings.whole(Key::MaxLineLength),
+        max_output_per_file: settings.whole(Key::MaxOutputPerFile),
+        max_output: settings.whole(Key::MaxOutput),
+    }
 }
 
 /// How the fragments are shown: `auto` is markers in text and columns in JSON.
@@ -521,14 +576,19 @@ fn search_all(
     working_dirs: &[(PathBuf, PathBuf)],
     query: &query::Query,
     options: &SearchOptions,
-) -> (Vec<search::Found>, Warnings, bool) {
+) -> search::SearchResult {
     let mut files = Vec::new();
     let mut warnings = Warnings::default();
     let mut seen = HashSet::new();
     let mut timed_out = false;
+    let mut funnel: Vec<usize> = Vec::new();
     for (path, prefix) in working_dirs {
         let result = search::search(path, query, options);
         timed_out |= result.timed_out;
+        funnel.resize(result.funnel.len().max(funnel.len()), 0);
+        for (sum, n) in funnel.iter_mut().zip(&result.funnel) {
+            *sum += n;
+        }
         files.extend(
             result
                 .files
@@ -552,7 +612,12 @@ fn search_all(
         }
     }
     files.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
-    (files, warnings, timed_out)
+    search::SearchResult {
+        files,
+        warnings,
+        timed_out,
+        funnel,
+    }
 }
 
 /// A hash of the matched lines of a file, to tell a changed file from an unchanged one.

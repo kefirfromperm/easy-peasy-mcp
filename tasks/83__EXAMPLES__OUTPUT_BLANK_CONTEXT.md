@@ -49,6 +49,7 @@ a.rs  [#1]  lines: 1  matches: 1
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -173,6 +174,7 @@ a.rs  [#1]  lines: 1  matches: 1
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -246,6 +248,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
