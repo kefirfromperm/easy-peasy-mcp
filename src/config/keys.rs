@@ -24,11 +24,12 @@ pub enum Key {
     PathCase,
     Binary,
     MaxFileSize,
+    Encoding,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 15] = [
+    pub const ALL: [Key; 16] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -44,6 +45,7 @@ impl Key {
         Self::PathCase,
         Self::Binary,
         Self::MaxFileSize,
+        Self::Encoding,
     ];
 
     /// The section, the name and the type.
@@ -76,6 +78,7 @@ impl Key {
                 Type::Choice(&["skip", "search", "exclude"]),
             ),
             Self::MaxFileSize => ("traversal", "max_file_size", Type::Size),
+            Self::Encoding => ("traversal", "encoding", Type::Encoding),
         }
     }
 
@@ -96,6 +99,7 @@ impl Key {
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
+            Self::Encoding => Value::Text("auto".to_string()),
         }
     }
 
@@ -147,6 +151,8 @@ pub enum Type {
     Choice(&'static [&'static str]),
     /// A size like the values of the `size` target, as written: `"10M"`.
     Size,
+    /// `"auto"` or a WHATWG encoding label, as written.
+    Encoding,
 }
 
 impl Type {
@@ -164,6 +170,9 @@ impl Type {
             Self::Wildcards => "a list of wildcards is expected".to_string(),
             Self::Choice(values) => format!("expected one of: {}", values.join(", ")),
             Self::Size => "a size like \"10M\" is expected (units B, K, M, G)".to_string(),
+            Self::Encoding => {
+                "\"auto\" or an encoding name like \"windows-1252\" is expected".to_string()
+            }
         }
     }
 
@@ -178,6 +187,7 @@ impl Type {
             Self::NonEmptyList(_) => "a non-empty list of strings".to_string(),
             Self::Choice(values) => format!("one of: {}", values.join(", ")),
             Self::Size => "a size like \"10M\" (units B, K, M, G)".to_string(),
+            Self::Encoding => "\"auto\" or an encoding name like \"windows-1252\"".to_string(),
         }
     }
 
@@ -251,6 +261,10 @@ impl Type {
                 .as_str()
                 .filter(|v| parse_size(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
+            Self::Encoding => item
+                .as_str()
+                .filter(|v| *v == "auto" || encoding(v).is_some())
+                .map(|v| Value::Text(v.to_string())),
         }
     }
 
@@ -277,6 +291,10 @@ impl Type {
             Self::Size => value
                 .as_str()
                 .filter(|v| parse_size(v).is_some())
+                .map(|v| Value::Text(v.to_string())),
+            Self::Encoding => value
+                .as_str()
+                .filter(|v| *v == "auto" || encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
         }
     }
@@ -306,6 +324,12 @@ impl Problem {
             .hint(hint.clone()),
         }
     }
+}
+
+/// The WHATWG encoding of a label, any case; not the `replacement` encoding, which decodes nothing.
+#[must_use]
+pub fn encoding(label: &str) -> Option<&'static encoding_rs::Encoding> {
+    encoding_rs::Encoding::for_label(label.as_bytes()).filter(|e| *e != encoding_rs::REPLACEMENT)
 }
 
 /// A TOML array of strings.

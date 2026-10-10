@@ -11,7 +11,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
-use crate::content::{Content, Decoded, Encoding, decode, is_binary_content};
+use crate::content::{Content, DecodeOptions, Decoded, Encoding, decode, is_binary_content};
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::{Language, LanguageTable};
 use crate::output::{Fragment, matched_lines, merge_identical};
@@ -53,6 +53,8 @@ pub struct SearchOptions {
     pub exclude: Vec<regex::Regex>,
     /// What happens to binary files.
     pub binary: Binary,
+    /// How the content of files is decoded; `binary_as_text` follows `binary`.
+    pub decode: DecodeOptions,
     /// Bigger files are not searched by content, in bytes.
     pub max_file_size: f64,
     /// The canonical allowed roots: a followed symlink must point inside them.
@@ -331,12 +333,12 @@ struct Evaluated {
 }
 
 /// Whether a file is binary by its first 8K; a file which can't be read is not.
-fn starts_binary(path: &Path) -> bool {
+fn starts_binary(path: &Path, options: &DecodeOptions) -> bool {
     use std::io::Read;
     let mut head = Vec::new();
     std::fs::File::open(path)
         .and_then(|f| f.take(8 * 1024).read_to_end(&mut head))
-        .is_ok_and(|_| is_binary_content(&head))
+        .is_ok_and(|_| is_binary_content(&head, options))
 }
 
 /// The dates of an entry in seconds since the Unix epoch.
@@ -419,7 +421,7 @@ impl Walk<'_> {
         if self.options.binary == Binary::Exclude
             && is_file
             && !evaluated.text
-            && starts_binary(entry.path())
+            && starts_binary(entry.path(), &self.options.decode)
         {
             return None;
         }
@@ -470,7 +472,7 @@ impl Walk<'_> {
                     return None;
                 }
             };
-            match decode(&bytes, self.options.binary == Binary::Search) {
+            match decode(&bytes, &self.options.decode) {
                 Decoded::Binary if self.options.binary == Binary::Exclude => return None,
                 Decoded::Binary => {
                     file.content = ContentState::Unknown;

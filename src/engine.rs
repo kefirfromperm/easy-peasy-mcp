@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use crate::cache::{CachedFile, ResultCache};
 use crate::config::{self, Key, Settings};
+use crate::content::DecodeOptions;
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
 use crate::output::Response;
@@ -250,6 +251,11 @@ impl Engine {
         deadline: Option<std::time::Instant>,
         case_insensitive_paths: bool,
     ) -> SearchOptions {
+        let binary = match settings.text(Key::Binary) {
+            "search" => Binary::Search,
+            "exclude" => Binary::Exclude,
+            _ => Binary::Skip,
+        };
         SearchOptions {
             git_global_excludes: self.options.git_global_excludes,
             case_insensitive_paths,
@@ -280,10 +286,15 @@ impl Engine {
                         .expect("the wildcards of exclude are checked with their key")
                 })
                 .collect(),
-            binary: match settings.text(Key::Binary) {
-                "search" => Binary::Search,
-                "exclude" => Binary::Exclude,
-                _ => Binary::Skip,
+            binary,
+            decode: DecodeOptions {
+                binary_as_text: binary == Binary::Search,
+                encoding: match settings.text(Key::Encoding) {
+                    "auto" => None,
+                    label => {
+                        Some(config::encoding(label).expect("the encoding is checked with its key"))
+                    }
+                },
             },
             max_file_size: settings.size(Key::MaxFileSize),
             read_delay: self.options.read_delay,

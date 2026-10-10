@@ -21,22 +21,47 @@ pub enum Encoding {
     Utf16Be,
     Utf32Le,
     Utf32Be,
+    /// Another encoding of the WHATWG list, e.g. `windows-1252`.
+    Other(&'static encoding_rs::Encoding),
 }
 
 impl Encoding {
-    /// The name in the output.
-    pub fn name(self) -> &'static str {
+    /// The encoding of a WHATWG encoding.
+    pub fn of(encoding: &'static encoding_rs::Encoding) -> Self {
+        if encoding == encoding_rs::UTF_8 {
+            Self::Utf8
+        } else if encoding == encoding_rs::UTF_16LE {
+            Self::Utf16Le
+        } else if encoding == encoding_rs::UTF_16BE {
+            Self::Utf16Be
+        } else {
+            Self::Other(encoding)
+        }
+    }
+
+    /// The name in the output: the WHATWG name in lower case.
+    pub fn name(self) -> std::borrow::Cow<'static, str> {
         match self {
-            Self::Utf8 => "utf-8",
-            Self::Utf16Le => "utf-16le",
-            Self::Utf16Be => "utf-16be",
-            Self::Utf32Le => "utf-32le",
-            Self::Utf32Be => "utf-32be",
+            Self::Utf8 => "utf-8".into(),
+            Self::Utf16Le => "utf-16le".into(),
+            Self::Utf16Be => "utf-16be".into(),
+            Self::Utf32Le => "utf-32le".into(),
+            Self::Utf32Be => "utf-32be".into(),
+            Self::Other(encoding) => encoding.name().to_lowercase().into(),
         }
     }
 }
 
-/// A file after `encoding = auto` (CONFIG.md#encoding).
+/// How files are decoded (CONFIG.md#encoding, CONFIG.md#traversal).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct DecodeOptions {
+    /// `binary = search`: a file with a zero byte in its first 8K is decoded like any other.
+    pub binary_as_text: bool,
+    /// `encoding`: every file without a BOM is decoded with it; `None` — `auto`.
+    pub encoding: Option<&'static encoding_rs::Encoding>,
+}
+
+/// A decoded file.
 #[derive(Debug, Clone)]
 pub enum Decoded {
     /// A binary file: its content is not searched.
@@ -62,23 +87,35 @@ fn by_bom(bytes: &[u8]) -> Option<(Encoding, &[u8])> {
     .find_map(|(bom, encoding)| bytes.strip_prefix(bom).map(|rest| (encoding, rest)))
 }
 
-/// Whether `decode` takes a file for binary: no BOM, not UTF-16 by the pattern of its zero bytes, a zero byte in the
-/// first 8K. `bytes` may be only the first 8K of the file.
-pub fn is_binary_content(bytes: &[u8]) -> bool {
-    by_bom(bytes).is_none() && utf16_by_zero_bytes(bytes).is_none() && is_binary(bytes)
+/// The encoding of a file without a BOM, or `None` for a binary one: the configured encoding, binary by a zero byte
+/// unless it is UTF-16; with `auto` UTF-16 by the pattern of the zero bytes, binary by a zero byte, otherwise UTF-8.
+fn without_bom(bytes: &[u8], options: &DecodeOptions) -> Option<Encoding> {
+    let encoding = match options.encoding {
+        Some(forced) => Encoding::of(forced),
+        None => {
+            if let Some(utf16) = utf16_by_zero_bytes(bytes) {
+                return Some(utf16);
+            }
+            Encoding::Utf8
+        }
+    };
+    let utf16 = matches!(encoding, Encoding::Utf16Le | Encoding::Utf16Be);
+    (utf16 || options.binary_as_text || !is_binary(bytes)).then_some(encoding)
 }
 
-/// Decodes a file: by its BOM, as UTF-16 by the pattern of its zero bytes, as binary with a zero byte in the first
-/// 8K unless `binary_as_text`, otherwise as UTF-8.
-pub fn decode(bytes: &[u8], binary_as_text: bool) -> Decoded {
-    let (encoding, body) = if let Some(found) = by_bom(bytes) {
-        found
-    } else if let Some(encoding) = utf16_by_zero_bytes(bytes) {
-        (encoding, bytes)
-    } else if !binary_as_text && is_binary(bytes) {
-        return Decoded::Binary;
-    } else {
-        (Encoding::Utf8, bytes)
+/// Whether `decode` takes a file for binary. `bytes` may be only the first 8K of the file.
+pub fn is_binary_content(bytes: &[u8], options: &DecodeOptions) -> bool {
+    by_bom(bytes).is_none() && without_bom(bytes, options).is_none()
+}
+
+/// Decodes a file: by its BOM, otherwise by the options (CONFIG.md#encoding).
+pub fn decode(bytes: &[u8], options: &DecodeOptions) -> Decoded {
+    let (encoding, body) = match by_bom(bytes) {
+        Some(found) => found,
+        None => match without_bom(bytes, options) {
+            Some(encoding) => (encoding, bytes),
+            None => return Decoded::Binary,
+        },
     };
     let (text, errors) = match encoding {
         Encoding::Utf8 => {
@@ -86,15 +123,9 @@ pub fn decode(bytes: &[u8], binary_as_text: bool) -> Decoded {
             let errors = matches!(text, std::borrow::Cow::Owned(_));
             (text.into_owned(), errors)
         }
-        Encoding::Utf16Le | Encoding::Utf16Be => {
-            let codec = if encoding == Encoding::Utf16Le {
-                encoding_rs::UTF_16LE
-            } else {
-                encoding_rs::UTF_16BE
-            };
-            let (text, errors) = codec.decode_without_bom_handling(body);
-            (text.into_owned(), errors)
-        }
+        Encoding::Utf16Le => whatwg(encoding_rs::UTF_16LE, body),
+        Encoding::Utf16Be => whatwg(encoding_rs::UTF_16BE, body),
+        Encoding::Other(other) => whatwg(other, body),
         Encoding::Utf32Le | Encoding::Utf32Be => decode_utf32(body, encoding == Encoding::Utf32Le),
     };
     Decoded::Text {
@@ -102,6 +133,12 @@ pub fn decode(bytes: &[u8], binary_as_text: bool) -> Decoded {
         encoding,
         errors,
     }
+}
+
+/// Decodes with an encoding of the WHATWG list; whether bytes were replaced.
+fn whatwg(encoding: &'static encoding_rs::Encoding, body: &[u8]) -> (String, bool) {
+    let (text, errors) = encoding.decode_without_bom_handling(body);
+    (text.into_owned(), errors)
 }
 
 /// UTF-16 without a BOM: in the first 8K more than half of the bytes at odd positions are zero and none at even
@@ -335,7 +372,7 @@ mod tests {
     }
 
     fn text(bytes: &[u8]) -> (String, Encoding, bool) {
-        match decode(bytes, false) {
+        match decode(bytes, &DecodeOptions::default()) {
             Decoded::Text {
                 content,
                 encoding,
@@ -376,7 +413,10 @@ mod tests {
             ("hi\n".into(), Encoding::Utf16Le, false)
         );
         assert_eq!(text(b"\0h\0i"), ("hi".into(), Encoding::Utf16Be, false));
-        assert!(matches!(decode(b"a\0\0b", false), Decoded::Binary));
+        assert!(matches!(
+            decode(b"a\0\0b", &DecodeOptions::default()),
+            Decoded::Binary
+        ));
     }
 
     #[test]
@@ -389,7 +429,11 @@ mod tests {
 
     #[test]
     fn binary_files_searched_as_text() {
-        match decode(b"\0\0\0\0\nlogo\n", true) {
+        let as_text = DecodeOptions {
+            binary_as_text: true,
+            encoding: None,
+        };
+        match decode(b"\0\0\0\0\nlogo\n", &as_text) {
             Decoded::Text {
                 content, encoding, ..
             } => {
@@ -406,10 +450,11 @@ mod tests {
 
     #[test]
     fn binary_content_after_the_bom_and_utf16_checks() {
-        assert!(is_binary_content(b"\0\0\0\0\nlogo\n"));
-        assert!(!is_binary_content(b"\xff\xfeh\0i\0"));
-        assert!(!is_binary_content(b"h\0i\0\n\0"));
-        assert!(!is_binary_content(b"plain text\n"));
+        let auto = DecodeOptions::default();
+        assert!(is_binary_content(b"\0\0\0\0\nlogo\n", &auto));
+        assert!(!is_binary_content(b"\xff\xfeh\0i\0", &auto));
+        assert!(!is_binary_content(b"h\0i\0\n\0", &auto));
+        assert!(!is_binary_content(b"plain text\n", &auto));
     }
 
     fn forced(label: &str) -> DecodeOptions {
