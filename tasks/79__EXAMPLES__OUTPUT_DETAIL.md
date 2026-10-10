@@ -52,6 +52,7 @@ detail = "lines"
 context = 0
 # before =  (not set)
 # after =  (not set)
+blank_context = false
 ```
 
 ## E79.2 Does anything match?
@@ -192,6 +193,7 @@ detail = "count"    # update
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
+blank_context = false    # default
 ```
 
 ## E79.7 An invalid value in a request
@@ -248,6 +250,7 @@ detail = "files"    # file: conf/o.toml
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
+blank_context = false    # default
 ```
 
 2. `find`
