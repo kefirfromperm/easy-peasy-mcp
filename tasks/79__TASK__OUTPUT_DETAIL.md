@@ -1,6 +1,6 @@
 # Task 79: `output.detail`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 78
 
