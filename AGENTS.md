@@ -148,6 +148,14 @@ Fixture: `small-rust`
   removed: on Windows, or when the entry stays readable, e.g. running as root)
 - the server runs with the fixture directory as its only allowed root and default working directory and with the
   built-in configuration; an example that needs other settings states them (`config` TOML block or CLI arguments)
+- a **startup example** tests the binary instead of the library: a `text command` block (`easy-peasy-mcp` and its
+  arguments, separated by spaces), optionally a `text env` block (`NAME=value` lines) and `toml <path>` blocks (files
+  written into the fixture before the start). The binary runs in the fixture directory with `HOME`,
+  `XDG_CONFIG_HOME` and `APPDATA` pointing to an empty directory outside of it and without `EASY_PEASY_CONFIG`,
+  unless the env block sets them; `<fixture>` in the env and stderr blocks stands for the absolute path of the
+  fixture directory. A `text stderr exit <code>` block is what the binary prints to stderr before it exits with that
+  code; without it the server must start, and the `json request` blocks that follow are sent to it over MCP. A line
+  `` Platform: `linux` `` (or `macos`, `windows`) runs the example only there
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
   pagination) is written as a numbered sequence of requests and responses in one example
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates

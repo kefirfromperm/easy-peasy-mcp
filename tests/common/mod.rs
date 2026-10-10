@@ -3,7 +3,110 @@
 #![allow(dead_code)] // every test binary uses a different part of the helpers
 
 use std::fs;
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+
+use serde_json::{Value, json};
+
+/// The server binary.
+pub const BIN: &str = env!("CARGO_BIN_EXE_easy-peasy-mcp");
+
+/// The command of the server binary in `dir`, with `HOME`, `XDG_CONFIG_HOME` and `APPDATA` at `home` and without
+/// `EASY_PEASY_CONFIG`, so no config file of the machine is read.
+pub fn server_command(dir: &Path, home: &Path) -> Command {
+    let mut command = Command::new(BIN);
+    command
+        .current_dir(dir)
+        .env("HOME", home)
+        .env("XDG_CONFIG_HOME", home)
+        .env("APPDATA", home)
+        .env_remove("EASY_PEASY_CONFIG");
+    command
+}
+
+/// A running server and the pipes to it.
+pub struct McpServer {
+    pub child: Child,
+    pub stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
+}
+
+impl McpServer {
+    /// Starts the server of `command` with piped stdin and stdout.
+    pub fn spawn(command: &mut Command) -> Self {
+        let mut child = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("the server starts");
+        let stdin = child.stdin.take().unwrap();
+        let stdout = BufReader::new(child.stdout.take().unwrap());
+        Self {
+            child,
+            stdin,
+            stdout,
+        }
+    }
+
+    pub fn send(&mut self, message: &Value) {
+        writeln!(self.stdin, "{message}").unwrap();
+        self.stdin.flush().unwrap();
+    }
+
+    /// Reads messages until the response with `id`; `None` when the server closed stdout.
+    pub fn response(&mut self, id: i64) -> Option<Value> {
+        loop {
+            let mut line = String::new();
+            if self.stdout.read_line(&mut line).unwrap() == 0 {
+                return None;
+            }
+            let message: Value =
+                serde_json::from_str(&line).expect("stdout carries only JSON-RPC messages");
+            if message["id"] == json!(id) {
+                return Some(message);
+            }
+        }
+    }
+
+    pub fn request(&mut self, id: i64, method: &str, params: &Value) -> Value {
+        self.send(&json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
+        self.response(id)
+            .unwrap_or_else(|| panic!("the server closed stdout before responding to {id}"))
+    }
+
+    /// Initializes the session; `None` when the server exited instead of answering.
+    pub fn response_to_initialize(&mut self) -> Option<Value> {
+        self.send(&json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": { "name": "test", "version": "0" }
+            }
+        }));
+        let response = self.response(1)?;
+        self.send(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+        Some(response)
+    }
+
+    pub fn initialize(&mut self) -> Value {
+        let response = self.request(
+            1,
+            "initialize",
+            &json!({
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": { "name": "test", "version": "0" }
+            }),
+        );
+        self.send(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
+        response
+    }
+}
 
 /// The repository root.
 pub fn repo_root() -> PathBuf {
@@ -23,7 +126,23 @@ pub struct Example {
     pub id: String,
     pub file: String,
     pub fixture: Option<String>,
+    /// The only platform the example runs on, from a line `` Platform: `linux` ``.
+    pub platform: Option<String>,
     pub blocks: Vec<Block>,
+}
+
+impl Example {
+    /// Whether the example starts the binary (a `text command` block) instead of calling the library.
+    pub fn is_startup(&self) -> bool {
+        self.blocks.iter().any(|b| b.info == "text command")
+    }
+
+    /// Whether the example runs on this platform.
+    pub fn runs_here(&self) -> bool {
+        self.platform
+            .as_deref()
+            .is_none_or(|p| p == std::env::consts::OS)
+    }
 }
 
 /// A fixture: `### <name>` under `## Fixtures` with a `text tree` block.
@@ -85,6 +204,7 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                     id,
                     file: file.to_string(),
                     fixture: None,
+                    platform: None,
                     blocks: Vec::new(),
                 });
                 section = Section::Example;
@@ -105,6 +225,11 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 .find(|f| &f.name == name)
                 .expect("the Now line comes after the tree block");
             fixture.now = Some(parse_datetime(date, time));
+        } else if let Some(rest) = line.strip_prefix("Platform: ") {
+            if section == Section::Example {
+                let name = rest.trim().trim_matches('`').to_string();
+                examples.last_mut().unwrap().platform = Some(name);
+            }
         } else if let Some(rest) = line.strip_prefix("Fixture: ") {
             if section == Section::Example {
                 let name = rest.trim().trim_matches('`').to_string();

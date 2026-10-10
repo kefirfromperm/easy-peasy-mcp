@@ -1,6 +1,6 @@
 # Task 34: Config file
 
-Status: not implemented
+Status: implemented, see [34__SUMMARY__CONFIG_FILE.md](34__SUMMARY__CONFIG_FILE.md)
 
 Depends on: task 1
 

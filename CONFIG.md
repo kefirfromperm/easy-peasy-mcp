@@ -68,8 +68,25 @@ TOML. The server looks for it in this order and takes the first one found:
 | macOS    | `~/Library/Application Support/easy-peasy-mcp/config.toml`            |
 | Windows  | `%APPDATA%\easy-peasy-mcp\config.toml`                                |
 
-Without a file the built-in defaults are used. An invalid file stops the server at start with an error that names the
-key and the line.
+Without a file the built-in defaults are used. A file named by `--config` or by a non-empty `$EASY_PEASY_CONFIG`
+must exist; the file in the platform directory is optional. An invalid file stops the server at start with an error
+that names the key and the line.
+
+Errors at start are one line on stderr, `easy-peasy-mcp: <path>:<line>: <message>` (the path as given or found, the
+line 1-based), and the exit code `1`; the first error in the file is reported:
+
+| Problem                                    | Message                                                            |
+|--------------------------------------------|--------------------------------------------------------------------|
+| not TOML                                   | `invalid TOML: <the parser's message>`                             |
+| a section which doesn't exist              | `unknown section 'colors', expected one of: server, traversal, output, escape, query, kinds, git, languages` |
+| a section written as a value               | `'output' must be a section`                                       |
+| a key which doesn't exist                  | `unknown key 'output.colour'`, with `, did you mean 'output.color'?` for a close one |
+| a wrong value                              | `invalid value for 'output.max_files': <what is expected>`         |
+| a key this server version doesn't implement yet | `the key 'output.max_files' is not implemented yet`         |
+
+A file which can't be read is `easy-peasy-mcp: <path>: the config file doesn't exist` or `... can't be read`, without a
+line. An invalid command line prints the usage to stderr with the exit code `2`; an option this server version doesn't
+implement yet prints `easy-peasy-mcp: the option '--root' is not implemented yet` with the exit code `2`.
 
 There is no project level config file (e.g. in a repository): a cloned repository must not be able to change what the
 server is allowed to search. Project specific exclusions are done with [ignore files](#ignore-files) like `.aiignore`.

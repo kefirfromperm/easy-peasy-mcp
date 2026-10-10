@@ -1,31 +1,81 @@
 //! The `easy-peasy-mcp` binary: command line, logging, the MCP server over stdio.
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use anyhow::Context as _;
-use easy_peasy_mcp::{Engine, EngineOptions, SPEC_VERSION, mcp::Server};
+use easy_peasy_mcp::{Engine, EngineOptions, SPEC_VERSION, config, mcp::Server};
 use rmcp::ServiceExt as _;
 
-const USAGE: &str = "usage: easy-peasy-mcp [--version]";
+const USAGE: &str = "usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] \
+[--log-level <level>]
+               [--version]";
+
+/// What the command line asks for.
+enum Command {
+    Version,
+    Serve { config: Option<PathBuf> },
+}
+
+/// Why the command line is rejected.
+enum ArgError {
+    Usage,
+    /// An option of the spec this version doesn't implement yet.
+    NotImplemented(String),
+}
+
+fn parse_args(args: &[String]) -> Result<Command, ArgError> {
+    let mut config = None;
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--version" => return Ok(Command::Version),
+            "--config" if config.is_none() => {
+                config = Some(PathBuf::from(args.next().ok_or(ArgError::Usage)?));
+            }
+            "--root" | "--timeout" | "--no-update" | "--log-level" => {
+                return Err(ArgError::NotImplemented(arg.clone()));
+            }
+            _ => return Err(ArgError::Usage),
+        }
+    }
+    Ok(Command::Serve { config })
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.as_slice() {
-        [] => match run() {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(e) => {
-                eprintln!("easy-peasy-mcp: {e:#}");
-                ExitCode::FAILURE
-            }
-        },
-        [flag] if flag == "--version" => {
+    match parse_args(&args) {
+        Ok(Command::Version) => {
             println!(
                 "easy-peasy-mcp {}, spec {SPEC_VERSION}",
                 env!("CARGO_PKG_VERSION")
             );
             ExitCode::SUCCESS
         }
-        _ => {
+        Ok(Command::Serve { config }) => {
+            let env = |name: &str| std::env::var(name).ok();
+            let file = config::locate(config.as_deref(), &env, std::env::consts::OS, &|p| {
+                p.is_file()
+            });
+            if let Some(file) = file
+                && let Err(e) = config::load(&file)
+            {
+                eprintln!("easy-peasy-mcp: {e}");
+                return ExitCode::FAILURE;
+            }
+            match run() {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("easy-peasy-mcp: {e:#}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Err(ArgError::NotImplemented(option)) => {
+            eprintln!("easy-peasy-mcp: the option '{option}' is not implemented yet");
+            ExitCode::from(2)
+        }
+        Err(ArgError::Usage) => {
             eprintln!("{USAGE}");
             ExitCode::from(2)
         }
