@@ -16,6 +16,8 @@ Empty query = all files.
                                  [*] [?] [[] [{] match the character itself
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends, =~ (regex) work on paths and names too
+  name ~~ 'cfgldr'               fuzzy, like fzf: the characters in order, case-insensitive; space separated terms
+                                 must all match (path ~~ 'srv hndl'); weak matches (score below 0.5) are dropped
   size > 1M                      also: = != < <= >= and size in 10K..1M; units B K M G (1024)
   modified > -7d                 also: modified = 2026-10-01 (the whole day), modified in -7d..-1d;
                                  dates 2026-10-01, 2026-10-01T14:30, ...T14:30:00Z, ...+02:00 (local time without

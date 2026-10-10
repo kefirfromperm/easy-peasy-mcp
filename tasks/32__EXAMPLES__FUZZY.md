@@ -6,7 +6,7 @@
 
 ```text tree
 services/http/handler.go   2026-10-01 10:00
-src/config-loader.ts       2026-10-01 10:00
+src/config-loader.rs       2026-10-01 10:00
 src/config_loader.rs       2026-10-01 10:00
 src/ConfigLoader.java      2026-10-01 10:00
 src/scaffold_bigolder.ts   2026-10-01 10:00
@@ -33,7 +33,7 @@ files: 2  lines: 0  matches: 0  result: r1
 #2 name ~ '*.{rs,ts}'
 
 src/
-config-loader.ts  [#1 #2]
+config-loader.rs  [#1 #2]
 config_loader.rs  [#1 #2]
 ```
 

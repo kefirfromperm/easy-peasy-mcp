@@ -3,17 +3,28 @@
 use regex::Regex;
 
 use super::ast::CondId;
+use super::fuzzy::Fuzzy;
 use crate::content::{Content, LineRef};
 use crate::git::{GitStatus, GitValue};
 
-/// How a text value is matched: a regex over the NFC form of the value.
+/// How a `name` or `path` value is matched, over the NFC form of the value.
 #[derive(Debug, Clone)]
-pub struct TextMatcher(pub(crate) Regex);
+pub enum TextMatcher {
+    Regex(Regex),
+    /// `~~`: a match with a score of at least `min_score`.
+    Fuzzy {
+        fuzzy: Fuzzy,
+        min_score: f64,
+    },
+}
 
 impl TextMatcher {
     /// Whether `value` matches.
     pub fn is_match(&self, value: &str) -> bool {
-        self.0.is_match(value)
+        match self {
+            Self::Regex(regex) => regex.is_match(value),
+            Self::Fuzzy { fuzzy, min_score } => fuzzy.score(value).is_some_and(|s| s >= *min_score),
+        }
     }
 }
 
@@ -697,7 +708,7 @@ mod tests {
             id: CondId::Number(n),
             order: n as usize,
             target: TextTarget::Name,
-            matcher: TextMatcher(Regex::new(&format!("^{value}$")).unwrap()),
+            matcher: TextMatcher::Regex(Regex::new(&format!("^{value}$")).unwrap()),
         }
     }
 
