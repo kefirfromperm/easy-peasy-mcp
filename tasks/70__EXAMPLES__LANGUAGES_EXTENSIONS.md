@@ -291,6 +291,7 @@ Fixture: `languages`
 ```text response
 [languages.terraform]
 extensions = ['tf', 'tfvars']    # was (not set)
+names = []    # was (not set)
 ```
 
 2. `find`
@@ -317,6 +318,7 @@ vars.tfvars  [#1]
 ```text response
 [languages.terraform]
 # extensions =  (not set)    # was ['tf', 'tfvars'], reset
+# names =  (not set)    # was [], reset
 ```
 
 ## E70.7 A built-in language for the session
