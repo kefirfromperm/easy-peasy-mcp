@@ -1,6 +1,6 @@
 # Task 83: `output.blank_context`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80
 
