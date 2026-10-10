@@ -227,6 +227,7 @@ format = "text"
 detail = "lines"
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
+facet_depth = 2
 meta = false
 context = 0
 # before =  (not set)
