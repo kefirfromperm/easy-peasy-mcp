@@ -3,13 +3,15 @@
 use serde_json::{Value, json};
 
 /// The `instructions` of `initialize`.
-pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Spec version 1.";
+pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Call get_config first to learn allowed roots and \
+defaults. Spec version 1.";
 
 /// The description of the `find` tool: the cheat sheet of TOOLS.md#description for the implemented subset.
 pub const FIND_DESCRIPTION: &str = "\
-Search files and directories by name, path and type in one query. Read-only. Only regular files are returned. Spec version 1.
+Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
+Call get_config once first to learn the allowed roots and defaults.
 
-QUERY: conditions on the name, path, type, size, dates, language, kind and git status joined with not, and, xor, or (this precedence) and brackets.
+QUERY: conditions on the name, path, type, size, dates, language, kind, git status and content joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
   name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
@@ -68,6 +70,24 @@ pub fn find_schema() -> Value {
         "type": "object",
         "properties": {
             "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." }
+        }
+    })
+}
+
+/// The description of the `get_config` tool (`TOOLS.md#get_config`).
+pub const GET_CONFIG_DESCRIPTION: &str = "\
+Returns the effective configuration of the search server as TOML: allowed roots, default directories, traversal and
+output defaults, limits, supported spec versions. Read-only. Call it once before the first find.";
+
+/// The input schema of the `get_config` tool.
+#[must_use]
+pub fn get_config_schema() -> Value {
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "section": { "enum": ["server", "traversal", "output", "escape", "query", "kinds", "git", "languages"] },
+            "sources": { "type": "boolean", "description": "Add where each value comes from." }
         }
     })
 }

@@ -33,9 +33,18 @@ impl Server {
         let Value::Object(schema) = description::find_schema() else {
             unreachable!("the schema is a JSON object")
         };
+        let Value::Object(get_config_schema) = description::get_config_schema() else {
+            unreachable!("the schema is a JSON object")
+        };
         vec![
             Tool::new("find", description::FIND_DESCRIPTION, schema)
                 .annotate(ToolAnnotations::new().read_only(true).open_world(false)),
+            Tool::new(
+                "get_config",
+                description::GET_CONFIG_DESCRIPTION,
+                get_config_schema,
+            )
+            .annotate(ToolAnnotations::new().read_only(true).open_world(false)),
         ]
     }
 }

@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::Value;
 
+use crate::config;
 use crate::error::Report;
 use crate::languages::LanguageTable;
 use crate::output::Response;
@@ -75,7 +76,7 @@ pub struct Engine {
 
 impl Engine {
     /// The names of the tools, in the order of `tools/list`.
-    pub const TOOLS: [&'static str; 1] = ["find"];
+    pub const TOOLS: [&'static str; 2] = ["find", "get_config"];
 
     /// A new session.
     #[must_use]
@@ -95,6 +96,13 @@ impl Engine {
     pub fn call(&self, tool: &str, arguments: &Value) -> Result<ToolOutput, UnknownTool> {
         match tool {
             "find" => Ok(self.find(arguments)),
+            "get_config" => Ok(match config::get_config(arguments) {
+                Ok(text) => ToolOutput {
+                    text,
+                    is_error: false,
+                },
+                Err(report) => ToolOutput::error(&report),
+            }),
             other => Err(UnknownTool(other.to_string())),
         }
     }
