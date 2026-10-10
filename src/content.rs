@@ -90,14 +90,12 @@ fn by_bom(bytes: &[u8]) -> Option<(Encoding, &[u8])> {
 /// The encoding of a file without a BOM, or `None` for a binary one: the configured encoding, binary by a zero byte
 /// unless it is UTF-16; with `auto` UTF-16 by the pattern of the zero bytes, binary by a zero byte, otherwise UTF-8.
 fn without_bom(bytes: &[u8], options: &DecodeOptions) -> Option<Encoding> {
-    let encoding = match options.encoding {
-        Some(forced) => Encoding::of(forced),
-        None => {
-            if let Some(utf16) = utf16_by_zero_bytes(bytes) {
-                return Some(utf16);
-            }
-            Encoding::Utf8
-        }
+    let encoding = if let Some(forced) = options.encoding {
+        Encoding::of(forced)
+    } else if let Some(utf16) = utf16_by_zero_bytes(bytes) {
+        return Some(utf16);
+    } else {
+        Encoding::Utf8
     };
     let utf16 = matches!(encoding, Encoding::Utf16Le | Encoding::Utf16Be);
     (utf16 || options.binary_as_text || !is_binary(bytes)).then_some(encoding)
@@ -443,7 +441,7 @@ mod tests {
             Decoded::Binary => panic!("searched as text"),
         }
         assert!(matches!(
-            decode(b"\0\0\0\0\nlogo\n", false),
+            decode(b"\0\0\0\0\nlogo\n", &DecodeOptions::default()),
             Decoded::Binary
         ));
     }
