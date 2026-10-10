@@ -62,4 +62,21 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn values_over_the_limit() {
+        let facet = Facet {
+            name: "dir".to_string(),
+            values: (1..=10).rev().map(|n| (format!("d{n}/"), n)).collect(),
+        };
+        assert_eq!(
+            facet.line(8),
+            "dir:        d10/ 10 · d9/ 9 · d8/ 8 · d7/ 7 · d6/ 6 · d5/ 5 · d4/ 4 · d3/ 3 · … 2 more (3)"
+        );
+        let short = Facet {
+            name: "condition".to_string(),
+            values: vec![("#1".to_string(), 3)],
+        };
+        assert_eq!(short.line(8), "condition:  #1 3");
+    }
 }

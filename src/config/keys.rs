@@ -789,4 +789,20 @@ mod tests {
             Value::List(vec!["⟦".into(), "⟧".into()])
         );
     }
+
+    #[test]
+    fn facets_are_known_names() {
+        use serde_json::json;
+        assert_eq!(
+            Type::Facets.parse_json(&json!(["dir", "git"])),
+            Some(Value::List(vec!["dir".into(), "git".into()]))
+        );
+        assert_eq!(Type::Facets.parse_json(&json!(["size"])), None);
+        assert_eq!(Type::Facets.parse_json(&json!([])), Some(Value::List(vec![])));
+        assert_eq!(
+            Type::Facets.expected(),
+            "a list of facets (dir, ext, lang, kind, git, condition) is expected"
+        );
+        assert_eq!(Key::Detail.unimplemented(&Value::Text("facets".into())), None);
+    }
 }
