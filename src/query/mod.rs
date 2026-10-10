@@ -1,6 +1,7 @@
 //! The query language (QUERY.md): text → tokens → syntax tree → condition ids and legend → compiled filter.
 
 pub mod ast;
+mod eval;
 mod lexer;
 mod parser;
 mod subset;

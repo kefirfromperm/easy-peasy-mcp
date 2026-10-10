@@ -75,32 +75,41 @@ fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::query::lexer::lex;
+    use crate::query::{lexer::lex, parser::parse};
 
     fn check_str(q: &str) -> Option<(String, Range<usize>)> {
-        check(q, &lex(q)).map(|e| (e.message, e.span))
+        let lexed = lex(q);
+        let expr = parse(q, &lexed).unwrap();
+        check(q, &lexed, expr.as_ref()).map(|e| (e.message, e.span))
     }
 
     #[test]
     fn the_subset_passes() {
-        assert_eq!(check_str("name ~ '*.rs'"), None);
-        assert_eq!(check_str("NAME = \"a\""), None);
+        for q in [
+            "",
+            " \n\t",
+            "name ~ '*.rs'",
+            "NAME = \"a\"",
+            "name has 'a' and not (path starts 'b' or name ends 'c' /i) xor name = 'd'",
+            "not not path ~ 'a'",
+        ] {
+            assert_eq!(check_str(q), None, "{q}");
+        }
     }
 
     #[test]
     fn other_targets_and_operators() {
-        assert_eq!(check_str("path ~ 'a'"), None);
-        assert_eq!(check_str("PATH starts 'a/'"), None);
         assert_eq!(
             check_str("size > 1"),
             Some(("the target 'size' is not implemented yet".into(), 0..4))
         );
-        assert_eq!(check_str("name has 'a'"), None);
-        assert_eq!(check_str("name STARTS 'a'"), None);
-        assert_eq!(check_str("name ends 'a'"), None);
         assert_eq!(
-            check_str("name =~ 'a'"),
-            Some(("the operator '=~' is not implemented yet".into(), 5..7))
+            check_str("name = 'a' or (path ~ 'b' and text has 'c')"),
+            Some(("the target 'text' is not implemented yet".into(), 30..34))
+        );
+        assert_eq!(
+            check_str("name = 'a' and name =~ 'a'"),
+            Some(("the operator '=~' is not implemented yet".into(), 20..22))
         );
         assert_eq!(
             check_str("name ~~ 'a'").unwrap().0,
@@ -113,41 +122,30 @@ mod tests {
     }
 
     #[test]
-    fn logic_groups_modifiers_labels() {
+    fn groups_modifiers_labels_comments() {
         assert_eq!(
-            check_str("not name = 'a'").unwrap().0,
-            "the operator 'not' is not implemented yet"
-        );
-        assert_eq!(
-            check_str("name = 'a' and name = 'b'"),
-            Some(("the operator 'and' is not implemented yet".into(), 11..14))
-        );
-        assert_eq!(
-            check_str("(name = 'a')").unwrap().0,
-            "the bracket '(' is not implemented yet"
-        );
-        assert_eq!(
-            check_str("line(text has 'a')").unwrap().0,
-            "the group line( ... ) is not implemented yet"
+            check_str("name = 'a' and line(text has 'a')"),
+            Some((
+                "the group line( ... ) is not implemented yet".into(),
+                15..19
+            ))
         );
         assert_eq!(
             check_str("near(text has 'a', text has 'b', 1)").unwrap().0,
             "the group near( ... ) is not implemented yet"
         );
-        assert_eq!(check_str("name = 'a' /i"), None);
-        assert_eq!(check_str("name = 'a'/I /i"), None);
         assert_eq!(
             check_str("name = 'a' /i/w"),
             Some(("the modifier '/w' is not implemented yet".into(), 13..15))
         );
         assert_eq!(
-            check_str("name = 'a' @x").unwrap().0,
-            "the label '@x' is not implemented yet"
+            check_str("name = 'a' /e(xml, 1)"),
+            Some(("the modifier '/e' is not implemented yet".into(), 11..13))
         );
-    }
-
-    #[test]
-    fn comments_and_the_empty_query() {
+        assert_eq!(
+            check_str("name = 'a' @x"),
+            Some(("the label '@x' is not implemented yet".into(), 11..13))
+        );
         assert_eq!(
             check_str("name = 'a' # x"),
             Some(("the comment '#' is not implemented yet".into(), 11..14))
@@ -156,7 +154,5 @@ mod tests {
             check_str("# only").unwrap().0,
             "the comment '#' is not implemented yet"
         );
-        assert_eq!(check_str(""), None);
-        assert_eq!(check_str(" \n\t"), None);
     }
 }
