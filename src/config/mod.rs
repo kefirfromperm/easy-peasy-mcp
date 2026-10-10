@@ -1319,10 +1319,10 @@ mod tests {
             (2, "unknown key 'output.zzz'".into())
         );
         assert_eq!(
-            error("[output]\nchars_per_token = 3\n"),
+            error("[output]\nchars_per_token = 0\n"),
             (
                 2,
-                "the key 'output.chars_per_token' is not implemented yet".into()
+                "invalid value for 'output.chars_per_token': a positive number is expected".into()
             )
         );
         assert_eq!(
@@ -1337,17 +1337,17 @@ mod tests {
             (1, "'output' must be a section".into())
         );
         assert_eq!(
-            error("output.chars_per_token = 1\n"),
+            error("output.chars_per_token = 0\n"),
             (
                 1,
-                "the key 'output.chars_per_token' is not implemented yet".into()
+                "invalid value for 'output.chars_per_token': a positive number is expected".into()
             )
         );
         assert_eq!(
-            error("output = { chars_per_token = 1 }\n"),
+            error("output = { chars_per_token = 0 }\n"),
             (
                 1,
-                "the key 'output.chars_per_token' is not implemented yet".into()
+                "invalid value for 'output.chars_per_token': a positive number is expected".into()
             )
         );
         assert_eq!(
@@ -1455,7 +1455,7 @@ mod tests {
         );
         assert_eq!(
             update(&json!({ "set": "output.chars_per_token = 2" })),
-            "error[not_implemented]: the key 'output.chars_per_token' is not implemented yet\n"
+            "[output]\nchars_per_token = 2    # was 4\n"
         );
         assert_eq!(
             update(&json!({ "set": "traversal.archives = 'all'" })),

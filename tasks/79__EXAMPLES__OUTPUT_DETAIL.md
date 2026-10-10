@@ -50,6 +50,7 @@ b.rs  [#1]  lines: 2  matches: 2
 format = "text"
 detail = "lines"
 # budget =  (not set)
+chars_per_token = 4
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -212,6 +213,7 @@ files: 2  lines: 4  matches: 4  result: r1
 format = "text"    # default
 detail = "count"    # update
 # budget =  (not set)    # default
+chars_per_token = 4    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -290,6 +292,7 @@ easy-peasy-mcp --config conf/o.toml
 format = "text"    # default
 detail = "files"    # file: conf/o.toml
 # budget =  (not set)    # default
+chars_per_token = 4    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default

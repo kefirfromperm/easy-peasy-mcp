@@ -32,6 +32,7 @@ pub enum Key {
     Format,
     Detail,
     Budget,
+    CharsPerToken,
     Funnel,
     Facets,
     FacetDepth,
@@ -69,7 +70,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 56] = [
+    pub const ALL: [Key; 57] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -93,6 +94,7 @@ impl Key {
         Self::Format,
         Self::Detail,
         Self::Budget,
+        Self::CharsPerToken,
         Self::Funnel,
         Self::Facets,
         Self::FacetDepth,
@@ -183,6 +185,7 @@ impl Key {
             Self::Meta => ("output", "meta", Type::Bool),
             Self::Facets => ("output", "facets", Type::Facets),
             Self::Budget => ("output", "budget", Type::OptAtLeast(100)),
+            Self::CharsPerToken => ("output", "chars_per_token", Type::Positive),
             Self::FacetDepth => ("output", "facet_depth", Type::AtLeast(1)),
             Self::FacetLimit => ("output", "facet_limit", Type::AtLeast(1)),
             Self::Funnel => (
@@ -256,6 +259,7 @@ impl Key {
             Self::MaxMatches => Value::Whole(1000),
             Self::MaxLevel | Self::GroupRepeated => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
+            Self::CharsPerToken => Value::Number(4.0),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),
             Self::KindsConfig => list(&crate::search::DEFAULT_CONFIG),
             Self::KindsDoc => list(&crate::search::DEFAULT_DOC),
@@ -362,6 +366,8 @@ pub enum Type {
     AtLeast(usize),
     /// A whole number of at least the given one, or not set.
     OptAtLeast(usize),
+    /// A number above 0, with a fraction or not.
+    Positive,
     /// `auto` or a branch, tag or commit: a non-empty name which doesn't start with `-`.
     GitBase,
     /// Two non-empty strings: the opening and the closing marker.
@@ -393,6 +399,7 @@ impl Type {
             }
             Self::OptEncoding => "an encoding name like \"windows-1251\" is expected".to_string(),
             Self::Score => "a number from 0 to 1 is expected".to_string(),
+            Self::Positive => "a positive number is expected".to_string(),
             Self::AtLeast(min) | Self::OptAtLeast(min) => {
                 format!("a whole number of at least {min} is expected")
             }
@@ -416,6 +423,7 @@ impl Type {
             Self::Encoding => "\"auto\" or an encoding name like \"windows-1252\"".to_string(),
             Self::OptEncoding => "an encoding name like \"windows-1251\"".to_string(),
             Self::Score => "a number from 0 to 1".to_string(),
+            Self::Positive => "a positive number".to_string(),
             Self::AtLeast(min) | Self::OptAtLeast(min) => {
                 format!("a whole number of at least {min}")
             }
@@ -518,6 +526,12 @@ impl Type {
                 .as_str()
                 .filter(|v| is_git_base(v))
                 .map(|v| Value::Text(v.to_string())),
+            #[allow(clippy::cast_precision_loss)] // a whole number of characters per token is small
+            Self::Positive => item
+                .as_float()
+                .or_else(|| item.as_integer().map(|n| n as f64))
+                .filter(|n| *n > 0.0 && n.is_finite())
+                .map(Value::Number),
             #[allow(clippy::cast_precision_loss)] // only 0 and 1 are whole numbers in the range
             Self::Score => item
                 .as_float()
@@ -574,6 +588,10 @@ impl Type {
                 .as_str()
                 .filter(|v| is_git_base(v))
                 .map(|v| Value::Text(v.to_string())),
+            Self::Positive => value
+                .as_f64()
+                .filter(|n| *n > 0.0 && n.is_finite())
+                .map(Value::Number),
             Self::Score => value
                 .as_f64()
                 .filter(|n| (0.0..=1.0).contains(n))
@@ -852,5 +870,26 @@ mod tests {
             Key::Detail.unimplemented(&Value::Text("facets".into())),
             None
         );
+    }
+
+    #[test]
+    fn positive_numbers() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        assert_eq!(
+            Type::Positive.parse_toml(&item("4")),
+            Some(Value::Number(4.0))
+        );
+        assert_eq!(
+            Type::Positive.parse_toml(&item("3.5")),
+            Some(Value::Number(3.5))
+        );
+        assert_eq!(Type::Positive.parse_toml(&item("0")), None);
+        assert_eq!(Type::Positive.parse_json(&json!(-1)), None);
+        assert_eq!(Type::Positive.expected(), "a positive number is expected");
+        assert_eq!(Key::CharsPerToken.default_value().to_toml().unwrap(), "4");
     }
 }

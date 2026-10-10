@@ -405,8 +405,12 @@ mod tests {
             "error[invalid_option]: 'output.budget' must be a whole number of at least 100\n"
         );
         assert_eq!(
-            text(&json!({ "output": { "chars_per_token": 3.5 } })),
-            "error[not_implemented]: the field 'output.chars_per_token' is not implemented yet\n"
+            config(&json!({ "output": { "chars_per_token": 3.5 } })),
+            [(Key::CharsPerToken, KeyValue::Number(3.5))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "chars_per_token": 0 } })),
+            "error[invalid_option]: 'output.chars_per_token' must be a positive number\n"
         );
         assert_eq!(
             config(&json!({ "output": { "funnel": "never" } })),
