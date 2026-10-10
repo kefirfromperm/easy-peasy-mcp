@@ -1,6 +1,6 @@
 # Task 94: `output.max_files`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 92
 
