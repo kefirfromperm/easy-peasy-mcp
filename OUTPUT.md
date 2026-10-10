@@ -429,6 +429,9 @@ When a limit is hit:
   `truncated: yes (max_files, timeout)` after the result id
 - the limits of the listed files, lines and output only apply where they are listed: `max_files` and `max_output`
   in `files` and `lines` detail, the others in `lines` detail
+- `max_lines` and `max_matches` count the matched lines and the fragments listed under the files, in the order of
+  the files, not the [repeated lines](#repeated-lines); a file whose lines are all cut is still listed with its
+  counts, without lines; a multiline fragment is listed only with all its lines
 - `counts` still contain the real totals, so the agent knows how much is missing; after the `timeout` they are only
   lower bounds, `counts_exact: false`
 - a file cut by `max_matches_per_file` or `max_output_per_file` gets `"truncated": true`, in the text format `(cut)`
