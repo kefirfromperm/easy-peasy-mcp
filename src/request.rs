@@ -31,6 +31,7 @@ pub struct Traversal {
     pub follow_symlinks: Option<bool>,
     pub hidden: Option<bool>,
     pub ignore_files: Option<Vec<String>>,
+    pub git_excludes: Option<bool>,
 }
 
 /// A validated `find` request.
@@ -319,6 +320,13 @@ mod tests {
         assert_eq!(
             text(&json!({ "traversal": { "ignore_files": [1] } })),
             "error[invalid_option]: 'traversal.ignore_files' must be a list of strings\n"
+        );
+        assert_eq!(
+            parse(&json!({ "traversal": { "git_excludes": false } }))
+                .unwrap()
+                .traversal
+                .git_excludes,
+            Some(false)
         );
         assert_eq!(
             text(&json!({ "traversal": { "exclude": [] } })),
