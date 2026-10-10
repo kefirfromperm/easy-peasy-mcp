@@ -1,0 +1,2 @@
+// @generated
+fn a() {}
