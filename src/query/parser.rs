@@ -88,6 +88,7 @@ impl<'a> Parser<'a> {
                 let hint = match tok {
                     Tok::Invalid('&') => "use 'and' instead of '&&'",
                     Tok::Invalid('|') => "use 'or' instead of '||'",
+                    Tok::Invalid('@') => "a label starts with a letter or '_', e.g. @name",
                     _ => hint,
                 };
                 QueryError::new(
@@ -651,6 +652,15 @@ mod tests {
         assert_eq!(err("name ~ 'a' text has 'x'").1, "unexpected 'text'");
         assert_eq!(err("name ~ 'a')").3.unwrap(), "unmatched ')'");
         assert_eq!(err("a && b").0, ErrorCode::UnknownTarget);
+        assert_eq!(
+            err("name = 'a' @1x"),
+            (
+                ErrorCode::UnexpectedToken,
+                "unexpected '@'".into(),
+                11..12,
+                Some("a label starts with a letter or '_', e.g. @name".into())
+            )
+        );
         assert_eq!(
             err("name = 'a' && name = 'b'").3.unwrap(),
             "use 'and' instead of '&&'"

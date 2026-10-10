@@ -54,6 +54,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     let mut errors: Vec<QueryError> = Vec::new();
     if let Some(expr) = &expr {
         validate(text, expr, false, options, &mut errors);
+        duplicate_labels(expr, &mut errors);
     }
     errors.extend(subset::check(text, &lexed, expr.as_ref()));
     // on the same position a real error wins over not_implemented
@@ -158,6 +159,25 @@ fn validate_condition(
             );
         }
     }
+}
+
+/// `duplicate_label` at every repeated use of a label.
+fn duplicate_labels(expr: &Expr, errors: &mut Vec<QueryError>) {
+    let mut seen = std::collections::HashSet::new();
+    expr.visit_nodes(&mut |node| {
+        if let Some(label) = &node.label
+            && !seen.insert(label.text.clone())
+        {
+            errors.push(
+                QueryError::new(
+                    ErrorCode::DuplicateLabel,
+                    format!("duplicate label '@{}'", label.text),
+                    label.span.clone(),
+                )
+                .hint("labels must be unique"),
+            );
+        }
+    });
 }
 
 /// The hint of `modifier_not_allowed` if the modifier is not allowed for the condition (QUERY.md#modifiers).
@@ -452,6 +472,31 @@ mod tests {
                 "unclosed '['"
             )
         );
+    }
+
+    #[test]
+    fn duplicate_labels() {
+        let e = parse(
+            "name = 'a' @x or (name = 'b' @y and name = 'c' @x)",
+            SENSITIVE,
+        )
+        .unwrap_err();
+        assert_eq!(
+            (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
+            (
+                ErrorCode::DuplicateLabel,
+                "duplicate label '@x'",
+                47..49,
+                Some("labels must be unique")
+            )
+        );
+    }
+
+    #[test]
+    fn labelled_ids_in_the_filter() {
+        let q = parse("name = 'a' @x or name = 'b'", SENSITIVE).unwrap();
+        let ids: Vec<String> = q.legend.iter().map(|(id, _)| id.to_string()).collect();
+        assert_eq!(ids, ["@x", "#1"]);
     }
 
     #[test]

@@ -17,6 +17,7 @@ Empty query = all files.
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends work on paths too
 Modifier after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i.
+Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
 Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped.
 

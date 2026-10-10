@@ -14,6 +14,7 @@ pub enum ErrorCode {
     ModifierNotAllowed,
     UnterminatedString,
     InvalidWildcard,
+    DuplicateLabel,
     InvalidOption,
     NotImplemented,
 }
@@ -31,6 +32,7 @@ impl ErrorCode {
             Self::ModifierNotAllowed => "modifier_not_allowed",
             Self::UnterminatedString => "unterminated_string",
             Self::InvalidWildcard => "invalid_wildcard",
+            Self::DuplicateLabel => "duplicate_label",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }
