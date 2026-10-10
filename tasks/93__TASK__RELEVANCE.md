@@ -1,6 +1,6 @@
 # Task 93: Relevance ranking
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 92, task 91, task 32
 
