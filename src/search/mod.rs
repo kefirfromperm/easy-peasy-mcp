@@ -43,6 +43,8 @@ pub struct SearchOptions {
     pub max_depth: Option<usize>,
     /// Descend into symlinked directories and read symlinked files.
     pub follow_symlinks: bool,
+    /// Include hidden entries: names starting with `.`.
+    pub hidden: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -182,7 +184,7 @@ pub type FileId = (u64, u64);
 pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
     let mut builder = WalkBuilder::new(root);
     builder
-        .hidden(true)
+        .hidden(!options.hidden)
         .parents(true)
         .ignore(false)
         .git_ignore(false)

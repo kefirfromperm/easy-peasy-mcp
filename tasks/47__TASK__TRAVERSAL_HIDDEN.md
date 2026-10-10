@@ -1,6 +1,6 @@
 # Task 47: `traversal.hidden`
 
-Status: not implemented
+Status: implemented, see [47__SUMMARY__TRAVERSAL_HIDDEN.md](47__SUMMARY__TRAVERSAL_HIDDEN.md)
 
 Depends on: task 44
 

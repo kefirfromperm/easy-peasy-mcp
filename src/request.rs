@@ -29,6 +29,7 @@ pub struct Traversal {
     pub min_depth: Option<usize>,
     pub max_depth: Option<usize>,
     pub follow_symlinks: Option<bool>,
+    pub hidden: Option<bool>,
 }
 
 /// A validated `find` request.
@@ -157,6 +158,7 @@ fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal,
             "min_depth" => traversal.min_depth = Some(whole_number(key, value)?),
             "max_depth" => traversal.max_depth = Some(whole_number(key, value)?),
             "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
+            "hidden" => traversal.hidden = Some(boolean(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"
@@ -281,8 +283,15 @@ mod tests {
             "error[invalid_option]: 'traversal.follow_symlinks' must be true or false\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "hidden": true } })),
-            "error[not_implemented]: the field 'traversal.hidden' is not implemented yet\n"
+            parse(&json!({ "traversal": { "hidden": true } }))
+                .unwrap()
+                .traversal
+                .hidden,
+            Some(true)
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "exclude": [] } })),
+            "error[not_implemented]: the field 'traversal.exclude' is not implemented yet\n"
         );
     }
 

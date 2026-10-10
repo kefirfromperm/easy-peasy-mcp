@@ -238,6 +238,7 @@ result_cache = 50    # default
 min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
+hidden = false    # default
 ```
 
 3. `find`
@@ -346,6 +347,7 @@ result_cache = 50    # default
 min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
+hidden = false    # default
 ```
 
 2. `find`

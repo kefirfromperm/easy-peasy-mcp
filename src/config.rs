@@ -171,7 +171,7 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 9] = [
+const IMPLEMENTED: [(&str, &str); 10] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
@@ -181,6 +181,7 @@ const IMPLEMENTED: [(&str, &str); 9] = [
     ("traversal", "min_depth"),
     ("traversal", "max_depth"),
     ("traversal", "follow_symlinks"),
+    ("traversal", "hidden"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -226,6 +227,8 @@ pub struct FileValues {
     pub max_depth: Option<usize>,
     /// `traversal.follow_symlinks`.
     pub follow_symlinks: Option<bool>,
+    /// `traversal.hidden`.
+    pub hidden: Option<bool>,
 }
 
 /// A checked config file.
@@ -265,6 +268,9 @@ pub struct Settings {
     /// `traversal.follow_symlinks`: descend into symlinked directories, read symlinked files.
     pub follow_symlinks: bool,
     pub follow_symlinks_source: Source,
+    /// `traversal.hidden`: include hidden entries.
+    pub hidden: bool,
+    pub hidden_source: Source,
 }
 
 impl Settings {
@@ -290,6 +296,8 @@ impl Settings {
             max_depth_source: Source::Default,
             follow_symlinks: false,
             follow_symlinks_source: Source::Default,
+            hidden: false,
+            hidden_source: Source::Default,
         }
     }
 
@@ -318,6 +326,12 @@ impl Settings {
         {
             settings.threads = threads;
             settings.threads_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(value) = file.values.hidden
+        {
+            settings.hidden = value;
+            settings.hidden_source = Source::File(file.path.clone());
         }
         if let Some(file) = file
             && let Some(follow) = file.values.follow_symlinks
@@ -412,6 +426,7 @@ impl Settings {
             Mutable::MinDepth => self.min_depth.to_string(),
             Mutable::MaxDepth => self.max_depth?.to_string(),
             Mutable::FollowSymlinks => self.follow_symlinks.to_string(),
+            Mutable::Hidden => self.hidden.to_string(),
         })
     }
 
@@ -451,6 +466,10 @@ impl Settings {
                 self.follow_symlinks = base.follow_symlinks;
                 self.follow_symlinks_source = base.follow_symlinks_source.clone();
             }
+            Mutable::Hidden => {
+                self.hidden = base.hidden;
+                self.hidden_source = base.hidden_source.clone();
+            }
         }
     }
 
@@ -485,6 +504,10 @@ impl Settings {
                 self.follow_symlinks = follow;
                 self.follow_symlinks_source = Source::Update;
             }
+            MutableValue::Hidden(value) => {
+                self.hidden = value;
+                self.hidden_source = Source::Update;
+            }
         }
     }
 
@@ -510,10 +533,11 @@ enum Mutable {
     MinDepth,
     MaxDepth,
     FollowSymlinks,
+    Hidden,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 7] = [
+    const ALL: [Mutable; 8] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -521,6 +545,7 @@ impl Mutable {
         Self::MinDepth,
         Self::MaxDepth,
         Self::FollowSymlinks,
+        Self::Hidden,
     ];
 
     /// The section and the key.
@@ -533,6 +558,7 @@ impl Mutable {
             Self::MinDepth => ("traversal", "min_depth"),
             Self::MaxDepth => ("traversal", "max_depth"),
             Self::FollowSymlinks => ("traversal", "follow_symlinks"),
+            Self::Hidden => ("traversal", "hidden"),
         }
     }
 
@@ -576,6 +602,7 @@ impl Mutable {
                 .as_bool()
                 .map(MutableValue::FollowSymlinks)
                 .ok_or(BOOLEAN),
+            Self::Hidden => item.as_bool().map(MutableValue::Hidden).ok_or(BOOLEAN),
         }
     }
 }
@@ -590,6 +617,7 @@ enum MutableValue {
     MinDepth(usize),
     MaxDepth(usize),
     FollowSymlinks(bool),
+    Hidden(bool),
 }
 
 /// What `default_dirs` must be.
@@ -805,6 +833,10 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                         values.follow_symlinks = Some(follow);
                         continue;
                     }
+                    Some(Ok(MutableValue::Hidden(value))) => {
+                        values.hidden = Some(value);
+                        continue;
+                    }
                     Some(Err(expected)) => {
                         format!("invalid value for '{section}.{key}': {expected}")
                     }
@@ -915,6 +947,7 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
                 settings.line(Mutable::FollowSymlinks),
                 &settings.follow_symlinks_source,
             ),
+            (settings.line(Mutable::Hidden), &settings.hidden_source),
         ];
         out.push_str("\n[traversal]\n");
         push_lines(&mut out, &lines, sources);
@@ -1349,7 +1382,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\n"
             )
         );
         assert_eq!(
@@ -1556,6 +1589,7 @@ mod tests {
                 min_depth: Some(3),
                 max_depth: Some(5),
                 follow_symlinks: Some(true),
+                hidden: Some(true),
             },
         };
         let cli = CommandLine {
@@ -1572,6 +1606,7 @@ mod tests {
         assert_eq!(settings.min_depth, 3);
         assert_eq!(settings.max_depth, Some(5));
         assert!(settings.follow_symlinks);
+        assert!(settings.hidden);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));

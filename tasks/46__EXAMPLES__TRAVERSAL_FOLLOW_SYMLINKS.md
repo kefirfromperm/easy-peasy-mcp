@@ -56,6 +56,7 @@ main.rs  [#1]  lines: 1  matches: 1
 min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
+hidden = false
 ```
 
 ## E46.2 Following symlinks
@@ -144,6 +145,7 @@ warning: permission_denied (1): outside/
 min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = true    # update
+hidden = false    # default
 ```
 
 ## E46.5 An invalid value in a request
@@ -198,6 +200,7 @@ easy-peasy-mcp --config conf/l.toml
 min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = true    # file: conf/l.toml
+hidden = false    # default
 ```
 
 2. `find`

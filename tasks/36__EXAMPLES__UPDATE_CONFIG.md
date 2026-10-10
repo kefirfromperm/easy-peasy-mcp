@@ -208,6 +208,7 @@ result_cache = 50
 min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
+hidden = false
 ```
 
 3. `find`
