@@ -419,7 +419,8 @@ fn walk_builder(root: &Path, options: &SearchOptions) -> (WalkBuilder, Outside) 
         .threads(options.threads)
         .max_depth(options.max_depth);
     let outside: Outside = std::sync::Arc::default();
-    if options.follow_symlinks || !options.exclude.is_empty() {
+    let hide_flagged = HIDDEN_FLAG && !options.hidden;
+    if options.follow_symlinks || !options.exclude.is_empty() || hide_flagged {
         let roots = std::sync::Arc::clone(&options.allowed_roots);
         let outside = std::sync::Arc::clone(&outside);
         let base = root.to_path_buf();
@@ -427,6 +428,12 @@ fn walk_builder(root: &Path, options: &SearchOptions) -> (WalkBuilder, Outside) 
         let exclude = options.exclude.clone();
         builder.filter_entry(move |entry| {
             if is_excluded(&exclude, &base, entry) {
+                return false;
+            }
+            if hide_flagged
+                && entry.depth() > 0
+                && entry.metadata().is_ok_and(|m| flagged_hidden(&m))
+            {
                 return false;
             }
             if !follow || !entry.path_is_symlink() {
@@ -1586,6 +1593,22 @@ pub fn slash_path(rel: &Path) -> String {
         })
         .collect();
     parts.join("/")
+}
+
+/// Whether the platform has a `hidden` flag besides the leading `.` which the walker knows: macOS (CONFIG.md#platforms).
+const HIDDEN_FLAG: bool = cfg!(target_os = "macos");
+
+/// Whether the `hidden` flag of macOS (`UF_HIDDEN` of `chflags hidden`) is set.
+#[cfg(target_os = "macos")]
+fn flagged_hidden(metadata: &std::fs::Metadata) -> bool {
+    use std::os::macos::fs::MetadataExt;
+    const UF_HIDDEN: u32 = 0x8000;
+    metadata.st_flags() & UF_HIDDEN != 0
+}
+
+#[cfg(not(target_os = "macos"))]
+fn flagged_hidden(_metadata: &std::fs::Metadata) -> bool {
+    false
 }
 
 #[cfg(unix)]

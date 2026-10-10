@@ -123,6 +123,10 @@ fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()>
     options.read_delay = env("EASY_PEASY_TEST_SLOW_READS")
         .and_then(|ms| ms.parse().ok())
         .map(std::time::Duration::from_millis);
+    // the test hook of the startup examples (AGENTS.md): they are written with the path case of Linux
+    if env("EASY_PEASY_TEST_NATIVE_CASE").as_deref() == Some("sensitive") {
+        options.native_case_insensitive = false;
+    }
     let server = Server::new(Engine::new(options));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
