@@ -334,6 +334,40 @@ mod tests {
     }
 
     #[test]
+    fn long_lines_cut_to_windows() {
+        let c = Content::from_bytes(
+            "The quick brown fox jumps over the lazy dog and then TODO fix the fence near the old barn\n\
+             short TODO\n\
+             This context line is much longer than twenty characters\n\
+             TODO at the start and TODO again at the end of this rather long line TODO\n\
+             \x20   é TODO é is here and there and everywhere\n"
+                .as_bytes(),
+        );
+        let fragments: Vec<Fragment> = c
+            .text()
+            .match_indices("TODO")
+            .map(|(i, _)| frag(i..i + 4, &[1]))
+            .collect();
+        let markers = Highlight::Markers("⟦", "⟧");
+        let cut = |i: usize, skip: usize, max: usize| cut_line(&c, &fragments, i, skip, markers, max);
+        assert_eq!(cut(0, 0, 20), ("…nd then ⟦#1:TODO⟧ fix the…".to_string(), true));
+        assert_eq!(cut(1, 0, 20), ("short ⟦#1:TODO⟧".to_string(), false));
+        assert_eq!(cut(2, 0, 20), ("This context line is…".to_string(), true));
+        assert_eq!(
+            cut(3, 0, 20),
+            ("⟦#1:TODO⟧ … ⟦#1:TODO⟧ … ⟦#1:TODO⟧".to_string(), true)
+        );
+        assert_eq!(cut(0, 0, 89), (cut(0, 0, 300).0, false), "89 characters");
+        // after the dedent of four spaces the line has 41 characters, `é` is one
+        assert!(!cut(4, 4, 41).1);
+        assert_eq!(cut(4, 4, 20), ("é ⟦#1:TODO⟧ é is he…".to_string(), true));
+        assert_eq!(
+            cut_line(&c, &fragments, 0, 0, Highlight::Columns, 20),
+            ("…nd then TODO fix the…".to_string(), true)
+        );
+    }
+
+    #[test]
     fn escape_levels_after_the_ids() {
         let c = Content::from_bytes(b"abcdef\n");
         assert_eq!(
