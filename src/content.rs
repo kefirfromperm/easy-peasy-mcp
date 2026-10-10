@@ -489,6 +489,37 @@ mod tests {
     }
 
     #[test]
+    fn a_fallback_for_invalid_utf8() {
+        let options = DecodeOptions {
+            fallback: encoding_rs::Encoding::for_label(b"windows-1252"),
+            ..DecodeOptions::default()
+        };
+        let decoded = |bytes: &[u8], options: &DecodeOptions| match decode(bytes, options) {
+            Decoded::Text {
+                content,
+                encoding,
+                errors,
+            } => (content.text().to_string(), encoding, errors),
+            Decoded::Binary => panic!("text"),
+        };
+        let (text, encoding, errors) = decoded(b"caf\xe9\n", &options);
+        assert_eq!(
+            (text.as_str(), encoding.name().as_ref(), errors),
+            ("caf\u{e9}\n", "windows-1252", false)
+        );
+        assert_eq!(
+            decoded(b"caf\xc3\xa9\n", &options).1,
+            Encoding::Utf8,
+            "valid UTF-8 stays UTF-8"
+        );
+        let forced = DecodeOptions {
+            encoding: Some(encoding_rs::UTF_8),
+            ..options
+        };
+        assert!(decoded(b"caf\xe9\n", &forced).2, "only with auto");
+    }
+
+    #[test]
     fn invalid_utf8_is_replaced() {
         let c = Content::from_bytes(b"a\xffb\n");
         assert_eq!(c.line(0), "a\u{fffd}b");
