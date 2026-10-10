@@ -1,6 +1,6 @@
 # Task 36: `update_config` tool
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 35
 
