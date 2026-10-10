@@ -285,7 +285,9 @@ expected`, with an invalid wildcard `invalid value for 'traversal.exclude': inva
 a request `'traversal.exclude' must be a list of strings`, with an invalid wildcard `invalid wildcard '[a-' in
 'traversal.exclude'` and the hint `unclosed '['`. A key with a fixed set of values (`path_case`, `binary`, `archives`) is `invalid value
 for 'traversal.path_case': expected one of: native, sensitive, insensitive`, in a request `'traversal.path_case' must
-be one of: native, sensitive, insensitive`.
+be one of: native, sensitive, insensitive`. A size (`max_file_size`, `max_archive_size`) is a string like the values of the `size` target
+(QUERY.md#sizes): `invalid value for 'traversal.max_file_size': a size like "10M" is expected (units B, K, M, G)`, in
+a request `'traversal.max_file_size' must be a size like "10M" (units B, K, M, G)`.
 
 Notes
 
