@@ -1,6 +1,6 @@
 # Task 115: Cancellation
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 114
 
