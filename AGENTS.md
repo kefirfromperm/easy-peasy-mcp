@@ -142,7 +142,7 @@ Fixture: `small-rust`
   permissions, empty dirs, encodings with odd bytes) is listed in the fixture section and created by the test setup: a `text setup`
   block in the fixture section, one action per line — `mkdir <dir>`, `file <path> [<bytes>]` (a file of `x` bytes, empty without a size),
   `symlink <path> -> <target>` (the target relative to the link's directory), `atime <path> <date> <time>` (UTC, set
-  after the times of the tree), `git <dir> <args>` (runs `git -C <dir> <args>` with a fixed identity and no user
+  after the times of the tree), `bytes <path> <hex>` (a file of these bytes), `git <dir> <args>` (runs `git -C <dir> <args>` with a fixed identity and no user
   configuration; `git!` ignores a failure, e.g. a merge with conflicts)
 - the server runs with the fixture directory as its only allowed root and default working directory and with the
   built-in configuration; an example that needs other settings states them (`config` TOML block or CLI arguments)

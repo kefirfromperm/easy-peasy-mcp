@@ -1,6 +1,6 @@
 # Task 25: Encoding detection
 
-Status: not implemented
+Status: implemented, see [25__SUMMARY__ENCODING_AUTO.md](25__SUMMARY__ENCODING_AUTO.md)
 
 Depends on: task 20
 
