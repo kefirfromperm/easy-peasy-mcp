@@ -1,31 +1,25 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: the empty query, or exactly one condition on `name` or `path` with `=`, `has`, `starts`, `ends` or `~`,
-//! with the modifier `/i` only and without labels.
+//! Implemented: the empty query; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! modifier `/i`, combined with `not`, `and`, `xor`, `or` and brackets.
 
 use std::ops::Range;
 
-use super::ast::{Op, Target};
-use super::lexer::{Lexed, Tok};
+use super::ast::{Expr, Node, NodeKind, Op, Target};
+use super::lexer::Lexed;
 use crate::error::{ErrorCode, QueryError};
 
-/// The first token of a syntactically valid query which is outside of the implemented subset.
-pub fn check(query: &str, lexed: &Lexed) -> Option<QueryError> {
-    let unsupported = first_unsupported_token(query, lexed);
-    let comment = lexed
+/// The first construct of a syntactically valid query, by position, which is outside of the implemented subset.
+pub fn check(query: &str, lexed: &Lexed, expr: Option<&Expr>) -> Option<QueryError> {
+    let mut found: Vec<(Range<usize>, String)> = lexed
         .comments
-        .first()
-        .map(|span| (span.clone(), "the comment '#'".to_string()));
-    let (span, feature) = match (unsupported, comment) {
-        (Some(t), Some(c)) => {
-            if c.0.start <= t.0.start {
-                c
-            } else {
-                t
-            }
-        }
-        (t, c) => t.or(c)?,
-    };
+        .iter()
+        .map(|span| (span.clone(), "the comment '#'".to_string()))
+        .collect();
+    if let Some(expr) = expr {
+        expr.visit_nodes(&mut |node| unsupported(query, lexed, node, &mut found));
+    }
+    let (span, feature) = found.into_iter().min_by_key(|(span, _)| span.start)?;
     Some(QueryError::new(
         ErrorCode::NotImplemented,
         format!("{feature} is not implemented yet"),
@@ -33,43 +27,34 @@ pub fn check(query: &str, lexed: &Lexed) -> Option<QueryError> {
     ))
 }
 
-fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, String)> {
-    for (i, token) in lexed.tokens.iter().enumerate() {
-        let text = &query[token.span.clone()];
-        let feature = match (i, &token.tok) {
-            (0, Tok::Word(w))
-                if matches!(Target::from_keyword(w), Some(Target::Name | Target::Path)) =>
+/// Adds the unsupported parts of one node.
+fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<usize>, String)>) {
+    let keyword = lexed.tokens[node.tokens.start].span.clone();
+    match &node.kind {
+        NodeKind::Line(_) => found.push((keyword, "the group line( ... )".into())),
+        NodeKind::Near(_) => found.push((keyword, "the group near( ... )".into())),
+        NodeKind::Condition(c) => {
+            if !matches!(c.target, Target::Name | Target::Path) {
+                let span = c.target_span.clone();
+                found.push((span.clone(), format!("the target '{}'", &query[span])));
+            } else if let Some((op, span)) = &c.op
+                && !matches!(op, Op::Eq | Op::Has | Op::Starts | Op::Ends | Op::Wildcard)
             {
-                continue;
+                found.push((
+                    span.clone(),
+                    format!("the operator '{}'", &query[span.clone()]),
+                ));
             }
-            (1, Tok::Op(o) | Tok::Word(o))
-                if matches!(
-                    Op::from_symbol(o),
-                    Some(Op::Eq | Op::Has | Op::Starts | Op::Ends | Op::Wildcard)
-                ) =>
-            {
-                continue;
+            for m in c.modifiers.iter().filter(|m| m.name != "i") {
+                let span = m.span.start..m.span.start + 1 + m.name.len();
+                found.push((span.clone(), format!("the modifier '{}'", &query[span])));
             }
-            (2, Tok::Str { .. }) => continue,
-            (3.., Tok::Modifier(m)) if m.eq_ignore_ascii_case("i") => continue,
-            (_, Tok::LParen) => "the bracket '('".to_string(),
-            (_, Tok::Word(w)) if w.eq_ignore_ascii_case("line") => {
-                "the group line( ... )".to_string()
-            }
-            (_, Tok::Word(w)) if w.eq_ignore_ascii_case("near") => {
-                "the group near( ... )".to_string()
-            }
-            (_, Tok::Word(w)) if Target::from_keyword(w).is_some() && i == 0 => {
-                format!("the target '{text}'")
-            }
-            (_, Tok::Modifier(_)) => format!("the modifier '{text}'"),
-            (_, Tok::Label(_)) => format!("the label '{text}'"),
-            (_, Tok::Op(_) | Tok::Word(_)) => format!("the operator '{text}'"),
-            _ => format!("'{text}'"),
-        };
-        return Some((token.span.clone(), feature));
+        }
     }
-    None
+    if let Some(label) = &node.label {
+        let span = label.span.clone();
+        found.push((span.clone(), format!("the label '{}'", &query[span])));
+    }
 }
 
 #[cfg(test)]

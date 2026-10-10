@@ -9,7 +9,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use generated::GeneratedRules;
 
-use crate::query::{Filter, Query, TextTarget, ast::CondId, nfc};
+use crate::query::{FileValues, Query, ast::CondId, nfc};
 
 /// The ignore files respected in every directory, a later one wins at the same level.
 pub const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
@@ -66,12 +66,16 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
                 return WalkState::Continue;
             };
             let path = slash_path(rel);
-            let file = FileInfo {
-                name: nfc(&entry.file_name().to_string_lossy()),
-                path: nfc(&path),
+            let name = nfc(&entry.file_name().to_string_lossy());
+            let nfc_path = nfc(&path);
+            let file = FileValues {
+                name: &name,
+                path: &nfc_path,
             };
-            let Some(conditions) = evaluate(query.filter.as_ref(), &file) else {
-                return WalkState::Continue;
+            let conditions = match &query.filter {
+                None => Vec::new(),
+                Some(filter) if filter.eval(&file) => filter.contributors(&file),
+                Some(_) => return WalkState::Continue,
             };
             if generated.is_generated(&path, entry.path()) {
                 return WalkState::Continue;
@@ -99,32 +103,6 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
         .filter(|(_, id)| id.is_none_or(|id| seen.insert(id)))
         .map(|(f, _)| f)
         .collect()
-}
-
-/// The values of a file which conditions look at.
-struct FileInfo {
-    /// The NFC file name.
-    name: String,
-    /// The NFC path relative to the working directory, `/` as the separator.
-    path: String,
-}
-
-/// The ids of the conditions which made the file match, or `None` if it doesn't match; no filter matches all.
-fn evaluate(filter: Option<&Filter>, file: &FileInfo) -> Option<Vec<CondId>> {
-    match filter {
-        None => Some(Vec::new()),
-        Some(Filter::Text {
-            id,
-            target,
-            matcher,
-        }) => {
-            let value = match target {
-                TextTarget::Name => &file.name,
-                TextTarget::Path => &file.path,
-            };
-            matcher.is_match(value).then(|| vec![id.clone()])
-        }
-    }
 }
 
 /// A relative path with `/` separators.

@@ -13,9 +13,10 @@ use std::ops::Range;
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 
-use ast::{CondId, Condition, Expr, Modifier, NodeKind, Op, Target, TargetClass, Value};
+use ast::{CondId, Condition, Expr, Modifier, Node, NodeKind, Op, Target, TargetClass, Value};
 use lexer::Token;
 
+pub use eval::{FileValues, Filter, TextMatcher, TextTarget};
 pub(crate) use suggest::did_you_mean;
 
 use crate::error::{ErrorCode, QueryError};
@@ -25,37 +26,6 @@ use crate::error::{ErrorCode, QueryError};
 pub struct ParseOptions {
     /// `path_case`: whether `path` and `name` are compared case-insensitively.
     pub case_insensitive_paths: bool,
-}
-
-/// How a text value is matched: a regex over the NFC form of the value.
-#[derive(Debug, Clone)]
-pub struct TextMatcher(Regex);
-
-impl TextMatcher {
-    /// Whether `value` matches.
-    pub fn is_match(&self, value: &str) -> bool {
-        self.0.is_match(value)
-    }
-}
-
-/// The file values a text condition can look at.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TextTarget {
-    /// The file name.
-    Name,
-    /// The path relative to the working directory, `/` as the separator.
-    Path,
-}
-
-/// The compiled query, evaluated for every file.
-#[derive(Debug, Clone)]
-pub enum Filter {
-    /// A `name` or `path` condition, on the NFC form of the value.
-    Text {
-        id: CondId,
-        target: TextTarget,
-        matcher: TextMatcher,
-    },
 }
 
 /// A parsed and compiled query.
@@ -85,7 +55,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     if let Some(expr) = &expr {
         validate(text, expr, false, options, &mut errors);
     }
-    errors.extend(subset::check(text, &lexed));
+    errors.extend(subset::check(text, &lexed, expr.as_ref()));
     // on the same position a real error wins over not_implemented
     if let Some(first) = errors
         .into_iter()
@@ -93,9 +63,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     {
         return Err(first);
     }
-    let filter = expr.map(|expr| {
-        compile(&expr, options).expect("the subset check allows only one name or path condition")
-    });
+    let filter = expr.map(|expr| compile(&expr, options));
     Ok(Query { legend, filter })
 }
 
@@ -225,18 +193,30 @@ pub fn nfc(s: &str) -> String {
     }
 }
 
-fn compile(expr: &Expr, options: ParseOptions) -> Option<Filter> {
-    let Expr::Node(node) = expr else { return None };
+/// Compiles a checked query: every condition is in the implemented subset and valid.
+fn compile(expr: &Expr, options: ParseOptions) -> Filter {
+    let all = |items: &[Expr]| items.iter().map(|e| compile(e, options)).collect();
+    match expr {
+        Expr::Or(items) => Filter::Or(all(items)),
+        Expr::Xor(items) => Filter::Xor(all(items)),
+        Expr::And(items) => Filter::And(all(items)),
+        Expr::Not(inner) => Filter::Not(Box::new(compile(inner, options))),
+        Expr::Group(inner) => compile(inner, options),
+        Expr::Node(node) => compile_node(node, options),
+    }
+}
+
+fn compile_node(node: &Node, options: ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
-        return None;
+        unreachable!("the subset check allows only conditions")
     };
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
-        return None;
+        unreachable!("name and path conditions have an operator and a string")
     };
     let value = nfc(&s.value);
     let insensitive = options.case_insensitive_paths || c.modifiers.iter().any(|m| m.name == "i");
     let regex = if *op == Op::Wildcard {
-        wildcard::compile(&value, insensitive).ok()?
+        wildcard::compile(&value, insensitive).expect("wildcards are validated before compiling")
     } else {
         let escaped = regex::escape(&value);
         let pattern = match op {
@@ -248,16 +228,16 @@ fn compile(expr: &Expr, options: ParseOptions) -> Option<Filter> {
         let flags = if insensitive { "(?i)" } else { "" };
         Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex")
     };
-    let matcher = TextMatcher(regex);
     let target = match c.target {
         Target::Path => TextTarget::Path,
         _ => TextTarget::Name,
     };
-    Some(Filter::Text {
+    Filter::Text {
         id: node.id.clone(),
+        order: node.tokens.start,
         target,
-        matcher,
-    })
+        matcher: TextMatcher(regex),
+    }
 }
 
 #[cfg(test)]
@@ -478,7 +458,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("path ~ 'x' and name ~ '[a-'", SENSITIVE).unwrap_err();
+        let e = parse("size > 1 and name ~ '[a-'", SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }
