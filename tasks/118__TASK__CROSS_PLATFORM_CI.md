@@ -1,6 +1,6 @@
 # Task 118: CI on Linux, macOS and Windows
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 1
 
