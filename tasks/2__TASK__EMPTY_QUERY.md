@@ -1,6 +1,6 @@
 # Task 2: Empty query: all files
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 1
 
