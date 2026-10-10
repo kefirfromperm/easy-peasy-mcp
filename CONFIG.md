@@ -290,7 +290,9 @@ be one of: native, sensitive, insensitive`. A size (`max_file_size`, `max_archiv
 a request `'traversal.max_file_size' must be a size like "10M" (units B, K, M, G)`. An encoding which is neither `auto` nor a
 [WHATWG label](#encoding) is `invalid value for 'traversal.encoding': "auto" or an encoding name like
 "windows-1252" is expected`, in a request `'traversal.encoding' must be "auto" or an encoding name like
-"windows-1252"`.
+"windows-1252"`. `fallback_encoding` is not `auto`: `invalid value for 'traversal.fallback_encoding': an
+encoding name like "windows-1251" is expected`, in a request `'traversal.fallback_encoding' must be an encoding name
+like "windows-1251"`; it is unset by `reset`.
 
 Notes
 
