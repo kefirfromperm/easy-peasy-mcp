@@ -11,7 +11,7 @@ use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
-use crate::output::{BlockOptions, Detail, Response};
+use crate::output::{BlockOptions, Detail, Highlight, Response};
 use crate::query::{self, ParseOptions};
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
@@ -229,10 +229,19 @@ impl Engine {
             self.keep_result(&settings, arguments, &files)
         };
         let context = settings.whole(Key::Context);
+        let json = settings.text(Key::Format) == "json";
+        let highlight = match settings.text(Key::Highlight) {
+            "none" => Highlight::None,
+            "columns" => Highlight::Columns,
+            "markers" => Highlight::Markers,
+            _ if json => Highlight::Columns,
+            _ => Highlight::Markers,
+        };
         let response = Response {
             detail,
             group_dirs: settings.bool(Key::GroupDirs),
             group_repeated: settings.whole(Key::GroupRepeated),
+            highlight,
             blocks: BlockOptions {
                 before: settings.opt_whole(Key::Before).unwrap_or(context),
                 after: settings.opt_whole(Key::After).unwrap_or(context),
@@ -245,7 +254,7 @@ impl Engine {
             warnings: &warnings,
             timed_out,
         };
-        Ok(if settings.text(Key::Format) == "json" {
+        Ok(if json {
             response.to_json()
         } else {
             response.to_text()

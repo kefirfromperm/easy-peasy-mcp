@@ -29,6 +29,17 @@ pub enum Detail {
     Lines,
 }
 
+/// How the fragments are shown in the lines (OUTPUT.md#highlight); `auto` is resolved by the format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Highlight {
+    /// The lines as they are; JSON: `"match": true` on matched lines.
+    None,
+    /// Text: the columns of the fragments after a line; JSON: `fragments`.
+    Columns,
+    /// The markers inside the lines.
+    Markers,
+}
+
 /// The response of a `find` call.
 pub struct Response<'a> {
     /// How much it returns.
@@ -39,6 +50,8 @@ pub struct Response<'a> {
     pub group_dirs: bool,
     /// A matched line in this many files is printed once (`lines` detail); `0`: off.
     pub group_repeated: usize,
+    /// How the fragments are shown.
+    pub highlight: Highlight,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -133,7 +146,12 @@ impl Response<'_> {
             out.push('\n');
             if let (Some(m), Some(fragments)) = (&file.matches, rest) {
                 let blocks = blocks::blocks(&m.content, &fragments, &self.blocks);
-                out.push_str(&lines::render(&m.content, &fragments, &blocks));
+                out.push_str(&lines::render(
+                    &m.content,
+                    &fragments,
+                    &blocks,
+                    self.highlight,
+                ));
             }
         }
         self.push_warnings(&mut out);
@@ -170,9 +188,12 @@ impl Response<'_> {
                 out,
                 "  ×{} {}    {}",
                 line.files.len(),
-                lines::marked_line(&line.content, &line.fragments, 0, 0),
+                lines::shown_line(&line.content, &line.fragments, 0, 0, self.highlight),
                 self.locations(line).join(", ")
             );
+            if self.highlight == Highlight::Columns {
+                lines::push_columns(out, &line.content, &line.fragments, 0);
+            }
         }
     }
 
@@ -290,6 +311,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            highlight: Highlight::Markers,
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -315,6 +337,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: false,
             group_repeated: 3,
+            highlight: Highlight::Markers,
             result_id: None,
             legend: &legend,
             files: &files,
@@ -347,6 +370,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            highlight: Highlight::Markers,
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -372,6 +396,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            highlight: Highlight::Markers,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -413,6 +438,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            highlight: Highlight::Markers,
             result_id: None,
             legend: &legend,
             files: &files,
@@ -433,6 +459,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            highlight: Highlight::Markers,
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],

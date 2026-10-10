@@ -4,7 +4,9 @@
 use serde::Serialize;
 use serde::ser::SerializeMap;
 
-use super::{BlockOptions, Detail, LOCATIONS, Response, display_found};
+use super::blocks::BlockLine;
+use super::lines::{columns, shown_line, starts_in};
+use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
 use crate::query::ast::CondId;
 use crate::search::Found;
@@ -112,6 +114,9 @@ struct Block {
 struct Line {
     n: usize,
     text: String,
+    /// `highlight = none`: a matched line.
+    #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
+    matched: Option<bool>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     fragments: Vec<Fragment>,
 }
@@ -149,7 +154,16 @@ impl Response<'_> {
                 .lines
                 .iter()
                 .map(|line| {
-                    let shown = json_line(&line.content, &line.fragments, 0, 0);
+                    let shown = json_line(
+                        &line.content,
+                        &line.fragments,
+                        BlockLine {
+                            index: 0,
+                            matched: true,
+                        },
+                        0,
+                        self.highlight,
+                    );
                     Repeated {
                         count: line.files.len(),
                         text: shown.text,
@@ -185,7 +199,7 @@ impl Response<'_> {
                 (0..self.files.len())
                     .filter_map(|index| match self.rest(&repeated, index) {
                         Some(rest) if rest.is_empty() => None,
-                        rest => Some(file(&self.files[index], rest.as_deref(), &self.blocks)),
+                        rest => Some(self.file(&self.files[index], rest.as_deref())),
                     })
                     .collect()
             } else {
@@ -196,23 +210,32 @@ impl Response<'_> {
     }
 }
 
-/// A matched file, with the blocks of the fragments `lines` made with the options or without lines.
-fn file(found: &Found, lines: Option<&[super::Fragment]>, options: &BlockOptions) -> File {
-    File {
-        path: display_found(found),
-        encoding: found.encoding.map(|e| e.name().into_owned()),
-        lines: found.matches.as_ref().map_or(0, |m| m.lines),
-        matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
-        conditions: found.conditions.iter().map(ToString::to_string).collect(),
-        blocks: match (&found.matches, lines) {
-            (Some(m), Some(fragments)) => blocks(&m.content, fragments, options),
-            _ => Vec::new(),
-        },
+impl Response<'_> {
+    /// A matched file, with the blocks of the fragments `lines` or without lines.
+    fn file(&self, found: &Found, lines: Option<&[super::Fragment]>) -> File {
+        File {
+            path: display_found(found),
+            encoding: found.encoding.map(|e| e.name().into_owned()),
+            lines: found.matches.as_ref().map_or(0, |m| m.lines),
+            matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
+            conditions: found.conditions.iter().map(ToString::to_string).collect(),
+            blocks: match (&found.matches, lines) {
+                (Some(m), Some(fragments)) => {
+                    blocks(&m.content, fragments, &self.blocks, self.highlight)
+                }
+                _ => Vec::new(),
+            },
+        }
     }
 }
 
 /// The blocks of the matched lines with their context, every fragment in the line where it starts.
-fn blocks(content: &Content, fragments: &[super::Fragment], options: &BlockOptions) -> Vec<Block> {
+fn blocks(
+    content: &Content,
+    fragments: &[super::Fragment],
+    options: &BlockOptions,
+    highlight: Highlight,
+) -> Vec<Block> {
     super::blocks::blocks(content, fragments, options)
         .into_iter()
         .map(|block| Block {
@@ -220,50 +243,44 @@ fn blocks(content: &Content, fragments: &[super::Fragment], options: &BlockOptio
             lines: block
                 .lines
                 .into_iter()
-                .map(|line| json_line(content, fragments, line.index, block.indent))
+                .map(|line| json_line(content, fragments, line, block.indent, highlight))
                 .collect(),
         })
         .collect()
 }
 
-/// A line of a block without its first `indent` bytes, with the fragments which start in it (their columns of the
-/// original line).
-fn json_line(content: &Content, fragments: &[super::Fragment], i: usize, indent: usize) -> Line {
-    let (start, end) = content.line_range(i);
-    let text = content.line(i);
-    let shown = &text[indent.min(text.len())..];
-    let column = |offset: usize| content.text()[start..offset].chars().count() + 1;
+/// A line of a block without its first `indent` bytes in the highlight style: with the fragments which start in it
+/// (their columns of the original line), with the markers in its text or with `match`.
+fn json_line(
+    content: &Content,
+    fragments: &[super::Fragment],
+    line: BlockLine,
+    indent: usize,
+    highlight: Highlight,
+) -> Line {
+    let i = line.index;
     Line {
         n: i + 1,
-        text: shown.to_string(),
-        fragments: fragments
-            .iter()
-            .filter(|f| content.line_of(f.range.start) == i && f.range.start <= end)
-            .map(|f| {
-                let last = content.line_of(f.range.end.saturating_sub(1).max(f.range.start));
-                let multiline = last > i;
-                Fragment {
-                    col: [
-                        column(f.range.start),
-                        if multiline {
-                            text.chars().count() + 1
-                        } else {
-                            column(f.range.end)
-                        },
-                    ],
-                    text: content.text()[f.range.clone()].to_string(),
-                    ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
-                    escape: f.escape,
-                    to: multiline.then(|| {
-                        let (last_start, _) = content.line_range(last);
-                        To {
-                            n: last + 1,
-                            col: content.text()[last_start..f.range.end].chars().count() + 1,
-                        }
-                    }),
-                }
-            })
-            .collect(),
+        text: shown_line(content, fragments, i, indent, highlight),
+        matched: (highlight == Highlight::None && line.matched).then_some(true),
+        fragments: if highlight == Highlight::Columns {
+            fragments
+                .iter()
+                .filter(|f| starts_in(content, f, i))
+                .map(|f| {
+                    let at = columns(content, f, i);
+                    Fragment {
+                        col: [at.start, at.end],
+                        text: content.text()[f.range.clone()].to_string(),
+                        ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
+                        escape: f.escape,
+                        to: at.to.map(|(n, col)| To { n, col }),
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -289,6 +306,7 @@ mod tests {
             &c,
             &[frag(x..x + 1, 1, Some(0))],
             &BlockOptions::default(),
+            Highlight::Columns,
         ))
         .unwrap();
         assert_eq!(
@@ -302,6 +320,7 @@ mod tests {
             &c,
             &[frag(a..d + 1, 2, None)],
             &BlockOptions::default(),
+            Highlight::Columns,
         ))
         .unwrap();
         assert_eq!(
@@ -322,7 +341,7 @@ mod tests {
             .match_indices('a')
             .map(|(i, _)| frag(i..i + 1, 1, None))
             .collect();
-        let blocks = blocks(&c, &fragments, &BlockOptions::default());
+        let blocks = blocks(&c, &fragments, &BlockOptions::default(), Highlight::Columns);
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[1].lines[0].n, 4);
     }
@@ -345,6 +364,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            highlight: Highlight::Columns,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,

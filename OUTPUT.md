@@ -368,6 +368,16 @@ merged from fragments of several levels lists them in ascending order: `⟦#1,#2
 The markers are `⟦` and `⟧` by default and can be changed in the [configuration](CONFIG.md#output). If a file contains
 the marker characters, the response has a warning and `columns` should be used.
 
+`columns` in the text format: a matched line is followed by one line with the fragments which start in it, every
+fragment as `@ <start>..<end> <ids>` — the columns of `col`, the ids separated by `,` with the escape levels as in the
+markers (`#1/e0`) — and several fragments separated by two spaces: `  @ 5..9 #1  @ 20..24 #2,#3`. A multiline
+fragment ends with the line and the column of its end: `  @ 12..58:3 #1`. Overlapping fragments are listed one by one,
+as in JSON; the columns refer to the original line, also after [dedent](#dedent). A repeated line is followed by the
+columns of its fragments in its text.
+
+In JSON `"match": true` comes after the `text` of a line; with `markers` a repeated line has the markers in its `text`
+and no `fragments`, with `none` neither.
+
 ## Limits and truncation
 
 | Limit                  | Counts                                       | When hit                                         |

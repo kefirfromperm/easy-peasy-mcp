@@ -142,6 +142,7 @@ pub fn find_schema() -> Value {
                     "context": { "type": "integer", "minimum": 0, "description": "Lines before and after every matched line (grep -C). Default: 0." },
                     "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." },
                     "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." },
+                    "highlight": { "enum": ["auto", "none", "columns", "markers"], "description": "How matches are marked: markers ⟦ids:text⟧ inside the lines; columns: text — '  @ start..end ids' after a matched line, JSON — fragments with col (1-based characters, end exclusive); none: plain lines, JSON matched lines get match: true. auto: markers in text, columns in JSON. Default: auto." },
                     "dedent": { "type": "boolean", "description": "Remove the common indentation of every block, written once as ⇥N (indent in JSON). Default: true." },
                     "group_dirs": { "type": "boolean", "description": "Text: files under directory headers, with paths relative to them; false: the full path on every file line. Default: true." },
                     "group_repeated": { "type": "integer", "minimum": 0, "description": "Lines detail: a matched line identical (ignoring leading and trailing whitespace) in this many files is printed once in a repeated section with a few locations, and left out of the files; 0: off. Default: 3." },
