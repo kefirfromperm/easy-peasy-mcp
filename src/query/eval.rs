@@ -300,6 +300,7 @@ mod tests {
             size: 0,
             modified: Some(0.0),
             created: None,
+            accessed: None,
         };
         filter.matches(&file).then(|| {
             filter
@@ -392,6 +393,7 @@ mod tests {
             size: 0,
             modified: Some(0.0),
             created: None,
+            accessed: None,
         };
         assert_eq!(created(1).eval(&file), Truth::Unknown);
         assert!(!Filter::Not(Box::new(created(1))).matches(&file));

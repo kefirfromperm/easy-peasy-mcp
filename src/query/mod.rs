@@ -688,6 +688,7 @@ mod tests {
             size: name.len() as u64,
             modified: Some(0.0),
             created: Some(0.0),
+            accessed: Some(0.0),
         };
         query.filter.unwrap().matches(&file)
     }
@@ -765,6 +766,13 @@ mod tests {
             parse("created > -1y", &SENSITIVE).unwrap_err().code,
             ErrorCode::InvalidDate
         );
+    }
+
+    #[test]
+    fn accessed_conditions() {
+        assert!(matches("accessed >= 1970-01-01", "a", EntryType::File));
+        let q = parse("accessed < -30d", &SENSITIVE).unwrap();
+        assert!(q.needs.accessed && q.needs.metadata && !q.needs.created);
     }
 
     #[test]
