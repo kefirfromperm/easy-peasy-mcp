@@ -58,6 +58,8 @@ pub struct GitStatus {
     pub staged: bool,
     pub untracked: bool,
     pub conflicted: bool,
+    /// Changed by the commits of the current branch since the merge base with the base branch.
+    pub branch: bool,
 }
 
 impl GitStatus {
@@ -69,7 +71,8 @@ impl GitStatus {
             GitValue::Staged => self.staged,
             GitValue::Untracked => self.untracked,
             GitValue::Conflicted => self.conflicted,
-            GitValue::Changed | GitValue::Branch => changed,
+            GitValue::Changed => changed,
+            GitValue::Branch => changed || self.branch,
             GitValue::Clean => !changed,
         }
     }
@@ -179,15 +182,54 @@ impl GitIndex {
             ],
         )?;
         let tracked = self.git(root, &["ls-files", "-z"])?;
+        let mut statuses = parse_status(&status);
+        for path in self.branch_files(root) {
+            statuses.entry(path).or_default().branch = true;
+        }
         Some(Repo {
             root: root.to_path_buf(),
-            statuses: parse_status(&status),
+            statuses,
             tracked: tracked
                 .split(|b| *b == 0)
                 .filter(|p| !p.is_empty())
                 .map(|p| String::from_utf8_lossy(p).into_owned())
                 .collect(),
         })
+    }
+}
+
+impl GitIndex {
+    /// The files changed by the commits between the merge base of the base branch (`auto`: `origin/HEAD`, `main`,
+    /// `master`) and `HEAD`; empty without a base or on the base branch itself.
+    fn branch_files(&self, root: &Path) -> Vec<String> {
+        let Some(base) = ["origin/HEAD", "main", "master"].into_iter().find(|base| {
+            self.git(root, &["rev-parse", "--verify", "-q", base])
+                .is_some()
+        }) else {
+            return Vec::new();
+        };
+        let Some(merge_base) = self.git(root, &["merge-base", base, "HEAD"]) else {
+            return Vec::new();
+        };
+        let merge_base = String::from_utf8_lossy(&merge_base).trim().to_string();
+        self.git(
+            root,
+            &[
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                &merge_base,
+                "HEAD",
+            ],
+        )
+        .map(|out| {
+            out.split(|b| *b == 0)
+                .filter(|p| !p.is_empty())
+                .map(|p| String::from_utf8_lossy(p).into_owned())
+                .collect()
+        })
+        .unwrap_or_default()
     }
 }
 
@@ -309,6 +351,22 @@ mod tests {
         assert!(clean.has(GitValue::Clean) && !clean.has(GitValue::Changed));
         assert_eq!(GitValue::from_keyword("CHANGED"), Some(GitValue::Changed));
         assert_eq!(GitValue::from_keyword("dirty"), None);
+    }
+
+    #[test]
+    fn branch() {
+        let committed = GitStatus {
+            branch: true,
+            ..GitStatus::default()
+        };
+        assert!(committed.has(GitValue::Branch) && committed.has(GitValue::Clean));
+        assert!(!committed.has(GitValue::Changed));
+        let modified = GitStatus {
+            modified: true,
+            ..GitStatus::default()
+        };
+        assert!(modified.has(GitValue::Branch));
+        assert!(!GitStatus::default().has(GitValue::Branch));
     }
 
     #[test]

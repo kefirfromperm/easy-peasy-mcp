@@ -27,6 +27,7 @@ Empty query = all files.
   kind in (source, test)         source test config doc generated other; generated files (lock files, *.min.js,
                                  '@generated' markers) are skipped unless the query has a kind condition
   git = changed                  also: modified staged untracked conflicted clean; git in (modified, untracked);
+                                 git = branch: changed, or changed by the commits since the base (main/master);
                                  false outside of a repository
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type

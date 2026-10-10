@@ -1,12 +1,12 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
-//! `kind` and `git` (except `branch`) conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! `kind` and `git` conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
 
-use super::ast::{Expr, Node, NodeKind, Op, Target, Value};
+use super::ast::{Expr, Node, NodeKind, Op, Target};
 use super::lexer::Lexed;
 use crate::error::{ErrorCode, QueryError};
 
@@ -68,19 +68,6 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                     format!("the operator '{}'", &query[span.clone()]),
                 ));
             }
-            if c.target == Target::Git {
-                let words = match &c.value {
-                    Value::Word(w) => std::slice::from_ref(w),
-                    Value::Words(words) => words.as_slice(),
-                    _ => &[],
-                };
-                for w in words
-                    .iter()
-                    .filter(|w| w.text.eq_ignore_ascii_case("branch"))
-                {
-                    found.push((w.span.clone(), format!("the value '{}'", w.text)));
-                }
-            }
             for m in c.modifiers.iter().filter(|m| m.name != "i") {
                 let span = m.span.start..m.span.start + 1 + m.name.len();
                 found.push((span.clone(), format!("the modifier '{}'", &query[span])));
@@ -117,10 +104,7 @@ mod tests {
     #[test]
     fn other_targets_and_operators() {
         assert_eq!(check_str("size > 1 and size in 1..2"), None);
-        assert_eq!(
-            check_str("git = changed or git in (staged, branch)"),
-            Some(("the value 'branch' is not implemented yet".into(), 33..39))
-        );
+        assert_eq!(check_str("git = changed or git in (staged, branch)"), None);
         assert_eq!(
             check_str("name = 'a' or (path ~ 'b' and text has 'c')"),
             Some(("the target 'text' is not implemented yet".into(), 30..34))
