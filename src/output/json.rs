@@ -8,6 +8,7 @@ use super::blocks::BlockLine;
 use super::lines::{columns, shown_line, starts_in};
 use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
+use crate::query::Kind;
 use crate::query::ast::CondId;
 use crate::search::{Found, PathFragments};
 
@@ -86,6 +87,16 @@ struct Warning {
 #[derive(Serialize)]
 struct File {
     path: String,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    entry_type: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lang: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kind: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modified: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     encoding: Option<String>,
     #[serde(skip_serializing_if = "is_zero")]
@@ -215,8 +226,17 @@ impl Response<'_> {
 impl Response<'_> {
     /// A matched file, with the blocks of the fragments `lines` or without lines.
     fn file(&self, found: &Found, lines: Option<&[super::Fragment]>) -> File {
+        let meta = found.meta.as_ref();
         File {
             path: display_found(found),
+            entry_type: meta.map(|m| m.entry_type.keyword()),
+            size: meta.and_then(|m| m.size),
+            lang: meta.and_then(|m| m.lang.clone()),
+            kind: meta.and_then(|m| m.kind.map(Kind::keyword)),
+            #[allow(clippy::cast_precision_loss)] // whole seconds of dates are exact
+            modified: meta
+                .and_then(|m| m.modified)
+                .map(|secs| super::meta::date_json(secs as f64, &self.time_zone)),
             encoding: found.encoding.map(|e| e.name().into_owned()),
             lines: found.matches.as_ref().map_or(0, |m| m.lines),
             matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
@@ -379,6 +399,7 @@ mod tests {
             encoding: None,
             id: None,
             path_fragments: None,
+            meta: None,
         }];
         let text = Response {
             detail: Detail::Lines,
@@ -386,6 +407,7 @@ mod tests {
             group_dirs: true,
             group_repeated: 3,
             highlight: Highlight::Columns,
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
