@@ -402,6 +402,21 @@ mod tests {
     }
 
     #[test]
+    fn kinds() {
+        assert_eq!(
+            config(&json!({ "kinds": { "generated_markers": ["AUTOGEN"] } })),
+            [(
+                Key::GeneratedMarkers,
+                KeyValue::List(vec!["AUTOGEN".into()])
+            )]
+        );
+        assert_eq!(
+            text(&json!({ "kinds": { "generated_markers": "AUTOGEN" } })),
+            "error[invalid_option]: 'kinds.generated_markers' must be a list of strings\n"
+        );
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
