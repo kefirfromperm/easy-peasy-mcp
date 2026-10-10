@@ -33,6 +33,7 @@ pub enum ErrorCode {
     ReadOnly,
     UnknownKey,
     InvalidValue,
+    UpdateDisabled,
     NotImplemented,
 }
 
@@ -68,6 +69,7 @@ impl ErrorCode {
             Self::ReadOnly => "read_only",
             Self::UnknownKey => "unknown_key",
             Self::InvalidValue => "invalid_value",
+            Self::UpdateDisabled => "update_disabled",
             Self::NotImplemented => "not_implemented",
         }
     }

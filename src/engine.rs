@@ -112,6 +112,15 @@ impl Engine {
         }
     }
 
+    /// The tools of this session, in the order of `tools/list`: `update_config` only with `server.allow_update`.
+    #[must_use]
+    pub fn tools(&self) -> Vec<&'static str> {
+        Self::TOOLS
+            .into_iter()
+            .filter(|t| *t != "update_config" || self.options.settings.allow_update)
+            .collect()
+    }
+
     /// Calls a tool by name with its JSON arguments.
     ///
     /// # Errors
@@ -124,6 +133,10 @@ impl Engine {
                 &self.settings(),
                 arguments,
             ))),
+            "update_config" if !self.options.settings.allow_update => Ok(ToolOutput::error(
+                &Report::new(ErrorCode::UpdateDisabled, "update_config is disabled")
+                    .hint("the configuration has server.allow_update = false"),
+            )),
             "update_config" => {
                 let mut settings = self
                     .settings
