@@ -366,7 +366,8 @@ with `/e` is written after the ids, level `0` too: `⟦#1/e1:\"type\": \"admin\"
 merged from fragments of several levels lists them in ascending order: `⟦#1,#2/e0/e1:…⟧`. A multiline fragment opens on its first line and closes on its last one.
 
 The markers are `⟦` and `⟧` by default and can be changed in the [configuration](CONFIG.md#output). If a file contains
-the marker characters, the response has a warning and `columns` should be used.
+the marker characters, the response has a warning and `columns` should be used: in `lines` detail with `markers` a
+file with a matched line which contains the opening or the closing marker is listed in `marker_in_content`.
 
 `columns` in the text format: a matched line is followed by one line with the fragments which start in it, every
 fragment as `@ <start>..<end> <ids>` — the columns of `col`, the ids separated by `,` with the escape levels as in the

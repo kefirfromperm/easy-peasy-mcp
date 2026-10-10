@@ -422,7 +422,9 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `sort`                 | string      | `"relevance"`  |
 | `path_style`           | string      | `"relative"`   |
 
-`markers`: choose characters which don't appear in your files, e.g. `["«", "»"]` or `["[[", "]]"]`.
+`markers`: choose characters which don't appear in your files, e.g. `["«", "»"]` or `["[[", "]]"]`. The value is
+two non-empty strings, the opening and the closing marker; otherwise `invalid value for 'output.markers': two non-empty
+strings are expected`, in a request `'output.markers' must be two non-empty strings`.
 
 `max_output` and `max_output_per_file` are in characters; a token is about 3–4 characters of code, so the default
 `max_output` is about 10–13 thousand tokens. `budget` is in tokens, converted with `chars_per_token`; tune it for the
