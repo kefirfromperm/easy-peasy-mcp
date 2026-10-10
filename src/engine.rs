@@ -317,6 +317,7 @@ impl Engine {
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
+                generated: settings.list(Key::KindsGenerated).to_vec(),
                 ..KindOptions::default()
             },
             read_delay: self.options.read_delay,
