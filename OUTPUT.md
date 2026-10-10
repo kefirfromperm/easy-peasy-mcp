@@ -446,6 +446,9 @@ When a limit is hit:
 - `max_output_per_file` counts the characters of the matched and context lines of a file as they are shown, after
   the dedent and the cut of long lines, without the line numbers and the markers; the line which would go over and
   the next lines of the file are not listed
+- `max_output` counts the characters of the listed files in their order: the full path of every file and its lines
+  as `max_output_per_file` counts them; the file whose path would go over is not listed, the line which would go
+  over is not listed (its file is), and nothing is listed after them
 - `next_cursor` is given to get the rest, except for the per file limits, which cut by design, and for `timeout`,
   where the unsearched part is unknown
 
