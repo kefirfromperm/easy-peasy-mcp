@@ -62,6 +62,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E46.2 Following symlinks
@@ -156,6 +157,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E46.5 An invalid value in a request
@@ -216,6 +218,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 2. `find`

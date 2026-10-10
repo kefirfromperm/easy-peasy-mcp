@@ -121,6 +121,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 3. `find`
@@ -199,6 +200,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -240,6 +242,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -281,6 +284,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

@@ -53,6 +53,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E47.2 Hidden files in the request
@@ -136,6 +137,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E47.5 An invalid value in a request
@@ -196,6 +198,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 2. `find`

@@ -43,6 +43,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E38.2 With the source
@@ -75,6 +76,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E38.3 Another section
@@ -126,6 +128,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ```json request
@@ -200,6 +203,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ```json request
@@ -253,6 +257,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ```json request
@@ -307,6 +312,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E38.9 An invalid value
