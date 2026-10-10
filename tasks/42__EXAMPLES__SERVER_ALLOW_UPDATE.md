@@ -111,6 +111,7 @@ context = 0    # default
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 
 [escape]
 max_level = 3    # default
@@ -611,6 +612,7 @@ context = 0    # default
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 
 [escape]
 max_level = 3    # default

@@ -1,6 +1,6 @@
 # Task 85: `output.group_dirs`
 
-Status: not implemented
+Status: implemented, see [85__SUMMARY__OUTPUT_GROUP_DIRS.md](85__SUMMARY__OUTPUT_GROUP_DIRS.md)
 
 Depends on: task 78
 

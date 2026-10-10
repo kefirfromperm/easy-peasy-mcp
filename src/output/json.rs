@@ -313,6 +313,7 @@ mod tests {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
+            group_dirs: true,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,

@@ -64,6 +64,7 @@ context = 0
 # after =  (not set)
 dedent = true
 blank_context = false
+group_dirs = true
 ```
 
 ## E84.2 Of the whole block, context lines too
@@ -212,6 +213,7 @@ context = 0    # default
 # after =  (not set)    # default
 dedent = false    # update
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 ## E84.7 An invalid value in a request
@@ -270,6 +272,7 @@ context = 0    # default
 # after =  (not set)    # default
 dedent = false    # file: conf/o.toml
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 2. `find`

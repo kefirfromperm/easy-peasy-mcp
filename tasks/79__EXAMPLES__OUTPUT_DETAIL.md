@@ -54,6 +54,7 @@ context = 0
 # after =  (not set)
 dedent = true
 blank_context = false
+group_dirs = true
 ```
 
 ## E79.2 Does anything match?
@@ -196,6 +197,7 @@ context = 0    # default
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 ## E79.7 An invalid value in a request
@@ -254,6 +256,7 @@ context = 0    # default
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 2. `find`

@@ -36,6 +36,7 @@ pub enum Key {
     After,
     Dedent,
     BlankContext,
+    GroupDirs,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -49,7 +50,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 36] = [
+    pub const ALL: [Key; 37] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -77,6 +78,7 @@ impl Key {
         Self::After,
         Self::Dedent,
         Self::BlankContext,
+        Self::GroupDirs,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -138,6 +140,7 @@ impl Key {
             Self::After => ("output", "after", Type::OptWhole),
             Self::Dedent => ("output", "dedent", Type::Bool),
             Self::BlankContext => ("output", "blank_context", Type::Bool),
+            Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -170,7 +173,9 @@ impl Key {
             Self::MaxDepth | Self::FallbackEncoding | Self::Before | Self::After => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden | Self::BlankContext => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
-            Self::GitExcludes | Self::SkipGenerated | Self::Dedent => Value::Bool(true),
+            Self::GitExcludes | Self::SkipGenerated | Self::Dedent | Self::GroupDirs => {
+                Value::Bool(true)
+            }
             Self::IgnorePaths | Self::Exclude => list(&[]),
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),

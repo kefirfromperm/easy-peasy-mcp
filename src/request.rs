@@ -276,8 +276,12 @@ mod tests {
             [(Key::Dedent, KeyValue::Bool(false))]
         );
         assert_eq!(
-            text(&json!({ "output": { "group_dirs": false } })),
-            "error[not_implemented]: the field 'output.group_dirs' is not implemented yet\n"
+            config(&json!({ "output": { "group_dirs": false } })),
+            [(Key::GroupDirs, KeyValue::Bool(false))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "group_repeated": 0 } })),
+            "error[not_implemented]: the field 'output.group_repeated' is not implemented yet\n"
         );
     }
 

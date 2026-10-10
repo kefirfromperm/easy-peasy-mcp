@@ -46,6 +46,7 @@ context = 0
 # after =  (not set)
 dedent = true
 blank_context = false
+group_dirs = true
 ```
 
 ## E81.2 Lines before in a request
@@ -146,6 +147,7 @@ before = 2    # update
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 ## E81.5 An invalid value in a request
@@ -204,6 +206,7 @@ before = 2    # file: conf/o.toml
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 2. `find`
