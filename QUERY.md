@@ -531,7 +531,9 @@ several levels match at the same position, the lowest of these levels is reporte
 Styles and `any` are written in any case. An unknown style is `unknown_value`; levels which are not a number, a range
 or `any` (`invalid escape level 'all'`, hint `levels: a number, a range like 0..2, or any`), and a level above
 `escape.max_level` (at that number) are `invalid_escape_level`; a range whose start is greater than its end is
-`invalid_range`.
+`invalid_range`. The variants grow with every level (`'` has 2ⁿ forms on level n in the `backslash` style); a level whose
+variants of the value are too many for the regex engine is `invalid_escape_level` too, at the levels, with the hint
+`the escaped forms of this value are too many on level 9, use a lower one`.
 
 ### Examples
 

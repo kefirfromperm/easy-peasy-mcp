@@ -434,7 +434,8 @@ tokenizer of your model.
 |-------------|--------|---------|---------------------------------------------------------------------------|
 | `max_level` | number | `3`     | the upper level of `/e(style, any)` and the max level a query may ask for |
 
-Every level multiplies the number of variants to match, keep it small.
+Every level multiplies the number of variants to match, keep it small. An invalid value is `invalid value for
+'escape.max_level': a whole number is expected`, in a request `'escape.max_level' must be a whole number`.
 
 ### query
 
