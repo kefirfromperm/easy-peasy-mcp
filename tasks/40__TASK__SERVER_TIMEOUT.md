@@ -1,6 +1,6 @@
 # Task 40: `server.timeout`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 39
 
