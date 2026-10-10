@@ -1,6 +1,6 @@
 # Task 84: `output.dedent`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80
 
