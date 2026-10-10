@@ -1,7 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: the empty query, or exactly one condition `name = <string>` or `name ~ <wildcard>`, without
-//! modifiers and labels.
+//! Implemented: the empty query, or exactly one condition on `name` with `=`, `has`, `starts`, `ends` or `~`,
+//! without modifiers and labels.
 
 use std::ops::Range;
 
@@ -38,7 +38,12 @@ fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, 
         let text = &query[token.span.clone()];
         let feature = match (i, &token.tok) {
             (0, Tok::Word(w)) if Target::from_keyword(w) == Some(Target::Name) => continue,
-            (1, Tok::Op(o)) if matches!(Op::from_symbol(o), Some(Op::Eq | Op::Wildcard)) => {
+            (1, Tok::Op(o) | Tok::Word(o))
+                if matches!(
+                    Op::from_symbol(o),
+                    Some(Op::Eq | Op::Has | Op::Starts | Op::Ends | Op::Wildcard)
+                ) =>
+            {
                 continue;
             }
             (2, Tok::Str { .. }) => continue,
@@ -83,9 +88,12 @@ mod tests {
             check_str("path ~ 'a'"),
             Some(("the target 'path' is not implemented yet".into(), 0..4))
         );
+        assert_eq!(check_str("name has 'a'"), None);
+        assert_eq!(check_str("name STARTS 'a'"), None);
+        assert_eq!(check_str("name ends 'a'"), None);
         assert_eq!(
-            check_str("name has 'a'"),
-            Some(("the operator 'has' is not implemented yet".into(), 5..8))
+            check_str("name =~ 'a'"),
+            Some(("the operator '=~' is not implemented yet".into(), 5..7))
         );
         assert_eq!(
             check_str("name ~~ 'a'").unwrap().0,
