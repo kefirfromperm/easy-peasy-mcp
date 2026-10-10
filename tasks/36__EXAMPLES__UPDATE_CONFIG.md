@@ -228,6 +228,7 @@ detail = "lines"
 context = 0
 # before =  (not set)
 # after =  (not set)
+blank_context = false
 
 [escape]
 max_level = 3

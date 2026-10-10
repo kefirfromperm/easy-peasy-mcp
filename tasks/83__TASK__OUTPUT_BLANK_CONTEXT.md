@@ -1,6 +1,6 @@
 # Task 83: `output.blank_context`
 
-Status: not implemented
+Status: implemented, see [83__SUMMARY__OUTPUT_BLANK_CONTEXT.md](83__SUMMARY__OUTPUT_BLANK_CONTEXT.md)
 
 Depends on: task 80
 
