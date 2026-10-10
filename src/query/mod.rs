@@ -699,6 +699,7 @@ mod tests {
             modified: Some(0.0),
             created: Some(0.0),
             accessed: Some(0.0),
+            lang: "unknown",
         };
         query.filter.unwrap().matches(&file)
     }
@@ -783,6 +784,34 @@ mod tests {
         assert!(matches("accessed >= 1970-01-01", "a", EntryType::File));
         let q = parse("accessed < -30d", &SENSITIVE).unwrap();
         assert!(q.needs.accessed && q.needs.metadata && !q.needs.created);
+    }
+
+    #[test]
+    fn lang_conditions() {
+        let file = |lang| FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang,
+        };
+        let q = parse("lang in (rust, Python)", &SENSITIVE).unwrap();
+        assert!(q.needs.lang);
+        assert!(q.filter.as_ref().unwrap().matches(&file("python")));
+        assert!(!q.filter.as_ref().unwrap().matches(&file("unknown")));
+        let q = parse("lang != unknown", &SENSITIVE).unwrap();
+        assert!(q.filter.unwrap().matches(&file("rust")));
+        let e = parse("lang = rusty", &SENSITIVE).unwrap_err();
+        assert_eq!(e.code, ErrorCode::UnknownValue);
+        assert!(
+            e.hint
+                .unwrap()
+                .starts_with("did you mean 'rust'? expected one of: c, cpp, ")
+        );
     }
 
     #[test]

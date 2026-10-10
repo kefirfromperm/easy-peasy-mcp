@@ -5,6 +5,7 @@
 mod description;
 mod engine;
 mod error;
+mod languages;
 pub mod mcp;
 mod output;
 mod query;
