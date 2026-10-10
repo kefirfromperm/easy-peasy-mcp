@@ -42,6 +42,7 @@ pub enum Key {
     BlankContext,
     GroupDirs,
     GroupRepeated,
+    Sort,
     PathStyle,
     MaxLevel,
     FuzzyMinScore,
@@ -56,7 +57,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 43] = [
+    pub const ALL: [Key; 44] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -90,6 +91,7 @@ impl Key {
         Self::BlankContext,
         Self::GroupDirs,
         Self::GroupRepeated,
+        Self::Sort,
         Self::PathStyle,
         Self::MaxLevel,
         Self::FuzzyMinScore,
@@ -162,6 +164,21 @@ impl Key {
             Self::Markers => ("output", "markers", Type::Markers),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
+            Self::Sort => (
+                "output",
+                "sort",
+                Type::Choice(&[
+                    "relevance",
+                    "path asc",
+                    "path desc",
+                    "modified asc",
+                    "modified desc",
+                    "size asc",
+                    "size desc",
+                    "matches asc",
+                    "matches desc",
+                ]),
+            ),
             Self::PathStyle => (
                 "output",
                 "path_style",
@@ -215,6 +232,7 @@ impl Key {
             Self::Archives => Value::Text("none".to_string()),
             Self::Format => Value::Text("text".to_string()),
             Self::PathStyle => Value::Text("relative".to_string()),
+            Self::Sort => Value::Text("relevance".to_string()),
             Self::Detail => Value::Text("lines".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
