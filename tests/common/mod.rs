@@ -35,12 +35,17 @@ pub struct McpServer {
 impl McpServer {
     /// Starts the server of `command` with piped stdin and stdout.
     pub fn spawn(command: &mut Command) -> Self {
-        let mut child = command
+        let child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
             .expect("the server starts");
+        Self::from_child(child)
+    }
+
+    /// The server of a child started with piped stdin and stdout.
+    pub fn from_child(mut child: Child) -> Self {
         let stdin = child.stdin.take().unwrap();
         let stdout = BufReader::new(child.stdout.take().unwrap());
         Self {

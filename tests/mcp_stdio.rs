@@ -150,3 +150,46 @@ fn options_and_keys_not_implemented_yet() {
         )
     );
 }
+
+/// Runs one `find` with the server's stderr captured; the stderr text.
+fn stderr_of_session(args: &[&str]) -> String {
+    let dir = fixture();
+    let mut command = server_command(&dir.root, dir.temp());
+    command.args(args).stderr(std::process::Stdio::piped());
+    let mut child = command
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stderr = child.stderr.take().unwrap();
+    let reader = std::thread::spawn(move || {
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut stderr, &mut text).unwrap();
+        text
+    });
+    let mut server = McpServer::from_child(child);
+    server.initialize();
+    let call = server.request(
+        2,
+        "tools/call",
+        &json!({ "name": "find", "arguments": { "query": "name = 'Cargo.toml'" } }),
+    );
+    assert_eq!(call["result"]["isError"], false);
+    drop(server.stdin);
+    assert!(server.child.wait().unwrap().success());
+    reader.join().unwrap()
+}
+
+#[test]
+fn logs_go_to_stderr() {
+    let debug = stderr_of_session(&["--log-level", "debug"]);
+    assert!(
+        debug.contains(&format!(
+            "easy-peasy-mcp {} started",
+            env!("CARGO_PKG_VERSION")
+        )),
+        "{debug}"
+    );
+    assert!(debug.contains("tools/call find"), "{debug}");
+    assert_eq!(stderr_of_session(&[]), "");
+}
