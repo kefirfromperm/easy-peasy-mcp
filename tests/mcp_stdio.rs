@@ -126,13 +126,7 @@ fn unknown_argument() {
 }
 
 #[test]
-fn options_and_keys_not_implemented_yet() {
-    let out = Command::new(BIN).args(["--no-update"]).output().unwrap();
-    assert_eq!(out.status.code(), Some(2));
-    assert_eq!(
-        String::from_utf8(out.stderr).unwrap(),
-        "easy-peasy-mcp: the option '--no-update' is not implemented yet\n"
-    );
+fn keys_not_implemented_yet() {
     let dir = fixture();
     let config = dir.temp().join("config.toml");
     std::fs::write(&config, "[output]\nmax_files = 10\n").unwrap();
@@ -149,6 +143,21 @@ fn options_and_keys_not_implemented_yet() {
             config.display()
         )
     );
+}
+
+#[test]
+fn no_update_hides_update_config() {
+    let dir = fixture();
+    let mut server = McpServer::spawn(server_command(&dir.root, dir.temp()).arg("--no-update"));
+    server.initialize();
+    let list = server.request(2, "tools/list", &json!({}));
+    let names: Vec<&str> = list["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["find", "get_config"]);
 }
 
 /// Runs one `find` with the server's stderr captured; the stderr text.
