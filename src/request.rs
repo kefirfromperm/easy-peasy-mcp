@@ -29,6 +29,7 @@ pub struct Traversal {
     pub min_depth: Option<usize>,
     pub max_depth: Option<usize>,
     pub follow_symlinks: Option<bool>,
+    pub hidden: Option<bool>,
 }
 
 /// A validated `find` request.
@@ -281,8 +282,15 @@ mod tests {
             "error[invalid_option]: 'traversal.follow_symlinks' must be true or false\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "hidden": true } })),
-            "error[not_implemented]: the field 'traversal.hidden' is not implemented yet\n"
+            parse(&json!({ "traversal": { "hidden": true } }))
+                .unwrap()
+                .traversal
+                .hidden,
+            Some(true)
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "exclude": [] } })),
+            "error[not_implemented]: the field 'traversal.exclude' is not implemented yet\n"
         );
     }
 
