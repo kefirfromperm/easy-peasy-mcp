@@ -74,6 +74,8 @@ pub struct SearchOptions {
     pub kinds: KindOptions,
     /// The base of `git = branch`; `None` — `auto`.
     pub git_base: Option<String>,
+    /// Stop at the first matched entry (`detail = exists`).
+    pub first_only: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -303,11 +305,12 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         found: Mutex::default(),
         warnings: Mutex::default(),
         timed_out: AtomicBool::new(false),
+        done: AtomicBool::new(false),
     };
     builder.build_parallel().run(|| {
         let walk = &walk;
         Box::new(move |entry| {
-            if walk.past_deadline() {
+            if walk.past_deadline() || walk.done.load(AtomicOrdering::Relaxed) {
                 return WalkState::Quit;
             }
             match entry {
@@ -320,6 +323,16 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
                     }
                     if walk.options.archives == Archives::All {
                         walk.visit_members(&entry);
+                    }
+                    if walk.options.first_only
+                        && !walk
+                            .found
+                            .lock()
+                            .expect("no thread panics while holding the lock")
+                            .is_empty()
+                    {
+                        walk.done.store(true, AtomicOrdering::Relaxed);
+                        return WalkState::Quit;
                     }
                 }
                 Err(err) => walk.walk_error(&err),
@@ -360,6 +373,8 @@ struct Walk<'a> {
     warnings: Mutex<Warnings>,
     /// Set when the deadline passed.
     timed_out: AtomicBool,
+    /// Set when the walk can stop: `first_only` and an entry was found.
+    done: AtomicBool,
 }
 
 /// The content of a file read for its content conditions.

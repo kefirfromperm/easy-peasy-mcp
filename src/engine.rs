@@ -11,7 +11,7 @@ use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
-use crate::output::Response;
+use crate::output::{Detail, Response};
 use crate::query::{self, ParseOptions};
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
@@ -213,46 +213,23 @@ impl Engine {
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
-        let search_options =
+        let mut search_options =
             self.search_options(&settings, deadline, case_insensitive_paths, languages);
-        let mut files = Vec::new();
-        let mut warnings = Warnings::default();
-        let mut seen = HashSet::new();
-        let mut timed_out = false;
-        for (path, prefix) in &working_dirs {
-            let result = search::search(path, &query, &search_options);
-            timed_out |= result.timed_out;
-            files.extend(
-                result
-                    .files
-                    .into_iter()
-                    .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
-                    .map(|mut f| {
-                        f.rel = prefix.join(&f.rel);
-                        f
-                    }),
-            );
-            warnings.extend(result.warnings, prefix);
-            if timed_out {
-                warnings.add_global(WarningCode::Timeout);
-                break;
-            }
-        }
-        files.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
-        let cached = files
-            .iter()
-            .map(|f| CachedFile {
-                path: f.rel.clone(),
-                fingerprint: fingerprint(f),
-            })
-            .collect();
-        let result_id = self
-            .results
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .keep(settings.whole(Key::ResultCache), arguments.clone(), cached)
-            .map(|n| format!("r{n}"));
+        search_options.first_only = settings.text(Key::Detail) == "exists";
+        let detail = match settings.text(Key::Detail) {
+            "exists" => Detail::Exists,
+            "count" => Detail::Count,
+            "files" => Detail::Files,
+            _ => Detail::Lines,
+        };
+        let (files, warnings, timed_out) = search_all(&working_dirs, &query, &search_options);
+        let result_id = if detail == Detail::Exists {
+            None
+        } else {
+            self.keep_result(&settings, arguments, &files)
+        };
         let response = Response {
+            detail,
             result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,
@@ -338,6 +315,7 @@ impl Engine {
             git_base: Some(settings.text(Key::Base))
                 .filter(|base| *base != "auto")
                 .map(str::to_string),
+            first_only: false,
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
@@ -348,6 +326,27 @@ impl Engine {
             },
             read_delay: self.options.read_delay,
         }
+    }
+
+    /// Keeps the result for `within` and `since`; its id, `None` when the result cache is off.
+    fn keep_result(
+        &self,
+        settings: &Settings,
+        arguments: &Value,
+        files: &[search::Found],
+    ) -> Option<String> {
+        let cached = files
+            .iter()
+            .map(|f| CachedFile {
+                path: f.rel.clone(),
+                fingerprint: fingerprint(f),
+            })
+            .collect();
+        self.results
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .keep(settings.whole(Key::ResultCache), arguments.clone(), cached)
+            .map(|n| format!("r{n}"))
     }
 
     /// A working directory as given: resolved against the start directory, checked and canonicalized; the path to
@@ -387,6 +386,44 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
+}
+
+/// Searches the working directories in their order: the matched entries sorted by path, every entry once, the
+/// warnings, and whether the search stopped at the deadline. With `first_only` it stops after the first directory
+/// with a match.
+fn search_all(
+    working_dirs: &[(PathBuf, PathBuf)],
+    query: &query::Query,
+    options: &SearchOptions,
+) -> (Vec<search::Found>, Warnings, bool) {
+    let mut files = Vec::new();
+    let mut warnings = Warnings::default();
+    let mut seen = HashSet::new();
+    let mut timed_out = false;
+    for (path, prefix) in working_dirs {
+        let result = search::search(path, query, options);
+        timed_out |= result.timed_out;
+        files.extend(
+            result
+                .files
+                .into_iter()
+                .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
+                .map(|mut f| {
+                    f.rel = prefix.join(&f.rel);
+                    f
+                }),
+        );
+        warnings.extend(result.warnings, prefix);
+        if timed_out {
+            warnings.add_global(WarningCode::Timeout);
+            break;
+        }
+        if options.first_only && !files.is_empty() {
+            break;
+        }
+    }
+    files.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
+    (files, warnings, timed_out)
 }
 
 /// A hash of the matched lines of a file, to tell a changed file from an unchanged one.

@@ -4,7 +4,7 @@
 use serde::Serialize;
 use serde::ser::SerializeMap;
 
-use super::{Response, display_found, lines::lines_of};
+use super::{Detail, Response, display_found, lines::lines_of};
 use crate::content::Content;
 use crate::query::ast::CondId;
 use crate::search::Found;
@@ -18,7 +18,8 @@ struct Document<'a> {
     exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<&'a str>,
-    counts: Counts,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    counts: Option<Counts>,
     #[serde(skip_serializing_if = "Option::is_none")]
     counts_exact: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -123,26 +124,28 @@ impl Response<'_> {
     #[must_use]
     pub fn to_json(&self) -> String {
         let (lines, matches) = self.totals();
+        let counted = self.detail >= Detail::Count;
+        let listed = self.detail >= Detail::Files;
         let document = Document {
             version: VERSION,
             exists: !self.files.is_empty(),
             result: self.result_id,
-            counts: Counts {
+            counts: counted.then_some(Counts {
                 files: self.files.len(),
                 lines,
                 matches,
-            },
-            counts_exact: self.timed_out.then_some(false),
+            }),
+            counts_exact: (counted && self.timed_out).then_some(false),
             truncated: self.timed_out.then_some(true),
             truncated_by: if self.timed_out {
                 vec!["timeout"]
             } else {
                 Vec::new()
             },
-            legend: Legend(if self.files.is_empty() {
-                &[]
-            } else {
+            legend: Legend(if listed && !self.files.is_empty() {
                 self.legend
+            } else {
+                &[]
             }),
             warnings: self
                 .warnings
@@ -150,14 +153,21 @@ impl Response<'_> {
                 .into_iter()
                 .map(|(code, count, paths)| Warning { code, count, paths })
                 .collect(),
-            files: self.files.iter().map(file).collect(),
+            files: if listed {
+                self.files
+                    .iter()
+                    .map(|f| file(f, self.detail == Detail::Lines))
+                    .collect()
+            } else {
+                Vec::new()
+            },
         };
         serde_json::to_string(&document).expect("the response serializes")
     }
 }
 
-/// A matched file.
-fn file(found: &Found) -> File {
+/// A matched file, with its matched lines or without.
+fn file(found: &Found, with_lines: bool) -> File {
     File {
         path: display_found(found),
         encoding: found.encoding.map(|e| e.name().into_owned()),
@@ -167,6 +177,7 @@ fn file(found: &Found) -> File {
         blocks: found
             .matches
             .as_ref()
+            .filter(|_| with_lines)
             .map(|m| blocks(&m.content, &m.fragments))
             .unwrap_or_default(),
     }
@@ -285,6 +296,7 @@ mod tests {
             id: None,
         }];
         let text = Response {
+            detail: Detail::Lines,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,

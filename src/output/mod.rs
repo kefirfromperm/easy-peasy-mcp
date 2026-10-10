@@ -12,8 +12,23 @@ mod lines;
 
 pub use lines::{Fragment, matched_lines, merge_identical};
 
-/// The response of a `find` call with `detail = lines`, for a query of file conditions only.
+/// How much a response returns (OUTPUT.md#detail-levels).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Detail {
+    /// Only whether at least one file matches.
+    Exists,
+    /// The totals.
+    Count,
+    /// The totals, the legend and the files.
+    Files,
+    /// The totals, the legend, the files and their matched lines.
+    Lines,
+}
+
+/// The response of a `find` call.
 pub struct Response<'a> {
+    /// How much it returns.
+    pub detail: Detail,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -41,6 +56,17 @@ impl Response<'_> {
     /// The text format.
     #[must_use]
     pub fn to_text(&self) -> String {
+        let timeout = if self.timed_out {
+            "  truncated: yes (timeout)"
+        } else {
+            ""
+        };
+        if self.detail == Detail::Exists {
+            let exists = if self.files.is_empty() { "no" } else { "yes" };
+            let mut out = format!("exists: {exists}{timeout}\n");
+            self.push_warnings(&mut out);
+            return out;
+        }
         let (lines, matches) = self.totals();
         let mut out = format!(
             "files: {}  lines: {lines}  matches: {matches}",
@@ -49,11 +75,9 @@ impl Response<'_> {
         if let Some(id) = self.result_id {
             let _ = write!(out, "  result: {id}");
         }
+        out.push_str(timeout);
         out.push('\n');
-        if self.timed_out {
-            out.insert_str(out.len() - 1, "  truncated: yes (timeout)");
-        }
-        if self.files.is_empty() {
+        if self.files.is_empty() || self.detail == Detail::Count {
             self.push_warnings(&mut out);
             return out;
         }
@@ -84,7 +108,11 @@ impl Response<'_> {
                 let _ = write!(out, "  {}", encoding.name());
             }
             out.push('\n');
-            if let Some(m) = &file.matches {
+            if let Some(m) = file
+                .matches
+                .as_ref()
+                .filter(|_| self.detail == Detail::Lines)
+            {
                 out.push_str(&lines::render(&m.content, &m.fragments));
             }
         }
@@ -188,6 +216,7 @@ mod tests {
         ];
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
         let text = Response {
+            detail: Detail::Lines,
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -216,6 +245,7 @@ mod tests {
             id: None,
         }];
         let text = Response {
+            detail: Detail::Lines,
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -237,6 +267,7 @@ mod tests {
         let files = [dir];
         let legend = [(CondId::Number(1), "type = dir".to_string())];
         let text = Response {
+            detail: Detail::Lines,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -254,6 +285,7 @@ mod tests {
     #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
+            detail: Detail::Lines,
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],
