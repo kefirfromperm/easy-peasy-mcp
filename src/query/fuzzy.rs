@@ -1,8 +1,5 @@
 //! `~~`: fuzzy matching of `name` and `path` with a score (QUERY.md#--fuzzy).
 
-/// The lowest score of a kept match; `query.fuzzy_min_score` comes with task 62.
-pub const MIN_SCORE: f64 = 0.5;
-
 /// A fuzzy value: its space separated terms, lower case.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Fuzzy {

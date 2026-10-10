@@ -382,6 +382,15 @@ impl Settings {
             .unwrap_or_else(|| unreachable!("{key:?} is a size key, checked with its type"))
     }
 
+    /// The value of a number key.
+    #[must_use]
+    pub fn number(&self, key: Key) -> f64 {
+        match self.value(key) {
+            KeyValue::Number(n) => *n,
+            _ => unreachable!("{key:?} is a number key"),
+        }
+    }
+
     /// The value of a list key.
     #[must_use]
     pub fn list(&self, key: Key) -> &[String] {

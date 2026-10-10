@@ -224,6 +224,9 @@ skip_generated = true
 
 [escape]
 max_level = 3
+
+[query]
+fuzzy_min_score = 0.5
 ```
 
 3. `find`

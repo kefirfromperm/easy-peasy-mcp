@@ -52,6 +52,9 @@ skip_generated = true
 
 [escape]
 max_level = 3
+
+[query]
+fuzzy_min_score = 0.5
 ```
 
 ## E35.2 One section
@@ -125,6 +128,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ## E35.4 An unknown section

@@ -46,6 +46,8 @@ pub struct ParseOptions {
     pub languages: std::sync::Arc<crate::languages::LanguageTable>,
     /// `escape.max_level`: the upper level of `/e(style, any)` and the highest level a query may ask for.
     pub max_escape_level: usize,
+    /// `query.fuzzy_min_score`: `~~` matches with a lower score are dropped.
+    pub fuzzy_min_score: f64,
 }
 
 /// A parsed and compiled query.
@@ -925,7 +927,7 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
             target: text_target(c.target),
             matcher: TextMatcher::Fuzzy {
                 fuzzy: Fuzzy::new(&value, c.target == Target::Path),
-                min_score: fuzzy::MIN_SCORE,
+                min_score: options.fuzzy_min_score,
             },
         };
     }
@@ -976,6 +978,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             languages: std::sync::Arc::new(crate::languages::LanguageTable::builtin()),
             max_escape_level: 3,
+            fuzzy_min_score: 0.5,
         });
 
     fn legend(q: &str) -> Vec<String> {

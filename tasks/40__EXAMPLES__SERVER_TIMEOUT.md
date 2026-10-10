@@ -131,6 +131,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 3. `find`
@@ -219,6 +222,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -270,6 +276,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -321,6 +330,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ## E40.10 An invalid timeout in the config file
