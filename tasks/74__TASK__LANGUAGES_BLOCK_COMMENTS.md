@@ -1,6 +1,6 @@
 # Task 74: `languages.<name>.block_comments`
 
-Status: in progress
+Status: implemented, see [74__SUMMARY__LANGUAGES_BLOCK_COMMENTS.md](74__SUMMARY__LANGUAGES_BLOCK_COMMENTS.md)
 
 Depends on: task 73
 
