@@ -1,6 +1,6 @@
 # Task 65: `kinds.generated`
 
-Status: not implemented
+Status: implemented, see [65__SUMMARY__KINDS_GENERATED.md](65__SUMMARY__KINDS_GENERATED.md)
 
 Depends on: task 63
 
