@@ -317,6 +317,7 @@ impl Engine {
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
+                doc: settings.list(Key::KindsDoc).to_vec(),
                 test: settings.list(Key::KindsTest).to_vec(),
                 generated: settings.list(Key::KindsGenerated).to_vec(),
                 ..KindOptions::default()
