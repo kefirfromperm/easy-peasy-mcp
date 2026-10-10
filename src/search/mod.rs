@@ -9,6 +9,8 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use generated::GeneratedRules;
 
+use crate::languages::LanguageTable;
+use crate::query::UNKNOWN_LANG;
 use crate::query::{EntryType, FileValues, Query, ast::CondId, nfc};
 use crate::warning::{WarningCode, Warnings};
 
@@ -22,6 +24,8 @@ pub struct SearchOptions {
     pub git_global_excludes: bool,
     /// `path_case`: whether paths and names are compared case-insensitively.
     pub case_insensitive_paths: bool,
+    /// The language table.
+    pub languages: std::sync::Arc<LanguageTable>,
 }
 
 /// A matched file.
@@ -70,7 +74,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         let generated = &generated;
         Box::new(move |entry| {
             if let Ok(entry) = entry
-                && let Some(item) = visit(&entry, root, query, generated, warnings)
+                && let Some(item) = visit(&entry, root, query, options, generated, warnings)
             {
                 found
                     .lock()
@@ -108,6 +112,7 @@ fn visit(
     entry: &ignore::DirEntry,
     root: &Path,
     query: &Query,
+    options: &SearchOptions,
     generated: &GeneratedRules,
     warnings: &Mutex<Warnings>,
 ) -> Option<(Found, Option<FileId>)> {
@@ -164,6 +169,14 @@ fn visit(
                 entry_type == EntryType::Dir,
             );
     }
+    let lang = if query.needs.lang && entry_type != EntryType::Dir {
+        options
+            .languages
+            .detect(&name, || first_line(entry.path()))
+            .map_or(UNKNOWN_LANG, |l| l.name.as_str())
+    } else {
+        UNKNOWN_LANG
+    };
     let file = FileValues {
         name: &name,
         path: &nfc_path,
@@ -173,6 +186,7 @@ fn visit(
         modified,
         created,
         accessed,
+        lang,
     };
     let conditions = match &query.filter {
         None => Vec::new(),
@@ -194,6 +208,17 @@ fn visit(
         id,
     );
     Some(item)
+}
+
+/// The first line of a file, at most 1K, for the shebang; `None` if it can't be read.
+fn first_line(path: &Path) -> Option<String> {
+    use std::io::{BufRead, Read};
+    let file = std::fs::File::open(path).ok()?;
+    let mut line = Vec::new();
+    std::io::BufReader::new(file.take(1024))
+        .read_until(b'\n', &mut line)
+        .ok()?;
+    Some(String::from_utf8_lossy(&line).trim_end().to_string())
 }
 
 /// Seconds since the Unix epoch, negative before it.
