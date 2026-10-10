@@ -53,7 +53,8 @@ parse-query parse.query parsequery; with /w the whole identifier; not with /e.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
-Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped.
+Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped; unreadable files and
+directories too, with a permission_denied warning.
 
 OUTPUT: the header \"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
 under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]

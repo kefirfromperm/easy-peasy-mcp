@@ -9,6 +9,7 @@ use crate::output::display_path;
 /// The warning codes, in the order of the table of OUTPUT.md#warnings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WarningCode {
+    PermissionDenied,
     BinarySkipped,
     DecodeErrors,
     DateUnsupported,
@@ -19,6 +20,7 @@ impl WarningCode {
     /// The code as written in the response.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::PermissionDenied => "permission_denied",
             Self::BinarySkipped => "binary_skipped",
             Self::DecodeErrors => "decode_errors",
             Self::DateUnsupported => "date_unsupported",
@@ -110,5 +112,19 @@ mod tests {
             format!("warning: date_unsupported (1): dir{}\n", sep())
         );
         assert!(Warnings::default().is_empty());
+    }
+
+    #[test]
+    fn permission_denied_comes_first() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::BinarySkipped, PathBuf::from("b"), false);
+        w.add(WarningCode::PermissionDenied, PathBuf::from("secret"), true);
+        assert_eq!(
+            w.to_text(),
+            format!(
+                "warning: permission_denied (1): secret{}\nwarning: binary_skipped (1): b\n",
+                sep()
+            )
+        );
     }
 }
