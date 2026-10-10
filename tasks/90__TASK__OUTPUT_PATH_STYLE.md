@@ -1,6 +1,6 @@
 # Task 90: `output.path_style`
 
-Status: in progress
+Status: implemented, see [90__SUMMARY__OUTPUT_PATH_STYLE.md](90__SUMMARY__OUTPUT_PATH_STYLE.md)
 
 Depends on: task 39
 
