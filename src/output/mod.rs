@@ -7,6 +7,8 @@ use crate::query::ast::CondId;
 use crate::search::Found;
 use crate::warning::Warnings;
 
+mod lines;
+
 /// The response of a `find` call with `detail = lines`, for a query of file conditions only.
 pub struct Response<'a> {
     pub result_id: &'a str,
