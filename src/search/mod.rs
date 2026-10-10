@@ -26,6 +26,7 @@ pub const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
 
 /// Settings of one search.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)] // independent switches of the walk, from the configuration
 pub struct SearchOptions {
     /// Whether the global git excludes file is respected.
     pub git_global_excludes: bool,
