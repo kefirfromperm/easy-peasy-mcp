@@ -115,3 +115,29 @@ fn unknown_argument() {
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(stderr.contains("usage: easy-peasy-mcp"), "{stderr}");
 }
+
+#[test]
+fn options_and_keys_not_implemented_yet() {
+    let out = Command::new(BIN).args(["--root", "."]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8(out.stderr).unwrap(),
+        "easy-peasy-mcp: the option '--root' is not implemented yet\n"
+    );
+    let dir = fixture();
+    let config = dir.temp().join("config.toml");
+    std::fs::write(&config, "[output]\nmax_files = 10\n").unwrap();
+    let out = server_command(&dir.root, dir.temp())
+        .arg("--config")
+        .arg(&config)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8(out.stderr).unwrap(),
+        format!(
+            "easy-peasy-mcp: {}:2: the key 'output.max_files' is not implemented yet\n",
+            config.display()
+        )
+    );
+}
