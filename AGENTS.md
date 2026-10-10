@@ -140,7 +140,7 @@ Fixture: `small-rust`
   `json response` — when `output.format = "json"`
 - a fixture is a directory under `tests/fixtures/<name>/`; anything that can't live in git (mtimes, symlinks,
   permissions, empty dirs, encodings with odd bytes) is listed in the fixture section and created by the test setup: a `text setup`
-  block in the fixture section, one action per line — `mkdir <dir>`, `file <path>` (an empty file),
+  block in the fixture section, one action per line — `mkdir <dir>`, `file <path> [<bytes>]` (a file of `x` bytes, empty without a size),
   `symlink <path> -> <target>` (the target relative to the link's directory)
 - the server runs with the fixture directory as its only allowed root and default working directory and with the
   built-in configuration; an example that needs other settings states them (`config` TOML block or CLI arguments)
