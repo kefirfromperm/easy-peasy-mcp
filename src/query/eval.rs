@@ -476,7 +476,12 @@ impl Filter {
             })),
             Self::Type {
                 values, negated, ..
-            } => Truth::from(values.contains(&file.entry_type) != *negated),
+            } => Truth::from(
+                values
+                    .iter()
+                    .any(|v| *v == file.entry_type || (*v == EntryType::Link && file.is_link))
+                    != *negated,
+            ),
             Self::Empty { .. } => Truth::from(file.empty),
             // validation keeps `len` inside line scope, where `eval_line` evaluates it
             Self::Len { .. } => Truth::False,

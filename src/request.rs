@@ -28,6 +28,7 @@ pub const FIELDS: [&str; 14] = [
 pub struct Traversal {
     pub min_depth: Option<usize>,
     pub max_depth: Option<usize>,
+    pub follow_symlinks: Option<bool>,
 }
 
 /// A validated `find` request.
@@ -137,6 +138,16 @@ fn whole_number(key: &str, value: &Value) -> Result<usize, Report> {
         })
 }
 
+/// A boolean of the `traversal` object.
+fn boolean(key: &str, value: &Value) -> Result<bool, Report> {
+    value.as_bool().ok_or_else(|| {
+        Report::new(
+            ErrorCode::InvalidOption,
+            format!("'traversal.{key}' must be true or false"),
+        )
+    })
+}
+
 /// The `traversal` object: the implemented keys of the section, `not_implemented` for the others of the spec.
 fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal, Report> {
     let keys = crate::config::section_keys("traversal");
@@ -145,6 +156,7 @@ fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal,
         match key.as_str() {
             "min_depth" => traversal.min_depth = Some(whole_number(key, value)?),
             "max_depth" => traversal.max_depth = Some(whole_number(key, value)?),
+            "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"
@@ -256,6 +268,17 @@ mod tests {
         assert!(
             text(&json!({ "traversal": { "colour": 1 } }))
                 .starts_with("error[invalid_option]: unknown field 'traversal.colour'\n  hint: expected one of: min_depth, ")
+        );
+        assert_eq!(
+            parse(&json!({ "traversal": { "follow_symlinks": true } }))
+                .unwrap()
+                .traversal
+                .follow_symlinks,
+            Some(true)
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "follow_symlinks": 1 } })),
+            "error[invalid_option]: 'traversal.follow_symlinks' must be true or false\n"
         );
         assert_eq!(
             text(&json!({ "traversal": { "hidden": true } })),

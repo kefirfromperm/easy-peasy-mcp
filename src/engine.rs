@@ -192,6 +192,11 @@ impl Engine {
             threads: settings.threads,
             min_depth: request.traversal.min_depth.unwrap_or(settings.min_depth),
             max_depth: request.traversal.max_depth.or(settings.max_depth),
+            follow_symlinks: request
+                .traversal
+                .follow_symlinks
+                .unwrap_or(settings.follow_symlinks),
+            allowed_roots: Arc::new(settings.allowed_roots.clone()),
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();
