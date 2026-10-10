@@ -6,6 +6,7 @@ use serde::ser::SerializeMap;
 
 use super::blocks::BlockLine;
 use super::lines::{columns, shown_line, starts_in};
+use super::listing::Listed;
 use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
 use crate::query::Kind;
@@ -161,7 +162,8 @@ impl Response<'_> {
         let counted = self.detail >= Detail::Count;
         let listed = self.detail >= Detail::Files;
         let repeated = self.repeated();
-        let truncated_by = self.truncated_by();
+        let listing = self.listing(&repeated);
+        let truncated_by = self.truncated_by(&listing);
         let document = Document {
             version: VERSION,
             exists: !self.files.is_empty(),
@@ -208,10 +210,13 @@ impl Response<'_> {
                 .map(|(code, count, paths)| Warning { code, count, paths })
                 .collect(),
             files: if listed {
-                (0..self.listed().len())
-                    .filter_map(|index| match self.rest(&repeated, index) {
-                        Some(rest) if rest.is_empty() => None,
-                        rest => Some(self.file(&self.files[index], rest.as_deref())),
+                self.listed()
+                    .iter()
+                    .zip(&listing.files)
+                    .filter_map(|(file, listed)| match listed {
+                        Listed::LeftOut => None,
+                        Listed::NoLines => Some(self.file(file, None)),
+                        Listed::Lines(fragments) => Some(self.file(file, Some(fragments))),
                     })
                     .collect()
             } else {
