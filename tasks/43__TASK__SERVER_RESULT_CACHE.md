@@ -1,6 +1,6 @@
 # Task 43: `server.result_cache`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 36
 
