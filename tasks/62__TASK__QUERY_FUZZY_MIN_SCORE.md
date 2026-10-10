@@ -1,6 +1,6 @@
 # Task 62: `query.fuzzy_min_score`
 
-Status: in progress
+Status: implemented, see [62__SUMMARY__QUERY_FUZZY_MIN_SCORE.md](62__SUMMARY__QUERY_FUZZY_MIN_SCORE.md)
 
 Depends on: task 32, task 36
 
