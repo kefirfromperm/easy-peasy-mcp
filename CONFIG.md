@@ -278,7 +278,9 @@ is expected`. In a request (`"traversal": { "min_depth": 2 }`) a wrong value is 
 'traversal.min_depth' must be a whole number`, a key which isn't one of the section `unknown field 'traversal.<key>'`
 with the keys of the section in the hint. A boolean key (`follow_symlinks`, `hidden`, ...) is `invalid value for
 'traversal.follow_symlinks': true or false is expected`, in a request `'traversal.follow_symlinks' must be true or
-false`.
+false`. A list of names or paths (`ignore_files`, `ignore_paths`) is `invalid value for 'traversal.ignore_files': a
+list of file names is expected` (`a list of paths` for `ignore_paths`), in a request `'traversal.ignore_files' must be
+a list of strings`.
 
 Notes
 
