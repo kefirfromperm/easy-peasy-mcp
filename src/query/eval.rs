@@ -153,6 +153,7 @@ mod tests {
             name,
             path: name,
             entry_type: EntryType::File,
+            empty: false,
         };
         filter.eval(&file).then(|| {
             filter

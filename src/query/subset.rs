@@ -95,10 +95,7 @@ mod tests {
             check_str("name ~~ 'a'").unwrap().0,
             "the operator '~~' is not implemented yet"
         );
-        assert_eq!(
-            check_str("empty").unwrap().0,
-            "the target 'empty' is not implemented yet"
-        );
+        assert_eq!(check_str("empty and not empty"), None);
     }
 
     #[test]

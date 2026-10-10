@@ -156,6 +156,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn emptiness() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        std::fs::create_dir(root.join("empty")).unwrap();
+        std::fs::create_dir(root.join("hidden")).unwrap();
+        std::fs::write(root.join("hidden/.keep"), "").unwrap();
+        std::fs::write(root.join("zero"), "").unwrap();
+        std::fs::write(root.join("one"), "1").unwrap();
+        let meta = |p: &str| std::fs::metadata(root.join(p)).unwrap();
+        assert!(is_empty(
+            &root.join("empty"),
+            EntryType::Dir,
+            &meta("empty")
+        ));
+        assert!(!is_empty(
+            &root.join("hidden"),
+            EntryType::Dir,
+            &meta("hidden")
+        ));
+        assert!(is_empty(&root.join("zero"), EntryType::File, &meta("zero")));
+        assert!(!is_empty(&root.join("one"), EntryType::File, &meta("one")));
+    }
+
+    #[test]
     fn slash_paths() {
         let rel: PathBuf = ["src", "parser", "lexer.rs"].iter().collect();
         assert_eq!(slash_path(&rel), "src/parser/lexer.rs");

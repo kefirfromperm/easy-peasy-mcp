@@ -527,6 +527,7 @@ mod tests {
             name,
             path: name,
             entry_type,
+            empty: name.is_empty(),
         };
         query.filter.unwrap().eval(&file)
     }
@@ -540,6 +541,15 @@ mod tests {
         assert!(!matches("type != file", "a", EntryType::File));
         assert!(matches("type in (file, link)", "a", EntryType::Link));
         assert!(!matches("type in (file, link)", "a", EntryType::Dir));
+    }
+
+    #[test]
+    fn empty_conditions() {
+        assert!(matches("empty", "", EntryType::File));
+        assert!(!matches("empty", "a", EntryType::File));
+        assert!(matches("not empty and name = 'a'", "a", EntryType::Dir));
+        assert!(parse("name = 'a' or empty", SENSITIVE).unwrap().needs_empty);
+        assert!(!parse("name = 'a'", SENSITIVE).unwrap().needs_empty);
     }
 
     #[test]

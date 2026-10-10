@@ -653,6 +653,10 @@ mod tests {
         assert_eq!(err("name ~ 'a')").3.unwrap(), "unmatched ')'");
         assert_eq!(err("a && b").0, ErrorCode::UnknownTarget);
         assert_eq!(
+            err("empty = true").3.unwrap(),
+            "'empty' stands alone, without an operator and a value"
+        );
+        assert_eq!(
             err("name = 'a' @1x"),
             (
                 ErrorCode::UnexpectedToken,
