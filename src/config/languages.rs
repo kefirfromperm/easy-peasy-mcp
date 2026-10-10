@@ -21,7 +21,7 @@ pub const KEYS: [&str; 8] = [
 ];
 
 /// The keys this server version implements.
-const IMPLEMENTED: [&str; 1] = ["extensions"];
+const IMPLEMENTED: [&str; 2] = ["extensions", "names"];
 
 /// What every language name must be.
 pub const NAME_EXPECTED: &str = "a letter, then letters, digits, _ and - are expected";
@@ -231,47 +231,130 @@ pub fn new_language(name: &str) -> Language {
     }
 }
 
-/// The value of one key of a language, as it is checked.
-enum KeyValue {
-    Strings(Vec<String>),
+/// The type of a key of a language.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeyType {
+    Strings,
+    Pairs,
+    Bool,
 }
 
-/// Sets a checked key of a language.
-fn assign(language: &mut Language, key: &str, value: KeyValue) {
-    match (key, value) {
-        ("extensions", KeyValue::Strings(items)) => language.extensions = items,
-        _ => unreachable!("a key is assigned with the value of its type"),
+impl KeyType {
+    /// The type of a key of a language.
+    fn of(key: &str) -> Self {
+        match key {
+            "block_comments" => Self::Pairs,
+            "nested_block_comments" | "source" => Self::Bool,
+            _ => Self::Strings,
+        }
+    }
+
+    /// What a value of this type must be.
+    fn expected(self) -> &'static str {
+        match self {
+            Self::Strings => "a list of strings",
+            Self::Pairs => "a list of [start, end] pairs of strings",
+            Self::Bool => "true or false",
+        }
     }
 }
 
-/// Checks a key of a language: unknown, not implemented, of a wrong type.
-fn check_key(
-    name: &str,
-    key: &str,
-    strings: impl FnOnce() -> Option<Vec<String>>,
-) -> Result<KeyValue, Problem> {
-    if !KEYS.contains(&key) {
+/// A value of a key of a language in the config file or in a request.
+#[derive(Clone, Copy)]
+enum Raw<'a> {
+    Toml(&'a toml_edit::Item),
+    Json(&'a serde_json::Value),
+}
+
+impl Raw<'_> {
+    fn strings(self) -> Option<Vec<String>> {
+        match self {
+            Self::Toml(item) => super::keys::toml_strings(item),
+            Self::Json(value) => value
+                .as_array()?
+                .iter()
+                .map(|v| v.as_str().map(str::to_string))
+                .collect(),
+        }
+    }
+
+    fn pairs(self) -> Option<Vec<(String, String)>> {
+        let pair = |items: Vec<Option<&str>>| match items.as_slice() {
+            [Some(a), Some(b)] => Some(((*a).to_string(), (*b).to_string())),
+            _ => None,
+        };
+        match self {
+            Self::Toml(item) => item
+                .as_array()?
+                .iter()
+                .map(|v| pair(v.as_array()?.iter().map(toml_edit::Value::as_str).collect()))
+                .collect(),
+            Self::Json(value) => value
+                .as_array()?
+                .iter()
+                .map(|v| {
+                    pair(
+                        v.as_array()?
+                            .iter()
+                            .map(serde_json::Value::as_str)
+                            .collect(),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    fn boolean(self) -> Option<bool> {
+        match self {
+            Self::Toml(item) => item.as_bool(),
+            Self::Json(value) => value.as_bool(),
+        }
+    }
+}
+
+/// Checks a key of a language and sets it: unknown, not implemented, of a wrong type.
+fn set_key(language: &mut Language, key: &str, raw: Raw<'_>) -> Result<(), Problem> {
+    let Some(key) = KEYS.into_iter().find(|k| *k == key) else {
         return Err(Problem::UnknownKey {
-            language: name.to_string(),
+            language: language.name.clone(),
             key: key.to_string(),
             close: did_you_mean(key, &KEYS),
         });
-    }
+    };
     if !IMPLEMENTED.contains(&key) {
         return Err(Problem::NotImplemented {
-            language: name.to_string(),
+            language: language.name.clone(),
             key: key.to_string(),
         });
     }
-    let key = KEYS
-        .into_iter()
-        .find(|k| *k == key)
-        .expect("the key is one of the keys");
-    strings().map(KeyValue::Strings).ok_or(Problem::Value {
-        language: name.to_string(),
+    let ty = KeyType::of(key);
+    let invalid = || Problem::Value {
+        language: language.name.clone(),
         key,
-        expected: "a list of strings",
-    })
+        expected: ty.expected(),
+    };
+    match ty {
+        KeyType::Strings => {
+            let items = raw.strings().ok_or_else(invalid)?;
+            match key {
+                "extensions" => language.extensions = items,
+                "names" => language.names = items,
+                "shebangs" => language.shebangs = items,
+                "line_comments" => language.line_comments = items,
+                _ => language.strings = items,
+            }
+        }
+        KeyType::Pairs => language.block_comments = raw.pairs().ok_or_else(invalid)?,
+        KeyType::Bool => {
+            let value = raw.boolean().ok_or_else(invalid)?;
+            if key == "source" {
+                language.source = value;
+            } else {
+                language.nested_block_comments = value;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// A language of a TOML table (the config file, `update_config`).
@@ -292,9 +375,7 @@ pub fn from_toml(name: &str, item: &toml_edit::Item) -> Result<Language, (Proble
             .get_key_value(key)
             .and_then(|(k, _)| k.span())
             .map(|s| s.start);
-        let checked = check_key(&language.name, key, || super::keys::toml_strings(value))
-            .map_err(|p| (p, at))?;
-        assign(&mut language, key, checked);
+        set_key(&mut language, key, Raw::Toml(value)).map_err(|p| (p, at))?;
     }
     Ok(language)
 }
@@ -313,14 +394,7 @@ pub fn from_json(name: &str, value: &serde_json::Value) -> Result<Language, Prob
     };
     let mut language = new_language(name);
     for (key, value) in object {
-        let checked = check_key(&language.name, key, || {
-            value
-                .as_array()?
-                .iter()
-                .map(|v| v.as_str().map(str::to_string))
-                .collect()
-        })?;
-        assign(&mut language, key, checked);
+        set_key(&mut language, key, Raw::Json(value))?;
     }
     Ok(language)
 }
@@ -382,7 +456,7 @@ pub fn merge(
     Ok(languages)
 }
 
-/// The value of an implemented key of a language as TOML.
+/// The value of a key of a language as TOML.
 fn value(language: &Language, key: &str) -> String {
     let list = |items: &[String]| {
         format!(
@@ -396,7 +470,21 @@ fn value(language: &Language, key: &str) -> String {
     };
     match key {
         "extensions" => list(&language.extensions),
-        _ => unreachable!("only the implemented keys are written"),
+        "names" => list(&language.names),
+        "shebangs" => list(&language.shebangs),
+        "line_comments" => list(&language.line_comments),
+        "strings" => list(&language.strings),
+        "block_comments" => format!(
+            "[{}]",
+            language
+                .block_comments
+                .iter()
+                .map(|(a, b)| format!("[{}, {}]", toml_string(a), toml_string(b)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        "nested_block_comments" => language.nested_block_comments.to_string(),
+        _ => language.source.to_string(),
     }
 }
 
@@ -565,18 +653,28 @@ mod tests {
             language: tf,
             source: Source::Update,
         }];
-        assert_eq!(
-            render(&languages, true),
-            "\n[languages.terraform]\nextensions = ['tf', \"it's\"]    # update\n"
+        // the keys of a language as far as they are implemented
+        assert!(
+            render(&languages, true).starts_with(
+                "\n[languages.terraform]\nextensions = ['tf', \"it's\"]    # update\n"
+            )
         );
-        assert_eq!(
-            changes(&[], &languages, &[], &["terraform".into()]),
-            "\n[languages.terraform]\nextensions = ['tf', \"it's\"]    # was (not set)\n"
+        assert!(
+            changes(&[], &languages, &[], &["terraform".into()]).starts_with(
+                "\n[languages.terraform]\nextensions = ['tf', \"it's\"]    # was (not set)\n"
+            )
         );
-        assert_eq!(
-            changes(&languages, &[], &["terraform".into()], &[]),
-            "\n[languages.terraform]\n# extensions =  (not set)    # was ['tf', \"it's\"], reset\n"
+        assert!(
+            changes(&languages, &[], &["terraform".into()], &[]).starts_with(
+                "\n[languages.terraform]\n# extensions =  (not set)    # was ['tf', \"it's\"], reset\n"
+            )
         );
         assert_eq!(changes(&languages, &languages, &[], &[]), "");
+        let mut c = new_language("c");
+        c.block_comments = vec![("/*".into(), "*/".into())];
+        c.nested_block_comments = true;
+        assert_eq!(value(&c, "block_comments"), "[['/*', '*/']]");
+        assert_eq!(value(&c, "nested_block_comments"), "true");
+        assert_eq!(value(&c, "source"), "true");
     }
 }

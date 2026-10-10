@@ -50,126 +50,167 @@ vars.tfvars  [#1]
 
 [languages.c]
 extensions = ['c', 'h']
+names = []
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+names = []
 
 [languages.csharp]
 extensions = ['cs']
+names = []
 
 [languages.java]
 extensions = ['java']
+names = []
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
+names = []
 
 [languages.scala]
 extensions = ['scala', 'sc']
+names = []
 
 [languages.go]
 extensions = ['go']
+names = []
 
 [languages.swift]
 extensions = ['swift']
+names = []
 
 [languages.dart]
 extensions = ['dart']
+names = []
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
+names = []
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
+names = []
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
+names = []
 
 [languages.rust]
 extensions = ['rs']
+names = []
 
 [languages.php]
 extensions = ['php']
+names = []
 
 [languages.css]
 extensions = ['css']
+names = []
 
 [languages.scss]
 extensions = ['scss', 'less']
+names = []
 
 [languages.python]
 extensions = ['py', 'pyi']
+names = []
 
 [languages.ruby]
 extensions = ['rb']
+names = ['Gemfile', 'Rakefile']
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
+names = []
 
 [languages.perl]
 extensions = ['pl', 'pm']
+names = []
 
 [languages.r]
 extensions = ['r']
+names = []
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
+names = []
 
 [languages.batch]
 extensions = ['bat', 'cmd']
+names = []
 
 [languages.sql]
 extensions = ['sql']
+names = []
 
 [languages.lua]
 extensions = ['lua']
+names = []
 
 [languages.haskell]
 extensions = ['hs']
+names = []
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
+names = []
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
+names = []
 
 [languages.html]
 extensions = ['html', 'htm']
+names = []
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
+names = []
 
 [languages.vue]
 extensions = ['vue']
+names = []
 
 [languages.markdown]
 extensions = ['md', 'markdown']
+names = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
+names = []
 
 [languages.toml]
 extensions = ['toml']
+names = []
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
+names = []
 
 [languages.properties]
 extensions = ['properties']
+names = []
 
 [languages.dotenv]
 extensions = ['env']
+names = ['.env']
 
 [languages.json]
 extensions = ['json']
+names = []
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
+names = []
 
 [languages.dockerfile]
 extensions = ['dockerfile']
+names = ['Dockerfile']
 
 [languages.makefile]
 extensions = ['mk']
+names = ['Makefile', 'GNUmakefile']
 ```
 
 ## E70.2 A new language in a request
@@ -250,6 +291,7 @@ Fixture: `languages`
 ```text response
 [languages.terraform]
 extensions = ['tf', 'tfvars']    # was (not set)
+names = []    # was (not set)
 ```
 
 2. `find`
@@ -276,6 +318,7 @@ vars.tfvars  [#1]
 ```text response
 [languages.terraform]
 # extensions =  (not set)    # was ['tf', 'tfvars'], reset
+# names =  (not set)    # was [], reset
 ```
 
 ## E70.7 A built-in language for the session
