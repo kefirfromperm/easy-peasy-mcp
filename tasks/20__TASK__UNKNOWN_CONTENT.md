@@ -1,6 +1,6 @@
 # Task 20: Binary files and unknown content
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 19, task 13
 
