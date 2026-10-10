@@ -1,6 +1,6 @@
 # Task 28: Proximity `near( ... )`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 26
 
