@@ -38,6 +38,7 @@ pub enum Key {
     PathFragments,
     Highlight,
     Markers,
+    MaxFiles,
     Dedent,
     BlankContext,
     GroupDirs,
@@ -57,7 +58,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 44] = [
+    pub const ALL: [Key; 45] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -87,6 +88,7 @@ impl Key {
         Self::PathFragments,
         Self::Highlight,
         Self::Markers,
+        Self::MaxFiles,
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
@@ -162,6 +164,7 @@ impl Key {
                 Type::Choice(&["auto", "none", "columns", "markers"]),
             ),
             Self::Markers => ("output", "markers", Type::Markers),
+            Self::MaxFiles => ("output", "max_files", Type::AtLeast(1)),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::Sort => (
@@ -205,6 +208,7 @@ impl Key {
             Self::Timeout => Value::Text("30s".to_string()),
             Self::Threads | Self::MinDepth | Self::Context => Value::Whole(0),
             Self::ResultCache => Value::Whole(50),
+            Self::MaxFiles => Value::Whole(100),
             Self::MaxLevel | Self::GroupRepeated => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),

@@ -45,6 +45,22 @@ pub enum Highlight<'a> {
     Markers(&'a str, &'a str),
 }
 
+/// The limits of the listed files, lines and output (OUTPUT.md#limits-and-truncation).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Limits {
+    /// The files listed in `files` and `lines` detail.
+    pub max_files: usize,
+}
+
+impl Default for Limits {
+    /// No limits.
+    fn default() -> Self {
+        Self {
+            max_files: usize::MAX,
+        }
+    }
+}
+
 /// The response of a `find` call.
 pub struct Response<'a> {
     /// How much it returns.
@@ -59,6 +75,8 @@ pub struct Response<'a> {
     pub highlight: Highlight<'a>,
     /// The time zone of the dates of `meta`.
     pub time_zone: jiff::tz::TimeZone,
+    /// The limits of what is listed.
+    pub limits: Limits,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -89,10 +107,11 @@ impl Response<'_> {
     /// The text format.
     #[must_use]
     pub fn to_text(&self) -> String {
-        let timeout = if self.timed_out {
-            "  truncated: yes (timeout)"
+        let truncated_by = self.truncated_by();
+        let timeout = if truncated_by.is_empty() {
+            String::new()
         } else {
-            ""
+            format!("  truncated: yes ({})", truncated_by.join(", "))
         };
         if self.detail == Detail::Exists {
             let exists = if self.files.is_empty() { "no" } else { "yes" };
@@ -108,7 +127,7 @@ impl Response<'_> {
         if let Some(id) = self.result_id {
             let _ = write!(out, "  result: {id}");
         }
-        out.push_str(timeout);
+        out.push_str(&timeout);
         out.push('\n');
         if self.files.is_empty() || self.detail == Detail::Count {
             self.push_warnings(&mut out);
@@ -121,7 +140,7 @@ impl Response<'_> {
         let repeated = self.repeated();
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
-        for (index, file) in self.files.iter().enumerate() {
+        for (index, file) in self.listed().iter().enumerate() {
             let rest = self.rest(&repeated, index);
             if rest.as_ref().is_some_and(Vec::is_empty) {
                 continue;
@@ -199,10 +218,31 @@ impl Response<'_> {
         }
     }
 
+    /// The files which are listed: in `files` and `lines` detail the first `max_files`.
+    fn listed(&self) -> &[Found] {
+        if self.detail >= Detail::Files {
+            &self.files[..self.files.len().min(self.limits.max_files)]
+        } else {
+            &[]
+        }
+    }
+
+    /// The limits which were hit, in the order of the limits table.
+    fn truncated_by(&self) -> Vec<&'static str> {
+        let mut by = Vec::new();
+        if self.detail >= Detail::Files && self.files.len() > self.limits.max_files {
+            by.push("max_files");
+        }
+        if self.timed_out {
+            by.push("timeout");
+        }
+        by
+    }
+
     /// The repeated lines of the files, only in `lines` detail.
     fn repeated(&self) -> repeated::Repeated {
         if self.detail == Detail::Lines {
-            repeated::repeated(self.files, self.group_repeated)
+            repeated::repeated(self.listed(), self.group_repeated)
         } else {
             repeated::Repeated::default()
         }
@@ -270,7 +310,7 @@ impl Response<'_> {
             return Cow::Borrowed(self.warnings);
         }
         let mut warnings = Cow::Borrowed(self.warnings);
-        for file in self.files {
+        for file in self.listed() {
             let Some(m) = &file.matches else {
                 continue;
             };
@@ -399,6 +439,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -426,6 +467,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: Limits::default(),
             result_id: None,
             legend: &legend,
             files: &files,
@@ -464,6 +506,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -491,6 +534,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -534,6 +578,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: Limits::default(),
             result_id: None,
             legend: &legend,
             files: &files,
@@ -572,6 +617,7 @@ mod tests {
                 group_repeated: 3,
                 highlight,
                 time_zone: jiff::tz::TimeZone::UTC,
+                limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
                 files: &files,
@@ -614,10 +660,7 @@ mod tests {
                 group_repeated: 3,
                 highlight: Highlight::Markers("⟦", "⟧"),
                 time_zone: jiff::tz::TimeZone::UTC,
-                limits: Limits {
-                    max_files,
-                    ..Limits::default()
-                },
+                limits: Limits { max_files },
                 result_id: None,
                 legend: &legend,
                 files: &files,
@@ -632,8 +675,9 @@ mod tests {
         );
         assert!(response(3, false).starts_with("files: 3  lines: 0  matches: 0\n"));
         assert!(
-            response(1, true)
-                .starts_with("files: 3  lines: 0  matches: 0  truncated: yes (max_files, timeout)\n")
+            response(1, true).starts_with(
+                "files: 3  lines: 0  matches: 0  truncated: yes (max_files, timeout)\n"
+            )
         );
     }
 
@@ -646,6 +690,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],

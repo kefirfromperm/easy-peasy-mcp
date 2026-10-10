@@ -11,7 +11,7 @@ use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
-use crate::output::{BlockOptions, Detail, Highlight, Response, Sort, sort_files};
+use crate::output::{BlockOptions, Detail, Highlight, Limits, Response, Sort, sort_files};
 use crate::query::{self, ParseOptions};
 use crate::relevance;
 use crate::request;
@@ -248,29 +248,17 @@ impl Engine {
         } else {
             self.keep_result(&settings, arguments, &files)
         };
-        let context = settings.whole(Key::Context);
         let json = settings.text(Key::Format) == "json";
-        let markers = settings.list(Key::Markers);
-        let markers = Highlight::Markers(&markers[0], &markers[1]);
-        let highlight = match settings.text(Key::Highlight) {
-            "none" => Highlight::None,
-            "columns" => Highlight::Columns,
-            "markers" => markers,
-            _ if json => Highlight::Columns,
-            _ => markers,
-        };
         let response = Response {
             detail,
             group_dirs: settings.bool(Key::GroupDirs),
             group_repeated: settings.whole(Key::GroupRepeated),
-            highlight,
+            highlight: highlight(&settings, json),
             time_zone: self.options.time_zone.clone(),
-            blocks: BlockOptions {
-                before: settings.opt_whole(Key::Before).unwrap_or(context),
-                after: settings.opt_whole(Key::After).unwrap_or(context),
-                blank_context: settings.bool(Key::BlankContext),
-                dedent: settings.bool(Key::Dedent),
+            limits: Limits {
+                max_files: settings.whole(Key::MaxFiles),
             },
+            blocks: block_options(&settings),
             result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,
@@ -429,6 +417,30 @@ impl Engine {
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+}
+
+/// How the fragments are shown: `auto` is markers in text and columns in JSON.
+fn highlight(settings: &Settings, json: bool) -> Highlight<'_> {
+    let markers = settings.list(Key::Markers);
+    let markers = Highlight::Markers(&markers[0], &markers[1]);
+    match settings.text(Key::Highlight) {
+        "none" => Highlight::None,
+        "columns" => Highlight::Columns,
+        "markers" => markers,
+        _ if json => Highlight::Columns,
+        _ => markers,
+    }
+}
+
+/// How the matched lines are put into blocks: `before` and `after` default to `context`.
+fn block_options(settings: &Settings) -> BlockOptions {
+    let context = settings.whole(Key::Context);
+    BlockOptions {
+        before: settings.opt_whole(Key::Before).unwrap_or(context),
+        after: settings.opt_whole(Key::After).unwrap_or(context),
+        blank_context: settings.bool(Key::BlankContext),
+        dedent: settings.bool(Key::Dedent),
     }
 }
 

@@ -161,6 +161,7 @@ impl Response<'_> {
         let counted = self.detail >= Detail::Count;
         let listed = self.detail >= Detail::Files;
         let repeated = self.repeated();
+        let truncated_by = self.truncated_by();
         let document = Document {
             version: VERSION,
             exists: !self.files.is_empty(),
@@ -193,12 +194,8 @@ impl Response<'_> {
                 matches,
             }),
             counts_exact: (counted && self.timed_out).then_some(false),
-            truncated: self.timed_out.then_some(true),
-            truncated_by: if self.timed_out {
-                vec!["timeout"]
-            } else {
-                Vec::new()
-            },
+            truncated: (!truncated_by.is_empty()).then_some(true),
+            truncated_by,
             legend: Legend(if listed && !self.files.is_empty() {
                 self.legend
             } else {
@@ -211,7 +208,7 @@ impl Response<'_> {
                 .map(|(code, count, paths)| Warning { code, count, paths })
                 .collect(),
             files: if listed {
-                (0..self.files.len())
+                (0..self.listed().len())
                     .filter_map(|index| match self.rest(&repeated, index) {
                         Some(rest) if rest.is_empty() => None,
                         rest => Some(self.file(&self.files[index], rest.as_deref())),
@@ -415,6 +412,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Columns,
             time_zone: jiff::tz::TimeZone::UTC,
+            limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
             files: &files,

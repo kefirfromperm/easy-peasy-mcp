@@ -129,7 +129,7 @@ fn unknown_argument() {
 fn keys_not_implemented_yet() {
     let dir = fixture();
     let config = dir.temp().join("config.toml");
-    std::fs::write(&config, "[output]\nmax_files = 10\n").unwrap();
+    std::fs::write(&config, "[output]\nchars_per_token = 3.5\n").unwrap();
     let out = server_command(&dir.root, dir.temp())
         .arg("--config")
         .arg(&config)
@@ -139,7 +139,7 @@ fn keys_not_implemented_yet() {
     assert_eq!(
         String::from_utf8(out.stderr).unwrap(),
         format!(
-            "easy-peasy-mcp: {}:2: the key 'output.max_files' is not implemented yet\n",
+            "easy-peasy-mcp: {}:2: the key 'output.chars_per_token' is not implemented yet\n",
             config.display()
         )
     );
