@@ -1,6 +1,6 @@
 # Task 9: `type` target
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 6
 
