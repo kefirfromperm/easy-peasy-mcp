@@ -1,0 +1,40 @@
+[package]
+name = "easy-peasy-mcp"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+description = "Local stdio MCP server: find files and places in files with one query"
+license-file = "LICENSE"
+publish = false
+
+[lib]
+name = "easy_peasy_mcp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "easy-peasy-mcp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.104"
+ignore = "0.4.33"
+regex = "1.13.1"
+rmcp = { version = "3.5.1", features = ["server", "transport-io"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "io-std", "sync", "time"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+unicode-normalization = "0.1.25"
+
+[dev-dependencies]
+filetime = "0.2.29"
+pretty_assertions = "1.4.1"
+tempfile = "3.27.0"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
