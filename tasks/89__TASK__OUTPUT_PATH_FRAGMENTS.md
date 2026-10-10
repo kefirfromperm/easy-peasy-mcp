@@ -1,6 +1,6 @@
 # Task 89: `output.path_fragments`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 78
 
