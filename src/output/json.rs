@@ -5,7 +5,7 @@ use serde::Serialize;
 use serde::ser::SerializeMap;
 
 use super::blocks::BlockLine;
-use super::lines::{columns, shown_line, starts_in};
+use super::lines::{columns, cut_line, starts_in};
 use super::listing::Listed;
 use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
@@ -131,6 +131,8 @@ struct Block {
 #[derive(Serialize)]
 struct Line {
     n: usize,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    cut: bool,
     text: String,
     /// `highlight = none`: a matched line.
     #[serde(rename = "match", skip_serializing_if = "Option::is_none")]
@@ -183,6 +185,7 @@ impl Response<'_> {
                         },
                         0,
                         self.highlight,
+                        usize::MAX,
                     );
                     Repeated {
                         count: line.files.len(),
@@ -258,9 +261,13 @@ impl Response<'_> {
                 .map(path_fragments)
                 .unwrap_or_default(),
             blocks: match (&found.matches, lines) {
-                (Some(m), Some(fragments)) => {
-                    blocks(&m.content, fragments, &self.blocks, self.highlight)
-                }
+                (Some(m), Some(fragments)) => blocks(
+                    &m.content,
+                    fragments,
+                    &self.blocks,
+                    self.highlight,
+                    self.limits.max_line_length,
+                ),
                 _ => Vec::new(),
             },
         }
@@ -295,6 +302,7 @@ fn blocks(
     fragments: &[super::Fragment],
     options: &BlockOptions,
     highlight: Highlight<'_>,
+    max_line_length: usize,
 ) -> Vec<Block> {
     super::blocks::blocks(content, fragments, options)
         .into_iter()
@@ -303,25 +311,38 @@ fn blocks(
             lines: block
                 .lines
                 .into_iter()
-                .map(|line| json_line(content, fragments, line, block.indent, highlight))
+                .map(|line| {
+                    json_line(
+                        content,
+                        fragments,
+                        line,
+                        block.indent,
+                        highlight,
+                        max_line_length,
+                    )
+                })
                 .collect(),
         })
         .collect()
 }
 
 /// A line of a block without its first `indent` bytes in the highlight style: with the fragments which start in it
-/// (their columns of the original line), with the markers in its text or with `match`.
+/// (their columns of the original line), with the markers in its text or with `match`; cut when it is longer than
+/// `max_line_length` characters.
 fn json_line(
     content: &Content,
     fragments: &[super::Fragment],
     line: BlockLine,
     indent: usize,
     highlight: Highlight<'_>,
+    max_line_length: usize,
 ) -> Line {
     let i = line.index;
+    let (text, cut) = cut_line(content, fragments, i, indent, highlight, max_line_length);
     Line {
         n: i + 1,
-        text: shown_line(content, fragments, i, indent, highlight),
+        cut,
+        text,
         matched: (highlight == Highlight::None && line.matched).then_some(true),
         fragments: if highlight == Highlight::Columns {
             fragments
@@ -358,6 +379,7 @@ mod tests {
             &[frag(x..x + 1, 1, Some(0))],
             &BlockOptions::default(),
             Highlight::Columns,
+            usize::MAX,
         ))
         .unwrap();
         assert_eq!(
@@ -372,6 +394,7 @@ mod tests {
             &[frag(a..d + 1, 2, None)],
             &BlockOptions::default(),
             Highlight::Columns,
+            usize::MAX,
         ))
         .unwrap();
         assert_eq!(
@@ -392,7 +415,13 @@ mod tests {
             .match_indices('a')
             .map(|(i, _)| frag(i..i + 1, 1, None))
             .collect();
-        let blocks = blocks(&c, &fragments, &BlockOptions::default(), Highlight::Columns);
+        let blocks = blocks(
+            &c,
+            &fragments,
+            &BlockOptions::default(),
+            Highlight::Columns,
+            usize::MAX,
+        );
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[1].lines[0].n, 4);
     }

@@ -179,6 +179,7 @@ max_files = 100    # default
 max_lines = 500    # default
 max_matches = 1000    # default
 max_matches_per_file = 50    # default
+max_line_length = 300    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default

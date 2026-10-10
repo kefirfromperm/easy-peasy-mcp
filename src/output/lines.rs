@@ -75,6 +75,7 @@ pub fn render(
     fragments: &[Fragment],
     blocks: &[Block],
     highlight: Highlight<'_>,
+    max_line_length: usize,
 ) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
@@ -88,13 +89,14 @@ pub fn render(
         for line in &block.lines {
             let separator = if line.matched { ':' } else { '-' };
             let _ = write!(out, "{}{separator}", line.index + 1);
-            write_styled(
+            write_cut(
                 &mut out,
                 content,
                 &parts,
                 line.index,
                 block.indent,
                 highlight,
+                max_line_length,
             );
             out.push('\n');
             if highlight == Highlight::Columns {
@@ -220,16 +222,38 @@ fn write_marked(
     parts: &[Part],
     i: usize,
     skip: usize,
-    [open, close]: [&str; 2],
+    markers: [&str; 2],
 ) {
     let (start, end) = content.line_range(i);
-    let mut pos = (start + skip).min(end);
+    write_window(
+        out,
+        content,
+        parts,
+        (start + skip).min(end)..end,
+        end,
+        markers,
+    );
+}
+
+/// Writes the bytes `window` of a line which ends at `line_end` with the parts in it marked: a part opens where it
+/// starts and closes where it ends, one which ends with the line break at the end of the line; a part which goes on
+/// in the next line stays open.
+fn write_window(
+    out: &mut String,
+    content: &Content,
+    parts: &[Part],
+    window: Range<usize>,
+    line_end: usize,
+    [open, close]: [&str; 2],
+) {
+    let text = content.text();
+    let mut pos = window.start;
     for part in parts.iter().filter(|p| {
-        (p.range.start >= start && p.range.start <= end)
-            || (p.range.start < start && p.range.end > start)
+        (p.range.start >= window.start && p.range.start <= window.end)
+            || (p.range.start < window.start && p.range.end > window.start)
     }) {
-        if part.range.start >= start {
-            out.push_str(&content.text()[pos..part.range.start]);
+        if part.range.start >= window.start {
+            out.push_str(&text[pos..part.range.start]);
             let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
             let _ = write!(out, "{open}{}", ids.join(","));
             for level in &part.escapes {
@@ -238,15 +262,123 @@ fn write_marked(
             out.push(':');
             pos = part.range.start;
         }
-        // a part which ends with the line break closes at the end of the line
-        if part.range.end <= end + 1 {
-            let to = part.range.end.min(end).max(pos);
-            out.push_str(&content.text()[pos..to]);
+        if part.range.end <= line_end + 1 {
+            let to = part.range.end.min(line_end).max(pos);
+            out.push_str(&text[pos..to]);
             out.push_str(close);
             pos = to;
         }
     }
-    out.push_str(&content.text()[pos..end]);
+    out.push_str(&text[pos..window.end]);
+}
+
+/// The text of the line `i` from its byte `skip` as it is shown in the style, cut to windows when it is longer than
+/// `max` characters (OUTPUT.md#long-lines); whether it was cut.
+pub fn cut_line(
+    content: &Content,
+    fragments: &[Fragment],
+    i: usize,
+    skip: usize,
+    highlight: Highlight<'_>,
+    max: usize,
+) -> (String, bool) {
+    let mut out = String::new();
+    let cut = write_cut(
+        &mut out,
+        content,
+        &merge_overlapping(fragments),
+        i,
+        skip,
+        highlight,
+        max,
+    );
+    (out, cut)
+}
+
+/// Writes the line `i` from its byte `skip` in the style, cut to windows when it is longer than `max` characters,
+/// `…` where characters are left out; whether it was cut.
+fn write_cut(
+    out: &mut String,
+    content: &Content,
+    parts: &[Part],
+    i: usize,
+    skip: usize,
+    highlight: Highlight<'_>,
+    max: usize,
+) -> bool {
+    let (start, end) = content.line_range(i);
+    let from = (start + skip).min(end);
+    let Some(windows) = windows(content.text(), parts, from..end, max) else {
+        write_styled(out, content, parts, i, skip, highlight);
+        return false;
+    };
+    for (n, window) in windows.iter().enumerate() {
+        if n > 0 || window.start > from {
+            out.push('…');
+        }
+        match highlight {
+            Highlight::Markers(open, close) => {
+                write_window(out, content, parts, window.clone(), end, [open, close]);
+            }
+            _ => out.push_str(&content.text()[window.clone()]),
+        }
+    }
+    if windows.last().is_some_and(|w| w.end < end) {
+        out.push('…');
+    }
+    true
+}
+
+/// The byte ranges of the line `line` which are shown when it is longer than `max` characters: windows around the
+/// parts in it, each with `(max − their characters) / (2 × parts)` characters on both sides, merged when they touch;
+/// without parts its first `max` characters. `None` when the line is shown whole.
+fn windows(
+    text: &str,
+    parts: &[Part],
+    line: Range<usize>,
+    max: usize,
+) -> Option<Vec<Range<usize>>> {
+    // the byte offset of every character of the line and of its end
+    let offsets: Vec<usize> = text[line.clone()]
+        .char_indices()
+        .map(|(b, _)| line.start + b)
+        .chain([line.end])
+        .collect();
+    let n = offsets.len() - 1;
+    if n <= max {
+        return None;
+    }
+    let char_of = |byte: usize| offsets.partition_point(|&o| o < byte);
+    let in_line: Vec<(usize, usize)> = parts
+        .iter()
+        .filter(|p| p.range.start < line.end && p.range.end > line.start)
+        .map(|p| {
+            (
+                char_of(p.range.start.max(line.start)),
+                char_of(p.range.end.min(line.end)),
+            )
+        })
+        .collect();
+    if in_line.is_empty() {
+        let start = line.start..offsets[max];
+        return Some(std::iter::once(start).collect());
+    }
+    let marked: usize = in_line.iter().map(|(s, e)| e - s).sum();
+    let around = max.saturating_sub(marked) / (2 * in_line.len());
+    let mut windows: Vec<(usize, usize)> = Vec::new();
+    for (s, e) in in_line {
+        let window = (s.saturating_sub(around), (e + around).min(n));
+        match windows.last_mut() {
+            Some(last) if window.0 <= last.1 => last.1 = last.1.max(window.1),
+            _ => windows.push(window),
+        }
+    }
+    Some(
+        windows
+            .into_iter()
+            .map(|(s, e)| offsets[s]..offsets[e])
+            .collect(),
+    )
 }
 
 /// Overlapping fragments as one part with the union of their ranges, ids and escape levels.
@@ -290,7 +422,13 @@ mod tests {
     fn render_plain(c: &Content, fragments: &[Fragment]) -> String {
         let blocks =
             super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
-        render(c, fragments, &blocks, Highlight::Markers("⟦", "⟧"))
+        render(
+            c,
+            fragments,
+            &blocks,
+            Highlight::Markers("⟦", "⟧"),
+            usize::MAX,
+        )
     }
 
     fn frag(range: std::ops::Range<usize>, ids: &[u32]) -> Fragment {
@@ -324,12 +462,50 @@ mod tests {
         let blocks =
             super::super::blocks::blocks(&c, &fragments, &super::super::BlockOptions::default());
         assert_eq!(
-            render(&c, &fragments, &blocks, Highlight::Columns),
+            render(&c, &fragments, &blocks, Highlight::Columns, usize::MAX),
             "1:é = x x\n  @ 5..6 #1,#3  @ 7..8 #2/e0\n2:ab\n  @ 1..3:3 #1\n3:cd\n"
         );
         assert_eq!(
-            render(&c, &fragments, &blocks, Highlight::None),
+            render(&c, &fragments, &blocks, Highlight::None, usize::MAX),
             "1:é = x x\n2:ab\n3:cd\n"
+        );
+    }
+
+    #[test]
+    fn long_lines_cut_to_windows() {
+        let c = Content::from_bytes(
+            "The quick brown fox jumps over the lazy dog and then TODO fix the fence near the old barn\n\
+             short TODO\n\
+             This context line is much longer than twenty characters\n\
+             TODO at the start and TODO again at the end of this rather long line TODO\n\
+             \x20   é TODO é is here and there and everywhere\n"
+                .as_bytes(),
+        );
+        let fragments: Vec<Fragment> = c
+            .text()
+            .match_indices("TODO")
+            .map(|(i, _)| frag(i..i + 4, &[1]))
+            .collect();
+        let markers = Highlight::Markers("⟦", "⟧");
+        let cut =
+            |i: usize, skip: usize, max: usize| cut_line(&c, &fragments, i, skip, markers, max);
+        assert_eq!(
+            cut(0, 0, 20),
+            ("…nd then ⟦#1:TODO⟧ fix the…".to_string(), true)
+        );
+        assert_eq!(cut(1, 0, 20), ("short ⟦#1:TODO⟧".to_string(), false));
+        assert_eq!(cut(2, 0, 20), ("This context line is…".to_string(), true));
+        assert_eq!(
+            cut(3, 0, 20),
+            ("⟦#1:TODO⟧ … ⟦#1:TODO⟧ … ⟦#1:TODO⟧".to_string(), true)
+        );
+        assert_eq!(cut(0, 0, 89), (cut(0, 0, 300).0, false), "89 characters");
+        // after the dedent of four spaces the line has 41 characters, `é` is one
+        assert!(!cut(4, 4, 41).1);
+        assert_eq!(cut(4, 4, 20), ("é ⟦#1:TODO⟧ é is he…".to_string(), true));
+        assert_eq!(
+            cut_line(&c, &fragments, 0, 0, Highlight::Columns, 20),
+            ("…nd then TODO fix the…".to_string(), true)
         );
     }
 

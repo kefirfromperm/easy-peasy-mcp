@@ -59,6 +59,8 @@ pub struct Limits {
     pub max_matches: usize,
     /// The fragments listed of one file.
     pub max_matches_per_file: usize,
+    /// The characters of a line, longer lines are cut (OUTPUT.md#long-lines).
+    pub max_line_length: usize,
 }
 
 impl Default for Limits {
@@ -69,6 +71,7 @@ impl Default for Limits {
             max_lines: usize::MAX,
             max_matches: usize::MAX,
             max_matches_per_file: usize::MAX,
+            max_line_length: usize::MAX,
         }
     }
 }
@@ -216,6 +219,7 @@ impl Response<'_> {
                 fragments,
                 &blocks,
                 self.highlight,
+                self.limits.max_line_length,
             ));
         }
     }

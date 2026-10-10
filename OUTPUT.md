@@ -370,6 +370,13 @@ are in the same block, so no line is repeated. Between blocks the text format pr
 A line longer than `max_line_length` is cut to windows around its fragments; the cuts are marked with `…` and the line
 gets `"cut": true`. `col` always refers to the original line.
 
+- the length is counted in characters of the line as shown, after [dedent](#dedent)
+- a matched line keeps its fragments whole (the part of a multiline fragment in the line), each with the same number
+  of characters before and after it: `(max_line_length − characters of the fragments) / (2 × fragments)`, rounded
+  down; windows which touch or overlap are one; a context line keeps its first `max_line_length` characters
+- `…` is written where characters were left out, at the start, between the windows and at the end
+- JSON: `"cut": true` comes before the `text`; the lines of the [repeated lines](#repeated-lines) are not cut
+
 ```json
 { "n": 1, "cut": true, "text": "…var a=require(\"./x\");var b=a.unwrap();var c=…",
   "fragments": [ { "col": [18342, 18348], "text": "unwrap", "ids": ["#1"] } ] }
