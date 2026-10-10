@@ -168,6 +168,38 @@ mod tests {
             [vec![(1, true), (2, false)]]
         );
         let end = [at(&c, 8)];
+        let blank = Content::from_bytes(b"a\n\nb\n \t\nc\n");
+        let around = [at(&blank, 2)];
+        let wide = BlockOptions {
+            before: 2,
+            after: 2,
+            ..BlockOptions::default()
+        };
+        assert_eq!(
+            shape(&blocks(&blank, &around, &wide)),
+            [vec![(1, false), (3, true), (5, false)]]
+        );
+        let kept = BlockOptions {
+            blank_context: true,
+            ..wide
+        };
+        assert_eq!(blocks(&blank, &around, &kept)[0].lines.len(), 5);
+        assert_eq!(
+            shape(&blocks(
+                &c,
+                &end,
+                &BlockOptions {
+                    before: 0,
+                    after: 5,
+                    ..BlockOptions::default()
+                }
+            )),
+            [vec![(9, true)]]
+        );
+    }
+
+    #[test]
+    fn the_indent_of_a_block() {
         let indented = Content::from_bytes(b"    a\n  \t\n\tb\n      c\n\n");
         let all: Vec<Fragment> = (0..4).map(|i| at(&indented, i)).collect();
         let dedent = BlockOptions {
@@ -206,34 +238,6 @@ mod tests {
             blocks(&indented, &near, &dedent)[0].indent,
             2,
             "the fragment starts at 2"
-        );
-        let blank = Content::from_bytes(b"a\n\nb\n \t\nc\n");
-        let around = [at(&blank, 2)];
-        let wide = BlockOptions {
-            before: 2,
-            after: 2,
-            ..BlockOptions::default()
-        };
-        assert_eq!(
-            shape(&blocks(&blank, &around, &wide)),
-            [vec![(1, false), (3, true), (5, false)]]
-        );
-        let kept = BlockOptions {
-            blank_context: true,
-            ..wide
-        };
-        assert_eq!(blocks(&blank, &around, &kept)[0].lines.len(), 5);
-        assert_eq!(
-            shape(&blocks(
-                &c,
-                &end,
-                &BlockOptions {
-                    before: 0,
-                    after: 5,
-                    ..BlockOptions::default()
-                }
-            )),
-            [vec![(9, true)]]
         );
     }
 }
