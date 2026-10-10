@@ -228,6 +228,7 @@ pub struct ConfigFile {
 
 /// The effective configuration of the server: an immutable value, resolved at start.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // one field per configuration key
 pub struct Settings {
     /// `server.allowed_roots`: canonical, never empty.
     pub allowed_roots: Vec<PathBuf>,
