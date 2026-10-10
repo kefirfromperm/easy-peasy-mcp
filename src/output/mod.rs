@@ -1,11 +1,12 @@
 //! The response of `find` in the text format (OUTPUT.md#text-format) and in JSON (`json`).
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::path::{Component, Path};
 
 use crate::query::ast::CondId;
 use crate::search::Found;
-use crate::warning::Warnings;
+use crate::warning::{WarningCode, Warnings};
 
 mod blocks;
 mod json;
@@ -31,13 +32,13 @@ pub enum Detail {
 
 /// How the fragments are shown in the lines (OUTPUT.md#highlight); `auto` is resolved by the format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Highlight {
+pub enum Highlight<'a> {
     /// The lines as they are; JSON: `"match": true` on matched lines.
     None,
     /// Text: the columns of the fragments after a line; JSON: `fragments`.
     Columns,
-    /// The markers inside the lines.
-    Markers,
+    /// The opening and the closing marker inside the lines.
+    Markers(&'a str, &'a str),
 }
 
 /// The response of a `find` call.
@@ -51,7 +52,7 @@ pub struct Response<'a> {
     /// A matched line in this many files is printed once (`lines` detail); `0`: off.
     pub group_repeated: usize,
     /// How the fragments are shown.
-    pub highlight: Highlight,
+    pub highlight: Highlight<'a>,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -212,10 +213,46 @@ impl Response<'_> {
     }
 
     fn push_warnings(&self, out: &mut String) {
-        if !self.warnings.is_empty() {
+        let warnings = self.all_warnings();
+        if !warnings.is_empty() {
             out.push('\n');
-            out.push_str(&self.warnings.to_text());
+            out.push_str(&warnings.to_text());
         }
+    }
+
+    /// The warnings of the search and, in `lines` detail with markers, `marker_in_content` for the files with a
+    /// matched line which contains a marker.
+    fn all_warnings(&self) -> Cow<'_, Warnings> {
+        let Highlight::Markers(open, close) = self.highlight else {
+            return Cow::Borrowed(self.warnings);
+        };
+        if self.detail != Detail::Lines {
+            return Cow::Borrowed(self.warnings);
+        }
+        let mut warnings = Cow::Borrowed(self.warnings);
+        for file in self.files {
+            let Some(m) = &file.matches else {
+                continue;
+            };
+            let marked = lines::lines_of(&m.content, &m.fragments)
+                .into_iter()
+                .any(|i| {
+                    let line = m.content.line(i);
+                    line.contains(open) || line.contains(close)
+                });
+            if marked {
+                let code = WarningCode::MarkerInContent;
+                match &file.member {
+                    Some(member) => {
+                        warnings
+                            .to_mut()
+                            .add_member(code, file.rel.clone(), member.clone());
+                    }
+                    None => warnings.to_mut().add(code, file.rel.clone(), file.is_dir),
+                }
+            }
+        }
+        warnings
     }
 }
 
@@ -311,7 +348,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
-            highlight: Highlight::Markers,
+            highlight: Highlight::Markers("⟦", "⟧"),
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -337,7 +374,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: false,
             group_repeated: 3,
-            highlight: Highlight::Markers,
+            highlight: Highlight::Markers("⟦", "⟧"),
             result_id: None,
             legend: &legend,
             files: &files,
@@ -370,7 +407,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
-            highlight: Highlight::Markers,
+            highlight: Highlight::Markers("⟦", "⟧"),
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -396,7 +433,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
-            highlight: Highlight::Markers,
+            highlight: Highlight::Markers("⟦", "⟧"),
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -438,7 +475,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
-            highlight: Highlight::Markers,
+            highlight: Highlight::Markers("⟦", "⟧"),
             result_id: None,
             legend: &legend,
             files: &files,
@@ -453,13 +490,53 @@ mod tests {
     }
 
     #[test]
+    fn a_marker_in_a_matched_line_is_a_warning() {
+        let content = crate::content::Content::from_bytes("a ⟧ b\nc\n".as_bytes());
+        let b = content.text().find('b').unwrap();
+        let files = [Found {
+            matches: Some(crate::search::FileMatches {
+                content,
+                fragments: vec![Fragment {
+                    range: b..b + 1,
+                    ids: vec![(1, CondId::Number(1))],
+                    escape: None,
+                }],
+                lines: 1,
+            }),
+            ..found("f")
+        }];
+        let legend = [(CondId::Number(1), "text has 'b'".to_string())];
+        let response = |highlight: Highlight| {
+            Response {
+                detail: Detail::Lines,
+                blocks: BlockOptions::default(),
+                group_dirs: false,
+                group_repeated: 3,
+                highlight,
+                result_id: None,
+                legend: &legend,
+                files: &files,
+                warnings: &Warnings::default(),
+                timed_out: false,
+            }
+            .to_text()
+        };
+        assert_eq!(
+            response(Highlight::Markers("⟦", "⟧")),
+            "files: 1  lines: 1  matches: 1\n#1 text has 'b'\n\nf  [#1]  lines: 1  matches: 1\n1:a ⟧ ⟦#1:b⟧\n\nwarning: marker_in_content (1): f\n"
+        );
+        assert!(!response(Highlight::Markers("<", ">")).contains("warning"));
+        assert!(!response(Highlight::Columns).contains("warning"));
+    }
+
+    #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
-            highlight: Highlight::Markers,
+            highlight: Highlight::Markers("⟦", "⟧"),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],

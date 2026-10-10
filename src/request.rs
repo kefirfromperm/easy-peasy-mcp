@@ -292,8 +292,12 @@ mod tests {
             "error[invalid_option]: 'output.highlight' must be one of: auto, none, columns, markers\n"
         );
         assert_eq!(
-            text(&json!({ "output": { "markers": ["<", ">"] } })),
-            "error[not_implemented]: the field 'output.markers' is not implemented yet\n"
+            config(&json!({ "output": { "markers": ["<", ">"] } })),
+            [(Key::Markers, KeyValue::List(vec!["<".into(), ">".into()]))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "path_fragments": true } })),
+            "error[not_implemented]: the field 'output.path_fragments' is not implemented yet\n"
         );
     }
 

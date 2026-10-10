@@ -35,6 +35,7 @@ pub enum Key {
     Before,
     After,
     Highlight,
+    Markers,
     Dedent,
     BlankContext,
     GroupDirs,
@@ -52,7 +53,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 39] = [
+    pub const ALL: [Key; 40] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -79,6 +80,7 @@ impl Key {
         Self::Before,
         Self::After,
         Self::Highlight,
+        Self::Markers,
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
@@ -149,6 +151,7 @@ impl Key {
                 "highlight",
                 Type::Choice(&["auto", "none", "columns", "markers"]),
             ),
+            Self::Markers => ("output", "markers", Type::Markers),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
@@ -187,6 +190,7 @@ impl Key {
                 Value::Bool(true)
             }
             Self::IgnorePaths | Self::Exclude => list(&[]),
+            Self::Markers => list(&["⟦", "⟧"]),
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
@@ -268,6 +272,8 @@ pub enum Type {
     AtLeast(usize),
     /// `auto` or a branch, tag or commit: a non-empty name which doesn't start with `-`.
     GitBase,
+    /// Two non-empty strings: the opening and the closing marker.
+    Markers,
 }
 
 impl Type {
@@ -292,6 +298,7 @@ impl Type {
             Self::Score => "a number from 0 to 1 is expected".to_string(),
             Self::AtLeast(min) => format!("a whole number of at least {min} is expected"),
             Self::GitBase => "\"auto\" or a branch, tag or commit is expected".to_string(),
+            Self::Markers => "two non-empty strings are expected".to_string(),
         }
     }
 
@@ -311,6 +318,7 @@ impl Type {
             Self::Score => "a number from 0 to 1".to_string(),
             Self::AtLeast(min) => format!("a whole number of at least {min}"),
             Self::GitBase => "\"auto\" or a branch, tag or commit".to_string(),
+            Self::Markers => "two non-empty strings".to_string(),
         }
     }
 
@@ -381,6 +389,9 @@ impl Type {
             Self::NonEmptyList(_) => toml_strings(item)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
+            Self::Markers => toml_strings(item)
+                .filter(|m| are_markers(m))
+                .map(Value::List),
             Self::Choice(values) => item
                 .as_str()
                 .filter(|v| values.contains(v))
@@ -431,6 +442,9 @@ impl Type {
             Self::NonEmptyList(_) => json_strings(value)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
+            Self::Markers => json_strings(value)
+                .filter(|m| are_markers(m))
+                .map(Value::List),
             Self::Choice(values) => value
                 .as_str()
                 .filter(|v| values.contains(v))
@@ -457,6 +471,11 @@ impl Type {
                 .map(Value::Number),
         }
     }
+}
+
+/// Whether the strings are an opening and a closing marker: two non-empty strings.
+fn are_markers(items: &[String]) -> bool {
+    items.len() == 2 && items.iter().all(|m| !m.is_empty())
 }
 
 /// What is wrong with a value of the right shape.
@@ -670,6 +689,32 @@ mod tests {
                 .unwrap_err()
                 .to_text(),
             "error[invalid_option]: invalid wildcard '{a' in 'traversal.exclude'\n  hint: unclosed '{'\n"
+        );
+    }
+
+    #[test]
+    fn markers_are_two_strings() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        assert_eq!(
+            Type::Markers.check_toml(&item("['<<', '>>']")),
+            Ok(Value::List(vec!["<<".into(), ">>".into()]))
+        );
+        for bad in ["['<']", "['<', '>', '!']", "['', '>']", "'<>'"] {
+            assert_eq!(
+                Type::Markers.check_toml(&item(bad)),
+                Err("two non-empty strings are expected".into()),
+                "{bad}"
+            );
+        }
+        assert_eq!(Type::Markers.parse_json(&json!(["<", ""])), None);
+        assert_eq!(Type::Markers.must_be(), "two non-empty strings");
+        assert_eq!(
+            Key::Markers.default_value(),
+            Value::List(vec!["⟦".into(), "⟧".into()])
         );
     }
 }

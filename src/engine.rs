@@ -230,12 +230,14 @@ impl Engine {
         };
         let context = settings.whole(Key::Context);
         let json = settings.text(Key::Format) == "json";
+        let markers = settings.list(Key::Markers);
+        let markers = Highlight::Markers(&markers[0], &markers[1]);
         let highlight = match settings.text(Key::Highlight) {
             "none" => Highlight::None,
             "columns" => Highlight::Columns,
-            "markers" => Highlight::Markers,
+            "markers" => markers,
             _ if json => Highlight::Columns,
-            _ => Highlight::Markers,
+            _ => markers,
         };
         let response = Response {
             detail,
