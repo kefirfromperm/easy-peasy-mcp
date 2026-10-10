@@ -63,7 +63,7 @@ Fixture: `output-limits`
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_output)
+files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiYTY3ZTM0ZGEiLCJmIjowLCJtIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 ./
@@ -78,7 +78,7 @@ With 160 characters `a.txt` is listed whole (154), the path of `b.txt` fits, its
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r2  truncated: yes (max_output)
+files: 2  lines: 4  matches: 4  result: r2  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiMzdlYzNkMzQiLCJmIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 ./
@@ -98,7 +98,7 @@ Fixture: `long-names`
 ```
 
 ```text response
-files: 2  lines: 0  matches: 0  result: r1  truncated: yes (max_output)
+files: 2  lines: 0  matches: 0  result: r1  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiNDYyNzQxNWIiLCJmIjoxLCJ0IjpbMiwwLDBdfQ
 #1 name ~ '*.md'
 
 ./
@@ -121,6 +121,7 @@ Fixture: `output-limits`
   "counts": { "files": 2, "lines": 4, "matches": 4 },
   "truncated": true,
   "truncated_by": ["max_output"],
+  "next_cursor": "eyJ2IjoxLCJoIjoiMmQzYWQwN2IiLCJmIjowLCJtIjoxLCJ0IjpbMiw0LDRdfQ",
   "legend": { "#1": "text has 'TODO'" },
   "files": [
     {
@@ -161,7 +162,7 @@ max_output = 160    # was 40000
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_output)
+files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiYzQ0ZjA3MGIiLCJmIjoxLCJtIjoyLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 ./
@@ -250,7 +251,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_output)
+files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiYzQ0ZjA3MGIiLCJmIjoxLCJtIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 ./
