@@ -1,6 +1,6 @@
 # Task 57: `traversal.archives`: `none` and `compressed`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 53, task 54
 
