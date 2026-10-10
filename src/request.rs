@@ -329,6 +329,11 @@ mod tests {
                 .git_excludes,
             Some(false)
         );
+        assert!(parse(&json!({ "traversal": { "ignore_paths": ["~/ignore", "a"] } })).is_ok());
+        assert_eq!(
+            text(&json!({ "traversal": { "ignore_paths": "a" } })),
+            "error[invalid_option]: 'traversal.ignore_paths' must be a list of strings\n"
+        );
         assert_eq!(
             text(&json!({ "traversal": { "exclude": [] } })),
             "error[not_implemented]: the field 'traversal.exclude' is not implemented yet\n"

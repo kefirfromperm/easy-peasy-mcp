@@ -1270,6 +1270,14 @@ mod tests {
                 "invalid value for 'server.allowed_roots': a list of paths is expected".into()
             )
         );
+        assert!(check("[traversal]\nignore_paths = ['~/ignore', 'a']\n").is_ok());
+        assert_eq!(
+            error("[traversal]\nignore_paths = 'a'\n"),
+            (
+                2,
+                "invalid value for 'traversal.ignore_paths': a list of paths is expected".into()
+            )
+        );
     }
 
     #[test]
