@@ -333,6 +333,7 @@ Fixture: `languages`
 [languages.terraform]
 extensions = ['tf', 'tfvars']    # was (not set)
 names = []    # was (not set)
+shebangs = []    # was (not set)
 ```
 
 2. `find`
@@ -360,6 +361,7 @@ vars.tfvars  [#1]
 [languages.terraform]
 # extensions =  (not set)    # was ['tf', 'tfvars'], reset
 # names =  (not set)    # was [], reset
+# shebangs =  (not set)    # was [], reset
 ```
 
 ## E70.7 A built-in language for the session
