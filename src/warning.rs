@@ -13,6 +13,7 @@ pub enum WarningCode {
     BinarySkipped,
     DecodeErrors,
     DateUnsupported,
+    Timeout,
     NotAGitRepo,
 }
 
@@ -24,6 +25,7 @@ impl WarningCode {
             Self::BinarySkipped => "binary_skipped",
             Self::DecodeErrors => "decode_errors",
             Self::DateUnsupported => "date_unsupported",
+            Self::Timeout => "timeout",
             Self::NotAGitRepo => "not_a_git_repo",
         }
     }
@@ -42,6 +44,11 @@ impl Warnings {
     /// Adds an entry (a path relative to the working directory, whether it is a directory) with a warning.
     pub fn add(&mut self, code: WarningCode, rel: PathBuf, is_dir: bool) {
         self.entries.entry(code).or_default().push((rel, is_dir));
+    }
+
+    /// Adds a warning which is not about entries.
+    pub fn add_global(&mut self, code: WarningCode) {
+        self.entries.entry(code).or_default();
     }
 
     /// Adds the warnings of another working directory, their paths prefixed with it.
@@ -64,6 +71,10 @@ impl Warnings {
     pub fn to_text(&self) -> String {
         let mut out = String::new();
         for (code, entries) in &self.entries {
+            if entries.is_empty() {
+                let _ = writeln!(out, "warning: {}", code.as_str());
+                continue;
+            }
             let mut entries = entries.clone();
             entries.sort();
             entries.dedup();
@@ -123,6 +134,17 @@ mod tests {
             format!("warning: date_unsupported (1): dir{}\n", sep())
         );
         assert!(Warnings::default().is_empty());
+    }
+
+    #[test]
+    fn warnings_without_paths() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::NotAGitRepo, PathBuf::from("a"), false);
+        w.add_global(WarningCode::Timeout);
+        assert_eq!(
+            w.to_text(),
+            "warning: timeout\nwarning: not_a_git_repo (1): a\n"
+        );
     }
 
     #[test]

@@ -235,16 +235,7 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
             fixture.now = Some(parse_datetime(date, time));
         } else if let Some(rest) = line.strip_prefix("Slow reads: ") {
             if section == Section::Example {
-                let text = rest.trim().trim_matches('`');
-                let duration = if let Some(ms) = text.strip_suffix("ms") {
-                    std::time::Duration::from_millis(ms.parse().expect("Slow reads: `<n>ms`"))
-                } else {
-                    let s = text
-                        .strip_suffix('s')
-                        .expect("Slow reads: `<n>ms` or `<n>s`");
-                    std::time::Duration::from_secs(s.parse().expect("Slow reads: `<n>s`"))
-                };
-                examples.last_mut().unwrap().slow_reads = Some(duration);
+                examples.last_mut().unwrap().slow_reads = Some(slow_reads(rest));
             }
         } else if let Some(rest) = line.strip_prefix("Platform: ") {
             if section == Section::Example {
@@ -298,6 +289,19 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 _ => {}
             }
         }
+    }
+}
+
+/// The duration of a line `` Slow reads: `2s` ``, in `ms` or `s`.
+fn slow_reads(rest: &str) -> std::time::Duration {
+    let text = rest.trim().trim_matches('`');
+    if let Some(ms) = text.strip_suffix("ms") {
+        std::time::Duration::from_millis(ms.parse().expect("Slow reads: `<n>ms`"))
+    } else {
+        let s = text
+            .strip_suffix('s')
+            .expect("Slow reads: `<n>ms` or `<n>s`");
+        std::time::Duration::from_secs(s.parse().expect("Slow reads: `<n>s`"))
     }
 }
 

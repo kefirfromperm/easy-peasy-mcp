@@ -18,6 +18,8 @@ pub struct Response<'a> {
     pub files: &'a [Found],
     /// Printed after the files.
     pub warnings: &'a Warnings,
+    /// The search was stopped by the timeout: `truncated: yes (timeout)`.
+    pub timed_out: bool,
 }
 
 /// The separator of output paths on this platform.
@@ -41,6 +43,9 @@ impl Response<'_> {
             count(|m| m.fragments.len()),
             self.result_id
         );
+        if self.timed_out {
+            out.insert_str(out.len() - 1, "  truncated: yes (timeout)");
+        }
         if self.files.is_empty() {
             self.push_warnings(&mut out);
             return out;
@@ -158,6 +163,7 @@ mod tests {
             legend: &legend,
             files: &files,
             warnings: &Warnings::default(),
+            timed_out: false,
         }
         .to_text();
         let s = SEP;
@@ -184,6 +190,7 @@ mod tests {
             legend: &[],
             files: &files,
             warnings: &Warnings::default(),
+            timed_out: false,
         }
         .to_text();
         let s = SEP;
@@ -204,6 +211,7 @@ mod tests {
             legend: &legend,
             files: &files,
             warnings: &Warnings::default(),
+            timed_out: false,
         }
         .to_text();
         let s = SEP;
@@ -220,6 +228,7 @@ mod tests {
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],
             warnings: &Warnings::default(),
+            timed_out: false,
         }
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");

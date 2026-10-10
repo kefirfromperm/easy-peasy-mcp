@@ -18,8 +18,8 @@ enum Command {
         config: Option<PathBuf>,
         /// The `tracing` filter of `--log-level`.
         log_level: &'static str,
-        /// `--root`, in order.
-        roots: Vec<String>,
+        /// `--root` and `--timeout`.
+        cli: config::CommandLine,
     },
 }
 
@@ -33,7 +33,7 @@ enum ArgError {
 fn parse_args(args: &[String]) -> Result<Command, ArgError> {
     let mut config = None;
     let mut log_level = None;
-    let mut roots = Vec::new();
+    let mut cli = config::CommandLine::default();
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -50,8 +50,13 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
                         .ok_or(ArgError::Usage)?,
                 );
             }
-            "--root" => roots.push(args.next().ok_or(ArgError::Usage)?.clone()),
-            "--timeout" | "--no-update" => {
+            "--root" => cli.roots.push(args.next().ok_or(ArgError::Usage)?.clone()),
+            "--timeout" if cli.timeout.is_none() => {
+                let timeout = args.next().ok_or(ArgError::Usage)?;
+                config::parse_duration(timeout).ok_or(ArgError::Usage)?;
+                cli.timeout = Some(timeout.clone());
+            }
+            "--no-update" => {
                 return Err(ArgError::NotImplemented(arg.clone()));
             }
             _ => return Err(ArgError::Usage),
@@ -60,7 +65,7 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
     Ok(Command::Serve {
         config,
         log_level: log_level.unwrap_or("warn"),
-        roots,
+        cli,
     })
 }
 
@@ -77,14 +82,14 @@ fn main() -> ExitCode {
         Ok(Command::Serve {
             config,
             log_level,
-            roots,
+            cli,
         }) => {
             tracing_subscriber::fmt()
                 .with_writer(std::io::stderr)
                 .with_ansi(false)
                 .with_env_filter(tracing_subscriber::EnvFilter::new(log_level))
                 .init();
-            match start(config.as_deref(), &roots) {
+            match start(config.as_deref(), &cli) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("easy-peasy-mcp: {e:#}");
@@ -104,14 +109,14 @@ fn main() -> ExitCode {
 }
 
 /// Reads the configuration and serves MCP over stdio until stdin is closed.
-fn start(config: Option<&Path>, roots: &[String]) -> anyhow::Result<()> {
+fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()> {
     let start_dir = std::env::current_dir().context("the current directory is not readable")?;
     let env = |name: &str| std::env::var(name).ok();
     let file = config::locate(config, &env, std::env::consts::OS, &|p| p.is_file())
         .map(|path| config::load(&path))
         .transpose()?;
     let home = env(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
-    let settings = config::Settings::resolve(file.as_ref(), roots, &start_dir, home.as_deref())?;
+    let settings = config::Settings::resolve(file.as_ref(), cli, &start_dir, home.as_deref())?;
     tracing::info!(
         "easy-peasy-mcp {} started in {}, config file: {}",
         env!("CARGO_PKG_VERSION"),

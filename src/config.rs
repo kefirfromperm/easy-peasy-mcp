@@ -171,7 +171,11 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 2] = [("server", "allowed_roots"), ("server", "default_dirs")];
+const IMPLEMENTED: [(&str, &str); 3] = [
+    ("server", "allowed_roots"),
+    ("server", "default_dirs"),
+    ("server", "timeout"),
+];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -202,6 +206,8 @@ pub struct FileValues {
     pub allowed_roots: Option<(Vec<String>, usize)>,
     /// `server.default_dirs` as written.
     pub default_dirs: Option<Vec<String>>,
+    /// `server.timeout` as written, a valid duration.
+    pub timeout: Option<String>,
 }
 
 /// A checked config file.
@@ -220,6 +226,9 @@ pub struct Settings {
     /// `server.default_dirs` as written, never empty.
     pub default_dirs: Vec<String>,
     pub default_dirs_source: Source,
+    /// `server.timeout` as written, a valid duration.
+    pub timeout: String,
+    pub timeout_source: Source,
 }
 
 impl Settings {
@@ -231,6 +240,8 @@ impl Settings {
             allowed_roots_source: Source::Default,
             default_dirs: vec![".".to_string()],
             default_dirs_source: Source::Default,
+            timeout: "30s".to_string(),
+            timeout_source: Source::Default,
         }
     }
 
@@ -242,11 +253,22 @@ impl Settings {
     /// A root which doesn't exist.
     pub fn resolve(
         file: Option<&ConfigFile>,
-        cli_roots: &[String],
+        cli: &CommandLine,
         start_dir: &Path,
         home: Option<&Path>,
     ) -> Result<Self, StartError> {
+        let cli_roots = &cli.roots;
         let mut settings = Self::defaults(start_dir);
+        if let Some(file) = file
+            && let Some(timeout) = &file.values.timeout
+        {
+            settings.timeout.clone_from(timeout);
+            settings.timeout_source = Source::File(file.path.clone());
+        }
+        if let Some(timeout) = &cli.timeout {
+            settings.timeout.clone_from(timeout);
+            settings.timeout_source = Source::Cli;
+        }
         if let Some(file) = file
             && let Some(dirs) = &file.values.default_dirs
         {
@@ -254,7 +276,7 @@ impl Settings {
             settings.default_dirs_source = Source::File(file.path.clone());
         }
         let (roots, source, line) = if !cli_roots.is_empty() {
-            (cli_roots.to_vec(), Source::Cli, None)
+            (cli_roots.clone(), Source::Cli, None)
         } else if let Some(file) = file
             && let Some((roots, line)) = &file.values.allowed_roots
         {
@@ -286,10 +308,17 @@ impl Settings {
         Ok(settings)
     }
 
+    /// The time limit of a search; `None` — no limit.
+    #[must_use]
+    pub fn timeout(&self) -> Option<std::time::Duration> {
+        parse_duration(&self.timeout).filter(|d| !d.is_zero())
+    }
+
     /// The value of a key which `update_config` changes, as TOML.
     fn value(&self, key: Mutable) -> String {
         match key {
             Mutable::DefaultDirs => toml_list(self.default_dirs.iter().map(String::as_str)),
+            Mutable::Timeout => format!("\"{}\"", self.timeout),
         }
     }
 
@@ -300,6 +329,10 @@ impl Settings {
                 self.default_dirs.clone_from(&base.default_dirs);
                 self.default_dirs_source = base.default_dirs_source.clone();
             }
+            Mutable::Timeout => {
+                self.timeout.clone_from(&base.timeout);
+                self.timeout_source = base.timeout_source.clone();
+            }
         }
     }
 
@@ -309,6 +342,10 @@ impl Settings {
             MutableValue::DefaultDirs(dirs) => {
                 self.default_dirs = dirs;
                 self.default_dirs_source = Source::Update;
+            }
+            MutableValue::Timeout(timeout) => {
+                self.timeout = timeout;
+                self.timeout_source = Source::Update;
             }
         }
     }
@@ -329,15 +366,17 @@ fn canonical_or_same(path: &Path) -> PathBuf {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mutable {
     DefaultDirs,
+    Timeout,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 1] = [Self::DefaultDirs];
+    const ALL: [Mutable; 2] = [Self::DefaultDirs, Self::Timeout];
 
     /// The section and the key.
     fn name(self) -> (&'static str, &'static str) {
         match self {
             Self::DefaultDirs => ("server", "default_dirs"),
+            Self::Timeout => ("server", "timeout"),
         }
     }
 
@@ -352,6 +391,11 @@ impl Mutable {
                 .filter(|dirs| !dirs.is_empty())
                 .map(MutableValue::DefaultDirs)
                 .ok_or(NON_EMPTY_PATHS),
+            Self::Timeout => item
+                .as_str()
+                .filter(|t| parse_duration(t).is_some())
+                .map(|t| MutableValue::Timeout(t.to_string()))
+                .ok_or(DURATION),
         }
     }
 }
@@ -360,10 +404,37 @@ impl Mutable {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum MutableValue {
     DefaultDirs(Vec<String>),
+    Timeout(String),
 }
 
 /// What `default_dirs` must be.
 const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
+
+/// What `timeout` must be.
+const DURATION: &str = "a duration like \"30s\" is expected (units ms, s, m)";
+
+/// A duration of the configuration: a whole number and `ms`, `s` or `m` (`CONFIG.md#server`).
+#[must_use]
+pub fn parse_duration(text: &str) -> Option<std::time::Duration> {
+    let digits = text.find(|c: char| !c.is_ascii_digit())?;
+    let (number, unit) = text.split_at(digits);
+    let number: u64 = number.parse().ok()?;
+    match unit {
+        "ms" => Some(std::time::Duration::from_millis(number)),
+        "s" => Some(std::time::Duration::from_secs(number)),
+        "m" => number.checked_mul(60).map(std::time::Duration::from_secs),
+        _ => None,
+    }
+}
+
+/// The values of the command line.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CommandLine {
+    /// `--root`, in order.
+    pub roots: Vec<String>,
+    /// `--timeout`, a valid duration.
+    pub timeout: Option<String>,
+}
 
 /// A list of strings as TOML.
 fn toml_list<'a>(items: impl Iterator<Item = &'a str>) -> String {
@@ -486,14 +557,19 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
             },
             Entry::Key {
                 section: "server",
-                key: "default_dirs",
+                key: key @ ("default_dirs" | "timeout"),
                 item,
-            } => match Mutable::DefaultDirs.parse(item) {
-                Ok(MutableValue::DefaultDirs(dirs)) => {
+            } => match Mutable::find("server", key).map(|m| m.parse(item)) {
+                Some(Ok(MutableValue::DefaultDirs(dirs))) => {
                     values.default_dirs = Some(dirs);
                     continue;
                 }
-                Err(expected) => format!("invalid value for 'server.default_dirs': {expected}"),
+                Some(Ok(MutableValue::Timeout(timeout))) => {
+                    values.timeout = Some(timeout);
+                    continue;
+                }
+                Some(Err(expected)) => format!("invalid value for 'server.{key}': {expected}"),
+                None => unreachable!("default_dirs and timeout are mutable keys"),
             },
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
                 format!("the key '{section}.{key}' is not implemented yet")
@@ -576,6 +652,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             (
                 format!("default_dirs = {}", settings.value(Mutable::DefaultDirs)),
                 &settings.default_dirs_source,
+            ),
+            (
+                format!("timeout = {}", settings.value(Mutable::Timeout)),
+                &settings.timeout_source,
             ),
         ];
         out.push_str("\n[server]\n");
@@ -908,7 +988,7 @@ mod tests {
             check("[server]\n# roots\nallowed_roots = ['a', \"b\"]\n"),
             Ok(FileValues {
                 allowed_roots: Some((vec!["a".into(), "b".into()], 3)),
-                default_dirs: None,
+                ..FileValues::default()
             })
         );
         assert_eq!(
@@ -992,8 +1072,7 @@ mod tests {
         let settings = Settings {
             allowed_roots: vec![PathBuf::from("/a"), PathBuf::from("/it's")],
             allowed_roots_source: Source::Cli,
-            default_dirs: vec![".".into()],
-            default_dirs_source: Source::Default,
+            ..Settings::defaults(Path::new("/"))
         };
         let first = format!(
             "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots\n",
@@ -1001,7 +1080,9 @@ mod tests {
         );
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
-            format!("{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\n")
+            format!(
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\n"
+            )
         );
         assert_eq!(
             get_config(
@@ -1010,7 +1091,7 @@ mod tests {
             )
             .unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\n"
             )
         );
         assert_eq!(
@@ -1143,6 +1224,10 @@ mod tests {
         let home = start.join("home");
         let roots = |cli: &[&str]| {
             let cli: Vec<String> = cli.iter().map(ToString::to_string).collect();
+            let cli = CommandLine {
+                roots: cli,
+                timeout: None,
+            };
             Settings::resolve(None, &cli, &start, Some(&home))
         };
         assert_eq!(roots(&[]).unwrap(), Settings::defaults(&start));
@@ -1166,11 +1251,11 @@ mod tests {
             path: PathBuf::from("c.toml"),
             values: FileValues {
                 allowed_roots: Some((vec!["missing".into()], 4)),
-                default_dirs: None,
+                ..FileValues::default()
             },
         };
         assert_eq!(
-            Settings::resolve(Some(&file), &[], &start, None)
+            Settings::resolve(Some(&file), &CommandLine::default(), &start, None)
                 .unwrap_err()
                 .to_string(),
             "c.toml:4: the allowed root 'missing' doesn't exist"
@@ -1180,14 +1265,39 @@ mod tests {
             values: FileValues {
                 allowed_roots: Some((Vec::new(), 1)),
                 default_dirs: Some(vec!["src".into()]),
+                timeout: Some("1m".into()),
             },
         };
-        let settings = Settings::resolve(Some(&empty), &[], &start, None).unwrap();
+        let cli = CommandLine {
+            roots: Vec::new(),
+            timeout: Some("5s".into()),
+        };
+        let settings = Settings::resolve(Some(&empty), &cli, &start, None).unwrap();
+        assert_eq!(settings.timeout, "5s");
+        assert_eq!(settings.timeout_source, Source::Cli);
+        assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
         assert_eq!(settings.allowed_roots_source, Source::File("c.toml".into()));
         assert_eq!(settings.default_dirs, ["src"]);
         assert_eq!(settings.default_dirs_source, Source::File("c.toml".into()));
         std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn durations() {
+        use std::time::Duration;
+        assert_eq!(parse_duration("500ms"), Some(Duration::from_millis(500)));
+        assert_eq!(parse_duration("30s"), Some(Duration::from_secs(30)));
+        assert_eq!(parse_duration("2m"), Some(Duration::from_secs(120)));
+        assert_eq!(parse_duration("0s"), Some(Duration::ZERO));
+        for bad in ["", "10", "s", "1h", "1.5s", "-1s", " 1s", "1 s"] {
+            assert_eq!(parse_duration(bad), None, "{bad}");
+        }
+        let settings = Settings {
+            timeout: "0m".into(),
+            ..Settings::defaults(Path::new("/"))
+        };
+        assert_eq!(settings.timeout(), None);
     }
 
     #[test]
