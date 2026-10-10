@@ -94,7 +94,8 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
             if section != Section::Example {
                 section = Section::Fixture(name.trim().to_string());
             }
-        } else if let (Some(rest), Section::Fixture(name)) = (line.strip_prefix("Now: "), &section) {
+        } else if let (Some(rest), Section::Fixture(name)) = (line.strip_prefix("Now: "), &section)
+        {
             let text = rest.trim().trim_matches('`');
             let (date, time) = text.split_once(' ').expect("Now: `<date> <time>`");
             let fixture = fixtures
