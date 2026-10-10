@@ -33,6 +33,8 @@ pub struct ParseOptions {
     pub now: jiff::Timestamp,
     /// The local time zone of dates without an offset.
     pub time_zone: jiff::tz::TimeZone,
+    /// The language table: the values of `lang`.
+    pub languages: std::sync::Arc<crate::languages::LanguageTable>,
 }
 
 /// A parsed and compiled query.
@@ -60,6 +62,8 @@ pub struct Needs {
     pub created: bool,
     /// An `accessed` condition: entries without an access date get a warning.
     pub accessed: bool,
+    /// A `lang` condition: the language of entries.
+    pub lang: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -102,6 +106,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
                 );
                 needs.created |= c.target == Target::Created;
                 needs.accessed |= c.target == Target::Accessed;
+                needs.lang |= c.target == Target::Lang;
             }
         });
     }
@@ -190,16 +195,22 @@ fn validate_condition(
             .hint(e.0),
         );
     }
+    let words = words(&c.value);
     if c.target == Target::Type {
-        let words = match &c.value {
-            Value::Word(w) => std::slice::from_ref(w),
-            Value::Words(words) => words.as_slice(),
-            _ => &[],
-        };
         let names: Vec<&str> = EntryType::ALL.iter().map(|t| t.keyword()).collect();
         for word in words
             .iter()
             .filter(|w| EntryType::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+    if c.target == Target::Lang {
+        let mut names = options.languages.names();
+        names.push(UNKNOWN_LANG);
+        for word in words
+            .iter()
+            .filter(|w| !names.iter().any(|n| n.eq_ignore_ascii_case(&w.text)))
         {
             errors.push(unknown_value(word, &names));
         }
@@ -367,6 +378,9 @@ fn modifier_not_allowed(c: &Condition, modifier: &Modifier, in_line: bool) -> Op
     }
 }
 
+/// The language of files without one.
+pub const UNKNOWN_LANG: &str = "unknown";
+
 /// The NFC form of a string.
 pub fn nfc(s: &str) -> String {
     if unicode_normalization::is_nfc(s) {
@@ -393,65 +407,85 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
         unreachable!("the subset check allows only conditions")
     };
-    if c.target == Target::Size {
-        let size =
-            |s: &Spanned| value::parse_size(&s.text).expect("sizes are validated before compiling");
-        let bounds = match (&c.op, &c.value) {
-            (Some((op, _)), Value::Scalar(v)) => value::bounds(*op, size(v), None),
-            (Some((op, _)), Value::Range(a, b)) => value::bounds(*op, size(a), Some(size(b))),
-            _ => unreachable!("size conditions have an operator and a value"),
-        };
-        return Filter::Number {
-            id: node.id.clone(),
-            order: node.tokens.start,
-            target: NumberTarget::Size,
-            bounds,
-        };
-    }
-    if let Some(target) = match c.target {
-        Target::Modified => Some(NumberTarget::Modified),
-        Target::Created => Some(NumberTarget::Created),
-        Target::Accessed => Some(NumberTarget::Accessed),
-        _ => None,
-    } {
-        let date = |s: &Spanned| {
-            value::parse_date(&s.text, options.now, &options.time_zone)
-                .expect("dates are validated before compiling")
-        };
-        let bounds = match (&c.op, &c.value) {
-            (Some((op, _)), Value::Scalar(v)) => value::date_bounds(*op, date(v), None),
-            (Some((op, _)), Value::Range(a, b)) => value::date_bounds(*op, date(a), Some(date(b))),
-            _ => unreachable!("date conditions have an operator and a value"),
-        };
-        return Filter::Number {
-            id: node.id.clone(),
-            order: node.tokens.start,
-            target,
-            bounds,
-        };
-    }
-    if c.target == Target::Empty {
-        return Filter::Empty {
-            id: node.id.clone(),
-            order: node.tokens.start,
-        };
-    }
-    if c.target == Target::Type {
-        let words = match &c.value {
-            Value::Word(w) => vec![w],
-            Value::Words(words) => words.iter().collect(),
-            _ => Vec::new(),
-        };
-        return Filter::Type {
-            id: node.id.clone(),
-            order: node.tokens.start,
-            values: words
+    let id = node.id.clone();
+    let order = node.tokens.start;
+    match c.target {
+        Target::Size => compile_size(c, id, order),
+        Target::Modified | Target::Created | Target::Accessed => {
+            compile_date(c, id, order, options)
+        }
+        Target::Empty => Filter::Empty { id, order },
+        Target::Lang => Filter::Lang {
+            id,
+            order,
+            values: words(&c.value)
+                .iter()
+                .map(|w| w.text.to_lowercase())
+                .collect(),
+            negated: matches!(c.op, Some((Op::Ne, _))),
+        },
+        Target::Type => Filter::Type {
+            id,
+            order,
+            values: words(&c.value)
                 .iter()
                 .filter_map(|w| EntryType::from_keyword(&w.text))
                 .collect(),
             negated: matches!(c.op, Some((Op::Ne, _))),
-        };
+        },
+        _ => compile_text(c, id, order, options),
     }
+}
+
+/// The words of a value target: one, or the list of `in ( ... )`.
+fn words(value: &Value) -> &[Spanned] {
+    match value {
+        Value::Word(w) => std::slice::from_ref(w),
+        Value::Words(words) => words.as_slice(),
+        _ => &[],
+    }
+}
+
+fn compile_size(c: &Condition, id: CondId, order: usize) -> Filter {
+    let size =
+        |s: &Spanned| value::parse_size(&s.text).expect("sizes are validated before compiling");
+    let bounds = match (&c.op, &c.value) {
+        (Some((op, _)), Value::Scalar(v)) => value::bounds(*op, size(v), None),
+        (Some((op, _)), Value::Range(a, b)) => value::bounds(*op, size(a), Some(size(b))),
+        _ => unreachable!("size conditions have an operator and a value"),
+    };
+    Filter::Number {
+        id,
+        order,
+        target: NumberTarget::Size,
+        bounds,
+    }
+}
+
+fn compile_date(c: &Condition, id: CondId, order: usize, options: &ParseOptions) -> Filter {
+    let target = match c.target {
+        Target::Created => NumberTarget::Created,
+        Target::Accessed => NumberTarget::Accessed,
+        _ => NumberTarget::Modified,
+    };
+    let date = |s: &Spanned| {
+        value::parse_date(&s.text, options.now, &options.time_zone)
+            .expect("dates are validated before compiling")
+    };
+    let bounds = match (&c.op, &c.value) {
+        (Some((op, _)), Value::Scalar(v)) => value::date_bounds(*op, date(v), None),
+        (Some((op, _)), Value::Range(a, b)) => value::date_bounds(*op, date(a), Some(date(b))),
+        _ => unreachable!("date conditions have an operator and a value"),
+    };
+    Filter::Number {
+        id,
+        order,
+        target,
+        bounds,
+    }
+}
+
+fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions) -> Filter {
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
         unreachable!("name and path conditions have an operator and a string")
     };
@@ -475,8 +509,8 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
         _ => TextTarget::Name,
     };
     Filter::Text {
-        id: node.id.clone(),
-        order: node.tokens.start,
+        id,
+        order,
         target,
         matcher: TextMatcher(regex),
     }
@@ -486,11 +520,13 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
 mod tests {
     use super::*;
 
-    const SENSITIVE: ParseOptions = ParseOptions {
-        case_insensitive_paths: false,
-        now: jiff::Timestamp::UNIX_EPOCH,
-        time_zone: jiff::tz::TimeZone::UTC,
-    };
+    static SENSITIVE: std::sync::LazyLock<ParseOptions> =
+        std::sync::LazyLock::new(|| ParseOptions {
+            case_insensitive_paths: false,
+            now: jiff::Timestamp::UNIX_EPOCH,
+            time_zone: jiff::tz::TimeZone::UTC,
+            languages: std::sync::Arc::new(crate::languages::LanguageTable::builtin()),
+        });
 
     fn legend(q: &str) -> Vec<String> {
         let lexed = lexer::lex(q);
@@ -541,7 +577,7 @@ mod tests {
             "name = 'A.rs'",
             &ParseOptions {
                 case_insensitive_paths: true,
-                ..SENSITIVE
+                ..SENSITIVE.clone()
             },
         )
         .unwrap()
@@ -561,7 +597,7 @@ mod tests {
     fn matcher(q: &str, insensitive: bool) -> TextMatcher {
         let options = ParseOptions {
             case_insensitive_paths: insensitive,
-            ..SENSITIVE
+            ..SENSITIVE.clone()
         };
         let Some(Filter::Text { matcher, .. }) = parse(q, &options).unwrap().filter else {
             panic!("{q}")
@@ -699,6 +735,7 @@ mod tests {
             modified: Some(0.0),
             created: Some(0.0),
             accessed: Some(0.0),
+            lang: "unknown",
         };
         query.filter.unwrap().matches(&file)
     }
@@ -786,6 +823,34 @@ mod tests {
     }
 
     #[test]
+    fn lang_conditions() {
+        let file = |lang| FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang,
+        };
+        let q = parse("lang in (rust, Python)", &SENSITIVE).unwrap();
+        assert!(q.needs.lang);
+        assert!(q.filter.as_ref().unwrap().matches(&file("python")));
+        assert!(!q.filter.as_ref().unwrap().matches(&file("unknown")));
+        let q = parse("lang != unknown", &SENSITIVE).unwrap();
+        assert!(q.filter.unwrap().matches(&file("rust")));
+        let e = parse("lang = rusty", &SENSITIVE).unwrap_err();
+        assert_eq!(e.code, ErrorCode::UnknownValue);
+        assert!(
+            e.hint
+                .unwrap()
+                .starts_with("did you mean 'rust'? expected one of: c, cpp, ")
+        );
+    }
+
+    #[test]
     fn has_type_anywhere() {
         assert!(!parse("name = 'a'", &SENSITIVE).unwrap().has_type);
         assert!(
@@ -863,7 +928,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("lang = rust and name ~ '[a-'", &SENSITIVE).unwrap_err();
+        let e = parse("kind = test and name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }

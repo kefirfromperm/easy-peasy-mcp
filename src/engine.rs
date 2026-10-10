@@ -1,11 +1,13 @@
 //! The search server state of one session and the tool entry points.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::Value;
 
 use crate::error::Report;
+use crate::languages::LanguageTable;
 use crate::output::Response;
 use crate::query::{self, ParseOptions};
 use crate::request;
@@ -67,6 +69,7 @@ const NATIVE_CASE_INSENSITIVE: bool = cfg!(any(target_os = "macos", target_os = 
 #[derive(Debug)]
 pub struct Engine {
     options: EngineOptions,
+    languages: Arc<LanguageTable>,
     last_result: AtomicU64,
 }
 
@@ -79,6 +82,7 @@ impl Engine {
     pub fn new(options: EngineOptions) -> Self {
         Self {
             options,
+            languages: Arc::new(LanguageTable::builtin()),
             last_result: AtomicU64::new(0),
         }
     }
@@ -113,12 +117,14 @@ impl Engine {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),
+            languages: Arc::clone(&self.languages),
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
         let search_options = SearchOptions {
             git_global_excludes: self.options.git_global_excludes,
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
+            languages: Arc::clone(&self.languages),
         };
         let result = search::search(&self.options.start_dir, &query, &search_options);
         let result_id = format!("r{}", self.last_result.fetch_add(1, Ordering::SeqCst) + 1);

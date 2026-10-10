@@ -1,6 +1,6 @@
 # Task 15: `lang` target
 
-Status: not implemented
+Status: implemented, see [15__SUMMARY__LANG_TARGET.md](15__SUMMARY__LANG_TARGET.md)
 
 Depends on: task 9
 

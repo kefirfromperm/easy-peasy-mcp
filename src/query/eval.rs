@@ -72,6 +72,8 @@ pub struct FileValues<'a> {
     pub created: Option<f64>,
     /// The last access time in seconds since the Unix epoch; `None` when the file system doesn't provide it.
     pub accessed: Option<f64>,
+    /// The language, `unknown` without one; only detected when the query has `lang`.
+    pub lang: &'a str,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -136,6 +138,13 @@ pub enum Filter {
     Empty {
         id: CondId,
         order: usize,
+    },
+    /// `lang = v`, `lang in (...)`: the language is one of `values` (lower case); `lang != v`: `negated`.
+    Lang {
+        id: CondId,
+        order: usize,
+        values: Vec<String>,
+        negated: bool,
     },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
@@ -235,6 +244,9 @@ impl Filter {
                 values, negated, ..
             } => Truth::from(values.contains(&file.entry_type) != *negated),
             Self::Empty { .. } => Truth::from(file.empty),
+            Self::Lang {
+                values, negated, ..
+            } => Truth::from(values.iter().any(|v| v == file.lang) != *negated),
             #[allow(clippy::cast_precision_loss)] // sizes up to 2^53 bytes are exact
             Self::Number { target, bounds, .. } => {
                 let value = match target {
@@ -276,6 +288,7 @@ impl Filter {
             Self::Text { id, order, .. }
             | Self::Type { id, order, .. }
             | Self::Empty { id, order }
+            | Self::Lang { id, order, .. }
             | Self::Number { id, order, .. } => {
                 found.push((*order, id.clone()));
             }
@@ -306,6 +319,7 @@ mod tests {
             modified: Some(0.0),
             created: None,
             accessed: None,
+            lang: "unknown",
         };
         filter.matches(&file).then(|| {
             filter
@@ -399,6 +413,7 @@ mod tests {
             modified: Some(0.0),
             created: None,
             accessed: None,
+            lang: "unknown",
         };
         assert_eq!(created(1).eval(&file), Truth::Unknown);
         assert!(!Filter::Not(Box::new(created(1))).matches(&file));

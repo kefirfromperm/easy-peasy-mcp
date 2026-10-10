@@ -430,6 +430,15 @@ modifier.
 | `strings`               | list of strings           | string delimiters; comment markers inside strings are ignored |
 | `source`                | bool                      | `true` (default) — code (programming languages, also HTML and CSS), its files are `kind = source`; `false` — a data or document format |
 
+How a file gets its language, the first rule which matches:
+
+1. the full file name is in `names` (`Dockerfile`, `.env`)
+2. the extension, the part after the last `.` of a name which doesn't start with it, is in `extensions`
+3. a file without an extension whose first line is a shebang: the interpreter — the program, or the first argument
+   of `env` — is in `shebangs`, as it is or without a trailing version (`python3.11` → `python`)
+
+Names and extensions are compared case-insensitively. Directories and other files have the language `unknown`.
+
 #### Built-in languages
 
 | Language     | Extensions, names, shebangs                                      | Line comment  | Block comment      |

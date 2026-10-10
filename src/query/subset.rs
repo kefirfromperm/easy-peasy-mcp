@@ -1,6 +1,6 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created` and `accessed`
+//! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed` and `lang`
 //! conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
@@ -41,6 +41,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                     | Target::Modified
                     | Target::Created
                     | Target::Accessed
+                    | Target::Lang
             ) {
                 let span = c.target_span.clone();
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
@@ -102,8 +103,8 @@ mod tests {
     fn other_targets_and_operators() {
         assert_eq!(check_str("size > 1 and size in 1..2"), None);
         assert_eq!(
-            check_str("lang = rust"),
-            Some(("the target 'lang' is not implemented yet".into(), 0..4))
+            check_str("kind = test"),
+            Some(("the target 'kind' is not implemented yet".into(), 0..4))
         );
         assert_eq!(
             check_str("name = 'a' or (path ~ 'b' and text has 'c')"),
