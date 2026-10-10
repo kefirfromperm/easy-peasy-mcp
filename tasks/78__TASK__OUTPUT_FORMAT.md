@@ -1,6 +1,6 @@
 # Task 78: `output.format`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 36
 
