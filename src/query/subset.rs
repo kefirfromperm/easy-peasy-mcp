@@ -84,9 +84,11 @@ mod tests {
 
     #[test]
     fn other_targets_and_operators() {
+        assert_eq!(check_str("path ~ 'a'"), None);
+        assert_eq!(check_str("PATH starts 'a/'"), None);
         assert_eq!(
-            check_str("path ~ 'a'"),
-            Some(("the target 'path' is not implemented yet".into(), 0..4))
+            check_str("size > 1"),
+            Some(("the target 'size' is not implemented yet".into(), 0..4))
         );
         assert_eq!(check_str("name has 'a'"), None);
         assert_eq!(check_str("name STARTS 'a'"), None);

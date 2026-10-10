@@ -127,3 +127,15 @@ fn file_id(metadata: &std::fs::Metadata) -> Option<FileId> {
 fn file_id(_metadata: &std::fs::Metadata) -> Option<FileId> {
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn slash_paths() {
+        let rel: PathBuf = ["src", "parser", "lexer.rs"].iter().collect();
+        assert_eq!(slash_path(&rel), "src/parser/lexer.rs");
+        assert_eq!(slash_path(Path::new("a.rs")), "a.rs");
+    }
+}

@@ -219,11 +219,11 @@ mod tests {
     fn compiles_name_conditions() {
         let q = parse("name ~ '*.rs'", SENSITIVE).unwrap();
         assert_eq!(q.legend, [(CondId::Number(1), "name ~ '*.rs'".to_string())]);
-        let Some(Filter::Name { matcher, .. }) = q.filter else {
+        let Some(Filter::Text { matcher, .. }) = q.filter else {
             panic!()
         };
         assert!(matcher.is_match("a.rs"));
-        let Some(Filter::Name { matcher, .. }) = parse(
+        let Some(Filter::Text { matcher, .. }) = parse(
             "name = 'A.rs'",
             ParseOptions {
                 case_insensitive_paths: true,
@@ -235,7 +235,7 @@ mod tests {
             panic!()
         };
         assert!(matcher.is_match("a.RS"));
-        let Some(Filter::Name { matcher, .. }) =
+        let Some(Filter::Text { matcher, .. }) =
             parse("name = 'caf\u{e9}'", SENSITIVE).unwrap().filter
         else {
             panic!()
@@ -247,10 +247,22 @@ mod tests {
         let options = ParseOptions {
             case_insensitive_paths: insensitive,
         };
-        let Some(Filter::Name { matcher, .. }) = parse(q, options).unwrap().filter else {
+        let Some(Filter::Text { matcher, .. }) = parse(q, options).unwrap().filter else {
             panic!("{q}")
         };
         matcher
+    }
+
+    #[test]
+    fn path_conditions() {
+        let Some(Filter::Text {
+            target, matcher, ..
+        }) = parse("path ~ 'src/**/*.rs'", SENSITIVE).unwrap().filter
+        else {
+            panic!()
+        };
+        assert_eq!(target, TextTarget::Path);
+        assert!(matcher.is_match("src/a/b.rs"));
     }
 
     #[test]
