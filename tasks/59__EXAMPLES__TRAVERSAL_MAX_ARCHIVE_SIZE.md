@@ -51,6 +51,7 @@ encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
 max_archive_size = "100M"
+skip_generated = true
 ```
 
 ## E59.2 A smaller limit in a request
@@ -133,6 +134,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "40"    # update
+skip_generated = true    # default
 ```
 
 ## E59.4 An invalid value in a request
@@ -200,6 +202,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "all"    # file: conf/m.toml
 max_archive_size = "40"    # file: conf/m.toml
+skip_generated = true    # default
 ```
 
 2. `find`

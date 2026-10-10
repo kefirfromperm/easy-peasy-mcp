@@ -48,6 +48,7 @@ encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
 max_archive_size = "100M"
+skip_generated = true
 ```
 
 ## E45.3 A maximum depth for the session
@@ -105,6 +106,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 4. `update_config`
@@ -200,6 +202,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 2. `find`

@@ -101,6 +101,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 3. `find`
@@ -164,6 +165,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 2. `update_config`

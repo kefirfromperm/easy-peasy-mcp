@@ -103,6 +103,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 ## E41.2 The default
@@ -186,6 +187,7 @@ encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 2. `find`

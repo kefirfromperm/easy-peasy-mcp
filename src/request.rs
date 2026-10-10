@@ -364,8 +364,8 @@ mod tests {
             [(Key::MaxArchiveSize, KeyValue::Text("1G".into()))]
         );
         assert_eq!(
-            text(&json!({ "traversal": { "skip_generated": false } })),
-            "error[not_implemented]: the field 'traversal.skip_generated' is not implemented yet\n"
+            config(&json!({ "traversal": { "skip_generated": false } })),
+            [(Key::SkipGenerated, KeyValue::Bool(false))]
         );
     }
 

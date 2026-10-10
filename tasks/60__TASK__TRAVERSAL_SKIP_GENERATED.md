@@ -1,6 +1,6 @@
 # Task 60: `traversal.skip_generated`
 
-Status: not implemented
+Status: implemented, see [60__SUMMARY__TRAVERSAL_SKIP_GENERATED.md](60__SUMMARY__TRAVERSAL_SKIP_GENERATED.md)
 
 Depends on: task 16, task 44
 

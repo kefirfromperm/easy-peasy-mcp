@@ -28,11 +28,12 @@ pub enum Key {
     FallbackEncoding,
     Archives,
     MaxArchiveSize,
+    SkipGenerated,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 19] = [
+    pub const ALL: [Key; 20] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -52,6 +53,7 @@ impl Key {
         Self::FallbackEncoding,
         Self::Archives,
         Self::MaxArchiveSize,
+        Self::SkipGenerated,
     ];
 
     /// The section, the name and the type.
@@ -92,6 +94,7 @@ impl Key {
                 Type::Choice(&["none", "compressed", "all"]),
             ),
             Self::MaxArchiveSize => ("traversal", "max_archive_size", Type::Size),
+            Self::SkipGenerated => ("traversal", "skip_generated", Type::Bool),
         }
     }
 
@@ -107,7 +110,7 @@ impl Key {
             Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
-            Self::GitExcludes => Value::Bool(true),
+            Self::GitExcludes | Self::SkipGenerated => Value::Bool(true),
             Self::IgnorePaths | Self::Exclude => list(&[]),
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
