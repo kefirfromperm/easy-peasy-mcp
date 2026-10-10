@@ -1,6 +1,6 @@
 # Task 106: `output.facet_depth`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 105
 
