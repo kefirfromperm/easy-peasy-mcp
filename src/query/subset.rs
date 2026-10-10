@@ -1,7 +1,8 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
-//! `kind` and `git` conditions, `text has` in file scope; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! `kind` and `git` conditions, `text` with `=`, `has`, `starts`,
+//! `ends` in file scope; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
@@ -50,7 +51,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
             } else if c.target == Target::Text
                 && let Some((op, span)) = &c.op
-                && *op != Op::Has
+                && !matches!(op, Op::Eq | Op::Has | Op::Starts | Op::Ends)
             {
                 found.push((
                     span.clone(),
@@ -119,11 +120,8 @@ mod tests {
             None
         );
         assert_eq!(
-            check_str("name = 'a' or (path ~ 'b' and text starts 'c')"),
-            Some((
-                "the operator 'starts' is not implemented yet".into(),
-                35..41
-            ))
+            check_str("name = 'a' or (path ~ 'b' and text =~ 'c')"),
+            Some(("the operator '=~' is not implemented yet".into(), 35..37))
         );
         assert_eq!(
             check_str("name = 'a' and name =~ 'a'"),

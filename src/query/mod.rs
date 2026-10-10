@@ -543,8 +543,15 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         } else {
             ""
         };
-        let regex = Regex::new(&format!("{flags}{}", regex::escape(&s.value)))
-            .expect("an escaped string is a valid regex");
+        let escaped = regex::escape(&s.value);
+        let pattern = match c.op.as_ref().map(|(op, _)| *op) {
+            Some(Op::Eq) => format!(r"\A{escaped}\z"),
+            Some(Op::Starts) => format!(r"\A{escaped}"),
+            Some(Op::Ends) => format!(r"{escaped}\z"),
+            _ => escaped,
+        };
+        let regex =
+            Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex");
         return Filter::Content { id, order, regex };
     }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
