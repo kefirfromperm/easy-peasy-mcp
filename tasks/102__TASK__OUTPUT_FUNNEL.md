@@ -1,6 +1,6 @@
 # Task 102: `output.funnel`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 94
 
