@@ -1,6 +1,6 @@
 # Task 120: Windows specifics
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 118, task 47, task 52, task 9
 
