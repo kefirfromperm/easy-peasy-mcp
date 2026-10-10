@@ -235,6 +235,7 @@ markers = ['⟦', '⟧']
 max_files = 100
 max_lines = 500
 max_matches = 1000
+max_matches_per_file = 50
 dedent = true
 blank_context = false
 group_dirs = true

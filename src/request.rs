@@ -324,8 +324,12 @@ mod tests {
             [(Key::MaxMatches, KeyValue::Whole(1))]
         );
         assert_eq!(
-            text(&json!({ "output": { "max_matches_per_file": 1 } })),
-            "error[not_implemented]: the field 'output.max_matches_per_file' is not implemented yet\n"
+            config(&json!({ "output": { "max_matches_per_file": 1 } })),
+            [(Key::MaxMatchesPerFile, KeyValue::Whole(1))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "max_line_length": 20 } })),
+            "error[not_implemented]: the field 'output.max_line_length' is not implemented yet\n"
         );
     }
 
