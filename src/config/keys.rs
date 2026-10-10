@@ -22,11 +22,12 @@ pub enum Key {
     IgnorePaths,
     Exclude,
     PathCase,
+    Binary,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 13] = [
+    pub const ALL: [Key; 14] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -40,6 +41,7 @@ impl Key {
         Self::IgnorePaths,
         Self::Exclude,
         Self::PathCase,
+        Self::Binary,
     ];
 
     /// The section, the name and the type.
@@ -66,6 +68,11 @@ impl Key {
                 "path_case",
                 Type::Choice(&["native", "sensitive", "insensitive"]),
             ),
+            Self::Binary => (
+                "traversal",
+                "binary",
+                Type::Choice(&["skip", "search", "exclude"]),
+            ),
         }
     }
 
@@ -84,6 +91,7 @@ impl Key {
             Self::GitExcludes => Value::Bool(true),
             Self::IgnorePaths | Self::Exclude => list(&[]),
             Self::PathCase => Value::Text("native".to_string()),
+            Self::Binary => Value::Text("skip".to_string()),
         }
     }
 

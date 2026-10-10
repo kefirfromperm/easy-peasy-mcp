@@ -11,7 +11,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
-use crate::content::{Content, Decoded, Encoding, decode};
+use crate::content::{Content, Decoded, Encoding, decode, is_binary_content};
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::{Language, LanguageTable};
 use crate::output::{Fragment, matched_lines, merge_identical};
@@ -51,10 +51,23 @@ pub struct SearchOptions {
     pub ignore_paths: Vec<PathBuf>,
     /// Wildcards of the paths which are never walked, compiled like `path ~`.
     pub exclude: Vec<regex::Regex>,
+    /// What happens to binary files.
+    pub binary: Binary,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
     pub read_delay: Option<Duration>,
+}
+
+/// What happens to binary files (`traversal.binary`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Binary {
+    /// Not searched by content: content conditions are unknown for them.
+    Skip,
+    /// Searched as text.
+    Search,
+    /// Never returned.
+    Exclude,
 }
 
 /// A matched file.
@@ -302,6 +315,28 @@ struct Walk<'a> {
     timed_out: AtomicBool,
 }
 
+/// What the evaluation of the query found out about a matched entry.
+#[derive(Debug, Default)]
+struct Evaluated {
+    /// The ids of the conditions which made the entry match.
+    conditions: Vec<CondId>,
+    /// The content fragments, if any content condition made the entry match.
+    matches: Option<FileMatches>,
+    /// The encoding of the content, if it was read and is not UTF-8.
+    encoding: Option<Encoding>,
+    /// Whether the content was read and decoded as text.
+    text: bool,
+}
+
+/// Whether a file is binary by its first 8K; a file which can't be read is not.
+fn starts_binary(path: &Path) -> bool {
+    use std::io::Read;
+    let mut head = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|f| f.take(8 * 1024).read_to_end(&mut head))
+        .is_ok_and(|_| is_binary_content(&head))
+}
+
 /// The dates of an entry in seconds since the Unix epoch.
 struct Dates {
     modified: Option<f64>,
@@ -368,8 +403,8 @@ impl Walk<'_> {
                 ContentState::Absent
             },
         };
-        let (conditions, matches, encoding) = match &query.filter {
-            None => (Vec::new(), None, None),
+        let evaluated = match &query.filter {
+            None => Evaluated::default(),
             Some(filter) => self.evaluate(filter, file, language, entry.path(), rel)?,
         };
         let is_file = entry_type == EntryType::File;
@@ -379,12 +414,19 @@ impl Walk<'_> {
         if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
             return None;
         }
+        if self.options.binary == Binary::Exclude
+            && is_file
+            && !evaluated.text
+            && starts_binary(entry.path())
+        {
+            return None;
+        }
         Some(Found {
             rel: rel.to_path_buf(),
             is_dir: entry_type == EntryType::Dir,
-            conditions,
-            matches,
-            encoding,
+            conditions: evaluated.conditions,
+            matches: evaluated.matches,
+            encoding: evaluated.encoding,
             id: entry.metadata().ok().and_then(|m| file_id(&m)),
         })
     }
@@ -398,12 +440,13 @@ impl Walk<'_> {
         language: Option<&Language>,
         path: &Path,
         rel: &Path,
-    ) -> Option<(Vec<CondId>, Option<FileMatches>, Option<Encoding>)> {
+    ) -> Option<Evaluated> {
         if filter.eval(&file) == Truth::False {
             return None;
         }
         let content: Content;
         let mut encoding = None;
+        let mut text = false;
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
         if matches!(file.content, ContentState::NotRead) {
@@ -421,7 +464,8 @@ impl Walk<'_> {
                     return None;
                 }
             };
-            match decode(&bytes) {
+            match decode(&bytes, self.options.binary == Binary::Search) {
+                Decoded::Binary if self.options.binary == Binary::Exclude => return None,
                 Decoded::Binary => {
                     file.content = ContentState::Unknown;
                     self.warn(WarningCode::BinarySkipped, rel, false);
@@ -435,6 +479,7 @@ impl Walk<'_> {
                         self.warn(WarningCode::DecodeErrors, rel, false);
                     }
                     encoding = (used != Encoding::Utf8).then_some(used);
+                    text = true;
                     content = match language {
                         Some(language) if self.query.needs.comments => {
                             decoded.with_comments(language)
@@ -458,7 +503,12 @@ impl Walk<'_> {
             ContentState::Text(content) => file_matches(content, &leaves),
             _ => None,
         };
-        Some((conditions, matches, encoding))
+        Some(Evaluated {
+            conditions,
+            matches,
+            encoding,
+            text,
+        })
     }
 
     /// The dates of an entry; `date_unsupported` when the query needs a date the file system doesn't provide.

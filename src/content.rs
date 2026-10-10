@@ -49,22 +49,33 @@ pub enum Decoded {
     },
 }
 
+/// The BOM of a file: its encoding and the content after it.
+fn by_bom(bytes: &[u8]) -> Option<(Encoding, &[u8])> {
+    [
+        (&b"\xef\xbb\xbf"[..], Encoding::Utf8),
+        (&b"\xff\xfe\0\0"[..], Encoding::Utf32Le),
+        (&b"\0\0\xfe\xff"[..], Encoding::Utf32Be),
+        (&b"\xff\xfe"[..], Encoding::Utf16Le),
+        (&b"\xfe\xff"[..], Encoding::Utf16Be),
+    ]
+    .into_iter()
+    .find_map(|(bom, encoding)| bytes.strip_prefix(bom).map(|rest| (encoding, rest)))
+}
+
+/// Whether `decode` takes a file for binary: no BOM, not UTF-16 by the pattern of its zero bytes, a zero byte in the
+/// first 8K. `bytes` may be only the first 8K of the file.
+pub fn is_binary_content(bytes: &[u8]) -> bool {
+    by_bom(bytes).is_none() && utf16_by_zero_bytes(bytes).is_none() && is_binary(bytes)
+}
+
 /// Decodes a file: by its BOM, as UTF-16 by the pattern of its zero bytes, as binary with a zero byte in the first
-/// 8K, otherwise as UTF-8.
-pub fn decode(bytes: &[u8]) -> Decoded {
-    let (encoding, body) = if let Some(rest) = bytes.strip_prefix(b"\xef\xbb\xbf") {
-        (Encoding::Utf8, rest)
-    } else if let Some(rest) = bytes.strip_prefix(b"\xff\xfe\0\0") {
-        (Encoding::Utf32Le, rest)
-    } else if let Some(rest) = bytes.strip_prefix(b"\0\0\xfe\xff") {
-        (Encoding::Utf32Be, rest)
-    } else if let Some(rest) = bytes.strip_prefix(b"\xff\xfe") {
-        (Encoding::Utf16Le, rest)
-    } else if let Some(rest) = bytes.strip_prefix(b"\xfe\xff") {
-        (Encoding::Utf16Be, rest)
+/// 8K unless `binary_as_text`, otherwise as UTF-8.
+pub fn decode(bytes: &[u8], binary_as_text: bool) -> Decoded {
+    let (encoding, body) = if let Some(found) = by_bom(bytes) {
+        found
     } else if let Some(encoding) = utf16_by_zero_bytes(bytes) {
         (encoding, bytes)
-    } else if is_binary(bytes) {
+    } else if !binary_as_text && is_binary(bytes) {
         return Decoded::Binary;
     } else {
         (Encoding::Utf8, bytes)
@@ -324,7 +335,7 @@ mod tests {
     }
 
     fn text(bytes: &[u8]) -> (String, Encoding, bool) {
-        match decode(bytes) {
+        match decode(bytes, false) {
             Decoded::Text {
                 content,
                 encoding,
@@ -365,7 +376,7 @@ mod tests {
             ("hi\n".into(), Encoding::Utf16Le, false)
         );
         assert_eq!(text(b"\0h\0i"), ("hi".into(), Encoding::Utf16Be, false));
-        assert!(matches!(decode(b"a\0\0b"), Decoded::Binary));
+        assert!(matches!(decode(b"a\0\0b", false), Decoded::Binary));
     }
 
     #[test]
@@ -387,7 +398,10 @@ mod tests {
             }
             Decoded::Binary => panic!("searched as text"),
         }
-        assert!(matches!(decode(b"\0\0\0\0\nlogo\n", false), Decoded::Binary));
+        assert!(matches!(
+            decode(b"\0\0\0\0\nlogo\n", false),
+            Decoded::Binary
+        ));
     }
 
     #[test]
