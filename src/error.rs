@@ -157,6 +157,31 @@ impl Report {
         )
     }
 
+    /// The JSON format of OUTPUT.md#errors, compact: `{"error": {code, message, query, position, hint}}`; `col` of
+    /// the position is 1-based in characters from the start of the query, `len` in characters, at least 1.
+    #[must_use]
+    pub fn to_json(&self) -> String {
+        let mut error = serde_json::Map::new();
+        error.insert("code".into(), self.code.as_str().into());
+        error.insert("message".into(), self.message.clone().into());
+        if let Some((query, span)) = &self.position {
+            let col = query[..span.start].chars().count() + 1;
+            let len = query[span.start..span.end.max(span.start)]
+                .chars()
+                .count()
+                .max(1);
+            error.insert("query".into(), query.clone().into());
+            error.insert(
+                "position".into(),
+                serde_json::json!({ "col": col, "len": len }),
+            );
+        }
+        if let Some(hint) = &self.hint {
+            error.insert("hint".into(), hint.clone().into());
+        }
+        serde_json::json!({ "error": error }).to_string()
+    }
+
     /// The text format of OUTPUT.md#errors.
     #[must_use]
     pub fn to_text(&self) -> String {

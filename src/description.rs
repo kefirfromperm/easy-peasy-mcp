@@ -74,7 +74,8 @@ Hidden files (unless traversal.hidden), files in .gitignore / .ignore / .aiignor
 .git/info/exclude (traversal.git_excludes) and in the extra ignore files of traversal.ignore_paths, and generated files
 are skipped; unreadable files and directories too, with a permission_denied warning.
 
-OUTPUT: the header \"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
+OUTPUT: \"output\": {\"format\": \"json\"} for a JSON document (default text). Text: the header
+\"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
 under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]
 and its counts, then its matched lines: \"42:\" a matched line, \"--\" a gap, ⟦ids:text⟧ a match.
 Spec version 1.";
@@ -129,6 +130,12 @@ pub fn find_schema() -> Value {
                 "type": "object",
                 "properties": {
                     "base": { "type": "string", "description": "The base of git = branch: a branch, tag or commit; auto: origin/HEAD, main or master, the first which exists. Default: auto." }
+                }
+            },
+            "output": {
+                "type": "object",
+                "properties": {
+                    "format": { "enum": ["text", "json"], "description": "text: compact, like grep; json: the same data as a JSON document. Default: text." }
                 }
             },
             "kinds": {

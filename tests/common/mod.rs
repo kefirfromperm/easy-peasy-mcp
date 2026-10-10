@@ -113,6 +113,17 @@ impl McpServer {
     }
 }
 
+/// Whether `actual` is the JSON document of the block `expected`: one line, the same JSON value.
+pub fn same_json(expected: &str, actual: &str) -> bool {
+    let (Ok(want), Ok(got)) = (
+        serde_json::from_str::<Value>(expected),
+        serde_json::from_str::<Value>(actual),
+    ) else {
+        return false;
+    };
+    want == got && !actual.trim_end().contains('\n')
+}
+
 /// The repository root.
 pub fn repo_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

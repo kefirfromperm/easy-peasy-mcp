@@ -137,7 +137,8 @@ Fixture: `small-rust`
 - `json request` — the `arguments` of a `tools/call` of `find` (or another tool, written as
   `json request get_config`)
 - `text response` — the exact text content item, `isError: false`; `text error` — the same with `isError: true`;
-  `json response` — when `output.format = "json"`
+  `json response` and `json error` — when `output.format = "json"`: the text content item is a JSON document, compared
+  with the block as a JSON value, so the block may be indented for reading
 - a fixture is a directory under `tests/fixtures/<name>/`; anything that can't live in git (mtimes, symlinks,
   permissions, empty dirs, encodings with odd bytes) is listed in the fixture section and created by the test setup: a `text setup`
   block in the fixture section, one action per line — `mkdir <dir>`, `file <path> [<bytes>]` (a file of `x` bytes, empty without a size),

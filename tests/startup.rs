@@ -114,7 +114,12 @@ fn run_session(
             .text
             .replace("<version>", env!("CARGO_PKG_VERSION"))
             .replace("<fixture>", fixture_path);
-        if is_error != (expected.info == "text error") || text != expected_text {
+        let same = if expected.info.starts_with("json ") {
+            common::same_json(&expected_text, text)
+        } else {
+            text == expected_text
+        };
+        if is_error != expected.info.ends_with(" error") || !same {
             return Err(format!(
                 "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"
             ));

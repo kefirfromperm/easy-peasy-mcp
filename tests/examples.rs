@@ -61,14 +61,19 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
             .map_err(|e| format!("step {step}: {e}"))?;
         let (want_error, kind) = match expected.info.as_str() {
             "text response" | "json response" => (false, "response"),
-            "text error" => (true, "error"),
+            "text error" | "json error" => (true, "error"),
             other => return Err(format!("step {step}: unknown block `{other}`")),
         };
         let expected_text = expected
             .text
             .replace("<version>", env!("CARGO_PKG_VERSION"))
             .replace("<fixture>", &dir.root.to_string_lossy());
-        if output.is_error != want_error || output.text != expected_text {
+        let same = if expected.info.starts_with("json ") {
+            common::same_json(&expected_text, &output.text)
+        } else {
+            output.text == expected_text
+        };
+        if output.is_error != want_error || !same {
             return Err(format!(
                 "step {step}: expected {kind} (isError: {want_error}):\n{expected_text}\nactual (isError: {}):\n{}",
                 output.is_error, output.text

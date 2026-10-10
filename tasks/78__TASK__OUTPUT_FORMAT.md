@@ -1,6 +1,6 @@
 # Task 78: `output.format`
 
-Status: not implemented
+Status: implemented, see [78__SUMMARY__OUTPUT_FORMAT.md](78__SUMMARY__OUTPUT_FORMAT.md)
 
 Depends on: task 36
 

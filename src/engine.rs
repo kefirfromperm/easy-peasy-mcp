@@ -163,7 +163,20 @@ impl Engine {
                 text,
                 is_error: false,
             },
+            Err(report) if self.json_format(arguments) => ToolOutput {
+                text: report.to_json(),
+                is_error: true,
+            },
             Err(report) => ToolOutput::error(&report),
+        }
+    }
+
+    /// Whether the response of a request is JSON: its `output.format`, or the format of the session when the request
+    /// has none; an invalid one is text, the format of its error.
+    fn json_format(&self, arguments: &Value) -> bool {
+        match arguments.get("output").and_then(|o| o.get("format")) {
+            Some(format) => format.as_str() == Some("json"),
+            None => self.settings().text(Key::Format) == "json",
         }
     }
 
@@ -239,14 +252,18 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
             .keep(settings.whole(Key::ResultCache), arguments.clone(), cached)
             .map(|n| format!("r{n}"));
-        Ok(Response {
+        let response = Response {
             result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,
             warnings: &warnings,
             timed_out,
-        }
-        .to_text())
+        };
+        Ok(if settings.text(Key::Format) == "json" {
+            response.to_json()
+        } else {
+            response.to_text()
+        })
     }
 
     /// The options of the walk and the search of one request.
