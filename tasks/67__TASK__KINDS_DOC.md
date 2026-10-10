@@ -1,6 +1,6 @@
 # Task 67: `kinds.doc`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 63
 
