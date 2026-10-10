@@ -624,6 +624,15 @@ repeated:
 In the files below these lines are not repeated. A file which has no other matched lines is not printed in `lines`
 detail at all; `detail = files` still lists such a file. The counts are not changed.
 
+- the section comes after the legend (and the funnel) and its empty line, only in `lines` detail
+- a line is `  ×N <line>    <locations>`: `N` the number of files, the line without its leading and trailing
+  whitespace and with its markers, after four spaces `path:line` of the first three files in the order of the files
+  and `, … M more`; the lines are ordered by `N`, more first, then by their first file
+- a line touched by a multiline match is not grouped; the context of a repeated line goes with it
+- JSON: `"repeated": [{ "count": 37, "text": "use anyhow::Result;", "fragments": [...], "locations":
+  ["src/main.rs:3", "src/config.rs:5", "src/eval/mod.rs:2"] }]` — `col` of the fragments counts in `text`, the
+  locations are the first three
+
 ## Result ids
 
 Every response with `count` detail or higher has a result id, e.g. `result: r12` in the header, unless
