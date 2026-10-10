@@ -1,6 +1,6 @@
 # Task 24: `/m` multiline regex
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 22
 
