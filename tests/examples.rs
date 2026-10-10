@@ -13,6 +13,8 @@ enum Skipped {
     Yes,
     /// A startup example, run by `tests/startup.rs`.
     Startup,
+    /// An example of another platform (`Platform:`).
+    Elsewhere,
 }
 
 fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, String> {
@@ -26,6 +28,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
         .ok_or_else(|| format!("unknown fixture {name}"))?;
     if example.is_startup() {
         return Ok(Skipped::Startup);
+    }
+    if !example.runs_here() {
+        return Ok(Skipped::Elsewhere);
     }
     let dir = setup_fixture(fixture);
     if !dir.permissions_removed {
@@ -101,7 +106,7 @@ fn all_examples() {
         match run_example(example, &fixtures) {
             Ok(Skipped::No) => count += 1,
             Ok(Skipped::Yes) => skipped.push(example.id.as_str()),
-            Ok(Skipped::Startup) => {}
+            Ok(Skipped::Startup | Skipped::Elsewhere) => {}
             Err(e) => {
                 let _ = writeln!(failures, "=== {} ({}) ===\n{e}", example.id, example.file);
             }
