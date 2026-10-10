@@ -1,6 +1,6 @@
 # Task 77: `languages.<name>.source`
 
-Status: in progress
+Status: implemented, see [77__SUMMARY__LANGUAGES_SOURCE.md](77__SUMMARY__LANGUAGES_SOURCE.md)
 
 Depends on: task 16, task 70
 
