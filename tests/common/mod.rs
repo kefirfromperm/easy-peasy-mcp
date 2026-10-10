@@ -133,6 +133,8 @@ pub struct Example {
     pub fixture: Option<String>,
     /// The only platform the example runs on, from a line `` Platform: `linux` ``.
     pub platform: Option<String>,
+    /// The duration of every read of a file's content, from a line `` Slow reads: `2s` ``.
+    pub slow_reads: Option<std::time::Duration>,
     pub blocks: Vec<Block>,
 }
 
@@ -210,6 +212,7 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                     file: file.to_string(),
                     fixture: None,
                     platform: None,
+                    slow_reads: None,
                     blocks: Vec::new(),
                 });
                 section = Section::Example;
@@ -230,6 +233,19 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 .find(|f| &f.name == name)
                 .expect("the Now line comes after the tree block");
             fixture.now = Some(parse_datetime(date, time));
+        } else if let Some(rest) = line.strip_prefix("Slow reads: ") {
+            if section == Section::Example {
+                let text = rest.trim().trim_matches('`');
+                let duration = if let Some(ms) = text.strip_suffix("ms") {
+                    std::time::Duration::from_millis(ms.parse().expect("Slow reads: `<n>ms`"))
+                } else {
+                    let s = text
+                        .strip_suffix('s')
+                        .expect("Slow reads: `<n>ms` or `<n>s`");
+                    std::time::Duration::from_secs(s.parse().expect("Slow reads: `<n>s`"))
+                };
+                examples.last_mut().unwrap().slow_reads = Some(duration);
+            }
         } else if let Some(rest) = line.strip_prefix("Platform: ") {
             if section == Section::Example {
                 let name = rest.trim().trim_matches('`').to_string();

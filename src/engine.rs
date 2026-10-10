@@ -29,6 +29,9 @@ pub struct EngineOptions {
     pub time_zone: jiff::tz::TimeZone,
     /// The effective configuration.
     pub settings: config::Settings,
+    /// A test hook: every read of a file's content takes this long, cut short at the deadline of the request.
+    #[doc(hidden)]
+    pub read_delay: Option<std::time::Duration>,
 }
 
 impl EngineOptions {
@@ -37,6 +40,7 @@ impl EngineOptions {
     pub fn new(start_dir: PathBuf) -> Self {
         Self {
             settings: config::Settings::defaults(&start_dir),
+            read_delay: None,
             start_dir,
             git_global_excludes: true,
             now: None,
