@@ -60,16 +60,19 @@ pub struct FileMatches {
     pub lines: usize,
 }
 
-/// The fragments of a `line( ... )` group: in every line which matches it, the matches of its contributing text
-/// conditions with the ids of the condition and the group, or the whole line with the id of the group.
-fn line_fragments(content: &Content, group: (usize, &CondId), inner: &Filter) -> Vec<Fragment> {
+/// The fragments of a `line( ... )` group or one side of a `near( ... )` in the given lines: the matches of the
+/// contributing text conditions of `inner` with the ids of the condition and the group, or the whole line with the
+/// id of the group.
+fn line_fragments(
+    content: &Content,
+    group: (usize, &CondId),
+    inner: &Filter,
+    lines: &[usize],
+) -> Vec<Fragment> {
     let group = (group.0, group.1.clone());
     let mut fragments = Vec::new();
-    for i in 0..content.line_count() {
+    for &i in lines {
         let line = content.line(i);
-        if !inner.eval_line(line) {
-            continue;
-        }
         let (start, end) = content.line_range(i);
         let before = fragments.len();
         for leaf in inner.contributing_in_line(line) {
@@ -122,8 +125,27 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
         }
     }
     for leaf in leaves {
-        if let Filter::Line { id, order, inner } = leaf {
-            fragments.extend(line_fragments(content, (*order, id), inner));
+        match leaf {
+            Filter::Line { id, order, inner } => {
+                let lines: Vec<usize> = (0..content.line_count())
+                    .filter(|&i| inner.eval_line(content.line(i)))
+                    .collect();
+                fragments.extend(line_fragments(content, (*order, id), inner, &lines));
+            }
+            Filter::Near {
+                id, order, a, b, ..
+            } => {
+                let pairs = leaf.near_pairs(content);
+                let mut a_lines: Vec<usize> = pairs.iter().map(|p| p.0).collect();
+                let mut b_lines: Vec<usize> = pairs.iter().map(|p| p.1).collect();
+                a_lines.sort_unstable();
+                a_lines.dedup();
+                b_lines.sort_unstable();
+                b_lines.dedup();
+                fragments.extend(line_fragments(content, (*order, id), a, &a_lines));
+                fragments.extend(line_fragments(content, (*order, id), b, &b_lines));
+            }
+            _ => {}
         }
     }
     if fragments.is_empty() {

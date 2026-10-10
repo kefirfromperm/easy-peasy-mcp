@@ -23,6 +23,8 @@ pub enum ErrorCode {
     FileTargetInside,
     NestedLine,
     LineTargetOutside,
+    InvalidNearOption,
+    ConflictingOptions,
     InvalidOption,
     NotImplemented,
 }
@@ -49,6 +51,8 @@ impl ErrorCode {
             Self::FileTargetInside => "file_target_inside",
             Self::NestedLine => "nested_line",
             Self::LineTargetOutside => "line_target_outside",
+            Self::InvalidNearOption => "invalid_near_option",
+            Self::ConflictingOptions => "conflicting_options",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

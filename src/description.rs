@@ -36,6 +36,7 @@ Empty query = all files.
                                  binary files are not searched: content conditions are unknown for them
   line(text has 'a' and not text has 'b')    conditions on the same line; not line(...) = no line matches;
                                  len > 120 (characters of the line) works inside line()
+  near(text has 'lock', text has 'await', 3[, ordered][, closest|first])   lines within 3 of each other
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'
