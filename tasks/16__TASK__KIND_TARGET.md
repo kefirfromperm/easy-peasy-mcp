@@ -1,6 +1,6 @@
 # Task 16: `kind` target
 
-Status: in progress
+Status: implemented, see [16__SUMMARY__KIND_TARGET.md](16__SUMMARY__KIND_TARGET.md)
 
 Depends on: task 15
 
