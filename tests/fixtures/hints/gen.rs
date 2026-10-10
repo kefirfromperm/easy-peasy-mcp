@@ -1,0 +1,2 @@
+// @generated
+let x = parseQuery;
