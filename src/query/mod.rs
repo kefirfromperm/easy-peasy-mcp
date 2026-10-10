@@ -65,6 +65,52 @@ pub struct Query {
     pub ranking: crate::relevance::Ranking,
     /// The steps of the funnel; `None` for the empty query.
     pub funnel: Option<Funnel>,
+    /// What could narrow the query (OUTPUT.md#hints).
+    pub narrowing: Narrowing,
+}
+
+/// What the hints of a huge result suggest to narrow a query.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Narrowing {
+    /// The query has a `kind` condition.
+    pub kind: bool,
+    /// The query has a `text ... has` condition without `/w` and `/n`, outside of `not`.
+    pub whole_word: bool,
+}
+
+impl Narrowing {
+    /// What could narrow an expression; `negated` under `not`.
+    fn of(expr: &Expr, negated: bool) -> Self {
+        let both = |items: &[Expr]| {
+            items
+                .iter()
+                .map(|e| Self::of(e, negated))
+                .fold(Self::default(), |a, b| Self {
+                    kind: a.kind || b.kind,
+                    whole_word: a.whole_word || b.whole_word,
+                })
+        };
+        match expr {
+            Expr::Or(items) | Expr::Xor(items) | Expr::And(items) => both(items),
+            Expr::Not(inner) => Self::of(inner, true),
+            Expr::Group(inner) => Self::of(inner, negated),
+            Expr::Node(node) => match &node.kind {
+                NodeKind::Condition(c) => {
+                    let has = |name: &str| c.modifiers.iter().any(|m| m.name == name);
+                    Self {
+                        kind: c.target == Target::Kind,
+                        whole_word: !negated
+                            && c.target == Target::Text
+                            && c.op.as_ref().is_some_and(|(op, _)| *op == Op::Has)
+                            && !has("w")
+                            && !has("n"),
+                    }
+                }
+                NodeKind::Line(inner) => Self::of(inner, negated),
+                NodeKind::Near(near) => both(&[near.a.as_ref().clone(), near.b.as_ref().clone()]),
+            },
+        }
+    }
 }
 
 /// How the steps of a funnel are joined (OUTPUT.md#steps).
@@ -198,6 +244,9 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
     let funnel = expr
         .as_ref()
         .map(|expr| funnel_steps(text, &lexed.tokens, expr));
+    let narrowing = expr
+        .as_ref()
+        .map_or_else(Narrowing::default, |expr| Narrowing::of(expr, false));
     let filter = expr.map(|expr| compile(&expr, options));
     ranking.conditions = filter.as_ref().map_or(0, crate::relevance::conditions);
     Ok(Query {
@@ -207,6 +256,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         needs,
         ranking,
         funnel,
+        narrowing,
     })
 }
 
@@ -1348,6 +1398,31 @@ mod tests {
         let steps = variations("lang = rust and (text has 'a' or text has 'b')");
         assert_eq!(steps[1].0, "(text has 'a' or text has 'b')");
         assert!(steps[1].1.is_empty(), "a group has no variations");
+    }
+
+    #[test]
+    fn what_narrows_a_query() {
+        let narrowing = |q: &str| parse(q, &SENSITIVE).unwrap().narrowing;
+        assert_eq!(
+            narrowing("text has 'error'"),
+            Narrowing {
+                kind: false,
+                whole_word: true
+            }
+        );
+        assert_eq!(
+            narrowing("text has 'error' /w and kind = source"),
+            Narrowing {
+                kind: true,
+                whole_word: false
+            }
+        );
+        assert!(!narrowing("text has 'error a' /n").whole_word);
+        assert!(!narrowing("text = 'x' or name has 'x'").whole_word);
+        assert!(
+            !narrowing("not text has 'x'").whole_word,
+            "nothing under not"
+        );
     }
 
     fn legend(q: &str) -> Vec<String> {

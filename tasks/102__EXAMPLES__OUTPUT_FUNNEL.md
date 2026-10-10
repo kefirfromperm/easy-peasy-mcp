@@ -155,6 +155,10 @@ files: 11  lines: 0  matches: 0  result: r1  truncated: yes (max_files)  next cu
 #1 name ~ '*.txt'
 funnel:
   name ~ '*.txt'                        11
+hints:
+  dir: many/ 11
+  lang: unknown 11
+  narrow with: kind = source
 
 many/
 f01.txt  [#1]
