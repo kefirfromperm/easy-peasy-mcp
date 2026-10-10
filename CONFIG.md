@@ -273,6 +273,11 @@ when it comes from the config file, see [Config file](#config-file).
 | `max_archive_size`  | size              | `"100M"`   | see [Archives](#archives)                                          |
 | `skip_generated`    | bool              | `true`     | skip files of [kind](#kinds) `generated`, unless the query has a `kind` condition |
 
+An invalid `traversal.min_depth` or `traversal.max_depth` is `invalid value for 'traversal.min_depth': a whole number
+is expected`. In a request (`"traversal": { "min_depth": 2 }`) a wrong value is `error[invalid_option]:
+'traversal.min_depth' must be a whole number`, a key which isn't one of the section `unknown field 'traversal.<key>'`
+with the keys of the section in the hint.
+
 Notes
 
 - `exclude` prunes directories, they are not even read, so it is much faster than `not path ~ ...` in the query.
