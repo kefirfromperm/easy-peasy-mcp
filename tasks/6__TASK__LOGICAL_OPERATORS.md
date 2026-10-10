@@ -1,6 +1,6 @@
 # Task 6: Logical operators `not`, `and`, `xor`, `or` and brackets
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 5
 
