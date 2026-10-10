@@ -781,6 +781,12 @@ hidden files, ignore files, `exclude`) are ignored; the file and matching option
 read again, so changes are seen. Files deleted since `r12` are skipped. The paths are the ones of `r12`: they are
 written as in `r12`, and `path` conditions see them relative to the working directories of `r12`.
 
+- `within` is a result id like `r12` (`'within' must be a result id like 'r12'`); an unknown or evicted one is
+  `result_expired`: `the result r12 is unknown or no longer kept`, hint `the server keeps the last
+  server.result_cache results`
+- a file of `r12` which is outside of the allowed roots now is skipped with `permission_denied`
+- the new result is a result of its own with its own id; its files are in the order of `output.sort`
+
 ### Changes: `since`
 
 ```json
