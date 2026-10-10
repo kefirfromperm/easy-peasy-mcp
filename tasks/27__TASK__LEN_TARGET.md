@@ -1,6 +1,6 @@
 # Task 27: `len` target
 
-Status: in progress
+Status: implemented, see [27__SUMMARY__LEN_TARGET.md](27__SUMMARY__LEN_TARGET.md)
 
 Depends on: task 26
 
