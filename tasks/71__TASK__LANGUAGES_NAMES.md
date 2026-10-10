@@ -1,6 +1,6 @@
 # Task 71: `languages.<name>.names`
 
-Status: in progress
+Status: implemented, see [71__SUMMARY__LANGUAGES_NAMES.md](71__SUMMARY__LANGUAGES_NAMES.md)
 
 Depends on: task 70
 
