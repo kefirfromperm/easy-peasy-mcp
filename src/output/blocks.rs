@@ -14,6 +14,8 @@ pub struct BlockOptions {
     pub after: usize,
     /// Keep the empty and whitespace-only context lines.
     pub blank_context: bool,
+    /// Remove the common leading whitespace of every block.
+    pub dedent: bool,
 }
 
 /// A line of a block: its 0-based index in the content and whether it is matched (or context).
@@ -26,6 +28,8 @@ pub struct BlockLine {
 /// A run of consecutive lines: matched lines and their context.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Block {
+    /// The bytes of leading whitespace removed from every line (`dedent`).
+    pub indent: usize,
     pub lines: Vec<BlockLine>,
 }
 
@@ -46,6 +50,7 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
     ranges
         .into_iter()
         .map(|(lo, hi)| Block {
+            indent: 0,
             lines: (lo..=hi)
                 .map(|index| BlockLine {
                     index,
@@ -58,7 +63,46 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
                 })
                 .collect(),
         })
+        .map(|mut block| {
+            if options.dedent {
+                block.indent = indent(content, &block.lines, fragments);
+            }
+            block
+        })
         .collect()
+}
+
+/// The common leading spaces and tabs of the lines of a block which are not blank, in bytes, cut back to the start of
+/// a fragment which starts in them.
+fn indent(content: &Content, lines: &[BlockLine], fragments: &[Fragment]) -> usize {
+    let mut common: Option<&str> = None;
+    for line in lines {
+        let text = content.line(line.index);
+        if text.trim().is_empty() {
+            continue;
+        }
+        let lead = &text[..text.len() - text.trim_start_matches([' ', '\t']).len()];
+        common = Some(match common {
+            None => lead,
+            Some(c) => {
+                let same = c
+                    .bytes()
+                    .zip(lead.bytes())
+                    .take_while(|(a, b)| a == b)
+                    .count();
+                &c[..same]
+            }
+        });
+    }
+    let mut indent = common.map_or(0, str::len);
+    for f in fragments {
+        let i = content.line_of(f.range.start);
+        if lines.iter().any(|l| l.index == i) {
+            let (start, _) = content.line_range(i);
+            indent = indent.min(f.range.start - start);
+        }
+    }
+    indent
 }
 
 #[cfg(test)]
@@ -129,7 +173,7 @@ mod tests {
         let wide = BlockOptions {
             before: 2,
             after: 2,
-            blank_context: false,
+            ..BlockOptions::default()
         };
         assert_eq!(
             shape(&blocks(&blank, &around, &wide)),
@@ -151,6 +195,49 @@ mod tests {
                 }
             )),
             [vec![(9, true)]]
+        );
+    }
+
+    #[test]
+    fn the_indent_of_a_block() {
+        let indented = Content::from_bytes(b"    a\n  \t\n\tb\n      c\n\n");
+        let all: Vec<Fragment> = (0..4).map(|i| at(&indented, i)).collect();
+        let dedent = BlockOptions {
+            dedent: true,
+            ..BlockOptions::default()
+        };
+        // a, the blank line and c: two spaces in common; the tab of b has none
+        assert_eq!(
+            blocks(&indented, &all[..1], &dedent)[0].indent,
+            0,
+            "a fragment at the line start"
+        );
+        let late = |line: usize, offset: usize| {
+            let (start, _) = indented.line_range(line);
+            Fragment {
+                range: start + offset..start + offset + 1,
+                ids: vec![(1, CondId::Number(1))],
+                escape: None,
+            }
+        };
+        let ac = [late(0, 4), late(3, 6)];
+        let context = BlockOptions {
+            before: 3,
+            after: 0,
+            blank_context: true,
+            dedent: true,
+        };
+        assert_eq!(
+            blocks(&indented, &ac[1..], &context)[0].indent,
+            0,
+            "b starts with a tab"
+        );
+        assert_eq!(blocks(&indented, &ac[..1], &dedent)[0].indent, 4);
+        let near = [late(3, 2)];
+        assert_eq!(
+            blocks(&indented, &near, &dedent)[0].indent,
+            2,
+            "the fragment starts at 2"
         );
     }
 }

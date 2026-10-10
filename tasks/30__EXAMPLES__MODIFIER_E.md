@@ -76,8 +76,9 @@ data/
 users.json  [#1 #2]  lines: 3  matches: 3
 1:{"users": [{ "name": "root", ⟦#2/e0:"role": "admin"⟧ }],
 --
-3:    "level1": "{⟦#2/e1:\"role\": \"admin\"⟧}",
-4:    "level2": "{\"inner\": \"{⟦#2/e2:\\\"role\\\": \\\"admin\\\"⟧}\"}",
+⇥4
+3:"level1": "{⟦#2/e1:\"role\": \"admin\"⟧}",
+4:"level2": "{\"inner\": \"{⟦#2/e2:\\\"role\\\": \\\"admin\\\"⟧}\"}",
 ```
 
 ## E30.2 A range of levels
@@ -95,8 +96,9 @@ files: 1  lines: 2  matches: 2  result: r1
 
 data/
 users.json  [#1 #2]  lines: 2  matches: 2
-3:    "level1": "{⟦#2/e1:\"role\": \"admin\"⟧}",
-4:    "level2": "{\"inner\": \"{⟦#2/e2:\\\"role\\\": \\\"admin\\\"⟧}\"}",
+⇥4
+3:"level1": "{⟦#2/e1:\"role\": \"admin\"⟧}",
+4:"level2": "{\"inner\": \"{⟦#2/e2:\\\"role\\\": \\\"admin\\\"⟧}\"}",
 ```
 
 ## E30.3 `'` with and without a backslash

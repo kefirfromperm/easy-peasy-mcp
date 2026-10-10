@@ -81,19 +81,28 @@ pub fn render(content: &Content, fragments: &[Fragment], blocks: &[Block]) -> St
         if i > 0 {
             out.push_str("--\n");
         }
+        if block.indent > 0 {
+            let _ = writeln!(out, "⇥{}", block.indent);
+        }
         for line in &block.lines {
-            render_line(&mut out, content, &parts, line);
+            render_line(&mut out, content, &parts, line, block.indent);
         }
     }
     out
 }
 
-/// One line of a block with its marked parts.
-fn render_line(out: &mut String, content: &Content, parts: &[Part], line: &BlockLine) {
+/// One line of a block with its marked parts, without its first `indent` bytes.
+fn render_line(
+    out: &mut String,
+    content: &Content,
+    parts: &[Part],
+    line: &BlockLine,
+    indent: usize,
+) {
     let (start, end) = content.line_range(line.index);
     let separator = if line.matched { ':' } else { '-' };
     let _ = write!(out, "{}{separator}", line.index + 1);
-    let mut pos = start;
+    let mut pos = (start + indent).min(end);
     for part in parts.iter().filter(|p| {
         (p.range.start >= start && p.range.start <= end)
             || (p.range.start < start && p.range.end > start)
@@ -110,7 +119,7 @@ fn render_line(out: &mut String, content: &Content, parts: &[Part], line: &Block
         }
         // a part which ends with the line break closes at the end of the line
         if part.range.end <= end + 1 {
-            let close = part.range.end.min(end);
+            let close = part.range.end.min(end).max(pos);
             out.push_str(&content.text()[pos..close]);
             out.push_str(CLOSE);
             pos = close;

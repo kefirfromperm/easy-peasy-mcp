@@ -235,6 +235,7 @@ impl Engine {
                 before: settings.opt_whole(Key::Before).unwrap_or(context),
                 after: settings.opt_whole(Key::After).unwrap_or(context),
                 blank_context: settings.bool(Key::BlankContext),
+                dedent: settings.bool(Key::Dedent),
             },
             result_id: result_id.as_deref(),
             legend: &query.legend,

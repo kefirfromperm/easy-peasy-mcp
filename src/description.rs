@@ -79,7 +79,7 @@ OUTPUT: output.detail = exists | count | files | lines (default); output.format 
 \"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
 under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]
 and its counts, then its matched lines: \"42:\" a matched line, \"41-\" a context line (output.context = N lines around),
-\"--\" a gap, ⟦ids:text⟧ a match.
+\"--\" a gap, ⟦ids:text⟧ a match, ⇥N the indentation removed from a block.
 Spec version 1.";
 
 /// The input schema of the `find` tool.
@@ -142,6 +142,7 @@ pub fn find_schema() -> Value {
                     "context": { "type": "integer", "minimum": 0, "description": "Lines before and after every matched line (grep -C). Default: 0." },
                     "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." },
                     "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." },
+                    "dedent": { "type": "boolean", "description": "Remove the common indentation of every block, written once as ⇥N (indent in JSON). Default: true." },
                     "blank_context": { "type": "boolean", "description": "Keep empty and whitespace-only context lines; the line numbers show the skipped ones. Default: false." }
                 }
             },

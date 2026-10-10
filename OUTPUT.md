@@ -566,8 +566,10 @@ only a few locations of a repeated line. `group_dirs` changes only the text form
 
 ### Dedent
 
-`dedent = true` removes the common leading whitespace of every block. The number of removed characters is written
-once at the start of the block, `col` still refers to the original line:
+`dedent = true` removes the common leading whitespace (spaces and tabs) of every block. The number of removed characters
+is written once at the start of the block, `col` still refers to the original line. Empty and whitespace-only lines
+don't count for the common whitespace, and it is never removed into a match: a fragment which starts in it keeps the
+whitespace before it. A block without common whitespace has no `⇥` line:
 
 ```
 ...

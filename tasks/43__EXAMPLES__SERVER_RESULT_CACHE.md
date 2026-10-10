@@ -171,6 +171,7 @@ detail = "lines"    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
+dedent = true    # default
 blank_context = false    # default
 
 [escape]
