@@ -31,6 +31,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E38.2 With the source
@@ -51,6 +52,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ## E38.3 Another section
@@ -90,6 +92,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ```json request
@@ -152,6 +155,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 ```json request
@@ -193,6 +197,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ```json request
@@ -235,6 +240,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E38.9 An invalid value

@@ -198,6 +198,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E39.12 Changing the default working directories in a session
@@ -231,6 +232,7 @@ default_dirs = ['api']    # update
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 3. `find`
@@ -301,6 +303,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E39.14 The default working directories from the config file
@@ -332,6 +335,7 @@ default_dirs = ['web']    # file: conf/dirs.toml
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+result_cache = 50    # default
 ```
 
 2. `find`

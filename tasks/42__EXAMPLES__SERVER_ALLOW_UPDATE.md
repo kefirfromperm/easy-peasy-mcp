@@ -30,6 +30,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+result_cache = 50
 ```
 
 ## E42.2 Read-only for `update_config`
@@ -82,6 +83,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = false    # cli
+result_cache = 50    # default
 ```
 
 3. `find`
@@ -127,6 +129,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = false    # file: conf/u.toml
+result_cache = 50    # default
 ```
 
 2. `update_config`
