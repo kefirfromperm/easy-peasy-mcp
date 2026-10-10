@@ -231,6 +231,7 @@ context = 0
 dedent = true
 blank_context = false
 group_dirs = true
+group_repeated = 3
 
 [escape]
 max_level = 3

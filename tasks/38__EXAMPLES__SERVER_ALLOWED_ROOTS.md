@@ -60,6 +60,7 @@ context = 0
 dedent = true
 blank_context = false
 group_dirs = true
+group_repeated = 3
 
 [escape]
 max_level = 3
@@ -536,6 +537,7 @@ context = 0    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
+group_repeated = 3    # default
 
 [escape]
 max_level = 3    # default
@@ -988,6 +990,7 @@ context = 0
 dedent = true
 blank_context = false
 group_dirs = true
+group_repeated = 3
 ```
 
 ## E38.4 A root from the command line
@@ -1041,6 +1044,7 @@ context = 0    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
+group_repeated = 3    # default
 
 [escape]
 max_level = 3    # default
@@ -1559,6 +1563,7 @@ context = 0    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
+group_repeated = 3    # default
 
 [escape]
 max_level = 3    # default
@@ -2056,6 +2061,7 @@ context = 0
 dedent = true
 blank_context = false
 group_dirs = true
+group_repeated = 3
 
 [escape]
 max_level = 3
@@ -2554,6 +2560,7 @@ context = 0
 dedent = true
 blank_context = false
 group_dirs = true
+group_repeated = 3
 
 [escape]
 max_level = 3
