@@ -31,6 +31,9 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+
+[traversal]
+min_depth = 0
 ```
 
 ## E35.2 One section
@@ -44,6 +47,9 @@ Fixture: `get-config`
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
 # read-only: server.allowed_roots, server.allow_update
+
+[traversal]
+min_depth = 0
 ```
 
 ## E35.3 With the sources
@@ -65,6 +71,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ## E35.4 An unknown section

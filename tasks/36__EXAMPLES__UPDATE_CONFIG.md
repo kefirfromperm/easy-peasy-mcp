@@ -203,6 +203,9 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+
+[traversal]
+min_depth = 0
 ```
 
 3. `find`

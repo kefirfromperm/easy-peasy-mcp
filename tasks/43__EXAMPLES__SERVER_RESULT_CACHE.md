@@ -146,6 +146,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 0    # file: conf/c.toml
+
+[traversal]
+min_depth = 0    # default
 ```
 
 2. `find`

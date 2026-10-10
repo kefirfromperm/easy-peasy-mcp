@@ -32,6 +32,9 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+
+[traversal]
+min_depth = 0
 ```
 
 ## E38.2 With the source
@@ -53,6 +56,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ## E38.3 Another section
@@ -93,6 +99,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ```json request
@@ -156,6 +165,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ```json request
@@ -198,6 +210,9 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+
+[traversal]
+min_depth = 0
 ```
 
 ```json request
@@ -241,6 +256,9 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+
+[traversal]
+min_depth = 0
 ```
 
 ## E38.9 An invalid value
