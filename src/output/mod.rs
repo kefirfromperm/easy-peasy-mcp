@@ -9,6 +9,8 @@ use crate::warning::Warnings;
 
 mod lines;
 
+pub use lines::{Fragment, matched_lines, merge_identical};
+
 /// The response of a `find` call with `detail = lines`, for a query of file conditions only.
 pub struct Response<'a> {
     pub result_id: &'a str,
@@ -25,9 +27,18 @@ impl Response<'_> {
     /// The text format.
     #[must_use]
     pub fn to_text(&self) -> String {
+        let count = |f: fn(&crate::search::FileMatches) -> usize| -> usize {
+            self.files
+                .iter()
+                .filter_map(|file| file.matches.as_ref())
+                .map(f)
+                .sum()
+        };
         let mut out = format!(
-            "files: {}  lines: 0  matches: 0  result: {}\n",
+            "files: {}  lines: {}  matches: {}  result: {}\n",
             self.files.len(),
+            count(|m| m.lines),
+            count(|m| m.fragments.len()),
             self.result_id
         );
         if self.files.is_empty() {
@@ -54,7 +65,13 @@ impl Response<'_> {
                 let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
                 let _ = write!(out, "  [{}]", ids.join(" "));
             }
+            if let Some(m) = &file.matches {
+                let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
+            }
             out.push('\n');
+            if let Some(m) = &file.matches {
+                out.push_str(&lines::render(&m.content, &m.fragments));
+            }
         }
         self.push_warnings(&mut out);
         out
@@ -116,6 +133,7 @@ mod tests {
             rel: PathBuf::from(path),
             is_dir: false,
             conditions: vec![CondId::Number(1)],
+            matches: None,
         }
     }
 
@@ -150,6 +168,7 @@ mod tests {
             rel: PathBuf::from("a.md"),
             is_dir: false,
             conditions: vec![],
+            matches: None,
         }];
         let text = Response {
             result_id: "r1",

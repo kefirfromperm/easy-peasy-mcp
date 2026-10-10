@@ -19,7 +19,9 @@ use ast::{
 };
 use lexer::Token;
 
-pub use eval::{EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget};
+pub use eval::{
+    ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget, Truth,
+};
 pub(crate) use suggest::did_you_mean;
 
 use crate::error::{ErrorCode, QueryError};
@@ -69,6 +71,8 @@ pub struct Needs {
     pub kind: bool,
     /// A `git` condition: the git status of files; files outside of a repository get a warning.
     pub git: bool,
+    /// A `text` condition: the content of files.
+    pub content: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -114,6 +118,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
                 needs.lang |= matches!(c.target, Target::Lang | Target::Kind);
                 needs.kind |= c.target == Target::Kind;
                 needs.git |= c.target == Target::Git;
+                needs.content |= c.target == Target::Text;
             }
         });
     }
@@ -529,6 +534,19 @@ fn compile_date(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
 }
 
 fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions) -> Filter {
+    if c.target == Target::Text {
+        let Value::Str(s) = &c.value else {
+            unreachable!("text conditions have a string")
+        };
+        let flags = if c.modifiers.iter().any(|m| m.name == "i") {
+            "(?i)"
+        } else {
+            ""
+        };
+        let regex = Regex::new(&format!("{flags}{}", regex::escape(&s.value)))
+            .expect("an escaped string is a valid regex");
+        return Filter::Content { id, order, regex };
+    }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
         unreachable!("name and path conditions have an operator and a string")
     };
@@ -781,6 +799,7 @@ mod tests {
             lang: "unknown",
             kind: Kind::Other,
             git: None,
+            content: ContentState::Absent,
         };
         query.filter.unwrap().matches(&file)
     }
@@ -881,6 +900,7 @@ mod tests {
             lang,
             kind: Kind::Other,
             git: None,
+            content: ContentState::Absent,
         };
         let q = parse("lang in (rust, Python)", &SENSITIVE).unwrap();
         assert!(q.needs.lang);
@@ -911,6 +931,7 @@ mod tests {
             lang: "unknown",
             kind,
             git: None,
+            content: ContentState::Absent,
         };
         let q = parse("kind in (source, TEST)", &SENSITIVE).unwrap();
         assert!(q.needs.kind && q.needs.lang);
@@ -1005,7 +1026,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("text has 'x' and name ~ '[a-'", &SENSITIVE).unwrap_err();
+        let e = parse("len > 1 and name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }

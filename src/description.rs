@@ -29,6 +29,7 @@ Empty query = all files.
   git = changed                  also: modified staged untracked conflicted clean; git in (modified, untracked);
                                  git = branch: changed, or changed by the commits since the base (main/master);
                                  false outside of a repository
+  text has 'TODO'                content contains, /i ignore case; a value with '\n' matches across lines
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'
@@ -38,8 +39,9 @@ Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which cond
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
 Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped.
 
-OUTPUT: the header \"files: N  lines: 0  matches: 0  result: r1\", the legend \"#1 <condition>\", then the files
-under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1].
+OUTPUT: the header \"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
+under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]
+and its counts, then its matched lines: \"42:\" a matched line, \"--\" a gap, ⟦ids:text⟧ a match.
 Spec version 1.";
 
 /// The input schema of the `find` tool.
