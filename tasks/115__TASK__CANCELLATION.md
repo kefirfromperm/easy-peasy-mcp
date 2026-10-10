@@ -1,6 +1,6 @@
 # Task 115: Cancellation
 
-Status: in progress
+Status: implemented, see [115__SUMMARY__CANCELLATION.md](115__SUMMARY__CANCELLATION.md)
 
 Depends on: task 114
 
