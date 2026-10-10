@@ -61,6 +61,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E51.2 Every `target` directory
@@ -183,6 +184,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E51.6 An invalid value in a request
@@ -272,6 +274,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 2. `find`

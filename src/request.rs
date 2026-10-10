@@ -341,8 +341,16 @@ mod tests {
             "error[invalid_option]: 'traversal.encoding' must be \"auto\" or an encoding name like \"windows-1252\"\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "fallback_encoding": "koi8-r" } })),
-            "error[not_implemented]: the field 'traversal.fallback_encoding' is not implemented yet\n"
+            config(&json!({ "traversal": { "fallback_encoding": "koi8-r" } })),
+            [(Key::FallbackEncoding, KeyValue::Text("koi8-r".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "fallback_encoding": "auto" } })),
+            "error[invalid_option]: 'traversal.fallback_encoding' must be an encoding name like \"windows-1251\"\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "archives": "none" } })),
+            "error[not_implemented]: the field 'traversal.archives' is not implemented yet\n"
         );
     }
 

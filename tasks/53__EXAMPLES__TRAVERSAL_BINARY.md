@@ -58,6 +58,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E53.2 Binary files searched as text
@@ -150,6 +151,7 @@ path_case = "native"    # default
 binary = "search"    # update
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E53.5 An invalid value in a request
@@ -213,6 +215,7 @@ path_case = "native"    # default
 binary = "exclude"    # file: conf/b.toml
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 2. `find`

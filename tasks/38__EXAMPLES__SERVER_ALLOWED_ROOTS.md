@@ -46,6 +46,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E38.2 With the source
@@ -81,6 +82,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E38.3 Another section
@@ -135,6 +137,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ```json request
@@ -212,6 +215,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ```json request
@@ -268,6 +272,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ```json request
@@ -325,6 +330,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E38.9 An invalid value

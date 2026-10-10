@@ -45,6 +45,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E45.3 A maximum depth for the session
@@ -99,6 +100,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 4. `update_config`
@@ -191,6 +193,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 2. `find`

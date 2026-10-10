@@ -55,6 +55,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E44.2 A minimum depth in the request
@@ -131,6 +132,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E44.4 Invalid values in a request
@@ -217,6 +219,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 2. `find`

@@ -295,6 +295,13 @@ impl Engine {
                         Some(config::encoding(label).expect("the encoding is checked with its key"))
                     }
                 },
+                fallback: match settings.value(Key::FallbackEncoding) {
+                    config::KeyValue::Text(label) => Some(
+                        config::encoding(label)
+                            .expect("the fallback encoding is checked with its key"),
+                    ),
+                    _ => None,
+                },
             },
             max_file_size: settings.size(Key::MaxFileSize),
             read_delay: self.options.read_delay,
