@@ -9,7 +9,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
-use crate::content::{Content, is_binary};
+use crate::content::{Content, Decoded, Encoding, decode};
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::LanguageTable;
 use crate::output::{Fragment, matched_lines, merge_identical};
@@ -45,6 +45,8 @@ pub struct Found {
     pub conditions: Vec<CondId>,
     /// The content fragments, if any content condition made the file match.
     pub matches: Option<FileMatches>,
+    /// The encoding of a file whose content was read, if it is not UTF-8.
+    pub encoding: Option<Encoding>,
 }
 
 /// The content fragments of a matched file and its counts (OUTPUT.md#counts).
@@ -231,8 +233,8 @@ impl Walk<'_> {
                 ContentState::Absent
             },
         };
-        let (conditions, matches) = match &query.filter {
-            None => (Vec::new(), None),
+        let (conditions, matches, encoding) = match &query.filter {
+            None => (Vec::new(), None, None),
             Some(filter) => self.evaluate(filter, file, entry.path(), rel)?,
         };
         let is_file = entry_type == EntryType::File;
@@ -247,6 +249,7 @@ impl Walk<'_> {
             is_dir: entry_type == EntryType::Dir,
             conditions,
             matches,
+            encoding,
         };
         Some((found, id))
     }
@@ -259,21 +262,32 @@ impl Walk<'_> {
         file: FileValues<'_>,
         path: &Path,
         rel: &Path,
-    ) -> Option<(Vec<CondId>, Option<FileMatches>)> {
+    ) -> Option<(Vec<CondId>, Option<FileMatches>, Option<Encoding>)> {
         if filter.eval(&file) == Truth::False {
             return None;
         }
         let content: Content;
+        let mut encoding = None;
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
         if matches!(file.content, ContentState::NotRead) {
-            let bytes = std::fs::read(path).ok()?;
-            if is_binary(&bytes) {
-                file.content = ContentState::Unknown;
-                self.warn(WarningCode::BinarySkipped, rel, false);
-            } else {
-                content = Content::from_bytes(&bytes);
-                file.content = ContentState::Text(&content);
+            match decode(&std::fs::read(path).ok()?) {
+                Decoded::Binary => {
+                    file.content = ContentState::Unknown;
+                    self.warn(WarningCode::BinarySkipped, rel, false);
+                }
+                Decoded::Text {
+                    content: decoded,
+                    encoding: used,
+                    errors,
+                } => {
+                    if errors {
+                        self.warn(WarningCode::DecodeErrors, rel, false);
+                    }
+                    encoding = (used != Encoding::Utf8).then_some(used);
+                    content = decoded;
+                    file.content = ContentState::Text(&content);
+                }
             }
         }
         if !filter.matches(&file) {
@@ -289,7 +303,7 @@ impl Walk<'_> {
             ContentState::Text(content) => file_matches(content, &leaves),
             _ => None,
         };
-        Some((conditions, matches))
+        Some((conditions, matches, encoding))
     }
 
     /// The dates of an entry; `date_unsupported` when the query needs a date the file system doesn't provide.

@@ -68,6 +68,9 @@ impl Response<'_> {
             if let Some(m) = &file.matches {
                 let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
             }
+            if let Some(encoding) = file.encoding {
+                let _ = write!(out, "  {}", encoding.name());
+            }
             out.push('\n');
             if let Some(m) = &file.matches {
                 out.push_str(&lines::render(&m.content, &m.fragments));
@@ -134,6 +137,7 @@ mod tests {
             is_dir: false,
             conditions: vec![CondId::Number(1)],
             matches: None,
+            encoding: None,
         }
     }
 
@@ -169,6 +173,7 @@ mod tests {
             is_dir: false,
             conditions: vec![],
             matches: None,
+            encoding: None,
         }];
         let text = Response {
             result_id: "r1",

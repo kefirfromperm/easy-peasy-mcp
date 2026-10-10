@@ -8,6 +8,133 @@ pub fn is_binary(bytes: &[u8]) -> bool {
     bytes[..bytes.len().min(BINARY_CHECK_BYTES)].contains(&0)
 }
 
+/// The encoding a file was decoded with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Encoding {
+    Utf8,
+    Utf16Le,
+    Utf16Be,
+    Utf32Le,
+    Utf32Be,
+}
+
+impl Encoding {
+    /// The name in the output.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Utf8 => "utf-8",
+            Self::Utf16Le => "utf-16le",
+            Self::Utf16Be => "utf-16be",
+            Self::Utf32Le => "utf-32le",
+            Self::Utf32Be => "utf-32be",
+        }
+    }
+}
+
+/// A file after `encoding = auto` (CONFIG.md#encoding).
+#[derive(Debug, Clone)]
+pub enum Decoded {
+    /// A binary file: its content is not searched.
+    Binary,
+    /// Text; `errors` when invalid bytes were replaced with `�`.
+    Text {
+        content: Content,
+        encoding: Encoding,
+        errors: bool,
+    },
+}
+
+/// Decodes a file: by its BOM, as UTF-16 by the pattern of its zero bytes, as binary with a zero byte in the first
+/// 8K, otherwise as UTF-8.
+pub fn decode(bytes: &[u8]) -> Decoded {
+    let (encoding, body) = if let Some(rest) = bytes.strip_prefix(b"\xef\xbb\xbf") {
+        (Encoding::Utf8, rest)
+    } else if let Some(rest) = bytes.strip_prefix(b"\xff\xfe\0\0") {
+        (Encoding::Utf32Le, rest)
+    } else if let Some(rest) = bytes.strip_prefix(b"\0\0\xfe\xff") {
+        (Encoding::Utf32Be, rest)
+    } else if let Some(rest) = bytes.strip_prefix(b"\xff\xfe") {
+        (Encoding::Utf16Le, rest)
+    } else if let Some(rest) = bytes.strip_prefix(b"\xfe\xff") {
+        (Encoding::Utf16Be, rest)
+    } else if let Some(encoding) = utf16_by_zero_bytes(bytes) {
+        (encoding, bytes)
+    } else if is_binary(bytes) {
+        return Decoded::Binary;
+    } else {
+        (Encoding::Utf8, bytes)
+    };
+    let (text, errors) = match encoding {
+        Encoding::Utf8 => {
+            let text = String::from_utf8_lossy(body);
+            let errors = matches!(text, std::borrow::Cow::Owned(_));
+            (text.into_owned(), errors)
+        }
+        Encoding::Utf16Le | Encoding::Utf16Be => {
+            let codec = if encoding == Encoding::Utf16Le {
+                encoding_rs::UTF_16LE
+            } else {
+                encoding_rs::UTF_16BE
+            };
+            let (text, errors) = codec.decode_without_bom_handling(body);
+            (text.into_owned(), errors)
+        }
+        Encoding::Utf32Le | Encoding::Utf32Be => decode_utf32(body, encoding == Encoding::Utf32Le),
+    };
+    Decoded::Text {
+        content: Content::from_text(text),
+        encoding,
+        errors,
+    }
+}
+
+/// UTF-16 without a BOM: in the first 8K more than half of the bytes at odd positions are zero and none at even
+/// positions (little endian), or the other way round (big endian).
+fn utf16_by_zero_bytes(bytes: &[u8]) -> Option<Encoding> {
+    let head = &bytes[..bytes.len().min(BINARY_CHECK_BYTES)];
+    let pairs = head.len() / 2;
+    if pairs == 0 {
+        return None;
+    }
+    let zeros = |offset: usize| {
+        head.as_chunks::<2>()
+            .0
+            .iter()
+            .filter(|pair| pair[offset] == 0)
+            .count()
+    };
+    let (even, odd) = (zeros(0), zeros(1));
+    if even == 0 && odd * 2 > pairs {
+        Some(Encoding::Utf16Le)
+    } else if odd == 0 && even * 2 > pairs {
+        Some(Encoding::Utf16Be)
+    } else {
+        None
+    }
+}
+
+/// UTF-32: invalid code points and a trailing partial unit are replaced with `�`.
+fn decode_utf32(bytes: &[u8], little_endian: bool) -> (String, bool) {
+    let mut errors = !bytes.len().is_multiple_of(4);
+    let mut text = String::with_capacity(bytes.len() / 4);
+    for unit in bytes.as_chunks::<4>().0 {
+        let unit = *unit;
+        let code = if little_endian {
+            u32::from_le_bytes(unit)
+        } else {
+            u32::from_be_bytes(unit)
+        };
+        text.push(char::from_u32(code).unwrap_or_else(|| {
+            errors = true;
+            char::REPLACEMENT_CHARACTER
+        }));
+    }
+    if !bytes.len().is_multiple_of(4) {
+        text.push(char::REPLACEMENT_CHARACTER);
+    }
+    (text, errors)
+}
+
 /// The decoded text of a file with `\n` line breaks (a `\r` before `\n` is removed) and the byte offsets where
 /// its lines start.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,12 +145,17 @@ pub struct Content {
 
 impl Content {
     /// Decodes UTF-8, replacing invalid bytes, and normalizes the line breaks.
+    #[cfg(test)]
     pub fn from_bytes(bytes: &[u8]) -> Self {
-        let decoded = String::from_utf8_lossy(bytes);
+        Self::from_text(String::from_utf8_lossy(bytes).into_owned())
+    }
+
+    /// Normalizes the line breaks of a decoded text.
+    pub fn from_text(decoded: String) -> Self {
         let text = if decoded.contains("\r\n") {
             decoded.replace("\r\n", "\n")
         } else {
-            decoded.into_owned()
+            decoded
         };
         let mut line_starts = Vec::new();
         if !text.is_empty() {
