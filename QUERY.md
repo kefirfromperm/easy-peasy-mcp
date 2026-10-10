@@ -373,6 +373,8 @@ git in (modified, untracked)
 | `"..."`   | `\'`, `\"`, `\\`, `\n`, `\t`                  | values with `'`                               |
 | `` `...` `` | none, everything until the closing backtick | regexes, values with quotes and backslashes   |
 
+In `'...'` and `"..."` any other `\` is kept as it is: `'\d+'` is the three characters `\d+`.
+
 The query is sent inside a JSON tool argument, where every `"` becomes `\"` and every `\` becomes `\\`. To keep it
 readable prefer `'...'` and `` `...` ``:
 
