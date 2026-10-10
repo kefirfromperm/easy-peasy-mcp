@@ -1,6 +1,6 @@
 # Task 30: `/e` match escaped text
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 23
 
