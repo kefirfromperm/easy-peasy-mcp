@@ -1,6 +1,6 @@
 # Task 1: MVP — find files by name
 
-Status: not implemented
+Status: in progress
 
 ## Goal
 
