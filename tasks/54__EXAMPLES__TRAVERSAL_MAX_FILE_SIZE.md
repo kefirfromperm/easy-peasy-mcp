@@ -59,6 +59,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E54.2 A smaller limit in a request
@@ -161,6 +162,7 @@ binary = "skip"    # default
 max_file_size = "0.5k"    # update
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E54.5 An invalid value in a request
@@ -225,6 +227,7 @@ binary = "skip"    # default
 max_file_size = "1K"    # file: conf/s.toml
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 2. `find`

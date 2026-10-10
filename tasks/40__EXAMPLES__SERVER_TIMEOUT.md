@@ -125,6 +125,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 3. `find`
@@ -207,6 +208,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -252,6 +254,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -297,6 +300,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

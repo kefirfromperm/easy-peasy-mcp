@@ -63,6 +63,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E48.2 No ignore files
@@ -170,6 +171,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E48.6 An invalid value in a request
@@ -234,6 +236,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 2. `find`

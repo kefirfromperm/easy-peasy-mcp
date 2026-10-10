@@ -46,6 +46,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E45.3 A maximum depth for the session
@@ -101,6 +102,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 4. `update_config`
@@ -194,6 +196,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 2. `find`

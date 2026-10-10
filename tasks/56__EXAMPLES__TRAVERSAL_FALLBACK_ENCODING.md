@@ -51,6 +51,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E56.2 A fallback in a request
@@ -150,6 +151,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 fallback_encoding = "windows-1252"    # update
+archives = "none"    # default
 ```
 
 4. `update_config`
@@ -225,6 +227,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 fallback_encoding = "windows-1252"    # file: conf/f.toml
+archives = "none"    # default
 ```
 
 2. `find`

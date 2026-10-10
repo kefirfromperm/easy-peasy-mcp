@@ -47,6 +47,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E38.2 With the source
@@ -83,6 +84,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E38.3 Another section
@@ -138,6 +140,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ```json request
@@ -216,6 +219,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ```json request
@@ -273,6 +277,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ```json request
@@ -331,6 +336,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E38.9 An invalid value

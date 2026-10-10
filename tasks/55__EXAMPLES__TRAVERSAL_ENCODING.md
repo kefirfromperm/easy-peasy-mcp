@@ -72,6 +72,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E55.2 An encoding in a request
@@ -169,6 +170,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "windows-1252"    # update
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E55.5 An invalid value in a request
@@ -233,6 +235,7 @@ binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "windows-1252"    # file: conf/e.toml
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 2. `find`
