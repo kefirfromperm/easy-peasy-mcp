@@ -42,7 +42,10 @@ Empty query = all files.
                                  condition only regular files are returned; directories are written as 'name/'
 Modifiers after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i; /w whole word on text
 (no letter, digit or _ right before and after the match); /c ignore matches in comments of the file's language
-(markers in strings are text; files of an unknown language are searched as is): text has 'unsafe' /c.
+(markers in strings are text; files of an unknown language are searched as is): text has 'unsafe' /c;
+/e(backslash|quote_doubling|xml|url, 0..2|1|any) on = has starts ends of text also matches the value escaped that
+many times (JSON inside JSON etc.), e.g. text has `\"type\": \"admin\"` /e(backslash, any); any = 0..3; the
+level of each match is shown after the ids: ⟦#1/e1:...⟧.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.

@@ -77,6 +77,7 @@ fn line_fragments(
         for leaf in inner.contributing_in_line(line) {
             if let Filter::Content { id, order, pattern } = leaf {
                 fragments.extend(pattern.line_matches(line).into_iter().map(|r| Fragment {
+                    escape: pattern.escape_level(line.text, r.start),
                     range: start + r.start..start + r.end,
                     ids: vec![group.clone(), (*order, id.clone())],
                 }));
@@ -86,6 +87,7 @@ fn line_fragments(
             fragments.push(Fragment {
                 range: start..end,
                 ids: vec![group.clone()],
+                escape: None,
             });
         }
     }
@@ -102,6 +104,7 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
                     .content_matches(content)
                     .into_iter()
                     .map(|range| Fragment {
+                        escape: pattern.escape_level(content.text(), range.start),
                         range,
                         ids: vec![(*order, id.clone())],
                     }),

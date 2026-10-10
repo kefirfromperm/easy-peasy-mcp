@@ -10,7 +10,7 @@ mod suggest;
 mod value;
 pub mod wildcard;
 
-use std::ops::Range;
+use std::ops::{Range, RangeInclusive};
 
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
@@ -18,6 +18,7 @@ use unicode_normalization::UnicodeNormalization;
 use ast::{
     CondId, Condition, Expr, Modifier, Node, NodeKind, Op, Spanned, Target, TargetClass, Value,
 };
+use escape::Style;
 use lexer::Token;
 
 pub use eval::{
@@ -304,6 +305,9 @@ fn validate_condition(
         );
     }
     for modifier in &c.modifiers {
+        if let Some((style, levels)) = &modifier.args {
+            validate_escape(text, style, levels, errors);
+        }
         if let Some(hint) = modifier_not_allowed(c, modifier, scope != Scope::File) {
             errors.push(
                 QueryError::new(
@@ -519,6 +523,67 @@ fn validate_dates(text: &str, value: &Value, options: &ParseOptions, errors: &mu
             }
         }
         _ => {}
+    }
+}
+
+/// The arguments of `/e(style, levels)`: `unknown_value` for the style, `invalid_escape_level` or `invalid_range` for
+/// the levels.
+fn validate_escape(text: &str, style: &Spanned, levels: &Spanned, errors: &mut Vec<QueryError>) {
+    if Style::from_keyword(&style.text).is_none() {
+        let names: Vec<&str> = Style::ALL.iter().map(|s| s.keyword()).collect();
+        errors.push(unknown_value(style, &names));
+    }
+    if let Err(e) = escape_levels(text, levels) {
+        errors.push(e);
+    }
+}
+
+/// The levels of `/e` as written: a number, a range `a..b` or `any` (QUERY.md#levels).
+fn escape_levels(text: &str, levels: &Spanned) -> Result<RangeInclusive<u8>, QueryError> {
+    if levels.text.trim().eq_ignore_ascii_case("any") {
+        return Ok(0..=escape::MAX_LEVEL);
+    }
+    let not_levels = || {
+        QueryError::new(
+            ErrorCode::InvalidEscapeLevel,
+            format!("invalid escape level '{}'", levels.text),
+            levels.span.clone(),
+        )
+        .hint("levels: a number, a range like 0..2, or any")
+    };
+    let mut numbers = Vec::new();
+    let mut offset = 0;
+    for part in levels.text.split("..") {
+        let trimmed = part.trim();
+        let start = levels.span.start + offset + (part.len() - part.trim_start().len());
+        offset += part.len() + 2;
+        if trimmed.is_empty() || !trimmed.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(not_levels());
+        }
+        let number = Spanned {
+            text: trimmed.to_string(),
+            span: start..start + trimmed.len(),
+        };
+        match trimmed.parse::<u8>() {
+            Ok(n) if n <= escape::MAX_LEVEL => numbers.push((n, number)),
+            _ => {
+                return Err(QueryError::new(
+                    ErrorCode::InvalidEscapeLevel,
+                    format!("invalid escape level {trimmed}"),
+                    number.span,
+                )
+                .hint(format!(
+                    "max level is {} (configuration escape.max_level)",
+                    escape::MAX_LEVEL
+                )));
+            }
+        }
+    }
+    match numbers.as_slice() {
+        [(n, _)] => Ok(*n..=*n),
+        [(a, from), (b, to)] if a > b => Err(invalid_range(text, from, to)),
+        [(a, _), (b, _)] => Ok(*a..=*b),
+        _ => Err(not_levels()),
     }
 }
 
@@ -765,7 +830,19 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         } else {
             ""
         };
-        let escaped = regex::escape(&s.value);
+        let escape = c.modifiers.iter().find_map(|m| {
+            let (style, levels) = m.args.as_ref()?;
+            let style = Style::from_keyword(&style.text).expect("styles are validated");
+            let levels = escape_levels("", levels).expect("levels are validated");
+            Some((style, levels))
+        });
+        let (escaped, escape_levels) = match &escape {
+            Some((style, levels)) => (
+                escape::pattern(*style, &s.value, levels.clone()),
+                levels.clone().collect(),
+            ),
+            None => (regex::escape(&s.value), Vec::new()),
+        };
         let pattern = match c.op.as_ref().map(|(op, _)| *op) {
             Some(Op::Eq) => format!(r"\A{escaped}\z"),
             Some(Op::Starts) => format!(r"\A{escaped}"),
@@ -790,6 +867,7 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
                     per_line: !multiline,
                     whole_word,
                     skip_comments,
+                    escape_levels: Vec::new(),
                 },
             };
         }
@@ -803,6 +881,7 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
                 per_line: false,
                 whole_word,
                 skip_comments,
+                escape_levels,
             },
         };
     }
@@ -1055,11 +1134,8 @@ mod tests {
     #[test]
     fn allowed_modifiers_pass_validation() {
         assert!(parse("text =~ 'a' /m /w /i /c", &SENSITIVE).is_ok());
-        for q in [
-            "text has 'a' /e(xml, 1) /w",
-            "name has 'a b' /n",
-            "line(text has 'a' /n /i)",
-        ] {
+        assert!(parse("text has 'a' /e(xml, 1) /w", &SENSITIVE).is_ok());
+        for q in ["name has 'a b' /n", "line(text has 'a' /n /i)"] {
             let e = parse(q, &SENSITIVE).unwrap_err();
             assert_eq!(e.code, ErrorCode::NotImplemented, "{q}: {e:?}");
         }
@@ -1317,6 +1393,30 @@ mod tests {
         assert!(!rust_matches(
             "near(text has 'a' /c, text has 'b' /c, 0)",
             "a // b"
+        ));
+    }
+
+    #[test]
+    fn escaped_text() {
+        let q = "text has `\"a\"` /e(backslash, 1)";
+        assert!(content_matches(q, "x \\\"a\\\" y"));
+        assert!(!content_matches(q, "x \"a\" y"));
+        assert!(content_matches("text = 'a b' /e(url, any)", "a+b"));
+        assert!(!content_matches("text = 'a b' /e(url, any)", "a+b\n"));
+        assert!(content_matches("text starts '<' /e(xml, 1)", "&lt;p>"));
+        assert!(content_matches("text ends '<' /e(xml, 1)", "p&lt;"));
+        assert!(content_matches("text has '&' /e(xml, 2) /i", "&AMP;AMP;"));
+        // /w checks the boundaries around the escaped match
+        assert!(content_matches("text has 'a b' /e(url, 1) /w", "x a%20b"));
+        assert!(!content_matches("text has 'a b' /e(url, 1) /w", "xa%20b"));
+        assert!(content_matches("line(text has '<' /e(xml, 1))", "a\n&lt;"));
+        assert!(!rust_matches(
+            "text has '\"' /e(backslash, 1) /c",
+            "// \\\"\nx"
+        ));
+        assert!(rust_matches(
+            "text has '\"' /e(backslash, 1) /c",
+            "x(\"\\\"\")"
         ));
     }
 

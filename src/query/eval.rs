@@ -279,6 +279,8 @@ pub struct TextPattern {
     pub whole_word: bool,
     /// `/c`: only matches which don't start inside a comment.
     pub skip_comments: bool,
+    /// `/e`: the escape level of every capture group of the regex; empty without `/e`.
+    pub escape_levels: Vec<u8>,
 }
 
 impl TextPattern {
@@ -313,6 +315,17 @@ impl TextPattern {
             self.whole_word,
             self.skip(&in_comment),
         )
+    }
+
+    /// The escape level of the match which starts at `start` of `hay`; `None` without `/e`.
+    pub fn escape_level(&self, hay: &str, start: usize) -> Option<u8> {
+        if self.escape_levels.is_empty() {
+            return None;
+        }
+        let captures = self.regex.captures_at(hay, start)?;
+        (1..captures.len())
+            .find(|&i| captures.get(i).is_some())
+            .and_then(|i| self.escape_levels.get(i - 1).copied())
     }
 
     /// `in_comment` with `/c`.

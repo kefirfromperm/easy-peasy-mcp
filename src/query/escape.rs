@@ -1,5 +1,6 @@
 //! `/e(style, levels)`: the escaped forms of a value (QUERY.md#escaping).
 
+use std::fmt::Write as _;
 use std::ops::RangeInclusive;
 
 /// The highest escape level of `/e(style, any)` and of a query; `escape.max_level` comes with task 61.
@@ -36,14 +37,74 @@ impl Style {
     }
 }
 
+/// The forms of `c` escaped once.
+fn escape_char(style: Style, c: char) -> Vec<String> {
+    let one = |s: &str| vec![s.to_string()];
+    match (style, c) {
+        (Style::Backslash, '\\') => one("\\\\"),
+        (Style::Backslash, '"') => one("\\\""),
+        // JSON doesn't escape `'`
+        (Style::Backslash, '\'') => vec!["'".to_string(), "\\'".to_string()],
+        (Style::Backslash, '\n') => one("\\n"),
+        (Style::Backslash, '\t') => one("\\t"),
+        (Style::QuoteDoubling, '\'') => one("''"),
+        (Style::QuoteDoubling, '"') => one("\"\""),
+        (Style::Xml, '&') => one("&amp;"),
+        (Style::Xml, '<') => one("&lt;"),
+        (Style::Xml, '>') => one("&gt;"),
+        (Style::Xml, '"') => one("&quot;"),
+        (Style::Xml, '\'') => vec!["&apos;".to_string(), "&#39;".to_string()],
+        (Style::Url, ' ') => vec!["%20".to_string(), "+".to_string()],
+        (Style::Url, c) if !(c.is_ascii_alphanumeric() || "-._~".contains(c)) => {
+            let mut bytes = [0; 4];
+            let mut form = String::new();
+            for b in c.encode_utf8(&mut bytes).bytes() {
+                let _ = write!(form, "%{b:02X}");
+            }
+            vec![form]
+        }
+        _ => vec![c.to_string()],
+    }
+}
+
+/// The forms of `s` escaped once: every combination of the forms of its characters.
+fn escape_str(style: Style, s: &str) -> Vec<String> {
+    s.chars().fold(vec![String::new()], |prefixes, c| {
+        let forms = escape_char(style, c);
+        prefixes
+            .iter()
+            .flat_map(|p| forms.iter().map(move |f| format!("{p}{f}")))
+            .collect()
+    })
+}
+
 /// The forms of `c` escaped `level` times.
-pub fn forms(_style: Style, _c: char, _level: u8) -> Vec<String> {
-    Vec::new()
+pub fn forms(style: Style, c: char, level: u8) -> Vec<String> {
+    let mut forms = std::collections::BTreeSet::from([c.to_string()]);
+    for _ in 0..level {
+        forms = forms.iter().flat_map(|f| escape_str(style, f)).collect();
+    }
+    forms.into_iter().collect()
 }
 
 /// The regex of `value` escaped on each of `levels`: one capture group per level in ascending order, without anchors.
-pub fn pattern(_style: Style, _value: &str, _levels: RangeInclusive<u8>) -> String {
-    String::new()
+pub fn pattern(style: Style, value: &str, levels: RangeInclusive<u8>) -> String {
+    let level = |level: u8| -> String {
+        let mut out = String::new();
+        for c in value.chars() {
+            let mut forms = forms(style, c, level);
+            if let [form] = forms.as_slice() {
+                out.push_str(&regex::escape(form));
+            } else {
+                forms.sort_by_key(|f| std::cmp::Reverse(f.len()));
+                let alternatives: Vec<String> = forms.iter().map(|f| regex::escape(f)).collect();
+                let _ = write!(out, "(?:{})", alternatives.join("|"));
+            }
+        }
+        out
+    };
+    let groups: Vec<String> = levels.map(|l| format!("({})", level(l))).collect();
+    format!("(?:{})", groups.join("|"))
 }
 
 #[cfg(test)]
