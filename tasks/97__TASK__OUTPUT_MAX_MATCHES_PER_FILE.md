@@ -1,6 +1,6 @@
 # Task 97: `output.max_matches_per_file`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 94
 
