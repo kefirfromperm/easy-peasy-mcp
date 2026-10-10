@@ -1,6 +1,6 @@
 # Task 86: `output.group_repeated`
 
-Status: in progress
+Status: implemented, see [86__SUMMARY__OUTPUT_GROUP_REPEATED.md](86__SUMMARY__OUTPUT_GROUP_REPEATED.md)
 
 Depends on: task 80
 
