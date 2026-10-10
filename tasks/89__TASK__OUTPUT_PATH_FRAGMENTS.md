@@ -1,6 +1,6 @@
 # Task 89: `output.path_fragments`
 
-Status: in progress
+Status: implemented, see [89__SUMMARY__OUTPUT_PATH_FRAGMENTS.md](89__SUMMARY__OUTPUT_PATH_FRAGMENTS.md)
 
 Depends on: task 78
 
