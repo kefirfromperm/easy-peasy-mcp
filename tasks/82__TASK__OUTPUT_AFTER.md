@@ -1,6 +1,6 @@
 # Task 82: `output.after`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80
 
