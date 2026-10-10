@@ -135,14 +135,10 @@ impl Key {
     /// A value of the spec which this server version doesn't implement yet: the feature for `not_implemented`.
     #[must_use]
     pub fn unimplemented(self, value: &Value) -> Option<String> {
-        match (self, value) {
-            (Self::Archives, Value::Text(v)) if v == "all" => Some(format!(
-                "the value 'all' of '{}.{}'",
-                self.section(),
-                self.name()
-            )),
-            _ => None,
-        }
+        UNIMPLEMENTED
+            .iter()
+            .find(|(key, v)| *key == self && matches!(value, Value::Text(t) if t == v))
+            .map(|(_, v)| format!("the value '{v}' of '{}.{}'", self.section(), self.name()))
     }
 
     /// The key `name` of `section`, if it is implemented.
@@ -153,6 +149,9 @@ impl Key {
             .find(|k| k.section() == section && k.name() == name)
     }
 }
+
+/// The values of the spec which this server version doesn't implement yet.
+const UNIMPLEMENTED: [(Key, &str); 0] = [];
 
 /// The type of the values of a key: how a value is checked and what an invalid one is told.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

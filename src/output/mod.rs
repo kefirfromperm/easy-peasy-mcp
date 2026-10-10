@@ -60,7 +60,7 @@ impl Response<'_> {
         out.push('\n');
         let mut current: Option<String> = None;
         for file in self.files {
-            let (dir, name) = split(&file.rel);
+            let (dir, name) = split_found(file);
             if current.as_deref() != Some(dir.as_str()) {
                 out.push_str(&dir);
                 out.push('\n');
@@ -121,6 +121,19 @@ pub fn display_path(rel: &Path, is_dir: bool) -> String {
     out
 }
 
+/// The directory header and the name of a matched entry; a member of an archive is under `<archive>!/<member dir>/`,
+/// the part after `!/` with `/`.
+fn split_found(file: &Found) -> (String, String) {
+    let Some(member) = &file.member else {
+        return split(&file.rel);
+    };
+    let archive = display_path(&file.rel, false);
+    match member.rsplit_once('/') {
+        Some((dir, name)) => (format!("{archive}!/{dir}/"), name.to_string()),
+        None => (format!("{archive}!/"), member.clone()),
+    }
+}
+
 /// The directory header (ending with the separator; `./` for the working directory) and the file name.
 fn split(rel: &Path) -> (String, String) {
     let parts = path_parts(rel);
@@ -145,6 +158,7 @@ mod tests {
     fn found(path: &str) -> Found {
         Found {
             rel: PathBuf::from(path),
+            member: None,
             is_dir: false,
             conditions: vec![CondId::Number(1)],
             matches: None,
@@ -183,6 +197,7 @@ mod tests {
     fn files_without_conditions_have_no_brackets() {
         let files = [Found {
             rel: PathBuf::from("a.md"),
+            member: None,
             is_dir: false,
             conditions: vec![],
             matches: None,
