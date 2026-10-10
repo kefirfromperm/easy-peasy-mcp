@@ -6,7 +6,7 @@ use serde::ser::SerializeMap;
 
 use super::blocks::BlockLine;
 use super::lines::{columns, cut_line, starts_in};
-use super::listing::Listed;
+use super::listing::{Listed, Listing};
 use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
 use crate::query::Kind;
@@ -217,13 +217,9 @@ impl Response<'_> {
             files: if listed {
                 self.listed()
                     .iter()
-                    .zip(&listing.files)
-                    .zip(&listing.cut)
-                    .filter_map(|((file, listed), cut)| match listed {
-                        Listed::LeftOut => None,
-                        Listed::NoLines => Some(self.file(file, None, *cut)),
-                        Listed::Lines(fragments) => Some(self.file(file, Some(fragments), *cut)),
-                    })
+                    .enumerate()
+                    .filter(|(index, _)| listing.files[*index] != Listed::LeftOut)
+                    .map(|(index, file)| self.file(file, &listing, index))
                     .collect()
             } else {
                 Vec::new()
@@ -234,8 +230,8 @@ impl Response<'_> {
 }
 
 impl Response<'_> {
-    /// A matched file, with the blocks of the fragments `lines` or without lines; `cut` by a per file limit.
-    fn file(&self, found: &Found, lines: Option<&[super::Fragment]>, cut: bool) -> File {
+    /// The listed file `index` with the blocks of its listed lines.
+    fn file(&self, found: &Found, listing: &Listing, index: usize) -> File {
         let meta = found.meta.as_ref();
         File {
             path: display_found(found),
@@ -251,7 +247,7 @@ impl Response<'_> {
             score: meta
                 .and(found.score)
                 .map(crate::relevance::shown_score),
-            truncated: cut.then_some(true),
+            truncated: listing.cut[index].then_some(true),
             lines: found.matches.as_ref().map_or(0, |m| m.lines),
             matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
             conditions: found.conditions.iter().map(ToString::to_string).collect(),
@@ -260,13 +256,14 @@ impl Response<'_> {
                 .as_ref()
                 .map(path_fragments)
                 .unwrap_or_default(),
-            blocks: match (&found.matches, lines) {
-                (Some(m), Some(fragments)) => blocks(
+            blocks: match (&found.matches, &listing.files[index]) {
+                (Some(m), Listed::Lines(fragments)) => blocks(
                     &m.content,
                     fragments,
                     &self.blocks,
                     self.highlight,
                     self.limits.max_line_length,
+                    listing.until[index],
                 ),
                 _ => Vec::new(),
             },
@@ -303,8 +300,9 @@ fn blocks(
     options: &BlockOptions,
     highlight: Highlight<'_>,
     max_line_length: usize,
+    until: Option<usize>,
 ) -> Vec<Block> {
-    super::blocks::blocks(content, fragments, options)
+    super::blocks::before(super::blocks::blocks(content, fragments, options), until)
         .into_iter()
         .map(|block| Block {
             indent: block.indent,
@@ -380,6 +378,7 @@ mod tests {
             &BlockOptions::default(),
             Highlight::Columns,
             usize::MAX,
+            None,
         ))
         .unwrap();
         assert_eq!(
@@ -395,6 +394,7 @@ mod tests {
             &BlockOptions::default(),
             Highlight::Columns,
             usize::MAX,
+            None,
         ))
         .unwrap();
         assert_eq!(
@@ -421,6 +421,7 @@ mod tests {
             &BlockOptions::default(),
             Highlight::Columns,
             usize::MAX,
+            None,
         );
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[1].lines[0].n, 4);
