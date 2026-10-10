@@ -443,6 +443,11 @@ Every level multiplies the number of variants to match, keep it small. An invali
 |-------------------|--------|---------|-----------------------------------------------------------------------------|
 | `fuzzy_min_score` | number | `0.5`   | `~~` matches with a lower score (0–1) are dropped, see [QUERY.md](QUERY.md#identifiers-and-fuzzy-names) |
 
+In a request the section is the object `query_options`, because `query` is the query itself. An invalid value is
+`invalid value for 'query.fuzzy_min_score': a number from 0 to 1 is expected`, in a request
+`'query_options.fuzzy_min_score' must be a number from 0 to 1`. `get_config` writes the number as it is, `1` for
+`1.0`.
+
 ### kinds
 
 Rules of the `kind` target (see [QUERY.md](QUERY.md#kind)). A file gets the first kind which matches, in the order
