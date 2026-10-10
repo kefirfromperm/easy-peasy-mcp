@@ -1,6 +1,6 @@
 # Task 101: `output.cursor`: pagination
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 94, task 95, task 96, task 100
 
