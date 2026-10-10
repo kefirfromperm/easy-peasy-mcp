@@ -92,6 +92,7 @@ shebangs = []    # was (not set)
 line_comments = ['#', '//']    # was (not set)
 block_comments = []    # was (not set)
 nested_block_comments = false    # was (not set)
+strings = []    # was (not set)
 ```
 
 2. `find`
