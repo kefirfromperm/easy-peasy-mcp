@@ -1052,6 +1052,14 @@ mod tests {
     }
 
     #[test]
+    fn multiline_regex() {
+        assert!(content_matches("text =~ `a\\nb` /m", "a\nb"));
+        assert!(content_matches("text =~ `^b$` /m", "a\nb\nc"));
+        assert!(!content_matches("text =~ `a.b` /m", "a\nb"));
+        assert!(content_matches("text =~ `(?s)a.b` /m", "a\nb"));
+    }
+
+    #[test]
     fn regex_per_line() {
         assert!(content_matches("text =~ `^b$`", "a\nb\nc"));
         assert!(!content_matches("text =~ `a\\s+b`", "a\nb"));
