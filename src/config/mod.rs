@@ -1030,6 +1030,13 @@ mod tests {
         );
         assert!(check("[traversal]\nignore_paths = ['~/ignore', 'a']\n").is_ok());
         assert_eq!(
+            error("[traversal]\narchives = 'all'\n"),
+            (
+                2,
+                "the value 'all' of 'traversal.archives' is not implemented yet".into()
+            )
+        );
+        assert_eq!(
             error("[traversal]\nexclude = ['a', '[a-']\n"),
             (
                 2,
@@ -1192,6 +1199,10 @@ mod tests {
         assert_eq!(
             update(&json!({ "set": "output.context = 2" })),
             "error[not_implemented]: the key 'output.context' is not implemented yet\n"
+        );
+        assert_eq!(
+            update(&json!({ "set": "traversal.archives = 'all'" })),
+            "error[not_implemented]: the value 'all' of 'traversal.archives' is not implemented yet\n"
         );
         assert_eq!(
             update(&json!({ "reset": ["languages.rust"] })),
