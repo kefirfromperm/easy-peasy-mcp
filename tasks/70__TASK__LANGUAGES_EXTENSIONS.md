@@ -1,6 +1,6 @@
 # Task 70: `languages.<name>.extensions`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 15, task 36
 
