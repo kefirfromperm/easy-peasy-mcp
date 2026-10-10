@@ -107,6 +107,18 @@ mod tests {
     }
 
     #[test]
+    fn binary_files_have_a_zero_byte_in_the_first_8k() {
+        assert!(is_binary(b"\0abc"));
+        let mut late = vec![b'a'; 8191];
+        late.push(0);
+        assert!(is_binary(&late));
+        let mut too_late = vec![b'a'; 8192];
+        too_late.push(0);
+        assert!(!is_binary(&too_late));
+        assert!(!is_binary(b"text\n"));
+    }
+
+    #[test]
     fn invalid_utf8_is_replaced() {
         let c = Content::from_bytes(b"a\xffb\n");
         assert_eq!(c.line(0), "a\u{fffd}b");
