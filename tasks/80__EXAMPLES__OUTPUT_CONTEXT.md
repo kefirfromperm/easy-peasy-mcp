@@ -66,6 +66,7 @@ context = 0
 # after =  (not set)
 dedent = true
 blank_context = false
+group_dirs = true
 ```
 
 ## E80.2 One line of context in a request
@@ -213,6 +214,7 @@ context = 1    # update
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 ## E80.6 An invalid value in a request
@@ -271,6 +273,7 @@ context = 1    # file: conf/o.toml
 # after =  (not set)    # default
 dedent = true    # default
 blank_context = false    # default
+group_dirs = true    # default
 ```
 
 2. `find`

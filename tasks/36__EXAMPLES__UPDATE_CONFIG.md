@@ -230,6 +230,7 @@ context = 0
 # after =  (not set)
 dedent = true
 blank_context = false
+group_dirs = true
 
 [escape]
 max_level = 3
