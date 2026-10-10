@@ -260,6 +260,7 @@ impl Engine {
                 max_lines: settings.whole(Key::MaxLines),
                 max_matches: settings.whole(Key::MaxMatches),
                 max_matches_per_file: settings.whole(Key::MaxMatchesPerFile),
+                max_line_length: settings.whole(Key::MaxLineLength),
             },
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),
