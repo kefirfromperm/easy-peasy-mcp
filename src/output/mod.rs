@@ -14,6 +14,7 @@ mod json;
 mod lines;
 mod meta;
 mod repeated;
+mod sort;
 
 pub use blocks::BlockOptions;
 
