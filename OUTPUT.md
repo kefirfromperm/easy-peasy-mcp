@@ -443,6 +443,9 @@ When a limit is hit:
   lower bounds, `counts_exact: false`
 - a file cut by `max_matches_per_file` or `max_output_per_file` gets `"truncated": true`, in the text format `(cut)`
   after its counts; the per file limits cut a file first, `max_lines` and `max_matches` count what is left of it
+- `max_output_per_file` counts the characters of the matched and context lines of a file as they are shown, after
+  the dedent and the cut of long lines, without the line numbers and the markers; the line which would go over and
+  the next lines of the file are not listed
 - `next_cursor` is given to get the rest, except for the per file limits, which cut by design, and for `timeout`,
   where the unsearched part is unknown
 
