@@ -1,0 +1,48 @@
+# The definition of done of AGENTS.md on every platform the spec targets (CONFIG.md#platforms).
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # the examples and fixtures keep their line breaks on Windows
+      - name: Keep line breaks
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v5
+      - name: Install the toolchain of rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      # formatting doesn't depend on the platform
+      - name: Format
+        if: runner.os == 'Linux'
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test
+        run: cargo test --all-targets
+      - name: Release build
+        run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: easy-peasy-mcp-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            target/release/easy-peasy-mcp
+            target/release/easy-peasy-mcp.exe
+          if-no-files-found: error
