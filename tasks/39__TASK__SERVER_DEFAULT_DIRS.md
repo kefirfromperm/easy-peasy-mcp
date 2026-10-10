@@ -1,6 +1,6 @@
 # Task 39: `server.default_dirs`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 38
 
