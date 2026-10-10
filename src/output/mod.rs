@@ -1,0 +1,118 @@
+//! The text format of the response (OUTPUT.md#text-format).
+
+use std::fmt::Write as _;
+use std::path::{Component, Path};
+
+use crate::query::ast::CondId;
+use crate::search::Found;
+
+/// The response of a `find` call with `detail = lines`, for a query of file conditions only.
+pub struct Response<'a> {
+    pub result_id: &'a str,
+    pub legend: &'a [(CondId, String)],
+    pub files: &'a [Found],
+}
+
+/// The separator of output paths on this platform.
+const SEP: char = std::path::MAIN_SEPARATOR;
+
+impl Response<'_> {
+    /// The text format.
+    #[must_use]
+    pub fn to_text(&self) -> String {
+        let mut out = format!(
+            "files: {}  lines: 0  matches: 0  result: {}\n",
+            self.files.len(),
+            self.result_id
+        );
+        if self.files.is_empty() {
+            return out;
+        }
+        for (id, text) in self.legend {
+            let _ = writeln!(out, "{id} {text}");
+        }
+        out.push('\n');
+        let mut current: Option<String> = None;
+        for file in self.files {
+            let (dir, name) = split(&file.rel);
+            if current.as_deref() != Some(dir.as_str()) {
+                out.push_str(&dir);
+                out.push('\n');
+                current = Some(dir);
+            }
+            let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
+            let _ = writeln!(out, "{name}  [{}]", ids.join(" "));
+        }
+        out
+    }
+}
+
+/// The directory header (ending with the separator; `./` for the working directory) and the file name.
+fn split(rel: &Path) -> (String, String) {
+    let parts: Vec<String> = rel
+        .components()
+        .filter_map(|c| match c {
+            Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect();
+    let (name, dirs) = parts
+        .split_last()
+        .map_or((String::new(), &[][..]), |(n, d)| (n.clone(), d));
+    let dir = if dirs.is_empty() {
+        format!(".{SEP}")
+    } else {
+        let mut d = dirs.join(&SEP.to_string());
+        d.push(SEP);
+        d
+    };
+    (dir, name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn found(path: &str) -> Found {
+        Found {
+            rel: PathBuf::from(path),
+            conditions: vec![CondId::Number(1)],
+        }
+    }
+
+    #[test]
+    fn groups_files_under_directory_headers() {
+        let files = [
+            found("Cargo.toml"),
+            found("src/a.rs"),
+            found("src/b.rs"),
+            found("src/x/c.rs"),
+        ];
+        let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
+        let text = Response {
+            result_id: "r3",
+            legend: &legend,
+            files: &files,
+        }
+        .to_text();
+        let s = SEP;
+        assert_eq!(
+            text,
+            format!(
+                "files: 4  lines: 0  matches: 0  result: r3\n#1 name ~ '*'\n\n.{s}\nCargo.toml  [#1]\nsrc{s}\na.rs  [#1]\nb.rs  [#1]\nsrc{s}x{s}\nc.rs  [#1]\n"
+            )
+        );
+    }
+
+    #[test]
+    fn an_empty_result_has_only_the_header() {
+        let text = Response {
+            result_id: "r1",
+            legend: &[(CondId::Number(1), "x".into())],
+            files: &[],
+        }
+        .to_text();
+        assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
+    }
+}

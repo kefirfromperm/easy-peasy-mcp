@@ -246,8 +246,11 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 Every condition of the query has an id: `#1`, `#2`, ... in the order of appearance (only conditions without a label
 are numbered), or a label `@name` given in the query, see [QUERY.md](QUERY.md#labels-and-condition-ids).
 
-The `legend` maps the ids of all conditions of the query to their text as written in the query, without labels. It
-is a part of the `facets`, `files` and `lines` details when at least one file matches; an empty result has no legend,
+The `legend` maps the ids of all conditions of the query to their text as written in the query, without labels: the
+tokens of the condition with their original spelling (keyword case, quotes, escapes), where any whitespace, line
+breaks or comments between two tokens are written as one space and tokens written without a gap stay without one.
+`NAME   ~\n'*.rs'` is in the legend as `NAME ~ '*.rs'`, `line( text has 'a' @x )` as `line( text has 'a' )`. The
+legend lists the conditions in the order of appearance in the query. It is a part of the `facets`, `files` and `lines` details when at least one file matches; an empty result has no legend,
 there are no ids to explain.
 
 ### File conditions
@@ -588,6 +591,12 @@ mod.rs  [#1]  lines: 1  matches: 1
 ...
 ```
 
+- a header is written whenever the directory differs from the one of the previous file, so with `sort = relevance`
+  the same directory can get several headers
+- files directly in a working directory are under the header of that directory as written in the request: `./` for
+  `.`, `../api/` for `../api`
+- on Windows the header ends with `\`, like the paths
+
 JSON paths are always full.
 
 ### Repeated lines
@@ -763,6 +772,14 @@ error[unknown_operator]: unknown operator 'contains'
   hint: did you mean 'has'? expected one of: =, has, starts, ends, ~, ~~, =~
 ```
 
+- the first line: `error[<code>]: <message>`
+- for an error in the query: the query line where the error starts, indented by two spaces, and under it `^` markers
+  for the error position; a query with several lines shows only that line, and `col` in JSON counts from the start of
+  the whole query (a line break is one character)
+- a position at the end of the query (`unexpected_end`) is one `^` right after the last character
+- `  hint: ...` when there is a hint
+- every line ends with a line break; a request error without a query position has only the first line and the hint
+
 Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 
 | Code                | Meaning                                                    |
@@ -774,6 +791,7 @@ Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 | `cursor_invalid`    | the cursor can't be decoded                                |
 | `result_expired`    | `within` / `since` refers to a result which is unknown or was evicted      |
 | `unsupported_version` | the requested `version` is not supported, see [TOOLS.md](TOOLS.md#versioning) |
+| `not_implemented`   | a valid feature of the spec which this server version doesn't implement yet: `error[not_implemented]: <feature> is not implemented yet`, with the position when the feature is in the query |
 
 ## Examples
 
