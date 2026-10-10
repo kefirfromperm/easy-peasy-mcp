@@ -138,14 +138,14 @@ config.rs  [#1]  lines: 1  matches: 1
 3-    cfg
 ```
 
-The block with its context has no common indentation; without context it is dedented and the columns don't change:
+The block with its context has no common indentation; without context it is dedented and the columns don't change (the second request of the session):
 
 ```json request
 {"query": "text has 'unwrap('", "output": {"highlight": "columns"}}
 ```
 
 ```text response
-files: 1  lines: 1  matches: 1  result: r1
+files: 1  lines: 1  matches: 1  result: r2
 #1 text has 'unwrap('
 
 src/
