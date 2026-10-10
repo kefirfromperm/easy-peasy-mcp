@@ -1,6 +1,6 @@
 # Task 56: `traversal.fallback_encoding`
 
-Status: in progress
+Status: implemented, see [56__SUMMARY__TRAVERSAL_FALLBACK_ENCODING.md](56__SUMMARY__TRAVERSAL_FALLBACK_ENCODING.md)
 
 Depends on: task 55
 
