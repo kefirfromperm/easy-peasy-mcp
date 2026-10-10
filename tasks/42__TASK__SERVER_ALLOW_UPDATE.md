@@ -1,6 +1,6 @@
 # Task 42: `server.allow_update`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 36
 
