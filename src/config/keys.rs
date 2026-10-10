@@ -30,11 +30,12 @@ pub enum Key {
     MaxArchiveSize,
     SkipGenerated,
     MaxLevel,
+    FuzzyMinScore,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 21] = [
+    pub const ALL: [Key; 22] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -56,6 +57,7 @@ impl Key {
         Self::MaxArchiveSize,
         Self::SkipGenerated,
         Self::MaxLevel,
+        Self::FuzzyMinScore,
     ];
 
     /// The section, the name and the type.
@@ -98,6 +100,7 @@ impl Key {
             Self::MaxArchiveSize => ("traversal", "max_archive_size", Type::Size),
             Self::SkipGenerated => ("traversal", "skip_generated", Type::Bool),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
+            Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
         }
     }
 
@@ -111,6 +114,7 @@ impl Key {
             Self::Threads | Self::MinDepth => Value::Whole(0),
             Self::ResultCache => Value::Whole(50),
             Self::MaxLevel => Value::Whole(3),
+            Self::FuzzyMinScore => Value::Number(0.5),
             Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
@@ -189,6 +193,8 @@ pub enum Type {
     Encoding,
     /// A WHATWG encoding label, as written, or not set.
     OptEncoding,
+    /// A number from 0 to 1.
+    Score,
 }
 
 impl Type {
@@ -210,6 +216,7 @@ impl Type {
                 "\"auto\" or an encoding name like \"windows-1252\" is expected".to_string()
             }
             Self::OptEncoding => "an encoding name like \"windows-1251\" is expected".to_string(),
+            Self::Score => "a number from 0 to 1 is expected".to_string(),
         }
     }
 
@@ -226,6 +233,7 @@ impl Type {
             Self::Size => "a size like \"10M\" (units B, K, M, G)".to_string(),
             Self::Encoding => "\"auto\" or an encoding name like \"windows-1252\"".to_string(),
             Self::OptEncoding => "an encoding name like \"windows-1251\"".to_string(),
+            Self::Score => "a number from 0 to 1".to_string(),
         }
     }
 
@@ -307,6 +315,12 @@ impl Type {
                 .as_str()
                 .filter(|v| encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
+            #[allow(clippy::cast_precision_loss)] // only 0 and 1 are whole numbers in the range
+            Self::Score => item
+                .as_float()
+                .or_else(|| item.as_integer().map(|n| n as f64))
+                .filter(|n| (0.0..=1.0).contains(n))
+                .map(Value::Number),
         }
     }
 
@@ -342,6 +356,10 @@ impl Type {
                 .as_str()
                 .filter(|v| encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
+            Self::Score => value
+                .as_f64()
+                .filter(|n| (0.0..=1.0).contains(n))
+                .map(Value::Number),
         }
     }
 }
@@ -404,6 +422,7 @@ pub enum Value {
     NotSet,
     Text(String),
     List(Vec<String>),
+    Number(f64),
 }
 
 impl Value {
@@ -415,6 +434,7 @@ impl Value {
             Self::Whole(n) => n.to_string(),
             Self::NotSet => return None,
             Self::Text(text) => basic_string(text),
+            Self::Number(n) => n.to_string(),
             Self::List(items) => format!(
                 "[{}]",
                 items

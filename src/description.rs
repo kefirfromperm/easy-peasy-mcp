@@ -26,7 +26,8 @@ Empty query = all files.
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends, =~ (regex) work on paths and names too
   name ~~ 'cfgldr'               fuzzy, like fzf: the characters in order, case-insensitive; space separated terms
-                                 must all match (path ~~ 'srv hndl'); weak matches (score below 0.5) are dropped
+                                 must all match (path ~~ 'srv hndl'); weak matches (score below
+                                 query_options.fuzzy_min_score, default 0.5) are dropped
   size > 1M                      also: = != < <= >= and size in 10K..1M; units B K M G (1024)
   modified > -7d                 also: modified = 2026-10-01 (the whole day), modified in -7d..-1d;
                                  dates 2026-10-01, 2026-10-01T14:30, ...T14:30:00Z, ...+02:00 (local time without
@@ -114,6 +115,13 @@ pub fn find_schema() -> Value {
                 "type": "object",
                 "properties": {
                     "max_level": { "type": "integer", "minimum": 0, "description": "The upper level of /e(style, any) and the highest level a query may ask for. Default: 3." }
+                }
+            },
+            "query_options": {
+                "type": "object",
+                "description": "The [query] section of the configuration.",
+                "properties": {
+                    "fuzzy_min_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "~~ matches with a lower score (0-1) are dropped. Default: 0.5." }
                 }
             }
         }

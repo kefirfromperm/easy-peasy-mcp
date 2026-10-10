@@ -194,6 +194,7 @@ impl Engine {
             time_zone: self.options.time_zone.clone(),
             languages: Arc::clone(&self.languages),
             max_escape_level: settings.whole(Key::MaxLevel),
+            fuzzy_min_score: settings.number(Key::FuzzyMinScore),
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
