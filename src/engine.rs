@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use serde_json::Value;
 
-use crate::cache::{CachedFile, ResultCache};
+use crate::cache::{CachedFile, CachedResult, ResultCache};
 use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::cursor::{self, Cursor};
@@ -193,53 +193,98 @@ impl Engine {
             .settings()
             .with(&request.config, &request.languages)
             .map_err(|p| p.request_report())?;
+        let run = self.run(&request, &settings, arguments, arrival)?;
+        Ok(self.respond(&settings, arguments, run))
+    }
+
+    /// Parses the query of a request and searches: the files of a kept result with `within`, the working
+    /// directories otherwise.
+    fn run(
+        &self,
+        request: &request::Request,
+        settings: &Settings,
+        arguments: &Value,
+        arrival: std::time::Instant,
+    ) -> Result<Run, Report> {
         let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
-        let working_dirs = self.working_dirs(request.dirs.as_deref(), &settings)?;
-        let options = self.parse_options(&settings, Arc::clone(&languages));
-        let case_insensitive_paths = options.case_insensitive_paths;
+        let within = request.within.map(|id| self.kept(id)).transpose()?;
+        let working_dirs = match &within {
+            Some(result) => result.working_dirs.clone(),
+            None => self.working_dirs(request.dirs.as_deref(), settings)?,
+        };
+        let parse = self.parse_options(settings, Arc::clone(&languages));
         let query =
-            query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
+            query::parse(&request.query, &parse).map_err(|e| e.into_report(&request.query))?;
         let (page, cursor_totals) = page(arguments, request.cursor.as_deref())?;
-        let mut search_options =
-            self.search_options(&settings, deadline, case_insensitive_paths, languages);
-        search_options.first_only = settings.text(Key::Detail) == "exists";
-        let detail = detail(&settings);
-        let funnel = settings.text(Key::Funnel);
-        search_options.funnel = funnel != "never" && detail >= Detail::Count;
-        let facet_names = facet_names(&settings, detail, &mut search_options);
-        let search::SearchResult {
-            mut files,
-            mut warnings,
-            timed_out,
-            funnel: funnel_counts,
-        } = search_sorted(&settings, &working_dirs, &query, &mut search_options);
-        if cursor_totals.is_some_and(|totals| totals != totals_of(&files)) {
-            warnings.add_global(WarningCode::ResultsChanged);
+        let mut search =
+            self.search_options(settings, deadline, parse.case_insensitive_paths, languages);
+        search.first_only = settings.text(Key::Detail) == "exists";
+        let detail = detail(settings);
+        search.funnel = settings.text(Key::Funnel) != "never" && detail >= Detail::Count;
+        let facet_names = facet_names(settings, detail, &mut search);
+        let mut result = search_sorted(
+            settings,
+            &working_dirs,
+            &query,
+            &mut search,
+            within.as_ref().map(|r| r.files.as_slice()),
+        );
+        if cursor_totals.is_some_and(|totals| totals != totals_of(&result.files)) {
+            result.warnings.add_global(WarningCode::ResultsChanged);
         }
+        Ok(Run {
+            query,
+            parse,
+            search,
+            working_dirs,
+            page,
+            detail,
+            limit,
+            facet_names,
+            result,
+        })
+    }
+
+    /// The response of a search in the format of the settings, within the budget.
+    fn respond(&self, settings: &Settings, arguments: &Value, run: Run) -> String {
+        let Run {
+            query,
+            parse,
+            search,
+            working_dirs,
+            page,
+            detail,
+            limit,
+            facet_names,
+            result:
+                search::SearchResult {
+                    mut files,
+                    warnings,
+                    timed_out,
+                    funnel: funnel_counts,
+                },
+        } = run;
+        let max_files = settings.whole(Key::MaxFiles);
         let shown = shown_funnel(
             &query,
             &funnel_counts,
-            funnel,
+            settings.text(Key::Funnel),
             files.len(),
-            settings.whole(Key::MaxFiles),
+            max_files,
         )
-        .filter(|_| search_options.funnel);
+        .filter(|_| search.funnel);
         let hints = if shown.is_some() {
-            response_hints(
-                &hints::Context {
-                    working_dirs: &working_dirs,
-                    parse: &options,
-                    search: &search_options,
-                    query: &query,
-                    counts: &funnel_counts,
-                    deadline: hints_deadline(limit),
-                },
-                &files,
-                settings.whole(Key::MaxFiles),
-                settings.whole(Key::FacetDepth),
-            )
+            let cx = hints::Context {
+                working_dirs: &working_dirs,
+                parse: &parse,
+                search: &search,
+                query: &query,
+                counts: &funnel_counts,
+                deadline: hints_deadline(limit),
+            };
+            response_hints(&cx, &files, max_files, settings.whole(Key::FacetDepth))
         } else {
             Vec::new()
         };
@@ -257,14 +302,14 @@ impl Engine {
         let result_id = if detail == Detail::Exists {
             None
         } else {
-            self.keep_result(&settings, arguments, &files)
+            self.keep_result(settings, arguments, &working_dirs, &files)
         };
         let json = settings.text(Key::Format) == "json";
         let response = Response {
             detail,
             group_dirs: settings.bool(Key::GroupDirs),
             group_repeated: settings.whole(Key::GroupRepeated),
-            highlight: highlight(&settings, json),
+            highlight: highlight(settings, json),
             time_zone: self.options.time_zone.clone(),
             page,
             funnel: shown,
@@ -272,21 +317,21 @@ impl Engine {
             facets,
             facet_limit: settings.whole(Key::FacetLimit),
             budget: None,
-            limits: limits(&settings),
-            blocks: block_options(&settings),
+            limits: limits(settings),
+            blocks: block_options(settings),
             result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,
             warnings: &warnings,
             timed_out,
         };
-        Ok(match settings.opt_whole(Key::Budget) {
+        match settings.opt_whole(Key::Budget) {
             Some(budget) => {
                 output::fit(response, budget, settings.number(Key::CharsPerToken), json)
             }
             None if json => response.to_json(),
             None => response.to_text(),
-        })
+        }
     }
 
     /// The options of the query of a request.
@@ -420,20 +465,48 @@ impl Engine {
         &self,
         settings: &Settings,
         arguments: &Value,
+        working_dirs: &[(PathBuf, PathBuf)],
         files: &[search::Found],
     ) -> Option<String> {
         let cached = files
             .iter()
             .map(|f| CachedFile {
-                path: f.rel.clone(),
+                root: f.root,
+                rel: working_dirs
+                    .get(f.root)
+                    .and_then(|(_, prefix)| f.rel.strip_prefix(prefix).ok())
+                    .unwrap_or(&f.rel)
+                    .to_path_buf(),
+                member: f.member.clone(),
                 fingerprint: fingerprint(f),
             })
             .collect();
         self.results
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .keep(settings.whole(Key::ResultCache), arguments.clone(), cached)
+            .keep(
+                settings.whole(Key::ResultCache),
+                arguments.clone(),
+                working_dirs.to_vec(),
+                cached,
+            )
             .map(|n| format!("r{n}"))
+    }
+
+    /// The kept result `rN` of `within`; `result_expired` when it is unknown or evicted.
+    fn kept(&self, id: u64) -> Result<CachedResult, Report> {
+        self.results
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(id)
+            .cloned()
+            .ok_or_else(|| {
+                Report::new(
+                    ErrorCode::ResultExpired,
+                    format!("the result r{id} is unknown or no longer kept"),
+                )
+                .hint("the server keeps the last server.result_cache results")
+            })
     }
 
     /// A working directory as given: resolved against the start directory, checked and canonicalized; the path to
@@ -482,18 +555,77 @@ fn search_sorted(
     working_dirs: &[(PathBuf, PathBuf)],
     query: &query::Query,
     options: &mut SearchOptions,
+    within: Option<&[CachedFile]>,
 ) -> search::SearchResult {
     let sort = Sort::parse(settings.text(Key::Sort));
     // the hints of a huge result look at the languages and kinds
     options.meta |= settings.bool(Key::Meta) || sort.needs_meta() || options.funnel;
     options.rank = sort == Sort::Relevance;
-    let mut result = search_all(working_dirs, query, options);
+    let mut result = match within {
+        Some(files) => search_within(settings, working_dirs, files, query, options),
+        None => search_all(working_dirs, query, options),
+    };
     if sort == Sort::Relevance {
         relevance::rank(&mut result.files, &query.ranking);
     } else {
         sort_files(&mut result.files, sort);
     }
     result
+}
+
+/// The search of the files of a kept result (`within`) in its working directories: the paths are written as in the
+/// result, a file outside of the allowed roots is skipped with `permission_denied`.
+fn search_within(
+    settings: &Settings,
+    working_dirs: &[(PathBuf, PathBuf)],
+    files: &[CachedFile],
+    query: &query::Query,
+    options: &SearchOptions,
+) -> search::SearchResult {
+    let mut found = Vec::new();
+    let mut warnings = Warnings::default();
+    let mut timed_out = false;
+    let mut funnel: Vec<usize> = Vec::new();
+    for (index, (path, prefix)) in working_dirs.iter().enumerate() {
+        let mut visited = Vec::new();
+        for file in files.iter().filter(|f| f.root == index) {
+            let full = path.join(&file.rel);
+            match std::fs::canonicalize(&full) {
+                Ok(canonical) if !settings.is_allowed(&canonical) => {
+                    warnings.add(WarningCode::PermissionDenied, prefix.join(&file.rel), false);
+                }
+                Ok(_) => visited.push((file.rel.clone(), file.member.clone())),
+                // deleted since the result
+                Err(_) => {}
+            }
+        }
+        let result = search::search_files(path, &visited, query, options);
+        timed_out |= result.timed_out;
+        funnel.resize(result.funnel.len().max(funnel.len()), 0);
+        for (sum, n) in funnel.iter_mut().zip(&result.funnel) {
+            *sum += n;
+        }
+        found.extend(result.files.into_iter().map(|mut f| {
+            f.rel = prefix.join(&f.rel);
+            f.path_fragments = f
+                .path_fragments
+                .map(|p| p.shown(prefix, f.member.is_some()));
+            f.root = index;
+            f
+        }));
+        warnings.extend(result.warnings, prefix);
+        if timed_out {
+            warnings.add_global(WarningCode::Timeout);
+            break;
+        }
+    }
+    found.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
+    search::SearchResult {
+        files: found,
+        warnings,
+        timed_out,
+        funnel,
+    }
 }
 
 /// When the hints must stop: after 20% of the timeout, or 5 seconds without one.
@@ -627,6 +759,20 @@ fn limits(settings: &Settings) -> Limits {
     }
 }
 
+/// A search of a request, before its response.
+struct Run {
+    query: query::Query,
+    parse: ParseOptions,
+    search: SearchOptions,
+    working_dirs: Vec<(PathBuf, PathBuf)>,
+    page: Page,
+    detail: Detail,
+    /// The time limit of the request.
+    limit: Option<std::time::Duration>,
+    facet_names: Vec<String>,
+    result: search::SearchResult,
+}
+
 /// How the fragments are shown: `auto` is markers in text and columns in JSON.
 fn highlight(settings: &Settings, json: bool) -> Highlight<'_> {
     let markers = settings.list(Key::Markers);
@@ -676,7 +822,7 @@ pub(crate) fn search_all(
     let mut seen = HashSet::new();
     let mut timed_out = false;
     let mut funnel: Vec<usize> = Vec::new();
-    for (path, prefix) in working_dirs {
+    for (index, (path, prefix)) in working_dirs.iter().enumerate() {
         let result = search::search(path, query, options);
         timed_out |= result.timed_out;
         funnel.resize(result.funnel.len().max(funnel.len()), 0);
@@ -693,6 +839,7 @@ pub(crate) fn search_all(
                     f.path_fragments = f
                         .path_fragments
                         .map(|p| p.shown(prefix, f.member.is_some()));
+                    f.root = index;
                     f
                 }),
         );

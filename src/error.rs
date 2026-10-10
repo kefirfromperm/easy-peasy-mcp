@@ -37,6 +37,7 @@ pub enum ErrorCode {
     CursorMismatch,
     CursorInvalid,
     UnsupportedVersion,
+    ResultExpired,
     NotImplemented,
 }
 
@@ -76,6 +77,7 @@ impl ErrorCode {
             Self::CursorMismatch => "cursor_mismatch",
             Self::CursorInvalid => "cursor_invalid",
             Self::UnsupportedVersion => "unsupported_version",
+            Self::ResultExpired => "result_expired",
             Self::NotImplemented => "not_implemented",
         }
     }
