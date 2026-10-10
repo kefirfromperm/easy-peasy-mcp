@@ -1,7 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
-//! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets.
+//! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
 
@@ -11,11 +11,7 @@ use crate::error::{ErrorCode, QueryError};
 
 /// The first construct of a syntactically valid query, by position, which is outside of the implemented subset.
 pub fn check(query: &str, lexed: &Lexed, expr: Option<&Expr>) -> Option<QueryError> {
-    let mut found: Vec<(Range<usize>, String)> = lexed
-        .comments
-        .iter()
-        .map(|span| (span.clone(), "the comment '#'".to_string()))
-        .collect();
+    let mut found: Vec<(Range<usize>, String)> = Vec::new();
     if let Some(expr) = expr {
         expr.visit_nodes(&mut |node| unsupported(query, lexed, node, &mut found));
     }
@@ -124,13 +120,7 @@ mod tests {
             Some(("the modifier '/e' is not implemented yet".into(), 11..13))
         );
         assert_eq!(check_str("name = 'a' @x or name = 'b' @y"), None);
-        assert_eq!(
-            check_str("name = 'a' # x"),
-            Some(("the comment '#' is not implemented yet".into(), 11..14))
-        );
-        assert_eq!(
-            check_str("# only").unwrap().0,
-            "the comment '#' is not implemented yet"
-        );
+        assert_eq!(check_str("name = 'a' # x\n# y"), None);
+        assert_eq!(check_str("# only"), None);
     }
 }

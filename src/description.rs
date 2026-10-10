@@ -18,6 +18,7 @@ Empty query = all files.
   path starts 'docs/'            =, has, starts, ends work on paths too
 Modifier after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
+# starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
 Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped.
 
