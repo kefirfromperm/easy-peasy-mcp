@@ -40,6 +40,7 @@ hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
+exclude = []
 ```
 
 ## E45.3 A maximum depth for the session
@@ -89,6 +90,7 @@ hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 4. `update_config`
@@ -176,6 +178,7 @@ hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 2. `find`

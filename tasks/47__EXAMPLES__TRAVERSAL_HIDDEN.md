@@ -51,6 +51,7 @@ hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
+exclude = []
 ```
 
 ## E47.2 Hidden files in the request
@@ -132,6 +133,7 @@ hidden = true    # update
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 ## E47.5 An invalid value in a request
@@ -190,6 +192,7 @@ hidden = true    # file: conf/h.toml
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 2. `find`

@@ -15,7 +15,7 @@ them, with the directory first when it is not \".\". \"timeout\": \"10s\" limits
 the files found so far are returned with \"truncated: yes (timeout)\". \"traversal\": {\"min_depth\": 2, \"max_depth\": 3} skips the
 entries directly in the working directory and doesn't descend deeper than 3 (defaults traversal.min_depth, max_depth);
 \"follow_symlinks\": true follows symlinks (a symlinked file is then type file and link); \"hidden\": true includes hidden
-entries.
+entries; \"exclude\": [\"**/target/**\"] never walks these paths (wildcards like path ~), much faster than not path ~.
 
 QUERY: conditions on the name, path, type, size, dates, language, kind, git status and content joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
@@ -91,7 +91,8 @@ pub fn find_schema() -> Value {
                     "hidden": { "type": "boolean", "description": "Include hidden entries (names starting with '.')." },
                     "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." },
                     "git_excludes": { "type": "boolean", "description": "Respect .git/info/exclude and the global git excludes file. Default: true." },
-                    "ignore_paths": { "type": "array", "items": { "type": "string" }, "description": "Extra ignore files (gitignore format) applied as if they were in every working directory, with the lowest priority; ~ is the home directory. Default: []." }
+                    "ignore_paths": { "type": "array", "items": { "type": "string" }, "description": "Extra ignore files (gitignore format) applied as if they were in every working directory, with the lowest priority; ~ is the home directory. Default: []." },
+                    "exclude": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of paths which are never walked, relative to the working directory, matched like path ~: ['**/target/**'] prunes every target directory. Default: []." }
                 }
             }
         }

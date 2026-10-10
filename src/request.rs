@@ -152,12 +152,7 @@ fn parse_section(
     let keys = config::section_keys(section);
     for (name, value) in fields {
         if let Some(key) = Key::find(section, name) {
-            let checked = key.ty().from_json(value).ok_or_else(|| {
-                Report::new(
-                    ErrorCode::InvalidOption,
-                    format!("'{field}.{name}' must be {}", key.ty().must_be()),
-                )
-            })?;
+            let checked = key.ty().check_json(&format!("{field}.{name}"), value)?;
             config.push((key, checked));
         } else if keys.contains(&name.as_str()) {
             return Err(Report::not_implemented(&format!(
@@ -302,8 +297,20 @@ mod tests {
             "error[invalid_option]: 'traversal.ignore_paths' must be a list of strings\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "exclude": [] } })),
-            "error[not_implemented]: the field 'traversal.exclude' is not implemented yet\n"
+            config(&json!({ "traversal": { "exclude": ["**/target/**"] } })),
+            [(Key::Exclude, KeyValue::List(vec!["**/target/**".into()]))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "exclude": ["a", "[a-"] } })),
+            "error[invalid_option]: invalid wildcard '[a-' in 'traversal.exclude'\n  hint: unclosed '['\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "exclude": "a" } })),
+            "error[invalid_option]: 'traversal.exclude' must be a list of strings\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "path_case": "native" } })),
+            "error[not_implemented]: the field 'traversal.path_case' is not implemented yet\n"
         );
     }
 

@@ -280,13 +280,17 @@ with the keys of the section in the hint. A boolean key (`follow_symlinks`, `hid
 'traversal.follow_symlinks': true or false is expected`, in a request `'traversal.follow_symlinks' must be true or
 false`. A list of names or paths (`ignore_files`, `ignore_paths`) is `invalid value for 'traversal.ignore_files': a
 list of file names is expected` (`a list of paths` for `ignore_paths`), in a request `'traversal.ignore_files' must be
-a list of strings`.
+a list of strings`. A list of wildcards (`exclude`) is `invalid value for 'traversal.exclude': a list of wildcards is
+expected`, with an invalid wildcard `invalid value for 'traversal.exclude': invalid wildcard '[a-': unclosed '['`; in
+a request `'traversal.exclude' must be a list of strings`, with an invalid wildcard `invalid wildcard '[a-' in
+'traversal.exclude'` and the hint `unclosed '['`.
 
 Notes
 
 - `exclude` prunes directories, they are not even read, so it is much faster than `not path ~ ...` in the query.
   Wildcards are relative to the working directory: `**/target/**` excludes every `target` directory, `target/**` only
-  the top level one.
+  the top level one. An entry is excluded when a wildcard matches its path, a directory also when a wildcard matches
+  its path followed by `/`: `target/**` excludes the directory `target` itself, so `type = dir` doesn't return it.
 - With `follow_symlinks` loops are detected and skipped, and a symlink which points outside of the allowed roots is
   skipped with a `permission_denied` warning.
 - Files reachable several times (overlapping working directories, symlinks, hard links) are returned once, see

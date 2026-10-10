@@ -155,6 +155,7 @@ hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 2. `find`

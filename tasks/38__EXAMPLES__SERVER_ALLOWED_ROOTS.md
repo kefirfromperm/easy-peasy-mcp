@@ -41,6 +41,7 @@ hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
+exclude = []
 ```
 
 ## E38.2 With the source
@@ -71,6 +72,7 @@ hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 ## E38.3 Another section
@@ -120,6 +122,7 @@ hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 ```json request
@@ -192,6 +195,7 @@ hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
+exclude = []    # default
 ```
 
 ```json request
@@ -243,6 +247,7 @@ hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
+exclude = []
 ```
 
 ```json request
@@ -295,6 +300,7 @@ hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
+exclude = []
 ```
 
 ## E38.9 An invalid value
