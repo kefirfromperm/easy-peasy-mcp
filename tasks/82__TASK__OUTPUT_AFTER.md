@@ -1,6 +1,6 @@
 # Task 82: `output.after`
 
-Status: in progress
+Status: implemented, see [82__SUMMARY__OUTPUT_AFTER.md](82__SUMMARY__OUTPUT_AFTER.md)
 
 Depends on: task 80
 
