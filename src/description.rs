@@ -60,7 +60,8 @@ Modifiers after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i;
 (no letter, digit or _ right before and after the match); /c ignore matches in comments of the file's language
 (markers in strings are text; files of an unknown language are searched as is): text has 'unsafe' /c;
 /e(backslash|quote_doubling|xml|url, 0..2|1|any) on = has starts ends of text also matches the value escaped that
-many times (JSON inside JSON etc.), e.g. text has `\"type\": \"admin\"` /e(backslash, any); any = 0..3; the
+many times (JSON inside JSON etc.), e.g. text has `\"type\": \"admin\"` /e(backslash, any); any = 0 to
+escape.max_level (default 3, \"escape\": {\"max_level\": 5} in the request); the
 level of each match is shown after the ids: ⟦#1/e1:...⟧; /n any naming style on = has starts ends of text, name
 and path, case-insensitive: text has 'parse query' /n matches parseQuery ParseQuery parse_query PARSE_QUERY
 parse-query parse.query parsequery; with /w the whole identifier; not with /e.
@@ -107,6 +108,12 @@ pub fn find_schema() -> Value {
                     "archives": { "enum": ["none", "compressed", "all"], "description": "none: compressed files and archives are binary files; compressed: .gz .bz2 .xz .zst .lz4 files are searched as their decompressed content (max_file_size applies to it); all: also the members of .zip .jar .tar .tar.gz/.tgz .tar.bz2 .tar.xz .tar.zst .7z, with the path <archive>!/<member>. Default: none." },
                     "max_archive_size": { "type": "string", "description": "The total uncompressed size of the members of one archive; the rest is skipped with an archive_too_big warning (zip bombs). Default: 100M." },
                     "skip_generated": { "type": "boolean", "description": "Skip generated files (kind = generated: lock files, *.min.js, @generated markers) unless the query has a kind condition. Default: true." }
+                }
+            },
+            "escape": {
+                "type": "object",
+                "properties": {
+                    "max_level": { "type": "integer", "minimum": 0, "description": "The upper level of /e(style, any) and the highest level a query may ask for. Default: 3." }
                 }
             }
         }

@@ -3,8 +3,11 @@
 use std::fmt::Write as _;
 use std::ops::RangeInclusive;
 
-/// The highest escape level of `/e(style, any)` and of a query; `escape.max_level` comes with task 61.
-pub const MAX_LEVEL: u8 = 3;
+/// The most forms of one character on one level: more make the level too deep for the regex engine.
+const MAX_FORMS: usize = 1024;
+
+/// The longest form of one character on one level.
+const MAX_FORM_LEN: usize = 4096;
 
 /// How a format escapes text (QUERY.md#styles).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,21 +81,25 @@ fn escape_str(style: Style, s: &str) -> Vec<String> {
     })
 }
 
-/// The forms of `c` escaped `level` times.
-pub fn forms(style: Style, c: char, level: u8) -> Vec<String> {
+/// The forms of `c` escaped `level` times; `None` when they are too many or too long.
+pub fn forms(style: Style, c: char, level: u8) -> Option<Vec<String>> {
     let mut forms = std::collections::BTreeSet::from([c.to_string()]);
     for _ in 0..level {
         forms = forms.iter().flat_map(|f| escape_str(style, f)).collect();
+        if forms.len() > MAX_FORMS || forms.iter().any(|f| f.len() > MAX_FORM_LEN) {
+            return None;
+        }
     }
-    forms.into_iter().collect()
+    Some(forms.into_iter().collect())
 }
 
-/// The regex of `value` escaped on each of `levels`: one capture group per level in ascending order, without anchors.
-pub fn pattern(style: Style, value: &str, levels: RangeInclusive<u8>) -> String {
-    let level = |level: u8| -> String {
+/// The regex of `value` escaped on each of `levels`: one capture group per level in ascending order, without anchors;
+/// `None` when the forms of a level are too many.
+pub fn pattern(style: Style, value: &str, levels: RangeInclusive<u8>) -> Option<String> {
+    let level = |level: u8| -> Option<String> {
         let mut out = String::new();
         for c in value.chars() {
-            let mut forms = forms(style, c, level);
+            let mut forms = forms(style, c, level)?;
             if let [form] = forms.as_slice() {
                 out.push_str(&regex::escape(form));
             } else {
@@ -101,10 +108,12 @@ pub fn pattern(style: Style, value: &str, levels: RangeInclusive<u8>) -> String 
                 let _ = write!(out, "(?:{})", alternatives.join("|"));
             }
         }
-        out
+        Some(out)
     };
-    let groups: Vec<String> = levels.map(|l| format!("({})", level(l))).collect();
-    format!("(?:{})", groups.join("|"))
+    let groups = levels
+        .map(|l| level(l).map(|p| format!("({p})")))
+        .collect::<Option<Vec<String>>>()?;
+    Some(format!("(?:{})", groups.join("|")))
 }
 
 #[cfg(test)]
@@ -112,7 +121,7 @@ mod tests {
     use super::*;
 
     fn sorted(style: Style, c: char, level: u8) -> Vec<String> {
-        let mut f = forms(style, c, level);
+        let mut f = forms(style, c, level).unwrap();
         f.sort();
         f
     }
@@ -157,13 +166,26 @@ mod tests {
         assert_eq!(sorted(Style::Url, ' ', 2), ["%2520", "%2B"]);
     }
 
+    #[test]
+    fn too_many_forms() {
+        assert_eq!(forms(Style::Backslash, '\'', 10).unwrap().len(), 1024);
+        assert!(forms(Style::Backslash, '\'', 11).is_none());
+        assert!(
+            forms(Style::Backslash, '"', 12).is_some(),
+            "4095 backslashes and the quote"
+        );
+        assert!(forms(Style::Backslash, '"', 13).is_none());
+        assert!(pattern(Style::Backslash, "it's", 0..=200).is_none());
+        assert!(pattern(Style::Xml, "a<b", 0..=200).is_some());
+    }
+
     fn level_at(
         style: Style,
         value: &str,
         levels: RangeInclusive<u8>,
         hay: &str,
     ) -> Option<(String, u8)> {
-        let re = regex::Regex::new(&pattern(style, value, levels.clone())).unwrap();
+        let re = regex::Regex::new(&pattern(style, value, levels.clone()).unwrap()).unwrap();
         let caps = re.captures(hay)?;
         let group = (1..caps.len()).find(|&i| caps.get(i).is_some())?;
         let level = levels.start() + u8::try_from(group - 1).unwrap();

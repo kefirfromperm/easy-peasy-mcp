@@ -193,6 +193,7 @@ impl Engine {
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),
             languages: Arc::clone(&self.languages),
+            max_escape_level: settings.whole(Key::MaxLevel),
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;

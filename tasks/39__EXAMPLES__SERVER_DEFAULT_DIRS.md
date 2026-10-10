@@ -251,6 +251,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 3. `find`
@@ -372,6 +375,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 2. `find`

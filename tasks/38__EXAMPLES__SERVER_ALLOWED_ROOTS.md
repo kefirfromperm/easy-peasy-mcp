@@ -50,6 +50,9 @@ encoding = "auto"
 archives = "none"
 max_archive_size = "100M"
 skip_generated = true
+
+[escape]
+max_level = 3
 ```
 
 ## E38.2 With the source
@@ -89,6 +92,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ## E38.3 Another section
@@ -147,6 +153,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ```json request
@@ -228,6 +237,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ```json request
@@ -288,6 +300,9 @@ encoding = "auto"
 archives = "none"
 max_archive_size = "100M"
 skip_generated = true
+
+[escape]
+max_level = 3
 ```
 
 ```json request
@@ -349,6 +364,9 @@ encoding = "auto"
 archives = "none"
 max_archive_size = "100M"
 skip_generated = true
+
+[escape]
+max_level = 3
 ```
 
 ## E38.9 An invalid value

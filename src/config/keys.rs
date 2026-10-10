@@ -29,11 +29,12 @@ pub enum Key {
     Archives,
     MaxArchiveSize,
     SkipGenerated,
+    MaxLevel,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 20] = [
+    pub const ALL: [Key; 21] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -54,6 +55,7 @@ impl Key {
         Self::Archives,
         Self::MaxArchiveSize,
         Self::SkipGenerated,
+        Self::MaxLevel,
     ];
 
     /// The section, the name and the type.
@@ -95,6 +97,7 @@ impl Key {
             ),
             Self::MaxArchiveSize => ("traversal", "max_archive_size", Type::Size),
             Self::SkipGenerated => ("traversal", "skip_generated", Type::Bool),
+            Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
         }
     }
 
@@ -107,6 +110,7 @@ impl Key {
             Self::Timeout => Value::Text("30s".to_string()),
             Self::Threads | Self::MinDepth => Value::Whole(0),
             Self::ResultCache => Value::Whole(50),
+            Self::MaxLevel => Value::Whole(3),
             Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),

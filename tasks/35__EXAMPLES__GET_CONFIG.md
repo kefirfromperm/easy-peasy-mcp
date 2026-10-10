@@ -49,6 +49,9 @@ encoding = "auto"
 archives = "none"
 max_archive_size = "100M"
 skip_generated = true
+
+[escape]
+max_level = 3
 ```
 
 ## E35.2 One section
@@ -119,6 +122,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ## E35.4 An unknown section

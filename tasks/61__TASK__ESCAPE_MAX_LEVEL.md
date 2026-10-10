@@ -1,6 +1,6 @@
 # Task 61: `escape.max_level`
 
-Status: not implemented
+Status: implemented, see [61__SUMMARY__ESCAPE_MAX_LEVEL.md](61__SUMMARY__ESCAPE_MAX_LEVEL.md)
 
 Depends on: task 30, task 36
 
