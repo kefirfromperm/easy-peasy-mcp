@@ -389,7 +389,8 @@ If the request has a progress token, the server sends progress notifications abo
   "params": { "progressToken": "p7", "progress": 12400, "message": "scanned 12400 files, 37 matched, 3.2s" } }
 ```
 
-- `progress` is the number of scanned files, it only grows
+- `progress` is the number of scanned files, it only grows: the entries whose conditions were evaluated, matched or
+  not; the message has the files matched so far and the time since the request arrived with one decimal
 - `total` is not sent: the size of the tree is unknown until the walk ends
 - no notifications for searches shorter than one second
 
