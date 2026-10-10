@@ -1,6 +1,6 @@
 # Task 116: Concurrent requests
 
-Status: in progress
+Status: implemented, see [116__SUMMARY__CONCURRENCY.md](116__SUMMARY__CONCURRENCY.md)
 
 Depends on: task 41, task 36
 
