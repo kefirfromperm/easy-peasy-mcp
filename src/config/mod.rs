@@ -347,7 +347,7 @@ impl Settings {
         }
     }
 
-    /// The value of a whole number key.
+    /// The value of a whole number key, also one with a minimum.
     #[must_use]
     pub fn whole(&self, key: Key) -> usize {
         match self.value(key) {

@@ -32,11 +32,12 @@ pub enum Key {
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
+    GeneratedMarkerLines,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 23] = [
+    pub const ALL: [Key; 24] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -60,6 +61,7 @@ impl Key {
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
+        Self::GeneratedMarkerLines,
     ];
 
     /// The section, the name and the type.
@@ -104,6 +106,7 @@ impl Key {
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
+            Self::GeneratedMarkerLines => ("kinds", "generated_marker_lines", Type::AtLeast(1)),
         }
     }
 
@@ -119,6 +122,7 @@ impl Key {
             Self::MaxLevel => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),
+            Self::GeneratedMarkerLines => Value::Whole(crate::search::DEFAULT_MARKER_LINES),
             Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
@@ -199,6 +203,8 @@ pub enum Type {
     OptEncoding,
     /// A number from 0 to 1.
     Score,
+    /// A whole number of at least the given one.
+    AtLeast(usize),
 }
 
 impl Type {
@@ -221,6 +227,7 @@ impl Type {
             }
             Self::OptEncoding => "an encoding name like \"windows-1251\" is expected".to_string(),
             Self::Score => "a number from 0 to 1 is expected".to_string(),
+            Self::AtLeast(min) => format!("a whole number of at least {min} is expected"),
         }
     }
 
@@ -238,6 +245,7 @@ impl Type {
             Self::Encoding => "\"auto\" or an encoding name like \"windows-1252\"".to_string(),
             Self::OptEncoding => "an encoding name like \"windows-1251\"".to_string(),
             Self::Score => "a number from 0 to 1".to_string(),
+            Self::AtLeast(min) => format!("a whole number of at least {min}"),
         }
     }
 
@@ -295,6 +303,11 @@ impl Type {
                 .as_integer()
                 .and_then(|n| usize::try_from(n).ok())
                 .map(Value::Whole),
+            Self::AtLeast(min) => item
+                .as_integer()
+                .and_then(|n| usize::try_from(n).ok())
+                .filter(|n| *n >= min)
+                .map(Value::Whole),
             Self::Duration => item
                 .as_str()
                 .filter(|t| super::parse_duration(t).is_some())
@@ -335,6 +348,11 @@ impl Type {
             Self::Whole(_) | Self::OptWhole => value
                 .as_u64()
                 .and_then(|n| usize::try_from(n).ok())
+                .map(Value::Whole),
+            Self::AtLeast(min) => value
+                .as_u64()
+                .and_then(|n| usize::try_from(n).ok())
+                .filter(|n| *n >= min)
                 .map(Value::Whole),
             Self::Duration => value
                 .as_str()
