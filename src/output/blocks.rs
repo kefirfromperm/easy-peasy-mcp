@@ -72,6 +72,20 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
         .collect()
 }
 
+/// The blocks without the lines from the line `until` on; a block left without lines is dropped.
+pub fn before(blocks: Vec<Block>, until: Option<usize>) -> Vec<Block> {
+    let Some(until) = until else {
+        return blocks;
+    };
+    blocks
+        .into_iter()
+        .filter_map(|mut block| {
+            block.lines.retain(|line| line.index < until);
+            (!block.lines.is_empty()).then_some(block)
+        })
+        .collect()
+}
+
 /// The common leading spaces and tabs of the lines of a block which are not blank, in bytes, cut back to the start of
 /// a fragment which starts in them.
 fn indent(content: &Content, lines: &[BlockLine], fragments: &[Fragment]) -> usize {

@@ -43,6 +43,7 @@ pub enum Key {
     MaxMatches,
     MaxMatchesPerFile,
     MaxLineLength,
+    MaxOutputPerFile,
     Dedent,
     BlankContext,
     GroupDirs,
@@ -62,7 +63,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 49] = [
+    pub const ALL: [Key; 50] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -97,6 +98,7 @@ impl Key {
         Self::MaxMatches,
         Self::MaxMatchesPerFile,
         Self::MaxLineLength,
+        Self::MaxOutputPerFile,
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
@@ -177,6 +179,7 @@ impl Key {
             Self::MaxMatches => ("output", "max_matches", Type::AtLeast(1)),
             Self::MaxMatchesPerFile => ("output", "max_matches_per_file", Type::AtLeast(1)),
             Self::MaxLineLength => ("output", "max_line_length", Type::AtLeast(20)),
+            Self::MaxOutputPerFile => ("output", "max_output_per_file", Type::AtLeast(100)),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::Sort => (
@@ -223,6 +226,7 @@ impl Key {
             Self::MaxFiles => Value::Whole(100),
             Self::MaxLines => Value::Whole(500),
             Self::MaxLineLength => Value::Whole(300),
+            Self::MaxOutputPerFile => Value::Whole(4000),
             Self::MaxMatches => Value::Whole(1000),
             Self::MaxLevel | Self::GroupRepeated => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),

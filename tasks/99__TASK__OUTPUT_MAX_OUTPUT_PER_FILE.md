@@ -1,6 +1,6 @@
 # Task 99: `output.max_output_per_file`
 
-Status: not implemented
+Status: implemented, see [99__SUMMARY__OUTPUT_MAX_OUTPUT_PER_FILE.md](99__SUMMARY__OUTPUT_MAX_OUTPUT_PER_FILE.md)
 
 Depends on: task 97
 

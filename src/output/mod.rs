@@ -61,6 +61,8 @@ pub struct Limits {
     pub max_matches_per_file: usize,
     /// The characters of a line, longer lines are cut (OUTPUT.md#long-lines).
     pub max_line_length: usize,
+    /// The characters of the lines of one file.
+    pub max_output_per_file: usize,
 }
 
 impl Default for Limits {
@@ -72,6 +74,7 @@ impl Default for Limits {
             max_matches: usize::MAX,
             max_matches_per_file: usize::MAX,
             max_line_length: usize::MAX,
+            max_output_per_file: usize::MAX,
         }
     }
 }
@@ -156,23 +159,23 @@ impl Response<'_> {
         out.push('\n');
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
-        for ((file, listed), cut) in self.listed().iter().zip(&listing.files).zip(&listing.cut) {
-            if *listed != Listed::LeftOut {
-                self.push_file(&mut out, file, listed, *cut, &mut current);
+        for (index, file) in self.listed().iter().enumerate() {
+            if listing.files[index] != Listed::LeftOut {
+                self.push_file(&mut out, file, &listing, index, &mut current);
             }
         }
         self.push_warnings(&mut out);
         out
     }
 
-    /// A listed file: its line (under its directory header when it differs from `current`; `(cut)` when a per file
-    /// limit cut it), its path fragments and its listed lines.
+    /// The listed file `index`: its line (under its directory header when it differs from `current`; `(cut)` when a
+    /// per file limit cut it), its path fragments and its listed lines.
     fn push_file(
         &self,
         out: &mut String,
         file: &Found,
-        listed: &Listed,
-        cut: bool,
+        listing: &Listing,
+        index: usize,
         current: &mut Option<String>,
     ) {
         if self.group_dirs {
@@ -196,7 +199,7 @@ impl Response<'_> {
         if let Some(m) = &file.matches {
             let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
         }
-        if cut {
+        if listing.cut[index] {
             out.push_str("  (cut)");
         }
         if let Some(encoding) = file.encoding {
@@ -212,8 +215,11 @@ impl Response<'_> {
         if let Some(path) = &file.path_fragments {
             self.push_path_fragments(out, path, file.is_dir);
         }
-        if let (Some(m), Listed::Lines(fragments)) = (&file.matches, listed) {
-            let blocks = blocks::blocks(&m.content, fragments, &self.blocks);
+        if let (Some(m), Listed::Lines(fragments)) = (&file.matches, &listing.files[index]) {
+            let blocks = blocks::before(
+                blocks::blocks(&m.content, fragments, &self.blocks),
+                listing.until[index],
+            );
             out.push_str(&lines::render(
                 &m.content,
                 fragments,
@@ -274,7 +280,7 @@ impl Response<'_> {
     /// What is listed of the listed files: in `lines` detail their lines after the repeated lines and the limits.
     fn listing(&self, repeated: &repeated::Repeated) -> Listing {
         if self.detail == Detail::Lines {
-            Listing::new(self.listed(), repeated, &self.limits)
+            Listing::new(self.listed(), repeated, &self.limits, &self.blocks)
         } else {
             Listing::without_lines(self.listed())
         }

@@ -332,8 +332,12 @@ mod tests {
             [(Key::MaxLineLength, KeyValue::Whole(20))]
         );
         assert_eq!(
-            text(&json!({ "output": { "max_output_per_file": 100 } })),
-            "error[not_implemented]: the field 'output.max_output_per_file' is not implemented yet\n"
+            config(&json!({ "output": { "max_output_per_file": 100 } })),
+            [(Key::MaxOutputPerFile, KeyValue::Whole(100))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "max_output": 100 } })),
+            "error[not_implemented]: the field 'output.max_output' is not implemented yet\n"
         );
     }
 
