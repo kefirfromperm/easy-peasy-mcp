@@ -1,6 +1,6 @@
 # Task 95: `output.max_lines`
 
-Status: in progress
+Status: implemented, see [95__SUMMARY__OUTPUT_MAX_LINES.md](95__SUMMARY__OUTPUT_MAX_LINES.md)
 
 Depends on: task 94
 
