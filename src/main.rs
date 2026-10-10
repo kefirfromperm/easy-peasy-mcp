@@ -119,6 +119,10 @@ fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()>
     let mut options = EngineOptions::new(start_dir);
     options.settings = settings;
     options.home = home;
+    // the test hook of the startup examples (AGENTS.md): every read of a file's content takes this long
+    options.read_delay = env("EASY_PEASY_TEST_SLOW_READS")
+        .and_then(|ms| ms.parse().ok())
+        .map(std::time::Duration::from_millis);
     let server = Server::new(Engine::new(options));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

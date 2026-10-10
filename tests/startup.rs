@@ -96,7 +96,11 @@ fn run_session(server: McpServer, example: &Example, fixture_path: &str) -> Resu
 }
 
 /// The blocks of a startup example after `initialize`.
-fn run_blocks(exchange: &mut Exchange, example: &Example, fixture_path: &str) -> Result<(), String> {
+fn run_blocks(
+    exchange: &mut Exchange,
+    example: &Example,
+    fixture_path: &str,
+) -> Result<(), String> {
     let mut blocks = example.blocks.iter();
     let mut id = 1;
     while let Some(block) = blocks.next() {
@@ -107,7 +111,10 @@ fn run_blocks(exchange: &mut Exchange, example: &Example, fixture_path: &str) ->
             "json send" => exchange.send(&parse(&block.text)?),
             "json receive" => {
                 let expected = parse(&block.text)?;
-                if exchange.receive(&expected, Duration::from_secs(10)).is_none() {
+                if exchange
+                    .receive(&expected, Duration::from_secs(10))
+                    .is_none()
+                {
                     return Err(format!(
                         "no message like {expected}; received:\n{}",
                         log(exchange)
@@ -134,7 +141,11 @@ fn run_blocks(exchange: &mut Exchange, example: &Example, fixture_path: &str) ->
                     .next()
                     .ok_or_else(|| format!("request {id}: no response"))?;
                 let response = exchange
-                    .request(id, "tools/call", &json!({ "name": tool, "arguments": arguments }))
+                    .request(
+                        id,
+                        "tools/call",
+                        &json!({ "name": tool, "arguments": arguments }),
+                    )
                     .ok_or_else(|| format!("request {id}: no response from the server"))?;
                 let text = response["result"]["content"][0]["text"]
                     .as_str()
@@ -181,9 +192,18 @@ fn exchange_blocks_match_messages() {
         &json!({ "params": { "progress": "*", "message": "scanned * files, * matched, *s" } }),
         &message
     ));
-    assert!(!common::matches(&json!({ "params": { "progressToken": "p8" } }), &message));
-    assert!(!common::matches(&json!({ "params": { "message": "scanned * dirs*" } }), &message));
-    assert!(common::matches(&json!({ "method": "notifications/progress" }), &message));
+    assert!(!common::matches(
+        &json!({ "params": { "progressToken": "p8" } }),
+        &message
+    ));
+    assert!(!common::matches(
+        &json!({ "params": { "message": "scanned * dirs*" } }),
+        &message
+    ));
+    assert!(common::matches(
+        &json!({ "method": "notifications/progress" }),
+        &message
+    ));
 }
 
 #[test]

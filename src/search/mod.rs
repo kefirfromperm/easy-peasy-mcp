@@ -27,6 +27,27 @@ use crate::query::{
 use crate::relevance::{self, Signals};
 use crate::warning::{WarningCode, Warnings};
 
+/// How far the running searches of a call are (TOOLS.md#progress): the entries evaluated and the ones matched.
+#[derive(Debug, Default)]
+pub struct Progress {
+    scanned: AtomicUsize,
+    matched: AtomicUsize,
+}
+
+impl Progress {
+    /// The entries whose conditions were evaluated so far, matched or not.
+    #[must_use]
+    pub fn scanned(&self) -> usize {
+        self.scanned.load(AtomicOrdering::Relaxed)
+    }
+
+    /// The entries matched so far.
+    #[must_use]
+    pub fn matched(&self) -> usize {
+        self.matched.load(AtomicOrdering::Relaxed)
+    }
+}
+
 /// Settings of one search.
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)] // independent switches of the walk, from the configuration
@@ -87,6 +108,8 @@ pub struct SearchOptions {
     pub funnel: bool,
     /// Read the git status of every matched file, for the `git` facet.
     pub git_status: bool,
+    /// Counts the scanned and matched entries, for the progress notifications.
+    pub progress: Option<std::sync::Arc<Progress>>,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -783,6 +806,7 @@ impl Walk<'_> {
             return None;
         }
         self.count_funnel(evaluated.funnel);
+        self.count_match();
         let meta = self.options.meta.then(|| {
             let known = Known {
                 metadata: metadata.as_ref(),
@@ -941,6 +965,9 @@ impl Walk<'_> {
         read: &mut dyn FnMut() -> ReadContent,
         warn: &dyn Fn(WarningCode),
     ) -> Option<Evaluated> {
+        if let Some(progress) = &self.options.progress {
+            progress.scanned.fetch_add(1, AtomicOrdering::Relaxed);
+        }
         if filter.eval(&file) == Truth::False {
             self.count_funnel(self.funnel_point(filter, &file, false));
             return None;
@@ -1054,6 +1081,13 @@ impl Walk<'_> {
             .iter()
             .take_while(|step| passes(step.item))
             .count()
+    }
+
+    /// Counts a matched entry for the progress.
+    fn count_match(&self) {
+        if let Some(progress) = &self.options.progress {
+            progress.matched.fetch_add(1, AtomicOrdering::Relaxed);
+        }
     }
 
     /// Adds an entry at its point to the numbers of the steps of the funnel.
@@ -1217,6 +1251,7 @@ impl Walk<'_> {
             }
         }
         self.count_funnel(evaluated.funnel);
+        self.count_match();
         Some(Found {
             rel: rel.to_path_buf(),
             member: Some(member.path.clone()),

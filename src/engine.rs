@@ -21,7 +21,7 @@ use crate::output::{
 use crate::query::{self, ParseOptions};
 use crate::relevance;
 use crate::request;
-use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
+use crate::search::{self, Archives, Binary, KindOptions, Progress, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
 
 /// Settings of an [`Engine`] which don't come from a request.
@@ -137,8 +137,22 @@ impl Engine {
     ///
     /// [`UnknownTool`] if the server has no tool with this name.
     pub fn call(&self, tool: &str, arguments: &Value) -> Result<ToolOutput, UnknownTool> {
+        self.call_with(tool, arguments, None)
+    }
+
+    /// Runs a tool call; a search counts its scanned and matched entries in `progress`.
+    ///
+    /// # Errors
+    ///
+    /// [`UnknownTool`] for a tool which is not served.
+    pub fn call_with(
+        &self,
+        tool: &str,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+    ) -> Result<ToolOutput, UnknownTool> {
         match tool {
-            "find" => Ok(self.find(arguments)),
+            "find" => Ok(self.find_with(arguments, progress)),
             "get_config" => Ok(ToolOutput::from(config::get_config(
                 &self.settings(),
                 arguments,
@@ -165,10 +179,15 @@ impl Engine {
     /// The `find` tool.
     #[must_use]
     pub fn find(&self, arguments: &Value) -> ToolOutput {
+        self.find_with(arguments, None)
+    }
+
+    /// `find` which counts its scanned and matched entries in `progress`.
+    fn find_with(&self, arguments: &Value, progress: Option<&Arc<Progress>>) -> ToolOutput {
         if arguments.get("queries").is_some() {
-            return self.batch(arguments);
+            return self.batch(arguments, progress);
         }
-        match self.try_find(arguments) {
+        match self.try_find(arguments, progress) {
             Ok(text) => ToolOutput {
                 text,
                 is_error: false,
@@ -183,7 +202,7 @@ impl Engine {
 
     /// A batch request (OUTPUT.md#batch): every query in its section, the budget and `max_output` of the whole
     /// response split between them; `isError` only when all of them fail.
-    fn batch(&self, arguments: &Value) -> ToolOutput {
+    fn batch(&self, arguments: &Value, progress: Option<&Arc<Progress>>) -> ToolOutput {
         let shared = batch::shared(arguments);
         let json = self.json_format(&shared);
         let fail = |report: &Report| ToolOutput {
@@ -237,7 +256,7 @@ impl Engine {
                     }
                     object.insert("max_output".into(), json!(parts.1));
                 }
-                self.try_find(&args)
+                self.try_find(&args, progress)
             });
             let used = result.as_ref().map_or(0, |text| text.chars().count());
             if let Some(budget) = &mut budget {
@@ -265,14 +284,18 @@ impl Engine {
         }
     }
 
-    fn try_find(&self, arguments: &Value) -> Result<String, Report> {
+    fn try_find(
+        &self,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+    ) -> Result<String, Report> {
         let arrival = std::time::Instant::now();
         let request = request::parse(arguments)?;
         let settings = self
             .settings()
             .with(&request.config, &request.languages)
             .map_err(|p| p.request_report())?;
-        let run = self.run(&request, &settings, arguments, arrival)?;
+        let run = self.run(&request, &settings, arguments, arrival, progress)?;
         Ok(self.respond(&settings, arguments, run))
     }
 
@@ -284,6 +307,7 @@ impl Engine {
         settings: &Settings,
         arguments: &Value,
         arrival: std::time::Instant,
+        progress: Option<&Arc<Progress>>,
     ) -> Result<Run, Report> {
         let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let limit = request.timeout.or_else(|| settings.timeout());
@@ -301,6 +325,7 @@ impl Engine {
         let mut search =
             self.search_options(settings, deadline, parse.case_insensitive_paths, languages);
         search.first_only = settings.text(Key::Detail) == "exists";
+        search.progress = progress.cloned();
         let detail = detail(settings);
         search.funnel = settings.text(Key::Funnel) != "never" && detail >= Detail::Count;
         let facet_names = facet_names(settings, detail, &mut search);
@@ -538,6 +563,7 @@ impl Engine {
             rank: false,
             funnel: false,
             git_status: false,
+            progress: None,
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
