@@ -126,206 +126,247 @@ base = "auto"    # default
 extensions = ['c', 'h']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
 shebangs = ['node']    # default
+line_comments = ['//']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//', '#']    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
 shebangs = ['python', 'python3']    # default
+line_comments = ['#']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
 shebangs = ['ruby']    # default
+line_comments = ['#']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
 shebangs = ['sh', 'bash', 'zsh']    # default
+line_comments = ['#']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
 shebangs = ['perl']    # default
+line_comments = ['#']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['REM', '::']    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['--']    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['--']    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['--']    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = [';']    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = [';']    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#', ';']    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#', '!']    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 ```
 
 ## E41.2 The default
@@ -432,206 +473,247 @@ base = "auto"    # default
 extensions = ['c', 'h']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
 shebangs = ['node']    # default
+line_comments = ['//']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//', '#']    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
 shebangs = ['python', 'python3']    # default
+line_comments = ['#']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
 shebangs = ['ruby']    # default
+line_comments = ['#']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
 shebangs = ['sh', 'bash', 'zsh']    # default
+line_comments = ['#']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
 shebangs = ['perl']    # default
+line_comments = ['#']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['REM', '::']    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['--']    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['--']    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['--']    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = [';']    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = [';']    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#', ';']    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['#', '!']    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
 shebangs = []    # default
+line_comments = ['//']    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
 shebangs = []    # default
+line_comments = ['#']    # default
 ```
 
 2. `find`
