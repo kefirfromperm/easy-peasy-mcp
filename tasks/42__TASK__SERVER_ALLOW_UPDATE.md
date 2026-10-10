@@ -1,6 +1,6 @@
 # Task 42: `server.allow_update`
 
-Status: in progress
+Status: implemented, see [42__SUMMARY__SERVER_ALLOW_UPDATE.md](42__SUMMARY__SERVER_ALLOW_UPDATE.md)
 
 Depends on: task 36
 
