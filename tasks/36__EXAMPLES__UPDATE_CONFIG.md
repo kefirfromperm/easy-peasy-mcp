@@ -219,6 +219,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 3. `find`

@@ -27,11 +27,12 @@ pub enum Key {
     Encoding,
     FallbackEncoding,
     Archives,
+    MaxArchiveSize,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 18] = [
+    pub const ALL: [Key; 19] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -50,6 +51,7 @@ impl Key {
         Self::Encoding,
         Self::FallbackEncoding,
         Self::Archives,
+        Self::MaxArchiveSize,
     ];
 
     /// The section, the name and the type.
@@ -89,6 +91,7 @@ impl Key {
                 "archives",
                 Type::Choice(&["none", "compressed", "all"]),
             ),
+            Self::MaxArchiveSize => ("traversal", "max_archive_size", Type::Size),
         }
     }
 
@@ -111,6 +114,7 @@ impl Key {
             Self::MaxFileSize => Value::Text("10M".to_string()),
             Self::Encoding => Value::Text("auto".to_string()),
             Self::Archives => Value::Text("none".to_string()),
+            Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
     }
 

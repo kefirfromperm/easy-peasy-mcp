@@ -380,7 +380,8 @@ Searching inside compressed files and archives, like `rg -z`. Off by default.
 - archives inside archives are not opened
 - `max_file_size` applies to the decompressed content of every compressed file and every member
 - `max_archive_size` limits the total decompressed content of one archive (protection against zip bombs); the rest is
-  skipped with an `archive_too_big` warning
+  skipped with an `archive_too_big` warning: the members count with their uncompressed sizes in the order of the
+  archive, the member which would exceed the limit and the ones after it are not entries
 - encrypted, corrupted and unsupported archives are not opened: their members are not searched, the archive file
   itself is still an entry; the response has an `archive_error` warning
 - members are decompressed in memory, nothing is written to disk; member paths with `..` or absolute paths are

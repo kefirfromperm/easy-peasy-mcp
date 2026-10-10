@@ -14,6 +14,7 @@ pub enum WarningCode {
     BinarySkipped,
     DecodeErrors,
     ArchiveError,
+    ArchiveTooBig,
     DateUnsupported,
     Timeout,
     NotAGitRepo,
@@ -28,6 +29,7 @@ impl WarningCode {
             Self::BinarySkipped => "binary_skipped",
             Self::DecodeErrors => "decode_errors",
             Self::ArchiveError => "archive_error",
+            Self::ArchiveTooBig => "archive_too_big",
             Self::DateUnsupported => "date_unsupported",
             Self::Timeout => "timeout",
             Self::NotAGitRepo => "not_a_git_repo",
@@ -177,6 +179,18 @@ mod tests {
         assert_eq!(
             w.to_text(),
             "warning: permission_denied (1): p\nwarning: too_big (1): t\nwarning: binary_skipped (1): b\n"
+        );
+    }
+
+    #[test]
+    fn archive_warnings_in_the_order_of_the_table() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::ArchiveTooBig, PathBuf::from("b.zip"), false);
+        w.add(WarningCode::ArchiveError, PathBuf::from("a.zip"), false);
+        w.add(WarningCode::DateUnsupported, PathBuf::from("c"), false);
+        assert_eq!(
+            w.to_text(),
+            "warning: archive_error (1): a.zip\nwarning: archive_too_big (1): b.zip\nwarning: date_unsupported (1): c\n"
         );
     }
 

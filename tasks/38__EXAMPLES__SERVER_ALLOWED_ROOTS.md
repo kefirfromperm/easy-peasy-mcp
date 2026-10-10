@@ -48,6 +48,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E38.2 With the source
@@ -85,6 +86,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ## E38.3 Another section
@@ -141,6 +143,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ```json request
@@ -220,6 +223,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ```json request
@@ -278,6 +282,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ```json request
@@ -337,6 +342,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E38.9 An invalid value

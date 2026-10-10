@@ -63,6 +63,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E49.2 Without the git excludes in the request
@@ -135,6 +136,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ## E49.4 An invalid value in a request
@@ -200,6 +202,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 2. `find`

@@ -73,6 +73,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E55.2 An encoding in a request
@@ -171,6 +172,7 @@ max_file_size = "10M"    # default
 encoding = "windows-1252"    # update
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ## E55.5 An invalid value in a request
@@ -236,6 +238,7 @@ max_file_size = "10M"    # default
 encoding = "windows-1252"    # file: conf/e.toml
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 2. `find`
