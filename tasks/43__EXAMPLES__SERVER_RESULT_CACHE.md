@@ -175,6 +175,7 @@ context = 0    # default
 path_fragments = false    # default
 highlight = "auto"    # default
 markers = ['⟦', '⟧']    # default
+max_files = 100    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
