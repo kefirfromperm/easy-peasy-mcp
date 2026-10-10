@@ -9,7 +9,7 @@ services/http/handler.go   2026-10-01 10:00
 src/config-loader.ts       2026-10-01 10:00
 src/config_loader.rs       2026-10-01 10:00
 src/ConfigLoader.java      2026-10-01 10:00
-src/scaffold_bigolder.rs   2026-10-01 10:00
+src/scaffold_bigolder.ts   2026-10-01 10:00
 src/server/handlers.rs     2026-10-01 10:00
 ```
 
@@ -19,7 +19,7 @@ The matched files of an example have the same fuzzy score, so the order doesn't 
 
 ## E32.1 Characters in order, at word starts
 
-`scaffold_bigolder.rs` has the characters in order too, but mostly in the middle of words: its score is below 0.5.
+`scaffold_bigolder.ts` has the characters in order too, but mostly in the middle of words: its score is below 0.5.
 
 Fixture: `fuzzy`
 
