@@ -41,6 +41,7 @@ config.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -160,6 +161,7 @@ config.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -237,6 +239,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default

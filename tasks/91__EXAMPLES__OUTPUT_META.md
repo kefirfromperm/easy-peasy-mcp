@@ -57,6 +57,7 @@ small.rs  [#1]
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -237,6 +238,7 @@ small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.93
 [output]
 format = "text"    # default
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default

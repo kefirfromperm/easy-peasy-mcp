@@ -57,6 +57,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 [output]
 format = "text"
 detail = "lines"
+# budget =  (not set)
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -401,6 +402,7 @@ format = "json"    # was "text"
 [output]
 format = "json"    # update
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
@@ -509,6 +511,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "json"    # file: conf/o.toml
 detail = "lines"    # default
+# budget =  (not set)    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
