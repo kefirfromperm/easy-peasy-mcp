@@ -1,6 +1,6 @@
 # Task 8: Comments in the query
 
-Status: in progress
+Status: implemented, see [8__SUMMARY__QUERY_COMMENTS.md](8__SUMMARY__QUERY_COMMENTS.md)
 
 Depends on: task 6
 
