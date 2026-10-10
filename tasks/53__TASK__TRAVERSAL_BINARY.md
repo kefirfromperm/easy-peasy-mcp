@@ -1,6 +1,6 @@
 # Task 53: `traversal.binary`
 
-Status: in progress
+Status: implemented, see [53__SUMMARY__TRAVERSAL_BINARY.md](53__SUMMARY__TRAVERSAL_BINARY.md)
 
 Depends on: task 20, task 44
 
