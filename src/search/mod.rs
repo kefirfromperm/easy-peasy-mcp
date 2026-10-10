@@ -15,7 +15,8 @@ use crate::languages::LanguageTable;
 use crate::output::{Fragment, matched_lines, merge_identical};
 use crate::query::UNKNOWN_LANG;
 use crate::query::{
-    ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, nfc,
+    ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, content_matches,
+    nfc,
 };
 use crate::warning::{WarningCode, Warnings};
 
@@ -61,11 +62,19 @@ pub struct FileMatches {
 fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
     let mut fragments = Vec::new();
     for leaf in leaves {
-        if let Filter::Content { id, order, regex } = leaf {
-            fragments.extend(regex.find_iter(content.text()).map(|m| Fragment {
-                range: m.range(),
-                ids: vec![(*order, id.clone())],
-            }));
+        if let Filter::Content {
+            id,
+            order,
+            regex,
+            per_line,
+        } = leaf
+        {
+            fragments.extend(
+                content_matches(regex, *per_line, content).map(|range| Fragment {
+                    range,
+                    ids: vec![(*order, id.clone())],
+                }),
+            );
         }
     }
     if fragments.is_empty() {

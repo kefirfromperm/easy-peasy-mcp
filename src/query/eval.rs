@@ -224,11 +224,13 @@ pub enum Filter {
         values: Vec<GitValue>,
         negated: bool,
     },
-    /// A `text` condition in file scope: the regex runs over the whole normalized content.
+    /// A `text` condition in file scope: the regex runs over the whole normalized content, or over every line
+    /// separately (`=~` without `/m`).
     Content {
         id: CondId,
         order: usize,
         regex: Regex,
+        per_line: bool,
     },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
@@ -237,6 +239,24 @@ pub enum Filter {
         target: NumberTarget,
         bounds: Bounds,
     },
+}
+
+/// The byte ranges of the matches of `regex` in the normalized content: over the whole text, or per line.
+pub fn content_matches<'c>(
+    regex: &'c Regex,
+    per_line: bool,
+    content: &'c Content,
+) -> Box<dyn Iterator<Item = std::ops::Range<usize>> + 'c> {
+    if per_line {
+        Box::new((0..content.line_count()).flat_map(move |i| {
+            let (start, end) = content.line_range(i);
+            regex
+                .find_iter(&content.text()[start..end])
+                .map(move |m| start + m.start()..start + m.end())
+        }))
+    } else {
+        Box::new(regex.find_iter(content.text()).map(|m| m.range()))
+    }
 }
 
 /// A truth value of three-valued logic (QUERY.md#files-whose-content-is-not-searched).
@@ -334,10 +354,14 @@ impl Filter {
             Self::Kind {
                 values, negated, ..
             } => Truth::from(values.contains(&file.kind) != *negated),
-            Self::Content { regex, .. } => match file.content {
+            Self::Content {
+                regex, per_line, ..
+            } => match file.content {
                 ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
                 ContentState::Absent => Truth::False,
-                ContentState::Text(content) => Truth::from(regex.is_match(content.text())),
+                ContentState::Text(content) => {
+                    Truth::from(content_matches(regex, *per_line, content).next().is_some())
+                }
             },
             Self::Git {
                 values, negated, ..

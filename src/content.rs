@@ -42,7 +42,6 @@ impl Content {
         &self.text
     }
 
-    #[cfg(test)]
     /// The number of lines; a trailing line break doesn't start a new line.
     pub fn line_count(&self) -> usize {
         self.line_starts.len()

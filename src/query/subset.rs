@@ -2,7 +2,7 @@
 //!
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
 //! `kind` and `git` conditions, `text` with `=`, `has`, `starts`,
-//! `ends` in file scope; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! `ends`, `=~` in file scope; `=~` on `name` and `path`; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
@@ -51,7 +51,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
             } else if c.target == Target::Text
                 && let Some((op, span)) = &c.op
-                && !matches!(op, Op::Eq | Op::Has | Op::Starts | Op::Ends)
+                && !matches!(op, Op::Eq | Op::Has | Op::Starts | Op::Ends | Op::Regex)
             {
                 found.push((
                     span.clone(),
@@ -71,6 +71,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                         | Op::Starts
                         | Op::Ends
                         | Op::Wildcard
+                        | Op::Regex
                 )
             {
                 found.push((
@@ -121,12 +122,9 @@ mod tests {
         );
         assert_eq!(
             check_str("name = 'a' or (path ~ 'b' and text =~ 'c')"),
-            Some(("the operator '=~' is not implemented yet".into(), 35..37))
+            None
         );
-        assert_eq!(
-            check_str("name = 'a' and name =~ 'a'"),
-            Some(("the operator '=~' is not implemented yet".into(), 20..22))
-        );
+        assert_eq!(check_str("name = 'a' and name =~ 'a'"), None);
         assert_eq!(
             check_str("name ~~ 'a'").unwrap().0,
             "the operator '~~' is not implemented yet"
