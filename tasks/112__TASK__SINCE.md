@@ -1,6 +1,6 @@
 # Task 112: Changes since a previous result: `since`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 111
 
