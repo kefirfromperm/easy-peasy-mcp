@@ -76,7 +76,7 @@ impl Server {
     }
 }
 
-fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+fn fixture() -> common::FixtureDir {
     let (_, fixtures) = common::load_examples();
     let mvp = fixtures
         .iter()
@@ -87,8 +87,8 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf) {
 
 #[test]
 fn initialize_list_and_find() {
-    let (tmp, root) = fixture();
-    let mut server = Server::start(&root, tmp.path());
+    let dir = fixture();
+    let mut server = Server::start(&dir.root, dir.temp());
 
     let init = server.initialize();
     let result = &init["result"];

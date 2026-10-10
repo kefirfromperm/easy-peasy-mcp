@@ -1499,10 +1499,16 @@ mod tests {
     #[test]
     fn fuzzy_names_and_paths() {
         assert!(name_matches("name ~~ 'cfgldr'", "src/config_loader.rs"));
-        assert!(!name_matches("name ~~ 'cfgldr'", "src/scaffold_bigolder.ts"));
+        assert!(!name_matches(
+            "name ~~ 'cfgldr'",
+            "src/scaffold_bigolder.ts"
+        ));
         assert!(!name_matches("name ~~ 'cfgx'", "src/config_loader.rs"));
         assert!(name_matches("path ~~ 'srv hndl'", "src/server/handlers.rs"));
-        assert!(!name_matches("name ~~ 'srv hndl'", "src/server/handlers.rs"));
+        assert!(!name_matches(
+            "name ~~ 'srv hndl'",
+            "src/server/handlers.rs"
+        ));
     }
 
     #[test]

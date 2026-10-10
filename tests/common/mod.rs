@@ -35,7 +35,7 @@ pub struct Fixture {
     /// The fixed `now` of the fixture in seconds since the Unix epoch, from a line `` Now: `2026-10-08 12:00` ``.
     pub now: Option<i64>,
     /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `bytes <path> <hex>`,
-    /// `symlink <path> -> <target>`, `atime <path> <date> <time>`, `git <dir> <args>`.
+    /// `symlink <path> -> <target>`, `atime <path> <date> <time>`, `git <dir> <args>`, `chmod <path> <mode>`.
     pub setup: Vec<String>,
 }
 
@@ -189,7 +189,33 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 
 /// Copies `tests/fixtures/<name>` into a new temp dir, runs the setup actions and sets the modification times of
 /// the tree. Returns the temp dir (kept alive by the caller) and the fixture root inside it.
-pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
+/// A fixture set up in a temp dir; the permissions removed by `chmod` are restored when it is dropped, so the temp
+/// dir can be removed.
+pub struct FixtureDir {
+    pub root: PathBuf,
+    /// Whether every `chmod` took effect: false on Windows and when the entry stays readable (running as root).
+    pub permissions_removed: bool,
+    restricted: Vec<PathBuf>,
+    tmp: tempfile::TempDir,
+}
+
+impl FixtureDir {
+    /// The temp dir which holds the fixture directory.
+    pub fn temp(&self) -> &Path {
+        self.tmp.path()
+    }
+}
+
+impl Drop for FixtureDir {
+    fn drop(&mut self) {
+        for path in &self.restricted {
+            restore_permissions(path);
+        }
+    }
+}
+
+/// Copies the fixture to a temp dir and runs its setup: actions, times, access times, permissions.
+pub fn setup_fixture(fixture: &Fixture) -> FixtureDir {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join(&fixture.name);
     let source = repo_root().join("tests/fixtures").join(&fixture.name);
@@ -198,7 +224,8 @@ pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
     } else {
         fs::create_dir_all(&root).unwrap();
     }
-    for action in fixture.setup.iter().filter(|a| !a.starts_with("atime ")) {
+    let late = |a: &&String| a.starts_with("atime ") || a.starts_with("chmod ");
+    for action in fixture.setup.iter().filter(|a| !late(a)) {
         run_setup(&root, action);
     }
     for (path, mtime) in &fixture.tree {
@@ -223,8 +250,52 @@ pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
         let mtime = filetime::FileTime::from_last_modification_time(&fs::metadata(&p).unwrap());
         filetime::set_file_times(&p, atime, mtime).unwrap();
     }
-    (tmp, root)
+    let mut restricted = Vec::new();
+    let mut permissions_removed = true;
+    for action in fixture.setup.iter().filter(|a| a.starts_with("chmod ")) {
+        let parts: Vec<&str> = action.split_whitespace().collect();
+        let [_, path, mode] = parts[..] else {
+            panic!("chmod <path> <mode>: {action}")
+        };
+        let p = root.join(path);
+        let mode = u32::from_str_radix(mode, 8).expect("an octal mode");
+        permissions_removed &= set_permissions(&p, mode);
+        restricted.push(p);
+    }
+    FixtureDir {
+        root,
+        permissions_removed,
+        restricted,
+        tmp,
+    }
 }
+
+/// Sets the Unix permissions of `path`; whether it is unreadable afterwards, as the mode asks.
+#[cfg(unix)]
+fn set_permissions(path: &Path, mode: u32) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
+    let readable = if path.is_dir() {
+        fs::read_dir(path).is_ok()
+    } else {
+        fs::File::open(path).is_ok()
+    };
+    readable == (mode & 0o400 != 0)
+}
+
+#[cfg(not(unix))]
+fn set_permissions(_path: &Path, _mode: u32) -> bool {
+    false
+}
+
+#[cfg(unix)]
+fn restore_permissions(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+    let _ = fs::set_permissions(path, fs::Permissions::from_mode(0o755));
+}
+
+#[cfg(not(unix))]
+fn restore_permissions(_path: &Path) {}
 
 fn run_setup(root: &Path, action: &str) {
     let (verb, rest) = action
