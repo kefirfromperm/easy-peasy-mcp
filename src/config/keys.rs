@@ -33,6 +33,7 @@ pub enum Key {
     Detail,
     Context,
     Before,
+    After,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -46,7 +47,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 33] = [
+    pub const ALL: [Key; 34] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -71,6 +72,7 @@ impl Key {
         Self::Detail,
         Self::Context,
         Self::Before,
+        Self::After,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -129,6 +131,7 @@ impl Key {
             ),
             Self::Context => ("output", "context", Type::Whole(None)),
             Self::Before => ("output", "before", Type::OptWhole),
+            Self::After => ("output", "after", Type::OptWhole),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -158,7 +161,7 @@ impl Key {
             Self::KindsTest => list(&crate::search::DEFAULT_TEST),
             Self::KindsGenerated => list(&crate::search::DEFAULT_GENERATED),
             Self::GeneratedMarkerLines => Value::Whole(crate::search::DEFAULT_MARKER_LINES),
-            Self::MaxDepth | Self::FallbackEncoding | Self::Before => Value::NotSet,
+            Self::MaxDepth | Self::FallbackEncoding | Self::Before | Self::After => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
             Self::GitExcludes | Self::SkipGenerated => Value::Bool(true),
