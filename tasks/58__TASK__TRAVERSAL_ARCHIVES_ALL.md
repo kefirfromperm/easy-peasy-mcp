@@ -1,6 +1,6 @@
 # Task 58: `traversal.archives`: `all`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 57
 
