@@ -39,6 +39,10 @@ zip = { version = "9.0.1", default-features = false, features = ["deflate-flate2
 tar = "0.4.46"
 sevenz-rust2 = { version = "0.23.0", default-features = false, features = ["bzip2", "ppmd"] }
 
+# the volume serial number and the file index which identify a file on Windows
+[target.'cfg(windows)'.dependencies]
+winapi-util = "0.1.11"
+
 [dev-dependencies]
 filetime = "0.2.29"
 pretty_assertions = "1.4.1"

@@ -44,6 +44,8 @@ pub struct ParseOptions {
     pub time_zone: jiff::tz::TimeZone,
     /// The language table: the values of `lang`.
     pub languages: std::sync::Arc<crate::languages::LanguageTable>,
+    /// Whether `\` is a path separator besides `/` in the values of `path` conditions: on Windows.
+    pub backslash_separator: bool,
     /// `escape.max_level`: the upper level of `/e(style, any)` and the highest level a query may ask for.
     pub max_escape_level: usize,
     /// `query.fuzzy_min_score`: `~~` matches with a lower score are dropped.
@@ -593,7 +595,10 @@ fn validate_condition(
     }
     if let (Some((Op::Wildcard, _)), Value::Str(s), Target::Name | Target::Path) =
         (&c.op, &c.value, c.target)
-        && let Err(e) = wildcard::compile(&nfc(&s.value), options.case_insensitive_paths)
+        && let Err(e) = wildcard::compile(
+            &path_value(c, &s.value, options),
+            options.case_insensitive_paths,
+        )
     {
         let written = &text[s.span.clone()];
         errors.push(
@@ -1013,6 +1018,25 @@ pub fn nfc(s: &str) -> String {
     }
 }
 
+/// Whether `\` is a path separator besides `/` in queries and in the wildcards of paths: on Windows
+/// (QUERY.md#targets).
+pub const BACKSLASH_SEPARATOR: bool = cfg!(windows);
+
+/// A path value with `/` for every separator: `\` too where it is one.
+pub fn slashed(value: &str, backslash_separator: bool) -> String {
+    if backslash_separator {
+        value.replace('\\', "/")
+    } else {
+        value.to_string()
+    }
+}
+
+/// A wildcard of paths from the configuration (`traversal.exclude`, `kinds`) as it is compiled: in NFC form, with `/`
+/// for every separator.
+pub fn path_wildcard(wildcard: &str) -> String {
+    slashed(&nfc(wildcard), BACKSLASH_SEPARATOR)
+}
+
 /// Compiles a checked query: every condition is valid.
 fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
     let all = |items: &[Expr]| items.iter().map(|e| compile(e, options)).collect();
@@ -1232,7 +1256,7 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
         unreachable!("name and path conditions have an operator and a string")
     };
-    let value = nfc(&s.value);
+    let value = path_value(c, &s.value, options);
     let identifier = c.modifiers.iter().any(|m| m.name == "n");
     let insensitive =
         options.case_insensitive_paths || identifier || c.modifiers.iter().any(|m| m.name == "i");
@@ -1274,6 +1298,17 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
     }
 }
 
+/// The value of a `name` or `path` condition as it is compared: in NFC form; in a `path` value which isn't a regex
+/// `\` is a separator where the options say so.
+fn path_value(c: &Condition, value: &str, options: &ParseOptions) -> String {
+    let regex = matches!(c.op, Some((Op::Regex, _)));
+    if c.target == Target::Path && !regex {
+        slashed(&nfc(value), options.backslash_separator)
+    } else {
+        nfc(value)
+    }
+}
+
 /// The value a `name` or `path` condition looks at.
 fn text_target(target: Target) -> TextTarget {
     if target == Target::Path {
@@ -1293,6 +1328,7 @@ mod tests {
             now: jiff::Timestamp::UNIX_EPOCH,
             time_zone: jiff::tz::TimeZone::UTC,
             languages: std::sync::Arc::new(crate::languages::LanguageTable::builtin()),
+            backslash_separator: false,
             max_escape_level: 3,
             fuzzy_min_score: 0.5,
         });

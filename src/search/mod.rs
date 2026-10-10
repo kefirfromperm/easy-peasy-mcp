@@ -397,7 +397,8 @@ pub struct SearchResult {
     pub funnel: Vec<usize>,
 }
 
-/// A device and inode pair which identifies a file reachable by several hard links.
+/// The identity of a file reachable by several paths: device and inode, on Windows volume serial number and file
+/// index.
 pub type FileId = (u64, u64);
 
 /// Symlinks which point outside of the allowed roots, found by the walk: the path relative to the working directory
@@ -439,7 +440,7 @@ fn walk_builder(root: &Path, options: &SearchOptions) -> (WalkBuilder, Outside) 
             if !follow || !entry.path_is_symlink() {
                 return true;
             }
-            let target = std::fs::canonicalize(entry.path());
+            let target = crate::paths::canonicalize(entry.path());
             if target
                 .as_ref()
                 .is_ok_and(|t| roots.iter().any(|r| t.starts_with(r)))
@@ -842,7 +843,7 @@ impl Walk<'_> {
             conditions: evaluated.conditions,
             matches: evaluated.matches,
             encoding: evaluated.encoding,
-            id: entry.metadata().and_then(|m| file_id(&m)),
+            id: entry.metadata().and_then(|m| file_id(entry.path(), &m)),
             path_fragments: evaluated.path_fragments,
             meta,
             signals: self.signals(evaluated.signals, &name, &nfc_path),
@@ -1139,7 +1140,7 @@ impl Walk<'_> {
             return;
         };
         let archive = slash_path(rel);
-        let id = entry.metadata().and_then(|m| file_id(&m));
+        let id = entry.metadata().and_then(|m| file_id(entry.path(), &m));
         let mut found = Vec::new();
         let mut total = 0_u64;
         let mut too_big = false;
@@ -1611,15 +1612,28 @@ fn flagged_hidden(_metadata: &std::fs::Metadata) -> bool {
     false
 }
 
+/// The identity of the file at `path`: the device and the inode.
 #[cfg(unix)]
 #[allow(clippy::unnecessary_wraps)] // the signature of every platform: `None` where there is no identity
-fn file_id(metadata: &std::fs::Metadata) -> Option<FileId> {
+fn file_id(_path: &Path, metadata: &std::fs::Metadata) -> Option<FileId> {
     use std::os::unix::fs::MetadataExt;
     Some((metadata.dev(), metadata.ino()))
 }
 
-#[cfg(not(unix))]
-fn file_id(_metadata: &std::fs::Metadata) -> Option<FileId> {
+/// The identity of the file at `path`: the volume serial number and the file index. A symlink which isn't followed
+/// (its own metadata) has none: it is an entry of its own, not a duplicate of its target.
+#[cfg(windows)]
+fn file_id(path: &Path, metadata: &std::fs::Metadata) -> Option<FileId> {
+    if metadata.file_type().is_symlink() {
+        return None;
+    }
+    let handle = winapi_util::Handle::from_path_any(path).ok()?;
+    let information = winapi_util::file::information(&handle).ok()?;
+    Some((information.volume_serial_number(), information.file_index()))
+}
+
+#[cfg(not(any(unix, windows)))]
+fn file_id(_path: &Path, _metadata: &std::fs::Metadata) -> Option<FileId> {
     None
 }
 
