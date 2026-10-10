@@ -152,6 +152,9 @@ impl Response<'_> {
             }
             if let Some(meta) = &file.meta {
                 let _ = write!(out, "  {}", meta::text(meta, &self.time_zone));
+                if let Some(score) = file.score {
+                    let _ = write!(out, " {:.2}", crate::relevance::shown_score(score));
+                }
             }
             out.push('\n');
             if let Some(path) = &file.path_fragments {
@@ -375,6 +378,8 @@ mod tests {
             id: None,
             path_fragments: None,
             meta: None,
+            signals: None,
+            score: None,
         }
     }
 
@@ -449,6 +454,8 @@ mod tests {
             id: None,
             path_fragments: None,
             meta: None,
+            signals: None,
+            score: None,
         }];
         let text = Response {
             detail: Detail::Lines,

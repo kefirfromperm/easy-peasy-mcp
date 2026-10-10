@@ -5,7 +5,7 @@ mod escape;
 mod eval;
 mod fuzzy;
 mod lexer;
-mod naming;
+pub mod naming;
 mod parser;
 mod suggest;
 mod value;
@@ -61,6 +61,8 @@ pub struct Query {
     pub has_type: bool,
     /// What the search must read for every entry.
     pub needs: Needs,
+    /// What the relevance score looks at.
+    pub ranking: crate::relevance::Ranking,
 }
 
 /// What the search must find out about every entry for the query.
@@ -130,12 +132,32 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
             }
         });
     }
+    let mut ranking = crate::relevance::Ranking::default();
+    if let Some(expr) = &expr {
+        expr.visit_nodes(&mut |node| {
+            if let NodeKind::Condition(c) = &node.kind {
+                let op = c.op.as_ref().map(|(op, _)| *op);
+                ranking.fuzzy |= op == Some(Op::Fuzzy);
+                if let (
+                    Target::Text,
+                    Some(Op::Eq | Op::Has | Op::Starts | Op::Ends),
+                    Value::Str(s),
+                ) = (c.target, op, &c.value)
+                {
+                    ranking.add_words(&s.value);
+                }
+            }
+        });
+    }
+    ranking.content = needs.content;
     let filter = expr.map(|expr| compile(&expr, options));
+    ranking.conditions = filter.as_ref().map_or(0, crate::relevance::conditions);
     Ok(Query {
         legend,
         filter,
         has_type,
         needs,
+        ranking,
     })
 }
 
