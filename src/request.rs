@@ -522,6 +522,13 @@ mod tests {
             ["deno"]
         );
         assert_eq!(
+            parse(&json!({ "languages": { "tf": { "line_comments": ["#", "//"] } } }))
+                .unwrap()
+                .languages[0]
+                .line_comments,
+            ["#", "//"]
+        );
+        assert_eq!(
             text(&json!({ "languages": { "terraform": { "extensions": "tf" } } })),
             "error[invalid_option]: 'languages.terraform.extensions' must be a list of strings\n"
         );
