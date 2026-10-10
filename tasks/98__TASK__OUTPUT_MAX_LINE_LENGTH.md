@@ -1,6 +1,6 @@
 # Task 98: `output.max_line_length`
 
-Status: in progress
+Status: implemented, see [98__SUMMARY__OUTPUT_MAX_LINE_LENGTH.md](98__SUMMARY__OUTPUT_MAX_LINE_LENGTH.md)
 
 Depends on: task 80
 
