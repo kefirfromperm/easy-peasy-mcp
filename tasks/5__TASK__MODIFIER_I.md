@@ -1,6 +1,6 @@
 # Task 5: `/i` modifier on `name` and `path`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 4
 
