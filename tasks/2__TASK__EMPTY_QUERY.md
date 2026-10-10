@@ -1,6 +1,6 @@
 # Task 2: Empty query: all files
 
-Status: in progress
+Status: implemented, see [2__SUMMARY__EMPTY_QUERY.md](2__SUMMARY__EMPTY_QUERY.md)
 
 Depends on: task 1
 
