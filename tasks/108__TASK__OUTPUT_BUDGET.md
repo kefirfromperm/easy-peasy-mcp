@@ -1,6 +1,6 @@
 # Task 108: `output.budget`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 101, task 105, task 98
 
