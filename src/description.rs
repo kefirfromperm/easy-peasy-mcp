@@ -151,7 +151,8 @@ pub fn find_schema() -> Value {
                     "properties": {
                         "extensions": { "type": "array", "items": { "type": "string" }, "description": "File extensions without the dot, compared in any case." },
                         "names": { "type": "array", "items": { "type": "string" }, "description": "Full file names, e.g. Dockerfile, compared in any case." },
-                        "shebangs": { "type": "array", "items": { "type": "string" }, "description": "Interpreters in the shebang of files without an extension, e.g. python3; a trailing version is ignored." }
+                        "shebangs": { "type": "array", "items": { "type": "string" }, "description": "Interpreters in the shebang of files without an extension, e.g. python3; a trailing version is ignored." },
+                        "line_comments": { "type": "array", "items": { "type": "string" }, "description": "Markers which start a comment until the end of the line, for /c." }
                     }
                 }
             }
