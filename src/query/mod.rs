@@ -26,22 +26,14 @@ pub struct ParseOptions {
     pub case_insensitive_paths: bool,
 }
 
-/// How a text value is matched.
+/// How a text value is matched: a regex over the NFC form of the value.
 #[derive(Debug, Clone)]
-pub enum TextMatcher {
-    /// Equal to the string.
-    Exact(String),
-    /// Matched by the regex.
-    Regex(Regex),
-}
+pub struct TextMatcher(Regex);
 
 impl TextMatcher {
     /// Whether `value` matches.
     pub fn is_match(&self, value: &str) -> bool {
-        match self {
-            Self::Exact(s) => s == value,
-            Self::Regex(re) => re.is_match(value),
-        }
+        self.0.is_match(value)
     }
 }
 
@@ -157,16 +149,21 @@ fn compile(expr: &Expr, options: ParseOptions) -> Option<Filter> {
         return None;
     };
     let value = nfc(&s.value);
-    let matcher = match op {
-        Op::Wildcard => {
-            TextMatcher::Regex(wildcard::compile(&value, options.case_insensitive_paths).ok()?)
-        }
-        _ if options.case_insensitive_paths => TextMatcher::Regex(
-            Regex::new(&format!("(?i)^{}$", regex::escape(&value)))
-                .expect("an escaped string is a valid regex"),
-        ),
-        _ => TextMatcher::Exact(value),
+    let insensitive = options.case_insensitive_paths;
+    let regex = if *op == Op::Wildcard {
+        wildcard::compile(&value, insensitive).ok()?
+    } else {
+        let escaped = regex::escape(&value);
+        let pattern = match op {
+            Op::Eq => format!("^{escaped}$"),
+            Op::Starts => format!("^{escaped}"),
+            Op::Ends => format!("{escaped}$"),
+            _ => escaped,
+        };
+        let flags = if insensitive { "(?i)" } else { "" };
+        Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex")
     };
+    let matcher = TextMatcher(regex);
     Some(Filter::Name {
         id: node.id.clone(),
         matcher,
