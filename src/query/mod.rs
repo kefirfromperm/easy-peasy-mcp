@@ -454,6 +454,15 @@ mod tests {
     }
 
     #[test]
+    fn comments_only_is_the_empty_query() {
+        let q = parse("# a\n  # b", SENSITIVE).unwrap();
+        assert!(q.filter.is_none());
+        let q = parse("name = 'a#b' # c\nor name = 'd'", SENSITIVE).unwrap();
+        let texts: Vec<&str> = q.legend.iter().map(|(_, t)| t.as_str()).collect();
+        assert_eq!(texts, ["name = 'a#b'", "name = 'd'"]);
+    }
+
+    #[test]
     fn the_empty_query_has_no_filter_and_no_legend() {
         let q = parse(" \n ", SENSITIVE).unwrap();
         assert!(q.filter.is_none());

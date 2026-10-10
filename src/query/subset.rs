@@ -124,13 +124,7 @@ mod tests {
             Some(("the modifier '/e' is not implemented yet".into(), 11..13))
         );
         assert_eq!(check_str("name = 'a' @x or name = 'b' @y"), None);
-        assert_eq!(
-            check_str("name = 'a' # x"),
-            Some(("the comment '#' is not implemented yet".into(), 11..14))
-        );
-        assert_eq!(
-            check_str("# only").unwrap().0,
-            "the comment '#' is not implemented yet"
-        );
+        assert_eq!(check_str("name = 'a' # x\n# y"), None);
+        assert_eq!(check_str("# only"), None);
     }
 }
