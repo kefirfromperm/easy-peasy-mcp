@@ -114,6 +114,7 @@ mod tests {
     use super::*;
     use crate::content::Content;
     use crate::query::ast::CondId;
+    use crate::output::BlockOptions;
     use crate::search::FileMatches;
 
     fn file(text: &str) -> Found {
@@ -172,7 +173,7 @@ mod tests {
             max_lines: 4,
             ..Limits::default()
         };
-        let listing = Listing::new(&files, &Repeated::default(), &limits);
+        let listing = Listing::new(&files, &Repeated::default(), &limits, &BlockOptions::default());
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
         assert_eq!(listing.truncated_by, ["max_lines"]);
         let limits = Limits {
@@ -180,9 +181,9 @@ mod tests {
             ..Limits::default()
         };
         // the multiline fragment needs lines 1 and 2: it is left out with line 3
-        let listing = Listing::new(&files, &Repeated::default(), &limits);
+        let listing = Listing::new(&files, &Repeated::default(), &limits, &BlockOptions::default());
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
-        let all = Listing::new(&files, &Repeated::default(), &Limits::default());
+        let all = Listing::new(&files, &Repeated::default(), &Limits::default(), &BlockOptions::default());
         assert_eq!(
             listed_lines(&all, &files),
             [vec![0, 1, 3], vec![0, 1, 2, 3]]
@@ -195,6 +196,7 @@ mod tests {
                 max_lines: 1,
                 ..Limits::default()
             },
+            &BlockOptions::default(),
         );
         assert_eq!(listed_lines(&one, &files), [vec![0], vec![]]);
         assert!(matches!(one.files[1], Listed::Lines(ref f) if f.is_empty()));
@@ -211,6 +213,7 @@ mod tests {
                 max_matches: 2,
                 ..Limits::default()
             },
+            &BlockOptions::default(),
         );
         assert!(matches!(&listing.files[0], Listed::Lines(f) if f.len() == 2));
         assert_eq!(listed_lines(&listing, &files), [vec![0], vec![]]);
@@ -223,6 +226,7 @@ mod tests {
                 max_matches: 5,
                 ..Limits::default()
             },
+            &BlockOptions::default(),
         );
         assert_eq!(listed_lines(&both, &files), [vec![0, 1], vec![]]);
         assert_eq!(both.truncated_by, ["max_lines"]);
@@ -233,6 +237,7 @@ mod tests {
                 max_matches: 5,
                 ..Limits::default()
             },
+            &BlockOptions::default(),
         );
         assert_eq!(
             listed_lines(&matches_left, &files),
@@ -248,7 +253,7 @@ mod tests {
             max_matches: 3,
             ..Limits::default()
         };
-        let listing = Listing::new(&files, &Repeated::default(), &limits);
+        let listing = Listing::new(&files, &Repeated::default(), &limits, &BlockOptions::default());
         assert_eq!(listing.cut, [true, false, false]);
         assert_eq!(listed_lines(&listing, &files), [vec![0], vec![0], vec![]]);
         assert_eq!(
@@ -262,7 +267,34 @@ mod tests {
                 max_matches_per_file: 2,
                 ..Limits::default()
             },
+            &BlockOptions::default(),
         );
         assert_eq!(per_file.truncated_by, ["max_matches_per_file"]);
+    }
+
+    #[test]
+    fn the_first_characters_of_every_file() {
+        let files = [file("aaaa\naaaa\naaaa\n"), file("a\nbbbb\na\n")];
+        let limits = Limits {
+            max_output_per_file: 9,
+            ..Limits::default()
+        };
+        let listing = Listing::new(&files, &Repeated::default(), &limits, &BlockOptions::default());
+        assert_eq!(listed_lines(&listing, &files), [vec![0, 1], vec![0, 2]]);
+        assert_eq!(listing.until, [Some(2), None]);
+        assert_eq!(listing.cut, [true, false]);
+        assert_eq!(listing.truncated_by, ["max_output_per_file"]);
+        // the context line of four characters counts
+        let context = BlockOptions {
+            after: 1,
+            ..BlockOptions::default()
+        };
+        let limits = Limits {
+            max_output_per_file: 5,
+            ..Limits::default()
+        };
+        let listing = Listing::new(&files[1..], &Repeated::default(), &limits, &context);
+        assert_eq!(listed_lines(&listing, &files[1..]), [vec![0]]);
+        assert_eq!(listing.until, [Some(2)]);
     }
 }
