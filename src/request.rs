@@ -425,6 +425,18 @@ mod tests {
     }
 
     #[test]
+    fn kinds_generated() {
+        assert_eq!(
+            config(&json!({ "kinds": { "generated": ["**/x/**"] } })),
+            [(Key::KindsGenerated, KeyValue::List(vec!["**/x/**".into()]))]
+        );
+        assert_eq!(
+            text(&json!({ "kinds": { "generated": ["[a-"] } })),
+            "error[invalid_option]: invalid wildcard '[a-' in 'kinds.generated'\n  hint: unclosed '['\n"
+        );
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
