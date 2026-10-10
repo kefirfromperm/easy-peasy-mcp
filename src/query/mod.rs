@@ -4,6 +4,7 @@ pub mod ast;
 mod escape;
 mod eval;
 mod lexer;
+mod naming;
 mod parser;
 mod subset;
 mod suggest;
@@ -1417,6 +1418,66 @@ mod tests {
         assert!(rust_matches(
             "text has '\"' /e(backslash, 1) /c",
             "x(\"\\\"\")"
+        ));
+    }
+
+    fn name_matches(q: &str, path: &str) -> bool {
+        let file = FileValues {
+            name: path.rsplit('/').next().unwrap(),
+            path,
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind: Kind::Other,
+            git: None,
+            content: ContentState::Absent,
+        };
+        parse(q, &SENSITIVE).unwrap().filter.unwrap().matches(&file)
+    }
+
+    #[test]
+    fn naming_styles() {
+        assert!(content_matches(
+            "text has 'parse query' /n",
+            "x = parse_query(1)"
+        ));
+        assert!(content_matches("text = 'parseQuery' /n", "PARSE_QUERY"));
+        assert!(!content_matches("text = 'parseQuery' /n", "PARSE_QUERY\n"));
+        assert!(content_matches(
+            "text starts 'parse query' /n",
+            "ParseQuery()"
+        ));
+        assert!(content_matches(
+            "text ends 'parse query' /n",
+            "x.parse-query"
+        ));
+        assert!(!content_matches(
+            "text has 'parse query' /n",
+            "parse__query"
+        ));
+        assert!(content_matches("text has 'user id' /n/w", "(user_id)"));
+        assert!(!content_matches("text has 'user id' /n/w", "userIdentity"));
+        assert!(content_matches("line(text = 'user id' /n)", "a\nUserId"));
+        assert!(name_matches(
+            "name has 'config loader' /n",
+            "src/ConfigLoader.java"
+        ));
+        assert!(!name_matches(
+            "name = 'config loader.rs' /n",
+            "src/config_loader.rs"
+        ));
+        assert!(name_matches(
+            "name starts 'config loader' /n",
+            "src/config-loader.ts"
+        ));
+        assert!(!name_matches("path has 'src config' /n", "src/config.rs"));
+        assert!(name_matches(
+            "path ends 'config loader.rs' /n",
+            "src/config.loader.rs"
         ));
     }
 
