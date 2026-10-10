@@ -325,8 +325,16 @@ mod tests {
             "error[invalid_option]: 'traversal.binary' must be one of: skip, search, exclude\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "max_file_size": "1M" } })),
-            "error[not_implemented]: the field 'traversal.max_file_size' is not implemented yet\n"
+            config(&json!({ "traversal": { "max_file_size": "1.5K" } })),
+            [(Key::MaxFileSize, KeyValue::Text("1.5K".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "max_file_size": 1024 } })),
+            "error[invalid_option]: 'traversal.max_file_size' must be a size like \"10M\" (units B, K, M, G)\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "encoding": "utf-8" } })),
+            "error[not_implemented]: the field 'traversal.encoding' is not implemented yet\n"
         );
     }
 

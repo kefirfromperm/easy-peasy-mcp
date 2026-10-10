@@ -148,6 +148,18 @@ mod tests {
     }
 
     #[test]
+    fn too_big_comes_after_permission_denied() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::BinarySkipped, PathBuf::from("b"), false);
+        w.add(WarningCode::TooBig, PathBuf::from("t"), false);
+        w.add(WarningCode::PermissionDenied, PathBuf::from("p"), false);
+        assert_eq!(
+            w.to_text(),
+            "warning: permission_denied (1): p\nwarning: too_big (1): t\nwarning: binary_skipped (1): b\n"
+        );
+    }
+
+    #[test]
     fn permission_denied_comes_first() {
         let mut w = Warnings::default();
         w.add(WarningCode::BinarySkipped, PathBuf::from("b"), false);
