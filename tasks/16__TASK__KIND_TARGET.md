@@ -1,6 +1,6 @@
 # Task 16: `kind` target
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 15
 
