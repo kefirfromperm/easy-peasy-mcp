@@ -1,6 +1,6 @@
 # Task 23: `/w` whole word modifier
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 22
 
