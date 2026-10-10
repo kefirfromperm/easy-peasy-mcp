@@ -91,6 +91,8 @@ fn is_zero(n: &usize) -> bool {
 
 #[derive(Serialize)]
 struct Block {
+    #[serde(skip_serializing_if = "is_zero")]
+    indent: usize,
     lines: Vec<Line>,
 }
 
@@ -184,23 +186,26 @@ fn blocks(content: &Content, fragments: &[super::Fragment], options: &BlockOptio
     super::blocks::blocks(content, fragments, options)
         .into_iter()
         .map(|block| Block {
+            indent: block.indent,
             lines: block
                 .lines
                 .into_iter()
-                .map(|line| json_line(content, fragments, line.index))
+                .map(|line| json_line(content, fragments, line.index, block.indent))
                 .collect(),
         })
         .collect()
 }
 
-/// A line of a block with the fragments which start in it.
-fn json_line(content: &Content, fragments: &[super::Fragment], i: usize) -> Line {
+/// A line of a block without its first `indent` bytes, with the fragments which start in it (their columns of the
+/// original line).
+fn json_line(content: &Content, fragments: &[super::Fragment], i: usize, indent: usize) -> Line {
     let (start, end) = content.line_range(i);
     let text = content.line(i);
+    let shown = &text[indent.min(text.len())..];
     let column = |offset: usize| content.text()[start..offset].chars().count() + 1;
     Line {
         n: i + 1,
-        text: text.to_string(),
+        text: shown.to_string(),
         fragments: fragments
             .iter()
             .filter(|f| content.line_of(f.range.start) == i && f.range.start <= end)
