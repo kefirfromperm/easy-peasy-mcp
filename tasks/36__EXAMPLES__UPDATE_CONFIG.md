@@ -226,6 +226,7 @@ skip_generated = true
 format = "text"
 detail = "lines"
 funnel = "auto"
+facets = ['dir', 'lang', 'kind', 'condition']
 meta = false
 context = 0
 # before =  (not set)

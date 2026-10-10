@@ -58,6 +58,7 @@ small.rs  [#1]
 format = "text"
 detail = "lines"
 funnel = "auto"
+facets = ['dir', 'lang', 'kind', 'condition']
 meta = false
 context = 0
 # before =  (not set)
@@ -235,6 +236,7 @@ small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.93
 format = "text"    # default
 detail = "lines"    # default
 funnel = "auto"    # default
+facets = ['dir', 'lang', 'kind', 'condition']    # default
 meta = true    # update
 context = 0    # default
 # before =  (not set)    # default

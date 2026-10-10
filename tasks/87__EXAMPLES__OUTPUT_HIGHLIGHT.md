@@ -55,6 +55,7 @@ config.rs  [#1 #2]  lines: 2  matches: 3
 format = "text"
 detail = "lines"
 funnel = "auto"
+facets = ['dir', 'lang', 'kind', 'condition']
 meta = false
 context = 0
 # before =  (not set)
@@ -320,6 +321,7 @@ config.rs  [#1]  lines: 1  matches: 1
 format = "text"    # default
 detail = "lines"    # default
 funnel = "auto"    # default
+facets = ['dir', 'lang', 'kind', 'condition']    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -394,6 +396,7 @@ easy-peasy-mcp --config conf/o.toml
 format = "text"    # default
 detail = "lines"    # default
 funnel = "auto"    # default
+facets = ['dir', 'lang', 'kind', 'condition']    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default

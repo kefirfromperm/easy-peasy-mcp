@@ -48,6 +48,7 @@ config_loader.rs  [#1]
 format = "text"
 detail = "lines"
 funnel = "auto"
+facets = ['dir', 'lang', 'kind', 'condition']
 meta = false
 context = 0
 # before =  (not set)
@@ -269,6 +270,7 @@ config_loader.rs  [#1]
 format = "text"    # default
 detail = "lines"    # default
 funnel = "auto"    # default
+facets = ['dir', 'lang', 'kind', 'condition']    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
