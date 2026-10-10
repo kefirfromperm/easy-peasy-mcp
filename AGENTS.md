@@ -31,7 +31,7 @@ Development goes task by task. Every task lives in `tasks/` as a set of numbered
 | 2    | `N__EXAMPLES__NAME.md`            | before any code                    | requests and exact responses; the test data      |
 | 3    | `N__PLAN__NAME.md`                | coding starts                      | design, modules, steps, test list, risks         |
 | 4    | tests, then code                  | —                                  | red → green → refactor                           |
-| 5    | `N__IMPLEMENTATION__NAME.md`      | the task is finished               | detailed description of what was built           |
+| 5    | `N__SUMMARY__NAME.md`             | the task is finished               | detailed description of what was built           |
 
 Example for the first task:
 
@@ -40,11 +40,12 @@ tasks/
   1__TASK__MVP.md
   1__EXAMPLES__MVP.md
   1__PLAN__MVP.md
-  1__IMPLEMENTATION__MVP.md
+  1__SUMMARY__MVP.md
 ```
 
 Do the steps in order. Don't write the plan before the examples are agreed, don't write code before the plan, don't
-write production code before a failing test for it.
+write production code before a failing test for it. Every step is committed separately on the task branch, see
+[Git](#git).
 
 ### 1. Task — `N__TASK__NAME.md`
 
@@ -74,7 +75,7 @@ What the user (an agent calling the server) can do after this task that they cou
 |-------------------|-------------------------------------------------------|
 | `not implemented` | the task file is created                              |
 | `in progress`     | the plan is written and coding started                |
-| `implemented`     | all acceptance criteria are met; links the IMPLEMENTATION file |
+| `implemented`     | all acceptance criteria are met; links the SUMMARY file |
 
 ### 2. Examples — `N__EXAMPLES__NAME.md`
 
@@ -148,12 +149,12 @@ Fixture: `small-rust`
 
 ### 3. Plan — `N__PLAN__NAME.md`
 
-Written when coding starts, set the task status to `in progress` in the same commit.
+Written when the task is taken, on the task branch; set the task status to `in progress` in the same commit.
 
 - design: modules touched or added, new types, data flow
 - decisions and the alternatives rejected, briefly
 - the test list: unit tests per module, example tests (by id), integration tests
-- steps, each one ending with a green build and a usable binary
+- implementation steps; when the task is finished the build is green and the binary usable
 - risks and open questions
 
 ### 4. Tests, then code
@@ -165,11 +166,13 @@ Strict TDD:
 2. **Green** — write the simplest code that makes them pass.
 3. **Refactor** — clean up with all tests green. No behavior change without a test.
 
-Repeat in small steps. Commit at green points.
+Commit the failing tests first (a red commit is fine on the task branch), then the code that makes them pass, in one
+or more commits. Refactor in small steps.
 
-### 5. Implementation — `N__IMPLEMENTATION__NAME.md`
+### 5. Summary — `N__SUMMARY__NAME.md`
 
-Written when the task is done, set the task status to `implemented` and link the file from the task file.
+Written when the task is done. In the same commit set the task status to `implemented` and link the summary from the
+task file.
 
 - what was built, feature by feature, with links to the spec sections
 - architecture: modules, key types, how a request flows through them
@@ -180,7 +183,8 @@ Written when the task is done, set the task status to `implemented` and link the
 
 ## Always a usable application
 
-After every task — and after every step of a plan — the program builds, passes all tests and works as an MCP server:
+After every task — at the summary commit and on `master` after the merge — the program builds, passes all tests and
+works as an MCP server. Intermediate commits on a task branch may be red:
 
 - `cargo build --release` produces `easy-peasy-mcp`, which starts over stdio, answers `initialize`, lists its tools and
   answers `find` for the implemented subset
@@ -294,12 +298,23 @@ And for a task:
 - every example in `N__EXAMPLES__NAME.md` and of every earlier task passes
 - the binary was started and a `find` request answered over stdio (an end-to-end test does this)
 - the spec is consistent with the code; any spec change is committed
-- `N__IMPLEMENTATION__NAME.md` is written and the task status is `implemented`
+- `N__SUMMARY__NAME.md` is written and the task status is `implemented`
 
 ## Git
 
-- work on `master`, no feature branches
-- small commits at green points; a message says what and why in the imperative mood
-- the order of commits for a task: task file → examples → plan (+ status `in progress`) → tests and code in steps →
-  implementation file (+ status `implemented`)
-- never commit a red build
+- every task is done on its own feature branch from `master`: `task/N-name`, e.g. `task/1-mvp`
+- the task file `N__TASK__NAME.md` is written beforehand and is already on `master` (status `not implemented`)
+- an agent taking a task commits on the branch in this order, at least five commits per task:
+
+  | # | Commit                                                          | Build      |
+  |---|-----------------------------------------------------------------|------------|
+  | 1 | `N__EXAMPLES__NAME.md` and the fixtures                         | unchanged  |
+  | 2 | `N__PLAN__NAME.md`, task status `in progress`                   | unchanged  |
+  | 3 | tests: example tests and unit tests, failing                    | red is OK  |
+  | 4 | code that makes the tests pass; may be several commits          | green at the end |
+  | 5 | `N__SUMMARY__NAME.md`, task status `implemented`                | green      |
+
+- red tests may be committed on a task branch; `master` is always green
+- a spec fix found during the task is its own commit on the branch
+- the branch is merged into `master` only when the [definition of done](#definition-of-done) is met
+- a commit message says what and why in the imperative mood
