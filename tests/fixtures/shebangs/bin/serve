@@ -1,0 +1,2 @@
+#!/usr/bin/env deno run
+console.log(1)

@@ -1,6 +1,6 @@
 # Task 72: `languages.<name>.shebangs`
 
-Status: not implemented
+Status: implemented, see [72__SUMMARY__LANGUAGES_SHEBANGS.md](72__SUMMARY__LANGUAGES_SHEBANGS.md)
 
 Depends on: task 70
 

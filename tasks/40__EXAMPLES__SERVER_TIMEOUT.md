@@ -149,166 +149,207 @@ base = "auto"    # default
 [languages.c]
 extensions = ['c', 'h']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
+shebangs = ['node']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
+shebangs = ['python', 'python3']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
+shebangs = ['ruby']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
+shebangs = ['sh', 'bash', 'zsh']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
+shebangs = ['perl']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
+shebangs = []    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
+shebangs = []    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
+shebangs = []    # default
 ```
 
 3. `find`
@@ -415,166 +456,207 @@ base = "auto"    # default
 [languages.c]
 extensions = ['c', 'h']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
+shebangs = ['node']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
+shebangs = ['python', 'python3']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
+shebangs = ['ruby']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
+shebangs = ['sh', 'bash', 'zsh']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
+shebangs = ['perl']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
+shebangs = []    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
+shebangs = []    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
+shebangs = []    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -644,166 +726,207 @@ base = "auto"    # default
 [languages.c]
 extensions = ['c', 'h']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
+shebangs = ['node']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
+shebangs = ['python', 'python3']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
+shebangs = ['ruby']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
+shebangs = ['sh', 'bash', 'zsh']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
+shebangs = ['perl']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
+shebangs = []    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
+shebangs = []    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
+shebangs = []    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -873,166 +996,207 @@ base = "auto"    # default
 [languages.c]
 extensions = ['c', 'h']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
+shebangs = ['node']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
+shebangs = ['python', 'python3']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
+shebangs = ['ruby']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
+shebangs = ['sh', 'bash', 'zsh']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
+shebangs = ['perl']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
+shebangs = []    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
+shebangs = []    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
+shebangs = []    # default
 ```
 
 ## E40.10 An invalid timeout in the config file
