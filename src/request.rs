@@ -124,24 +124,27 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
     })
 }
 
+/// A whole number of the `traversal` object.
+fn whole_number(key: &str, value: &Value) -> Result<usize, Report> {
+    value
+        .as_u64()
+        .and_then(|n| usize::try_from(n).ok())
+        .ok_or_else(|| {
+            Report::new(
+                ErrorCode::InvalidOption,
+                format!("'traversal.{key}' must be a whole number"),
+            )
+        })
+}
+
 /// The `traversal` object: the implemented keys of the section, `not_implemented` for the others of the spec.
 fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal, Report> {
     let keys = crate::config::section_keys("traversal");
     let mut traversal = Traversal::default();
     for (key, value) in fields {
         match key.as_str() {
-            "min_depth" => {
-                let depth = value
-                    .as_u64()
-                    .and_then(|d| usize::try_from(d).ok())
-                    .ok_or_else(|| {
-                        Report::new(
-                            ErrorCode::InvalidOption,
-                            "'traversal.min_depth' must be a whole number",
-                        )
-                    })?;
-                traversal.min_depth = Some(depth);
-            }
+            "min_depth" => traversal.min_depth = Some(whole_number(key, value)?),
+            "max_depth" => traversal.max_depth = Some(whole_number(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"

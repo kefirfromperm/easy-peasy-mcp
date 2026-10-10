@@ -171,7 +171,7 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 7] = [
+const IMPLEMENTED: [(&str, &str); 8] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
@@ -179,6 +179,7 @@ const IMPLEMENTED: [(&str, &str); 7] = [
     ("server", "allow_update"),
     ("server", "result_cache"),
     ("traversal", "min_depth"),
+    ("traversal", "max_depth"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -220,6 +221,8 @@ pub struct FileValues {
     pub result_cache: Option<usize>,
     /// `traversal.min_depth`.
     pub min_depth: Option<usize>,
+    /// `traversal.max_depth`.
+    pub max_depth: Option<usize>,
 }
 
 /// A checked config file.
@@ -253,6 +256,9 @@ pub struct Settings {
     /// `traversal.min_depth`: entries closer to the working directory are skipped; its children are depth 1.
     pub min_depth: usize,
     pub min_depth_source: Source,
+    /// `traversal.max_depth`: don't descend deeper; `None` — unlimited.
+    pub max_depth: Option<usize>,
+    pub max_depth_source: Source,
 }
 
 impl Settings {
@@ -274,6 +280,8 @@ impl Settings {
             result_cache_source: Source::Default,
             min_depth: 0,
             min_depth_source: Source::Default,
+            max_depth: None,
+            max_depth_source: Source::Default,
         }
     }
 
@@ -302,6 +310,12 @@ impl Settings {
         {
             settings.threads = threads;
             settings.threads_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(max_depth) = file.values.max_depth
+        {
+            settings.max_depth = Some(max_depth);
+            settings.max_depth_source = Source::File(file.path.clone());
         }
         if let Some(file) = file
             && let Some(min_depth) = file.values.min_depth
@@ -374,15 +388,21 @@ impl Settings {
         parse_duration(&self.timeout).filter(|d| !d.is_zero())
     }
 
-    /// The value of a key which `update_config` changes, as TOML.
-    fn value(&self, key: Mutable) -> String {
-        match key {
+    /// The value of a key which `update_config` changes, as TOML; `None` when it is not set.
+    fn value(&self, key: Mutable) -> Option<String> {
+        Some(match key {
             Mutable::DefaultDirs => toml_list(self.default_dirs.iter().map(String::as_str)),
             Mutable::Timeout => format!("\"{}\"", self.timeout),
             Mutable::Threads => self.threads.to_string(),
             Mutable::ResultCache => self.result_cache.to_string(),
             Mutable::MinDepth => self.min_depth.to_string(),
-        }
+            Mutable::MaxDepth => self.max_depth?.to_string(),
+        })
+    }
+
+    /// The `key = value` line of a key which `update_config` changes.
+    fn line(&self, key: Mutable) -> String {
+        key_line(key.name().1, self.value(key).as_deref())
     }
 
     /// Sets a key to its value of `base`, with its source.
@@ -407,6 +427,10 @@ impl Settings {
             Mutable::MinDepth => {
                 self.min_depth = base.min_depth;
                 self.min_depth_source = base.min_depth_source.clone();
+            }
+            Mutable::MaxDepth => {
+                self.max_depth = base.max_depth;
+                self.max_depth_source = base.max_depth_source.clone();
             }
         }
     }
@@ -434,6 +458,10 @@ impl Settings {
                 self.min_depth = depth;
                 self.min_depth_source = Source::Update;
             }
+            MutableValue::MaxDepth(depth) => {
+                self.max_depth = Some(depth);
+                self.max_depth_source = Source::Update;
+            }
         }
     }
 
@@ -457,15 +485,17 @@ enum Mutable {
     Threads,
     ResultCache,
     MinDepth,
+    MaxDepth,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 5] = [
+    const ALL: [Mutable; 6] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
         Self::ResultCache,
         Self::MinDepth,
+        Self::MaxDepth,
     ];
 
     /// The section and the key.
@@ -476,6 +506,7 @@ impl Mutable {
             Self::Threads => ("server", "threads"),
             Self::ResultCache => ("server", "result_cache"),
             Self::MinDepth => ("traversal", "min_depth"),
+            Self::MaxDepth => ("traversal", "max_depth"),
         }
     }
 
@@ -510,6 +541,11 @@ impl Mutable {
                 .and_then(|n| usize::try_from(n).ok())
                 .map(MutableValue::MinDepth)
                 .ok_or(WHOLE_NUMBER),
+            Self::MaxDepth => item
+                .as_integer()
+                .and_then(|n| usize::try_from(n).ok())
+                .map(MutableValue::MaxDepth)
+                .ok_or(WHOLE_NUMBER),
         }
     }
 }
@@ -522,6 +558,7 @@ enum MutableValue {
     Threads(usize),
     ResultCache(usize),
     MinDepth(usize),
+    MaxDepth(usize),
 }
 
 /// What `default_dirs` must be.
@@ -726,6 +763,10 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                         values.min_depth = Some(depth);
                         continue;
                     }
+                    Some(Ok(MutableValue::MaxDepth(depth))) => {
+                        values.max_depth = Some(depth);
+                        continue;
+                    }
                     Some(Err(expected)) => {
                         format!("invalid value for '{section}.{key}': {expected}")
                     }
@@ -811,23 +852,17 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
                 &settings.allowed_roots_source,
             ),
             (
-                format!("default_dirs = {}", settings.value(Mutable::DefaultDirs)),
+                settings.line(Mutable::DefaultDirs),
                 &settings.default_dirs_source,
             ),
-            (
-                format!("timeout = {}", settings.value(Mutable::Timeout)),
-                &settings.timeout_source,
-            ),
-            (
-                format!("threads = {}", settings.value(Mutable::Threads)),
-                &settings.threads_source,
-            ),
+            (settings.line(Mutable::Timeout), &settings.timeout_source),
+            (settings.line(Mutable::Threads), &settings.threads_source),
             (
                 format!("allow_update = {}", settings.allow_update),
                 &settings.allow_update_source,
             ),
             (
-                format!("result_cache = {}", settings.value(Mutable::ResultCache)),
+                settings.line(Mutable::ResultCache),
                 &settings.result_cache_source,
             ),
         ];
@@ -835,14 +870,22 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
         push_lines(&mut out, &lines, sources);
     }
     if section.is_none_or(|s| s == "traversal") {
-        let lines = [(
-            format!("min_depth = {}", settings.value(Mutable::MinDepth)),
-            &settings.min_depth_source,
-        )];
+        let lines = [
+            (settings.line(Mutable::MinDepth), &settings.min_depth_source),
+            (settings.line(Mutable::MaxDepth), &settings.max_depth_source),
+        ];
         out.push_str("\n[traversal]\n");
         push_lines(&mut out, &lines, sources);
     }
     Ok(out)
+}
+
+/// A `key = value` line; `# key =  (not set)` for a value which is not set.
+fn key_line(key: &str, value: Option<&str>) -> String {
+    match value {
+        Some(value) => format!("{key} = {value}"),
+        None => format!("# {key} =  (not set)"),
+    }
 }
 
 /// The `key = value` lines of a section, with the source comments four spaces after the line.
@@ -1009,7 +1052,9 @@ fn changes(old: &Settings, new: &Settings, resets: &[Mutable], set_keys: &[Mutab
         } else {
             ""
         };
-        let _ = writeln!(out, "{name} = {value}    # was {was}{reset}");
+        let line = key_line(name, value.as_deref());
+        let was = was.as_deref().unwrap_or("(not set)");
+        let _ = writeln!(out, "{line}    # was {was}{reset}");
     }
     if out.is_empty() {
         out.push_str("# nothing changed\n");
@@ -1262,7 +1307,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
             )
         );
         assert_eq!(
@@ -1467,6 +1512,7 @@ mod tests {
                 allow_update: Some(false),
                 result_cache: Some(0),
                 min_depth: Some(3),
+                max_depth: Some(5),
             },
         };
         let cli = CommandLine {
@@ -1481,6 +1527,7 @@ mod tests {
         assert!(!settings.allow_update);
         assert_eq!(settings.result_cache, 0);
         assert_eq!(settings.min_depth, 3);
+        assert_eq!(settings.max_depth, Some(5));
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
