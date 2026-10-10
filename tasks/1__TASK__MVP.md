@@ -1,6 +1,6 @@
 # Task 1: MVP — find files by name
 
-Status: in progress
+Status: implemented, see [1__SUMMARY__MVP.md](1__SUMMARY__MVP.md)
 
 ## Goal
 
