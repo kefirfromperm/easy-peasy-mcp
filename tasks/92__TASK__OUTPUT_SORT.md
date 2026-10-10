@@ -1,6 +1,6 @@
 # Task 92: `output.sort`
 
-Status: in progress
+Status: implemented, see [92__SUMMARY__OUTPUT_SORT.md](92__SUMMARY__OUTPUT_SORT.md)
 
 Depends on: task 79
 
