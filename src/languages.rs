@@ -15,6 +15,58 @@ pub struct Language {
     pub shebangs: Vec<String>,
     /// Code (`kind = source`) or a data / document format.
     pub source: bool,
+    /// Markers which start a comment until the end of the line.
+    pub line_comments: Vec<String>,
+    /// Start and end markers of block comments.
+    pub block_comments: Vec<(String, String)>,
+    /// Whether block comments can be nested.
+    pub nested_block_comments: bool,
+    /// String delimiters: comment markers inside strings are text.
+    pub strings: Vec<String>,
+}
+
+/// `(line comments, block comments, nested, strings)`.
+type CommentSyntax = (
+    &'static [&'static str],
+    &'static [(&'static str, &'static str)],
+    bool,
+    &'static [&'static str],
+);
+
+const C_BLOCK: &[(&str, &str)] = &[("/*", "*/")];
+const XML_BLOCK: &[(&str, &str)] = &[("<!--", "-->")];
+const QUOTES: &[&str] = &["\"", "'"];
+const DOUBLE: &[&str] = &["\""];
+const JS_STRINGS: &[&str] = &["\"", "'", "`"];
+
+/// The comment syntax of a built-in language (CONFIG.md#built-in-languages).
+fn comment_syntax(name: &str) -> CommentSyntax {
+    match name {
+        "c" | "cpp" | "csharp" | "java" | "groovy" => (&["//"], C_BLOCK, false, QUOTES),
+        "kotlin" | "scala" | "swift" | "dart" => (&["//"], C_BLOCK, true, QUOTES),
+        "go" => (&["//"], C_BLOCK, false, &["\"", "`"]),
+        "javascript" | "typescript" => (&["//"], C_BLOCK, false, JS_STRINGS),
+        "rust" => (&["//"], C_BLOCK, true, DOUBLE),
+        "php" => (&["//", "#"], C_BLOCK, false, QUOTES),
+        "css" => (&[], C_BLOCK, false, QUOTES),
+        "scss" => (&["//"], C_BLOCK, false, QUOTES),
+        "python" | "shell" | "perl" | "r" => (&["#"], &[], false, QUOTES),
+        "ruby" => (&["#"], &[("=begin", "=end")], false, QUOTES),
+        "powershell" => (&["#"], &[("<#", "#>")], false, QUOTES),
+        "batch" => (&["REM", "::"], &[], false, DOUBLE),
+        "sql" => (&["--"], C_BLOCK, false, QUOTES),
+        "lua" => (&["--"], &[("--[[", "]]")], false, QUOTES),
+        "haskell" => (&["--"], &[("{-", "-}")], true, DOUBLE),
+        "clojure" | "lisp" => (&[";"], &[], false, DOUBLE),
+        "html" | "xml" => (&[], XML_BLOCK, false, DOUBLE),
+        "vue" => (&["//"], &[("<!--", "-->"), ("/*", "*/")], false, JS_STRINGS),
+        "markdown" => (&[], XML_BLOCK, false, &[]),
+        "yaml" | "toml" | "dotenv" | "dockerfile" | "makefile" => (&["#"], &[], false, DOUBLE),
+        "ini" => (&["#", ";"], &[], false, DOUBLE),
+        "properties" => (&["#", "!"], &[], false, DOUBLE),
+        "jsonc" => (&["//"], C_BLOCK, false, DOUBLE),
+        _ => (&[], &[], false, DOUBLE),
+    }
 }
 
 /// `(name, extensions, names, shebangs, source)` of the built-in languages, in the order of the spec.
@@ -105,12 +157,22 @@ impl LanguageTable {
         Self::new(
             BUILTIN
                 .iter()
-                .map(|(name, extensions, names, shebangs, source)| Language {
-                    name: (*name).to_string(),
-                    extensions: to_vec(extensions),
-                    names: to_vec(names),
-                    shebangs: to_vec(shebangs),
-                    source: *source,
+                .map(|(name, extensions, names, shebangs, source)| {
+                    let (line, block, nested, strings) = comment_syntax(name);
+                    Language {
+                        name: (*name).to_string(),
+                        extensions: to_vec(extensions),
+                        names: to_vec(names),
+                        shebangs: to_vec(shebangs),
+                        source: *source,
+                        line_comments: to_vec(line),
+                        block_comments: block
+                            .iter()
+                            .map(|(a, b)| ((*a).to_string(), (*b).to_string()))
+                            .collect(),
+                        nested_block_comments: nested,
+                        strings: to_vec(strings),
+                    }
                 })
                 .collect(),
         )
