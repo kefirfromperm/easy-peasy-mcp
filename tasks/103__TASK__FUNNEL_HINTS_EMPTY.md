@@ -1,6 +1,6 @@
 # Task 103: Hints for empty results
 
-Status: not implemented
+Status: implemented, see [103__SUMMARY__FUNNEL_HINTS_EMPTY.md](103__SUMMARY__FUNNEL_HINTS_EMPTY.md)
 
 Depends on: task 102
 

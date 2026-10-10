@@ -27,7 +27,7 @@ pub use eval::{
     ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, Report, TextMatcher,
     TextPattern, TextTarget, Truth,
 };
-pub(crate) use suggest::did_you_mean;
+pub(crate) use suggest::{did_you_mean, edit_distance};
 pub use value::parse_size;
 
 use crate::error::{ErrorCode, QueryError};
@@ -84,6 +84,23 @@ pub enum FunnelKind {
 pub struct FunnelStep {
     pub text: String,
     pub item: usize,
+    /// The text without `and ` / `or `.
+    pub condition: String,
+    /// When the step is one `text`, `name` or `path` condition with a string: its target.
+    pub target: Option<Target>,
+    /// The variations which the hints of an empty result try (OUTPUT.md#hints).
+    pub variations: Vec<String>,
+    /// What the hints look up for similar names or directories.
+    pub lookup: Option<Lookup>,
+}
+
+/// The names or directories the hints of an empty result look at for a step (OUTPUT.md#hints).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Lookup {
+    /// `name = '...'`: the name.
+    Name(String),
+    /// `path = '...'`, `path starts '...'`: the directory, `/` as the separator, without a trailing `/`.
+    Dir(String),
 }
 
 /// The steps of the funnel of a query, in their order.
@@ -203,24 +220,18 @@ fn funnel_steps(text: &str, tokens: &[Token], expr: &Expr) -> Funnel {
         top = inner;
         brackets += 1;
     }
-    let step = |prefix: &str, item: &Expr| {
-        format!(
-            "{prefix}{}",
-            legend_text(text, tokens, item_tokens(item, tokens))
-        )
-    };
     let (kind, items, joint) = match top {
         Expr::And(items) => (FunnelKind::And, items.as_slice(), "and "),
         Expr::Or(items) => (FunnelKind::Or, items.as_slice(), "or "),
         _ => {
             // the brackets around the whole query are not written
             let range = item_tokens(top, tokens);
+            let mut one = funnel_step(text, tokens, "", top, 0);
+            one.condition = legend_text(text, tokens, range.start + brackets..range.end - brackets);
+            one.text.clone_from(&one.condition);
             return Funnel {
                 kind: FunnelKind::One,
-                steps: vec![FunnelStep {
-                    text: legend_text(text, tokens, range.start + brackets..range.end - brackets),
-                    item: 0,
-                }],
+                steps: vec![one],
             };
         }
     };
@@ -233,11 +244,130 @@ fn funnel_steps(text: &str, tokens: &[Token], expr: &Expr) -> Funnel {
         steps: order
             .into_iter()
             .enumerate()
-            .map(|(n, item)| FunnelStep {
-                text: step(if n == 0 { "" } else { joint }, &items[item]),
-                item,
+            .map(|(n, item)| {
+                funnel_step(
+                    text,
+                    tokens,
+                    if n == 0 { "" } else { joint },
+                    &items[item],
+                    item,
+                )
             })
             .collect(),
+    }
+}
+
+/// The step of the item `index` of the top of a query, after `prefix`.
+fn funnel_step(
+    text: &str,
+    tokens: &[Token],
+    prefix: &str,
+    item: &Expr,
+    index: usize,
+) -> FunnelStep {
+    let condition = legend_text(text, tokens, item_tokens(item, tokens));
+    let single = match item {
+        Expr::Node(node) => match &node.kind {
+            NodeKind::Condition(c) => Some((node, c)),
+            _ => None,
+        },
+        _ => None,
+    };
+    FunnelStep {
+        text: format!("{prefix}{condition}"),
+        item: index,
+        condition,
+        target: single
+            .filter(|(_, c)| matches!(c.target, Target::Text | Target::Name | Target::Path))
+            .map(|(_, c)| c.target),
+        variations: single.map_or_else(Vec::new, |(node, c)| variations(text, tokens, node, c)),
+        lookup: single.and_then(|(_, c)| lookup(c)),
+    }
+}
+
+/// The variations of a `text`, `name` or `path` condition with a string: `/i` (not with `/i`, `/n`, `~~`), `/n`
+/// (with `=`, `has`, `starts`, `ends`, without `/e`, for a value of two words or more), without `/w`, `has` instead
+/// of `=`.
+fn variations(text: &str, tokens: &[Token], node: &Node, c: &Condition) -> Vec<String> {
+    let (Some((op, op_span)), Value::Str(value)) = (&c.op, &c.value) else {
+        return Vec::new();
+    };
+    if !matches!(c.target, Target::Text | Target::Name | Target::Path) {
+        return Vec::new();
+    }
+    let has = |name: &str| c.modifiers.iter().any(|m| m.name == name);
+    let base = legend_text(text, tokens, node.tokens.clone());
+    let mut out = Vec::new();
+    if !has("i") && !has("n") && *op != Op::Fuzzy {
+        out.push(format!("{base} /i"));
+    }
+    if !has("n")
+        && !has("e")
+        && matches!(op, Op::Eq | Op::Has | Op::Starts | Op::Ends)
+        && naming::words(&value.value).len() >= 2
+    {
+        out.push(format!("{base} /n"));
+    }
+    if has("w") {
+        out.push(rewritten(
+            text,
+            tokens,
+            node.tokens.clone(),
+            |i| match &tokens[i].tok {
+                lexer::Tok::Modifier(m) if m == "w" => Some(""),
+                _ => None,
+            },
+        ));
+    }
+    if *op == Op::Eq {
+        out.push(rewritten(text, tokens, node.tokens.clone(), |i| {
+            (tokens[i].span == *op_span).then_some("has")
+        }));
+    }
+    out
+}
+
+/// The tokens `range` as in the legend, with the tokens which `replace` gives a text for replaced (an empty text
+/// leaves the token out).
+fn rewritten(
+    text: &str,
+    tokens: &[Token],
+    range: Range<usize>,
+    replace: impl Fn(usize) -> Option<&'static str>,
+) -> String {
+    let mut out = String::new();
+    let mut previous: Option<usize> = None;
+    for i in range {
+        let replacement = replace(i);
+        if replacement == Some("") || matches!(tokens[i].tok, lexer::Tok::Label(_)) {
+            continue;
+        }
+        if previous.is_some_and(|p| tokens[p].span.end != tokens[i].span.start) {
+            out.push(' ');
+        }
+        out.push_str(replacement.unwrap_or(&text[tokens[i].span.clone()]));
+        previous = Some(i);
+    }
+    out
+}
+
+/// What the hints look up for a condition: the name of `name = '...'`, the directory of `path = '...'` or
+/// `path starts '...'`.
+fn lookup(c: &Condition) -> Option<Lookup> {
+    let (Some((op, _)), Value::Str(value)) = (&c.op, &c.value) else {
+        return None;
+    };
+    match (c.target, op) {
+        (Target::Name, Op::Eq) => Some(Lookup::Name(value.value.clone())),
+        (Target::Path, Op::Starts) => {
+            let dir = value.value.trim_end_matches('/');
+            (!dir.is_empty()).then(|| Lookup::Dir(dir.to_string()))
+        }
+        (Target::Path, Op::Eq) => value
+            .value
+            .rsplit_once('/')
+            .map(|(dir, _)| Lookup::Dir(dir.to_string())),
+        _ => None,
     }
 }
 
@@ -1171,6 +1301,53 @@ mod tests {
         let q = parse("text has 'x' and lang = rust", &SENSITIVE).unwrap();
         let order: Vec<usize> = q.funnel.unwrap().steps.iter().map(|s| s.item).collect();
         assert_eq!(order, [1, 0]);
+    }
+
+    fn variations(q: &str) -> Vec<(String, Vec<String>)> {
+        parse(q, &SENSITIVE)
+            .unwrap()
+            .funnel
+            .unwrap()
+            .steps
+            .into_iter()
+            .map(|s| (s.condition, s.variations))
+            .collect()
+    }
+
+    #[test]
+    fn the_variations_of_a_step() {
+        assert_eq!(
+            variations("text has 'parseQuery'"),
+            [(
+                "text has 'parseQuery'".to_string(),
+                vec![
+                    "text has 'parseQuery' /i".to_string(),
+                    "text has 'parseQuery' /n".to_string()
+                ]
+            )]
+        );
+        assert_eq!(
+            variations("text has 'Query' /w")[0].1,
+            ["text has 'Query' /w /i", "text has 'Query'"]
+        );
+        assert_eq!(
+            variations("name = 'config.yml'")[0].1,
+            [
+                "name = 'config.yml' /i",
+                "name = 'config.yml' /n",
+                "name has 'config.yml'"
+            ]
+        );
+        assert!(variations("text has 'x' /i")[0].1.is_empty());
+        assert!(variations("size > 1K")[0].1.is_empty());
+        assert!(variations("name ~~ 'cfg'")[0].1.is_empty());
+        assert_eq!(
+            variations("(text has 'a b')")[0].1,
+            ["text has 'a b' /i", "text has 'a b' /n"]
+        );
+        let steps = variations("lang = rust and (text has 'a' or text has 'b')");
+        assert_eq!(steps[1].0, "(text has 'a' or text has 'b')");
+        assert!(steps[1].1.is_empty(), "a group has no variations");
     }
 
     fn legend(q: &str) -> Vec<String> {

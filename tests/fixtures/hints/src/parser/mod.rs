@@ -1,0 +1,1 @@
+fn parse() { ParseQuery::new() }
