@@ -37,6 +37,7 @@ config_loader.rs  [#1]
 format = "text"
 detail = "lines"
 # budget =  (not set)
+chars_per_token = 4
 funnel = "auto"
 facets = ['dir', 'lang', 'kind', 'condition']
 facet_depth = 2
@@ -178,6 +179,7 @@ config_loader.rs  [#1]
 format = "text"    # default
 detail = "lines"    # default
 # budget =  (not set)    # default
+chars_per_token = 4    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default

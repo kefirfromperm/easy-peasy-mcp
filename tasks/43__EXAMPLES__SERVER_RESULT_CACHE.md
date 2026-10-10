@@ -169,6 +169,7 @@ skip_generated = true    # default
 format = "text"    # default
 detail = "lines"    # default
 # budget =  (not set)    # default
+chars_per_token = 4    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
