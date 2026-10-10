@@ -190,6 +190,7 @@ impl Engine {
             languages: Arc::clone(&self.languages),
             deadline,
             threads: settings.threads,
+            min_depth: request.traversal.min_depth.unwrap_or(settings.min_depth),
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();
