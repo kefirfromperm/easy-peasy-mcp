@@ -143,7 +143,9 @@ Fixture: `small-rust`
   block in the fixture section, one action per line — `mkdir <dir>`, `file <path> [<bytes>]` (a file of `x` bytes, empty without a size),
   `symlink <path> -> <target>` (the target relative to the link's directory), `atime <path> <date> <time>` (UTC, set
   after the times of the tree), `bytes <path> <hex>` (a file of these bytes), `git <dir> <args>` (runs `git -C <dir> <args>` with a fixed identity and no user
-  configuration; `git!` ignores a failure, e.g. a merge with conflicts)
+  configuration; `git!` ignores a failure, e.g. a merge with conflicts), `chmod <path> <mode>` (octal Unix
+  permissions, set after the times; an example of a fixture with `chmod` is skipped where permissions can't be
+  removed: on Windows, or when the entry stays readable, e.g. running as root)
 - the server runs with the fixture directory as its only allowed root and default working directory and with the
   built-in configuration; an example that needs other settings states them (`config` TOML block or CLI arguments)
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
