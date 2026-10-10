@@ -176,6 +176,7 @@ fn merge_overlapping(fragments: &[Fragment]) -> Vec<Part> {
 mod tests {
     use super::*;
     use crate::content::Content;
+    use crate::output::Highlight;
     use crate::query::ast::CondId;
 
     /// The matched lines without context.
@@ -201,6 +202,28 @@ mod tests {
             escape: Some(level),
             ..frag(range, &[id])
         }
+    }
+
+    #[test]
+    fn columns_after_the_line() {
+        let c = Content::from_bytes("é = x x\nab\ncd\n".as_bytes());
+        let x = c.text().find('x').unwrap();
+        let ab = c.text().find("ab").unwrap();
+        let fragments = vec![
+            frag(x..x + 1, &[1, 3]),
+            escaped(x + 2..x + 3, 2, 0),
+            frag(ab..ab + 5, &[1]),
+        ];
+        let blocks =
+            super::super::blocks::blocks(&c, &fragments, &super::super::BlockOptions::default());
+        assert_eq!(
+            render(&c, &fragments, &blocks, Highlight::Columns),
+            "1:é = x x\n  @ 5..6 #1,#3  @ 7..8 #2/e0\n2:ab\n  @ 1..3:3 #1\n3:cd\n"
+        );
+        assert_eq!(
+            render(&c, &fragments, &blocks, Highlight::None),
+            "1:é = x x\n2:ab\n3:cd\n"
+        );
     }
 
     #[test]

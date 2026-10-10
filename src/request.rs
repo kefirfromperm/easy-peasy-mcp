@@ -284,8 +284,16 @@ mod tests {
             [(Key::GroupRepeated, KeyValue::Whole(0))]
         );
         assert_eq!(
-            text(&json!({ "output": { "highlight": "none" } })),
-            "error[not_implemented]: the field 'output.highlight' is not implemented yet\n"
+            config(&json!({ "output": { "highlight": "none" } })),
+            [(Key::Highlight, KeyValue::Text("none".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "highlight": "bold" } })),
+            "error[invalid_option]: 'output.highlight' must be one of: auto, none, columns, markers\n"
+        );
+        assert_eq!(
+            text(&json!({ "output": { "markers": ["<", ">"] } })),
+            "error[not_implemented]: the field 'output.markers' is not implemented yet\n"
         );
     }
 
