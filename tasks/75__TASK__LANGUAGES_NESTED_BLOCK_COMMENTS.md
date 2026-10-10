@@ -1,6 +1,6 @@
 # Task 75: `languages.<name>.nested_block_comments`
 
-Status: in progress
+Status: implemented, see [75__SUMMARY__LANGUAGES_NESTED_BLOCK_COMMENTS.md](75__SUMMARY__LANGUAGES_NESTED_BLOCK_COMMENTS.md)
 
 Depends on: task 74
 
