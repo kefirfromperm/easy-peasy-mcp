@@ -1,6 +1,6 @@
 # Task 64: `kinds.generated_marker_lines`
 
-Status: in progress
+Status: implemented, see [64__SUMMARY__KINDS_GENERATED_MARKER_LINES.md](64__SUMMARY__KINDS_GENERATED_MARKER_LINES.md)
 
 Depends on: task 63
 
