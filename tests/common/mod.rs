@@ -30,8 +30,10 @@ pub struct Example {
 #[derive(Debug, Clone)]
 pub struct Fixture {
     pub name: String,
-    /// Paths and their modification times in seconds since the Unix epoch, UTC.
+    /// Paths and their modification times in seconds since the Unix epoch, UTC; directories end with `/`.
     pub tree: Vec<(String, i64)>,
+    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path>`, `symlink <path> -> <target>`.
+    pub setup: Vec<String>,
 }
 
 /// All examples and fixtures of all `tasks/*__EXAMPLES__*.md` files, in task order.
@@ -119,7 +121,20 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 Section::Fixture(name) if info == "text tree" => fixtures.push(Fixture {
                     name: name.clone(),
                     tree: parse_tree(&body),
+                    setup: Vec::new(),
                 }),
+                Section::Fixture(name) if info == "text setup" => {
+                    let fixture = fixtures
+                        .iter_mut()
+                        .rev()
+                        .find(|f| &f.name == name)
+                        .expect("the setup block comes after the tree block");
+                    fixture.setup = body
+                        .lines()
+                        .filter(|l| !l.trim().is_empty())
+                        .map(str::to_string)
+                        .collect();
+                }
                 _ => {}
             }
         }
@@ -158,25 +173,65 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
     era * 146_097 + doe - 719_468
 }
 
-/// Copies `tests/fixtures/<name>` into a new temp dir and sets the modification times of the tree.
-/// Returns the temp dir (kept alive by the caller) and the fixture root inside it.
+/// Copies `tests/fixtures/<name>` into a new temp dir, runs the setup actions and sets the modification times of
+/// the tree. Returns the temp dir (kept alive by the caller) and the fixture root inside it.
 pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join(&fixture.name);
-    copy_dir(
-        &repo_root().join("tests/fixtures").join(&fixture.name),
-        &root,
-    );
+    let source = repo_root().join("tests/fixtures").join(&fixture.name);
+    if source.exists() {
+        copy_dir(&source, &root);
+    } else {
+        fs::create_dir_all(&root).unwrap();
+    }
+    for action in &fixture.setup {
+        run_setup(&root, action);
+    }
     for (path, mtime) in &fixture.tree {
-        let p = root.join(path);
-        assert!(
-            p.exists(),
-            "fixture {}: {path} is listed in the tree, but missing",
-            fixture.name
-        );
-        filetime::set_file_mtime(&p, filetime::FileTime::from_unix_time(*mtime, 0)).unwrap();
+        let p = root.join(path.trim_end_matches('/'));
+        let time = filetime::FileTime::from_unix_time(*mtime, 0);
+        let meta = fs::symlink_metadata(&p)
+            .unwrap_or_else(|_| panic!("fixture {}: {path} is listed in the tree, but missing", fixture.name));
+        if meta.file_type().is_symlink() {
+            filetime::set_symlink_file_times(&p, time, time).unwrap();
+        } else {
+            filetime::set_file_mtime(&p, time).unwrap();
+        }
     }
     (tmp, root)
+}
+
+fn run_setup(root: &Path, action: &str) {
+    let (verb, rest) = action.trim().split_once(' ').expect("an action has an argument");
+    match verb {
+        "mkdir" => fs::create_dir_all(root.join(rest.trim())).unwrap(),
+        "file" => {
+            let p = root.join(rest.trim());
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, "").unwrap();
+        }
+        "symlink" => {
+            let (link, target) = rest.split_once(" -> ").expect("symlink <path> -> <target>");
+            let link = root.join(link.trim());
+            symlink(target.trim(), &link);
+        }
+        other => panic!("unknown setup action {other}"),
+    }
+}
+
+#[cfg(unix)]
+fn symlink(target: &str, link: &Path) {
+    std::os::unix::fs::symlink(target, link).unwrap();
+}
+
+#[cfg(windows)]
+fn symlink(target: &str, link: &Path) {
+    let resolved = link.parent().unwrap().join(target);
+    if resolved.is_dir() {
+        std::os::windows::fs::symlink_dir(target, link).unwrap();
+    } else {
+        std::os::windows::fs::symlink_file(target, link).unwrap();
+    }
 }
 
 /// Copies a directory tree.
