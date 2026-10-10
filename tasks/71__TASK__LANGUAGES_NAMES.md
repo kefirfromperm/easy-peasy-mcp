@@ -1,6 +1,6 @@
 # Task 71: `languages.<name>.names`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 70
 
