@@ -22,11 +22,11 @@ files: 3  lines: 0  matches: 0  result: r1
 #1 name ~ '*.rs'
 #2 name = 'c.md'
 
-docs/
-c.md  [#2]
 src/
 a.rs  [#1]
 b.rs  [#1]
+docs/
+c.md  [#2]
 ```
 
 2. `find` — the differences to `r1`
@@ -63,11 +63,11 @@ files: 3  lines: 0  matches: 0  result: r1
 #1 name ~ '*.rs'
 #2 name = 'c.md'
 
-docs/
-c.md  [#2]
 src/
 a.rs  [#1]
 b.rs  [#1]
+docs/
+c.md  [#2]
 ```
 
 2. `find`
