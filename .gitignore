@@ -27,3 +27,6 @@ rustc-ice-*.txt
 # Added by cargo
 
 /target
+
+# fixtures are test data: their target directories are not build output
+!tests/fixtures/**/target/
