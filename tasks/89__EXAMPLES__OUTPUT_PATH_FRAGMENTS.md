@@ -160,17 +160,20 @@ config_loader.rs  [#1]
 
 Fixture: `path-frags`
 
+Without a `type` condition only files are returned, so the query asks for directories.
+
 ```json request
-{"query": "name = 'docs'", "output": {"path_fragments": true}}
+{"query": "type = dir and name = 'docs'", "output": {"path_fragments": true}}
 ```
 
 ```text response
 files: 1  lines: 0  matches: 0  result: r1
-#1 name = 'docs'
+#1 type = dir
+#2 name = 'docs'
 
 ./
-docs/  [#1]
-  path: ⟦#1:docs⟧/
+docs/  [#1 #2]
+  path: ⟦#2:docs⟧/
 ```
 
 ## E89.8 With columns
