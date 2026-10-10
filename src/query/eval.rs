@@ -106,6 +106,8 @@ pub enum ContentState<'a> {
     Absent,
     /// The decoded content.
     Text(&'a Content),
+    /// The content is not searched (a binary file): content conditions are unknown.
+    Unknown,
 }
 
 /// The values of one file which conditions look at.
@@ -333,7 +335,7 @@ impl Filter {
                 values, negated, ..
             } => Truth::from(values.contains(&file.kind) != *negated),
             Self::Content { regex, .. } => match file.content {
-                ContentState::NotRead => Truth::Unknown,
+                ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
                 ContentState::Absent => Truth::False,
                 ContentState::Text(content) => Truth::from(regex.is_match(content.text())),
             },

@@ -949,6 +949,26 @@ mod tests {
     }
 
     #[test]
+    fn unknown_content() {
+        let q = parse("text has 'x'", &SENSITIVE).unwrap();
+        let file = FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind: Kind::Other,
+            git: None,
+            content: ContentState::Unknown,
+        };
+        assert_eq!(q.filter.unwrap().eval(&file), Truth::Unknown);
+    }
+
+    #[test]
     fn has_type_anywhere() {
         assert!(!parse("name = 'a'", &SENSITIVE).unwrap().has_type);
         assert!(

@@ -9,6 +9,7 @@ use crate::output::display_path;
 /// The warning codes, in the order of the table of OUTPUT.md#warnings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WarningCode {
+    BinarySkipped,
     DateUnsupported,
     NotAGitRepo,
 }
@@ -17,6 +18,7 @@ impl WarningCode {
     /// The code as written in the response.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::BinarySkipped => "binary_skipped",
             Self::DateUnsupported => "date_unsupported",
             Self::NotAGitRepo => "not_a_git_repo",
         }
@@ -90,6 +92,14 @@ mod tests {
         assert_eq!(
             w.to_text(),
             "warning: date_unsupported (6): a, b, c, … 3 more\n"
+        );
+        let mut order = Warnings::default();
+        order.add(WarningCode::NotAGitRepo, PathBuf::from("b"), false);
+        order.add(WarningCode::BinarySkipped, PathBuf::from("a"), false);
+        assert!(
+            order
+                .to_text()
+                .starts_with("warning: binary_skipped (1): a\n")
         );
         let mut one = Warnings::default();
         one.add(WarningCode::DateUnsupported, PathBuf::from("dir"), true);

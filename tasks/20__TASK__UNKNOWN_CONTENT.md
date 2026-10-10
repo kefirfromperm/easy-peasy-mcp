@@ -1,6 +1,6 @@
 # Task 20: Binary files and unknown content
 
-Status: not implemented
+Status: implemented, see [20__SUMMARY__UNKNOWN_CONTENT.md](20__SUMMARY__UNKNOWN_CONTENT.md)
 
 Depends on: task 19, task 13
 

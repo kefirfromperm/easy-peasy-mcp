@@ -1,5 +1,13 @@
 //! The content of a file: decoded, line breaks normalized, positions of lines (QUERY.md#targets).
 
+/// The number of first bytes in which a zero byte makes a file binary (CONFIG.md#traversal).
+const BINARY_CHECK_BYTES: usize = 8 * 1024;
+
+/// Whether a file is binary: a zero byte in its first 8K.
+pub fn is_binary(bytes: &[u8]) -> bool {
+    bytes[..bytes.len().min(BINARY_CHECK_BYTES)].contains(&0)
+}
+
 /// The decoded text of a file with `\n` line breaks (a `\r` before `\n` is removed) and the byte offsets where
 /// its lines start.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -104,6 +112,18 @@ mod tests {
         assert_eq!(c.position(offset), (0, 2));
         assert_eq!(c.position(c.text().find('b').unwrap()), (1, 1));
         assert_eq!(c.line_of(c.text().len()), 1);
+    }
+
+    #[test]
+    fn binary_files_have_a_zero_byte_in_the_first_8k() {
+        assert!(is_binary(b"\0abc"));
+        let mut late = vec![b'a'; 8191];
+        late.push(0);
+        assert!(is_binary(&late));
+        let mut too_late = vec![b'a'; 8192];
+        too_late.push(0);
+        assert!(!is_binary(&too_late));
+        assert!(!is_binary(b"text\n"));
     }
 
     #[test]
