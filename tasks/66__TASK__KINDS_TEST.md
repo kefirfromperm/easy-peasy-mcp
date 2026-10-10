@@ -1,6 +1,6 @@
 # Task 66: `kinds.test`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 63
 
