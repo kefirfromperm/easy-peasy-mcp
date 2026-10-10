@@ -167,6 +167,21 @@ the order of the request, inside a directory in path order.
 - a **match** is a content fragment; `path` / `name` fragments are not counted
 - counts are always the real totals, even if the response is truncated (unless `counts_exact` is `false`)
 
+#### Meta
+
+With `meta` every file gets its metadata:
+
+- `type`: `file`, `dir` or `link` (a symlink, followed or not)
+- `size`: of a file, or of the file a followed symlink points to, in bytes; in the text format `512B` under 1K,
+  otherwise with one decimal in the largest unit it is at least 1 of: `2.1K`, `48.2K`, `1.5M`, `3.0G` (powers of 1024)
+- `lang`, `kind`: of a file, see [QUERY.md](QUERY.md#lang); `unknown` when no language is known
+- `modified`: in JSON ISO 8601 in the time zone of the server, whole seconds: `2026-10-08T14:03:00+00:00`; in the
+  text format `2026-10-08 14:03`
+- a directory and a symlink which is not followed have only `type` and `modified`; a member of an archive is a
+  `file` with the date stored in the archive, if there is one
+- in the text format the values follow the counts and the encoding, separated by spaces, the missing ones left out:
+  `file 2.1K 2026-10-08 14:03 rust source`, `dir 2026-10-03 12:00`
+
 ### JSON format
 
 The response to this request; all other options are the defaults:
