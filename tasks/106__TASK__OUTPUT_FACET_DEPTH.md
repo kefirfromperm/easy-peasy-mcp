@@ -1,6 +1,6 @@
 # Task 106: `output.facet_depth`
 
-Status: not implemented
+Status: implemented, see [106__SUMMARY__OUTPUT_FACET_DEPTH.md](106__SUMMARY__OUTPUT_FACET_DEPTH.md)
 
 Depends on: task 105
 
