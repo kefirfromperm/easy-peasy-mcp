@@ -273,6 +273,11 @@ fn unknown_name(what: &str, name: &str, names: &[&str]) -> Report {
     Report::new(ErrorCode::InvalidOption, format!("unknown {what} '{name}'")).hint(hint)
 }
 
+/// The `update_config` tool (`CONFIG.md#update_config`).
+pub(crate) fn update_config(_arguments: &Value) -> Result<String, Report> {
+    Ok(String::new())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -458,6 +463,65 @@ mod tests {
         assert_eq!(
             error(serde_json::json!([])),
             "error[invalid_option]: the arguments must be an object\n"
+        );
+    }
+
+    fn update(arguments: Value) -> String {
+        match update_config(&arguments) {
+            Ok(text) => text,
+            Err(report) => report.to_text(),
+        }
+    }
+
+    #[test]
+    fn update_config_changes_nothing_yet() {
+        use serde_json::json;
+        assert_eq!(update(json!({})), "# nothing changed\n");
+        assert_eq!(
+            update(json!({ "reset": ["all"], "set": "" })),
+            "# nothing changed\n"
+        );
+        assert_eq!(
+            update(json!({ "set": "output.context = 2" })),
+            "error[not_implemented]: the key 'output.context' is not implemented yet\n"
+        );
+        assert_eq!(
+            update(json!({ "reset": ["languages.rust"] })),
+            "error[not_implemented]: the key 'languages.rust' is not implemented yet\n"
+        );
+    }
+
+    #[test]
+    fn update_config_errors() {
+        use serde_json::json;
+        assert_eq!(
+            update(json!({ "set": "# x\n  a = \"é\" b" })),
+            "error[invalid_toml]: invalid TOML in 'set'\n  hint: line 2, col 11: unexpected content, expected nothing\n"
+        );
+        assert_eq!(
+            update(json!({ "set": "[server]\nallow_update = false" })),
+            "error[read_only]: 'server.allow_update' is read-only\n  hint: allow_update is set only at start\n"
+        );
+        assert_eq!(
+            update(json!({ "set": "output = 1" })),
+            "error[unknown_key]: 'output' must be a section\n"
+        );
+        assert_eq!(
+            update(json!({ "reset": ["output"] })),
+            "error[unknown_key]: unknown key 'output'\n  hint: expected a key like 'output.max_files', or 'all'\n"
+        );
+        assert_eq!(
+            update(json!({ "reset": ["zzz.a"] })),
+            "error[unknown_key]: unknown key 'zzz.a'\n  hint: expected one of: server, traversal, output, escape, query, kinds, git, languages\n"
+        );
+        // the first key of the TOML
+        assert_eq!(
+            update(json!({ "set": "output.zzz = 1\nserver.allowed_roots = []" })),
+            "error[unknown_key]: unknown key 'output.zzz'\n"
+        );
+        assert_eq!(
+            update(json!({ "reset": [1] })),
+            "error[invalid_option]: 'reset' must be a list of strings\n"
         );
     }
 

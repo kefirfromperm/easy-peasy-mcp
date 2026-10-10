@@ -37,7 +37,16 @@ fn initialize_list_and_find() {
     let list = server.request(2, "tools/list", &json!({}));
     let tools = list["result"]["tools"].as_array().expect("tools");
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["find", "get_config"]);
+    assert_eq!(names, ["find", "get_config", "update_config"]);
+    let update = &tools[2];
+    assert_eq!(update["annotations"]["readOnlyHint"], false);
+    assert_eq!(update["annotations"]["destructiveHint"], false);
+    assert_eq!(update["annotations"]["idempotentHint"], true);
+    assert_eq!(update["annotations"]["openWorldHint"], false);
+    assert_eq!(
+        update["inputSchema"]["properties"]["reset"]["type"],
+        "array"
+    );
     let get_config = &tools[1];
     assert_eq!(get_config["annotations"]["readOnlyHint"], true);
     assert_eq!(get_config["annotations"]["openWorldHint"], false);
