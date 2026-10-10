@@ -615,7 +615,8 @@ invalid name is `invalid language name 'c++': a letter, then letters, digits, _ 
 `update_config` and in a request the message `invalid language name 'c++'` and the rest as the hint), a language
 written as a value `'languages.rust' must be a section` (in a request `'languages.rust' must be an object`), a key of
 a wrong type `invalid value for 'languages.terraform.extensions': a list of strings is expected` (in a request
-`'languages.terraform.extensions' must be a list of strings`).
+`'languages.terraform.extensions' must be a list of strings`; `block_comments` must be `a list of [start, end] pairs of
+strings`, `nested_block_comments` and `source` `true or false`).
 
 `get_config` shows the languages in the order of the built-in table, then the added ones in the order they were added,
 every language as a table `[languages.<name>]` with all its keys; a language comes from one source as a whole.

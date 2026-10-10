@@ -529,6 +529,13 @@ mod tests {
             ["#", "//"]
         );
         assert_eq!(
+            parse(&json!({ "languages": { "pas": { "block_comments": [["(*", "*)"]] } } }))
+                .unwrap()
+                .languages[0]
+                .block_comments,
+            [("(*".to_string(), "*)".to_string())]
+        );
+        assert_eq!(
             text(&json!({ "languages": { "terraform": { "extensions": "tf" } } })),
             "error[invalid_option]: 'languages.terraform.extensions' must be a list of strings\n"
         );

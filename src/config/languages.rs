@@ -21,7 +21,13 @@ pub const KEYS: [&str; 8] = [
 ];
 
 /// The keys this server version implements.
-const IMPLEMENTED: [&str; 4] = ["extensions", "names", "shebangs", "line_comments"];
+const IMPLEMENTED: [&str; 5] = [
+    "extensions",
+    "names",
+    "shebangs",
+    "line_comments",
+    "block_comments",
+];
 
 /// What every language name must be.
 pub const NAME_EXPECTED: &str = "a letter, then letters, digits, _ and - are expected";
