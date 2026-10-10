@@ -690,7 +690,9 @@ Dotted keys are shorter for one or two values and need no line breaks:
 - a search which is already running keeps the configuration it started with
 
 Result — TOML with the keys whose value changed (in the order of the spec), the old value in a comment four spaces
-after the line, like in `get_config`; `, reset` when the value comes from `reset`. A key which
+after the line, like in `get_config`; `, reset` when the value comes from `reset`. A value which is not set is
+written like in `get_config` and as `(not set)` in the comment: `max_depth = 3    # was (not set)`,
+`# max_depth =  (not set)    # was 3, reset`. A key which
 is both reset and set gets the value of `set`. A changed value has the source `update` in `get_config`; a reset value
 gets its source back.
 
