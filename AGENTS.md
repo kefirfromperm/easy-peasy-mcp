@@ -146,7 +146,8 @@ Fixture: `small-rust`
   after the times of the tree), `bytes <path> <hex>` (a file of these bytes), `git <dir> <args>` (runs `git -C <dir> <args>` with a fixed identity and no user
   configuration; `git!` ignores a failure, e.g. a merge with conflicts), `chmod <path> <mode>` (octal Unix
   permissions, set after the times; an example of a fixture with `chmod` is skipped where permissions can't be
-  removed: on Windows, or when the entry stays readable, e.g. running as root)
+  removed: on Windows, or when the entry stays readable, e.g. running as root), `hide <path>` (the `hidden` flag on
+  macOS, the hidden attribute on Windows; nothing on Linux, which has neither)
 - the server runs with the fixture directory as its only allowed root and default working directory and with the
   built-in configuration; an example that needs other settings states them (`config` TOML block or CLI arguments)
 - a **startup example** tests the binary instead of the library: a `text command` block (`easy-peasy-mcp` and its
@@ -173,6 +174,9 @@ Fixture: `small-rust`
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates
   are absolute or relative to a fixed `now` given in the fixture section: a line `` Now: `2026-10-08 12:00` `` (UTC); the
   test server runs with this `now` and with UTC as its local time zone
+- examples are written with the conventions of Linux: on every platform the test server compares paths
+  case-sensitively for `path_case = native`, unless the example is marked with a platform — then it runs with the
+  conventions of that platform
 
 ### 3. Plan — `N__PLAN__NAME.md`
 

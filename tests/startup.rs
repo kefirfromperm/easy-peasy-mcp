@@ -48,6 +48,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     for (key, value) in &env {
         process.env(key, value);
     }
+    // the examples are written with the Linux path case unless they are marked with a platform (AGENTS.md)
+    if example.platform.is_none() {
+        process.env("EASY_PEASY_TEST_NATIVE_CASE", "sensitive");
+    }
     if let Some(slow) = example.slow_reads {
         process.env("EASY_PEASY_TEST_SLOW_READS", slow.as_millis().to_string());
     }

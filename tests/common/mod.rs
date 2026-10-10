@@ -618,6 +618,7 @@ fn run_setup(root: &Path, action: &str) {
             fs::create_dir_all(p.parent().unwrap()).unwrap();
             fs::write(p, bytes).unwrap();
         }
+        "hide" => hide(&root.join(rest.trim())),
         "git" | "git!" => {
             let (dir, args) = rest.trim().split_once(' ').expect("git <dir> <args>");
             let status = std::process::Command::new("git")
@@ -639,6 +640,25 @@ fn run_setup(root: &Path, action: &str) {
             assert!(verb == "git!" || status.success(), "setup failed: {action}");
         }
         other => panic!("unknown setup action {other}"),
+    }
+}
+
+/// Sets the `hidden` flag of macOS or the hidden attribute of Windows; Linux has neither.
+fn hide(path: &Path) {
+    let command = if cfg!(target_os = "macos") {
+        Some(("chflags", vec!["hidden"]))
+    } else if cfg!(windows) {
+        Some(("attrib", vec!["+h"]))
+    } else {
+        None
+    };
+    if let Some((program, args)) = command {
+        let status = std::process::Command::new(program)
+            .args(args)
+            .arg(path)
+            .status()
+            .unwrap_or_else(|e| panic!("{program} runs: {e}"));
+        assert!(status.success(), "{program} {}", path.display());
     }
 }
 

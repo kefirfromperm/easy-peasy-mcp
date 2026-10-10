@@ -39,6 +39,8 @@ pub struct EngineOptions {
     pub time_zone: jiff::tz::TimeZone,
     /// The effective configuration.
     pub settings: config::Settings,
+    /// What `path_case = native` means: case-insensitive paths, by default on macOS and Windows.
+    pub native_case_insensitive: bool,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline of the request.
     #[doc(hidden)]
     pub read_delay: Option<std::time::Duration>,
@@ -50,6 +52,7 @@ impl EngineOptions {
     pub fn new(start_dir: PathBuf) -> Self {
         Self {
             settings: config::Settings::defaults(&start_dir),
+            native_case_insensitive: NATIVE_CASE_INSENSITIVE,
             read_delay: None,
             start_dir,
             home: None,
@@ -95,7 +98,7 @@ impl From<Result<String, Report>> for ToolOutput {
 #[error("unknown tool '{0}'")]
 pub struct UnknownTool(pub String);
 
-/// `path_case = native`: case-insensitive on macOS and Windows.
+/// `path_case = native` by default: case-insensitive on macOS and Windows.
 const NATIVE_CASE_INSENSITIVE: bool = cfg!(any(target_os = "macos", target_os = "windows"));
 
 /// The search server state of one session: options and result ids.
@@ -535,7 +538,7 @@ impl Engine {
             case_insensitive_paths: match settings.text(Key::PathCase) {
                 "sensitive" => false,
                 "insensitive" => true,
-                _ => NATIVE_CASE_INSENSITIVE,
+                _ => self.options.native_case_insensitive,
             },
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),

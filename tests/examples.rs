@@ -13,6 +13,8 @@ enum Skipped {
     Yes,
     /// A startup example, run by `tests/startup.rs`.
     Startup,
+    /// An example of another platform (`Platform:`).
+    Elsewhere,
 }
 
 fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, String> {
@@ -27,6 +29,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
     if example.is_startup() {
         return Ok(Skipped::Startup);
     }
+    if !example.runs_here() {
+        return Ok(Skipped::Elsewhere);
+    }
     let dir = setup_fixture(fixture);
     if !dir.permissions_removed {
         return Ok(Skipped::Yes);
@@ -38,6 +43,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
         .now
         .map(|secs| jiff::Timestamp::from_second(secs).expect("a valid now"));
     options.read_delay = example.slow_reads;
+    // the examples are written with the Linux path case unless they are marked with a platform (AGENTS.md)
+    if example.platform.is_none() {
+        options.native_case_insensitive = false;
+    }
     let engine = Engine::new(options);
 
     let mut blocks = example.blocks.iter().peekable();
@@ -97,7 +106,7 @@ fn all_examples() {
         match run_example(example, &fixtures) {
             Ok(Skipped::No) => count += 1,
             Ok(Skipped::Yes) => skipped.push(example.id.as_str()),
-            Ok(Skipped::Startup) => {}
+            Ok(Skipped::Startup | Skipped::Elsewhere) => {}
             Err(e) => {
                 let _ = writeln!(failures, "=== {} ({}) ===\n{e}", example.id, example.file);
             }
