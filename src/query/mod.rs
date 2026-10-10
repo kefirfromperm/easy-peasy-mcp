@@ -28,6 +28,7 @@ pub use eval::{
     TextPattern, TextTarget, Truth,
 };
 pub(crate) use suggest::did_you_mean;
+pub use value::parse_size;
 
 use crate::error::{ErrorCode, QueryError};
 use crate::git::GitValue;

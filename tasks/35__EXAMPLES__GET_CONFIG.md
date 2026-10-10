@@ -43,6 +43,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E35.2 One section
@@ -68,6 +69,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E35.3 With the sources
@@ -101,6 +103,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ## E35.4 An unknown section

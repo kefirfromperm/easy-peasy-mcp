@@ -10,6 +10,7 @@ use crate::output::display_path;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WarningCode {
     PermissionDenied,
+    TooBig,
     BinarySkipped,
     DecodeErrors,
     DateUnsupported,
@@ -22,6 +23,7 @@ impl WarningCode {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PermissionDenied => "permission_denied",
+            Self::TooBig => "too_big",
             Self::BinarySkipped => "binary_skipped",
             Self::DecodeErrors => "decode_errors",
             Self::DateUnsupported => "date_unsupported",
@@ -144,6 +146,18 @@ mod tests {
         assert_eq!(
             w.to_text(),
             "warning: timeout\nwarning: not_a_git_repo (1): a\n"
+        );
+    }
+
+    #[test]
+    fn too_big_comes_after_permission_denied() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::BinarySkipped, PathBuf::from("b"), false);
+        w.add(WarningCode::TooBig, PathBuf::from("t"), false);
+        w.add(WarningCode::PermissionDenied, PathBuf::from("p"), false);
+        assert_eq!(
+            w.to_text(),
+            "warning: permission_denied (1): p\nwarning: too_big (1): t\nwarning: binary_skipped (1): b\n"
         );
     }
 

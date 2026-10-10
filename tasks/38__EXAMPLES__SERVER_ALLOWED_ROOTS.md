@@ -44,6 +44,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E38.2 With the source
@@ -77,6 +78,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ## E38.3 Another section
@@ -129,6 +131,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ```json request
@@ -204,6 +207,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ```json request
@@ -258,6 +262,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ```json request
@@ -313,6 +318,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E38.9 An invalid value

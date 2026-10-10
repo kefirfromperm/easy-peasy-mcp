@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 
 use crate::error::{ErrorCode, Report};
-use crate::query::{nfc, wildcard};
+use crate::query::{nfc, parse_size, wildcard};
 
 /// A key which `update_config` and the request change: every key of the spec except the read-only ones, as far as
 /// it is implemented. The order of the variants is the order of the spec.
@@ -23,11 +23,12 @@ pub enum Key {
     Exclude,
     PathCase,
     Binary,
+    MaxFileSize,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 14] = [
+    pub const ALL: [Key; 15] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -42,6 +43,7 @@ impl Key {
         Self::Exclude,
         Self::PathCase,
         Self::Binary,
+        Self::MaxFileSize,
     ];
 
     /// The section, the name and the type.
@@ -73,6 +75,7 @@ impl Key {
                 "binary",
                 Type::Choice(&["skip", "search", "exclude"]),
             ),
+            Self::MaxFileSize => ("traversal", "max_file_size", Type::Size),
         }
     }
 
@@ -92,6 +95,7 @@ impl Key {
             Self::IgnorePaths | Self::Exclude => list(&[]),
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
+            Self::MaxFileSize => Value::Text("10M".to_string()),
         }
     }
 
@@ -141,6 +145,8 @@ pub enum Type {
     Wildcards,
     /// One of a fixed set of strings.
     Choice(&'static [&'static str]),
+    /// A size like the values of the `size` target, as written: `"10M"`.
+    Size,
 }
 
 impl Type {
@@ -157,6 +163,7 @@ impl Type {
             Self::NonEmptyList(what) => format!("a non-empty list of {what} is expected"),
             Self::Wildcards => "a list of wildcards is expected".to_string(),
             Self::Choice(values) => format!("expected one of: {}", values.join(", ")),
+            Self::Size => "a size like \"10M\" is expected (units B, K, M, G)".to_string(),
         }
     }
 
@@ -170,6 +177,7 @@ impl Type {
             Self::List(_) | Self::Wildcards => "a list of strings".to_string(),
             Self::NonEmptyList(_) => "a non-empty list of strings".to_string(),
             Self::Choice(values) => format!("one of: {}", values.join(", ")),
+            Self::Size => "a size like \"10M\" (units B, K, M, G)".to_string(),
         }
     }
 
@@ -239,6 +247,10 @@ impl Type {
                 .as_str()
                 .filter(|v| values.contains(v))
                 .map(|v| Value::Text(v.to_string())),
+            Self::Size => item
+                .as_str()
+                .filter(|v| parse_size(v).is_some())
+                .map(|v| Value::Text(v.to_string())),
         }
     }
 
@@ -261,6 +273,10 @@ impl Type {
             Self::Choice(values) => value
                 .as_str()
                 .filter(|v| values.contains(v))
+                .map(|v| Value::Text(v.to_string())),
+            Self::Size => value
+                .as_str()
+                .filter(|v| parse_size(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
         }
     }

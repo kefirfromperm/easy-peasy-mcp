@@ -96,6 +96,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 3. `find`
@@ -154,6 +155,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 2. `update_config`

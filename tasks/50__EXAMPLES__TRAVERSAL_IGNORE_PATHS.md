@@ -60,6 +60,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E50.2 An extra ignore file in the request
@@ -166,6 +167,7 @@ ignore_paths = ['conf/personal.ignore']    # update
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ## E50.6 An invalid value in a request
@@ -227,6 +229,7 @@ ignore_paths = ['conf/personal.ignore']    # file: conf/p.toml
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 2. `find`

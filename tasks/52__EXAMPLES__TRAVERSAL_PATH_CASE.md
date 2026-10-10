@@ -56,6 +56,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E52.2 Case-insensitive in a request
@@ -175,6 +176,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "insensitive"    # update
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 ## E52.7 An invalid value in a request
@@ -236,6 +238,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "insensitive"    # file: conf/c.toml
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 2. `find`

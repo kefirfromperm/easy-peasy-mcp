@@ -43,6 +43,7 @@ ignore_paths = []
 exclude = []
 path_case = "native"
 binary = "skip"
+max_file_size = "10M"
 ```
 
 ## E45.3 A maximum depth for the session
@@ -95,6 +96,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 4. `update_config`
@@ -185,6 +187,7 @@ ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
+max_file_size = "10M"    # default
 ```
 
 2. `find`
