@@ -90,6 +90,7 @@ Fixture: `filenames`
 ```text response
 [languages.groovy]
 names = ['Jenkinsfile']    # was []
+line_comments = []    # was ['//']
 ```
 
 2. `find`
