@@ -25,6 +25,8 @@ struct Document<'a> {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     funnel: Vec<FunnelStep<'a>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    hints: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     repeated: Vec<Repeated>,
     #[serde(skip_serializing_if = "Option::is_none")]
     counts: Option<Counts>,
@@ -192,6 +194,7 @@ impl Response<'_> {
                     files: *files,
                 })
                 .collect(),
+            hints: self.hints.iter().map(super::Hint::json).collect(),
             repeated: repeated
                 .lines
                 .iter()
@@ -475,6 +478,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: super::super::Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,

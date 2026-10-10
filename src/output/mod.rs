@@ -19,6 +19,7 @@ mod repeated;
 mod sort;
 
 pub use blocks::BlockOptions;
+pub use funnel::Hint;
 use listing::{Listed, Listing};
 pub use sort::{Sort, sort_files};
 
@@ -114,6 +115,8 @@ pub struct Response<'a> {
     pub page: Page,
     /// The steps of the funnel with their numbers of files, when it is shown.
     pub funnel: Option<Vec<(String, usize)>>,
+    /// The hints which come with the funnel.
+    pub hints: Vec<Hint>,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -397,7 +400,7 @@ impl Response<'_> {
 
     fn push_funnel(&self, out: &mut String) {
         if let Some(steps) = &self.funnel {
-            out.push_str(&funnel::lines(steps));
+            out.push_str(&funnel::lines(steps, &self.hints));
         }
     }
 
@@ -550,6 +553,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -580,6 +584,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -621,6 +626,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -651,6 +657,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -697,6 +704,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -738,6 +746,7 @@ mod tests {
                 time_zone: jiff::tz::TimeZone::UTC,
                 page: Page::default(),
                 funnel: None,
+                hints: Vec::new(),
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -783,6 +792,7 @@ mod tests {
                 time_zone: jiff::tz::TimeZone::UTC,
                 page: Page::default(),
                 funnel: None,
+                hints: Vec::new(),
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -818,6 +828,7 @@ mod tests {
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
             funnel: None,
+            hints: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],

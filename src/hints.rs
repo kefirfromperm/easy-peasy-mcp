@@ -10,6 +10,12 @@ use crate::output::{Hint, display_found};
 use crate::query::{self, FunnelKind, Lookup, ParseOptions, Query, ast::Target, edit_distance};
 use crate::search::{self, Binary, Found, SearchOptions, slash_path};
 
+/// The time budget of the hints is over.
+struct OutOfTime;
+
+/// A change of the options of a search.
+type Relax = fn(&mut SearchOptions);
+
 /// What the hints of a request need.
 pub struct Context<'a> {
     /// The working directories and their prefixes.
@@ -40,29 +46,36 @@ pub fn empty(cx: &Context<'_>) -> Vec<Hint> {
         FunnelKind::Or | FunnelKind::One => (0..funnel.steps.len()).map(|i| (i, &[][..])).collect(),
     };
     let mut hints = Vec::new();
-    for &(step, before) in &varied {
+    // the hints found before the time is over
+    let _ = collect(cx, funnel, &varied, &mut hints);
+    hints
+}
+
+/// Adds the hints to `hints` until the time is over.
+fn collect(
+    cx: &Context<'_>,
+    funnel: &query::Funnel,
+    varied: &[(usize, &[query::FunnelStep])],
+    hints: &mut Vec<Hint>,
+) -> Result<(), OutOfTime> {
+    for &(step, before) in varied {
         for variation in &funnel.steps[step].variations {
-            let Some(hint) = variation_hint(cx, before, variation, funnel.steps[step].target)
-            else {
-                return hints;
-            };
-            hints.extend(hint);
+            hints.extend(variation_hint(
+                cx,
+                before,
+                variation,
+                funnel.steps[step].target,
+            )?);
         }
     }
-    let Some(skipped) = skipped(cx) else {
-        return hints;
-    };
-    hints.extend(skipped);
-    for &(step, _) in &varied {
+    hints.extend(skipped(cx)?);
+    for &(step, _) in varied {
         let step = &funnel.steps[step];
         if let Some(lookup) = &step.lookup {
-            match similar(cx, &step.condition, lookup) {
-                Some(hint) => hints.extend(hint),
-                None => return hints,
-            }
+            hints.extend(similar(cx, &step.condition, lookup)?);
         }
     }
-    hints
+    Ok(())
 }
 
 /// The options of a hint search: the options of the request with the deadline of the hints, without what only the
@@ -78,34 +91,41 @@ fn options(cx: &Context<'_>) -> SearchOptions {
     options
 }
 
-/// The files of a query; `None` when the time budget of the hints is over.
-fn search(cx: &Context<'_>, query: &Query, options: &SearchOptions) -> Option<Vec<Found>> {
+/// The files of a query.
+fn search(
+    cx: &Context<'_>,
+    query: &Query,
+    options: &SearchOptions,
+) -> Result<Vec<Found>, OutOfTime> {
     if Instant::now() >= cx.deadline {
-        return None;
+        return Err(OutOfTime);
     }
     let result = crate::engine::search_all(cx.working_dirs, query, options);
-    (!result.timed_out).then_some(result.files)
+    if result.timed_out {
+        Err(OutOfTime)
+    } else {
+        Ok(result.files)
+    }
 }
 
-/// A variation searched with the steps before it: the hint when it matches, `Some(None)` when it doesn't, `None` when
-/// the time is over.
+/// A variation searched with the steps before it: the hint when it matches.
 fn variation_hint(
     cx: &Context<'_>,
     before: &[query::FunnelStep],
     variation: &str,
     target: Option<Target>,
-) -> Option<Option<Hint>> {
+) -> Result<Option<Hint>, OutOfTime> {
     let text: Vec<&str> = before
         .iter()
         .map(|s| s.condition.as_str())
         .chain([variation])
         .collect();
     let Ok(query) = query::parse(&text.join(" and "), cx.parse) else {
-        return Some(None);
+        return Ok(None);
     };
     let files = search(cx, &query, &options(cx))?;
     if files.is_empty() {
-        return Some(None);
+        return Ok(None);
     }
     let id = query.legend.last().map(|(id, _)| id.clone());
     let mut examples: Vec<String> = Vec::new();
@@ -130,7 +150,7 @@ fn variation_hint(
             }
         }
     }
-    Some(Some(Hint::Variation {
+    Ok(Some(Hint::Variation {
         condition: variation.to_string(),
         files: files.len(),
         examples,
@@ -149,9 +169,9 @@ fn name_of(file: &Found) -> String {
     }
 }
 
-/// `skipped:` the files which match when one setting is relaxed; `None` when the time is over.
-fn skipped(cx: &Context<'_>) -> Option<Option<Hint>> {
-    let relaxed: [(&str, fn(&mut SearchOptions)); 4] = [
+/// `skipped:` the files which match when one setting is relaxed.
+fn skipped(cx: &Context<'_>) -> Result<Option<Hint>, OutOfTime> {
+    let relaxed: [(&str, Relax); 4] = [
         ("ignored (traversal.ignore_files)", |o| {
             o.ignore_files.clear();
             o.ignore_paths.clear();
@@ -159,10 +179,10 @@ fn skipped(cx: &Context<'_>) -> Option<Option<Hint>> {
             o.git_global_excludes = false;
         }),
         ("generated (traversal.skip_generated)", |o| {
-            o.skip_generated = false
+            o.skip_generated = false;
         }),
         ("too big (traversal.max_file_size)", |o| {
-            o.max_file_size = f64::INFINITY
+            o.max_file_size = f64::INFINITY;
         }),
         ("binary (traversal.binary)", |o| {
             o.binary = Binary::Search;
@@ -178,26 +198,27 @@ fn skipped(cx: &Context<'_>) -> Option<Option<Hint>> {
             parts.push(format!("{} {what}", files.len()));
         }
     }
-    Some((!parts.is_empty()).then(|| Hint::Line(format!("skipped: {}", parts.join(", ")))))
+    Ok((!parts.is_empty()).then(|| Hint::Line(format!("skipped: {}", parts.join(", ")))))
 }
 
-/// Similar names of `name = '...'`, similar directories of a missing directory of `path`; `None` when the time is
-/// over.
-fn similar(cx: &Context<'_>, condition: &str, lookup: &Lookup) -> Option<Option<Hint>> {
+/// Similar names of `name = '...'`, similar directories of a missing directory of `path`.
+fn similar(cx: &Context<'_>, condition: &str, lookup: &Lookup) -> Result<Option<Hint>, OutOfTime> {
     let (text, wanted) = match lookup {
         Lookup::Name(name) => ("", name.as_str()),
         Lookup::Dir(dir) => ("type = dir", dir.as_str()),
     };
-    let query = query::parse(text, cx.parse).ok()?;
+    let Ok(query) = query::parse(text, cx.parse) else {
+        return Ok(None);
+    };
     let mut candidates: Vec<String> = Vec::new();
     let mut seen = HashSet::new();
     for (path, _) in cx.working_dirs {
         if Instant::now() >= cx.deadline {
-            return None;
+            return Err(OutOfTime);
         }
         let result = search::search(path, &query, &options(cx));
         if result.timed_out {
-            return None;
+            return Err(OutOfTime);
         }
         for file in result.files {
             let candidate = match lookup {
@@ -210,7 +231,7 @@ fn similar(cx: &Context<'_>, condition: &str, lookup: &Lookup) -> Option<Option<
         }
     }
     if matches!(lookup, Lookup::Dir(_)) && candidates.iter().any(|c| c == wanted) {
-        return Some(None);
+        return Ok(None);
     }
     let mut close: Vec<(usize, String)> = candidates
         .into_iter()
@@ -228,7 +249,7 @@ fn similar(cx: &Context<'_>, condition: &str, lookup: &Lookup) -> Option<Option<
             Lookup::Dir(_) => format!("{c}/"),
         })
         .collect();
-    Some(match lookup {
+    Ok(match lookup {
         Lookup::Name(_) if shown.is_empty() => None,
         Lookup::Name(_) => Some(Hint::Line(format!(
             "{condition}: similar: {}",

@@ -11,6 +11,7 @@ use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::cursor::{self, Cursor};
 use crate::error::{ErrorCode, Report};
+use crate::hints;
 use crate::languages::LanguageTable;
 use crate::output::{BlockOptions, Detail, Highlight, Limits, Page, Response, Sort, sort_files};
 use crate::query::{self, ParseOptions};
@@ -213,31 +214,41 @@ impl Engine {
             self.search_options(&settings, deadline, case_insensitive_paths, languages);
         search_options.first_only = settings.text(Key::Detail) == "exists";
         let detail = detail(&settings);
-        let sort = Sort::parse(settings.text(Key::Sort));
-        let meta = settings.bool(Key::Meta);
-        search_options.meta = meta || sort.needs_meta();
-        search_options.rank = sort == Sort::Relevance;
         let funnel = settings.text(Key::Funnel);
         search_options.funnel = funnel != "never" && detail >= Detail::Count;
         let search::SearchResult {
-            mut files,
+            files,
             mut warnings,
             timed_out,
             funnel: funnel_counts,
-        } = search_all(&working_dirs, &query, &search_options);
+        } = search_sorted(&settings, &working_dirs, &query, &mut search_options);
         if cursor_totals.is_some_and(|totals| totals != totals_of(&files)) {
             warnings.add_global(WarningCode::ResultsChanged);
         }
-        if sort == Sort::Relevance {
-            relevance::rank(&mut files, &query.ranking);
+        let shown = shown_funnel(
+            &query,
+            &funnel_counts,
+            funnel,
+            files.len(),
+            settings.whole(Key::MaxFiles),
+        )
+        .filter(|_| search_options.funnel);
+        let hints = if shown.is_some() && files.is_empty() {
+            let budget = match limit.filter(|l| !l.is_zero()) {
+                Some(limit) => limit / 5,
+                None => std::time::Duration::from_secs(5),
+            };
+            hints::empty(&hints::Context {
+                working_dirs: &working_dirs,
+                parse: &options,
+                search: &search_options,
+                query: &query,
+                counts: &funnel_counts,
+                deadline: std::time::Instant::now() + budget,
+            })
         } else {
-            sort_files(&mut files, sort);
-        }
-        if !meta {
-            for file in &mut files {
-                file.meta = None;
-            }
-        }
+            Vec::new()
+        };
         let result_id = if detail == Detail::Exists {
             None
         } else {
@@ -251,14 +262,8 @@ impl Engine {
             highlight: highlight(&settings, json),
             time_zone: self.options.time_zone.clone(),
             page,
-            funnel: shown_funnel(
-                &query,
-                funnel_counts,
-                funnel,
-                files.len(),
-                settings.whole(Key::MaxFiles),
-            )
-            .filter(|_| search_options.funnel),
+            funnel: shown,
+            hints,
             limits: limits(&settings),
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),
@@ -443,6 +448,32 @@ impl Engine {
     }
 }
 
+/// The search of a request with its files in the order of `output.sort`: ranked by relevance (its signals and the
+/// metadata it needs are computed) or sorted; the metadata is kept only with `output.meta`.
+fn search_sorted(
+    settings: &Settings,
+    working_dirs: &[(PathBuf, PathBuf)],
+    query: &query::Query,
+    options: &mut SearchOptions,
+) -> search::SearchResult {
+    let sort = Sort::parse(settings.text(Key::Sort));
+    let meta = settings.bool(Key::Meta);
+    options.meta = meta || sort.needs_meta();
+    options.rank = sort == Sort::Relevance;
+    let mut result = search_all(working_dirs, query, options);
+    if sort == Sort::Relevance {
+        relevance::rank(&mut result.files, &query.ranking);
+    } else {
+        sort_files(&mut result.files, sort);
+    }
+    if !meta {
+        for file in &mut result.files {
+            file.meta = None;
+        }
+    }
+    result
+}
+
 /// Where the page of a request starts: at its cursor, which must belong to the same request, or at the start; the
 /// totals of the cursor.
 fn page(arguments: &Value, cursor: Option<&str>) -> Result<(Page, Option<[usize; 3]>), Report> {
@@ -481,7 +512,7 @@ fn page(arguments: &Value, cursor: Option<&str>) -> Result<(Page, Option<[usize;
 /// than 10 × `max_files` (OUTPUT.md#funnel).
 fn shown_funnel(
     query: &query::Query,
-    counts: Vec<usize>,
+    counts: &[usize],
     setting: &str,
     files: usize,
     max_files: usize,
@@ -493,7 +524,7 @@ fn shown_funnel(
         funnel
             .steps
             .iter()
-            .zip(counts.into_iter().chain(std::iter::repeat(0)))
+            .zip(counts.iter().copied().chain(std::iter::repeat(0)))
             .map(|(step, count)| (step.text.clone(), count))
             .collect()
     })
@@ -572,7 +603,7 @@ fn without_verbatim(path: &Path) -> PathBuf {
 /// Searches the working directories in their order: the matched entries sorted by path, every entry once, the
 /// warnings, and whether the search stopped at the deadline. With `first_only` it stops after the first directory
 /// with a match.
-fn search_all(
+pub(crate) fn search_all(
     working_dirs: &[(PathBuf, PathBuf)],
     query: &query::Query,
     options: &SearchOptions,
