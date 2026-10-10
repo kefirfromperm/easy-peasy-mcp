@@ -1,6 +1,6 @@
 # Task 49: `traversal.git_excludes`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 48
 
