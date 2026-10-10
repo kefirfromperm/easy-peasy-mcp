@@ -1,6 +1,6 @@
 # Task 59: `traversal.max_archive_size`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 58
 
