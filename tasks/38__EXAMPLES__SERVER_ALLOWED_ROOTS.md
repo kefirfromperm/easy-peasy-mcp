@@ -29,6 +29,7 @@ Fixture: `roots`
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
+threads = 0
 ```
 
 ## E38.2 With the source
@@ -47,6 +48,7 @@ Fixture: `roots`
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "30s"    # default
+threads = 0    # default
 ```
 
 ## E38.3 Another section
@@ -84,6 +86,7 @@ easy-peasy-mcp --root .
 allowed_roots = ['<fixture>']    # cli
 default_dirs = ['.']    # default
 timeout = "30s"    # default
+threads = 0    # default
 ```
 
 ```json request
@@ -144,6 +147,7 @@ easy-peasy-mcp --config conf/roots.toml
 allowed_roots = ['<fixture>/src', '<fixture>']    # file: conf/roots.toml
 default_dirs = ['.']    # default
 timeout = "30s"    # default
+threads = 0    # default
 ```
 
 ```json request
@@ -183,6 +187,7 @@ easy-peasy-mcp --config conf/roots.toml --root .
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
+threads = 0
 ```
 
 ```json request
@@ -223,6 +228,7 @@ easy-peasy-mcp --root ~
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
+threads = 0
 ```
 
 ## E38.9 An invalid value

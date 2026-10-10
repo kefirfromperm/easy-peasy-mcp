@@ -200,6 +200,7 @@ error[unknown_key]: unknown key 'output.max_file'
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
+threads = 0
 ```
 
 3. `find`
