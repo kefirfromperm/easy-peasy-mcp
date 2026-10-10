@@ -51,6 +51,7 @@ generated_marker_lines = 5
 generated = ['**/*.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/*.min.js', '**/*.min.css', '**/*.pb.go', '**/*_pb2.py', '**/*.g.dart', '**/*.generated.*']
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']
+config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']
 ```
 
 ## E65.2 Other wildcards in a request
@@ -134,6 +135,7 @@ generated_marker_lines = 5    # default
 generated = ['**/gen/**']    # update
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']    # default
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']    # default
+config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']    # default
 ```
 
 ## E65.4 An invalid value in a request
@@ -203,6 +205,7 @@ generated_marker_lines = 5    # default
 generated = ['**/gen/**']    # file: conf/k.toml
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']    # default
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']    # default
+config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']    # default
 ```
 
 2. `find`

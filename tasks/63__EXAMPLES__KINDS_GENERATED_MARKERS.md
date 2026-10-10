@@ -49,6 +49,7 @@ generated_marker_lines = 5
 generated = ['**/*.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/*.min.js', '**/*.min.css', '**/*.pb.go', '**/*_pb2.py', '**/*.g.dart', '**/*.generated.*']
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']
+config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']
 ```
 
 ## E63.2 Other markers in a request
@@ -149,6 +150,7 @@ generated_marker_lines = 5    # default
 generated = ['**/*.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/*.min.js', '**/*.min.css', '**/*.pb.go', '**/*_pb2.py', '**/*.g.dart', '**/*.generated.*']    # default
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']    # default
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']    # default
+config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']    # default
 ```
 
 ## E63.6 An invalid value in a request
@@ -205,6 +207,7 @@ generated_marker_lines = 5    # default
 generated = ['**/*.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/*.min.js', '**/*.min.css', '**/*.pb.go', '**/*_pb2.py', '**/*.g.dart', '**/*.generated.*']    # default
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']    # default
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']    # default
+config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']    # default
 ```
 
 2. `find`
