@@ -64,6 +64,7 @@ detail = "lines"
 context = 0
 # before =  (not set)
 # after =  (not set)
+dedent = true
 blank_context = false
 ```
 
@@ -210,6 +211,7 @@ detail = "lines"    # default
 context = 1    # update
 # before =  (not set)    # default
 # after =  (not set)    # default
+dedent = true    # default
 blank_context = false    # default
 ```
 
@@ -267,6 +269,7 @@ detail = "lines"    # default
 context = 1    # file: conf/o.toml
 # before =  (not set)    # default
 # after =  (not set)    # default
+dedent = true    # default
 blank_context = false    # default
 ```
 

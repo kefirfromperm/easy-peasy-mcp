@@ -56,6 +56,7 @@ detail = "lines"
 context = 0
 # before =  (not set)
 # after =  (not set)
+dedent = true
 blank_context = false
 
 [escape]
@@ -561,6 +562,7 @@ detail = "lines"    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
+dedent = true    # default
 blank_context = false    # default
 
 [escape]
