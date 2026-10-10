@@ -98,8 +98,12 @@ Fixture: `json-out`
 
 Fixture: `json-out`
 
+1. `find`
+
+A directory ends with the separator.
+
 ```json request
-{"query": "type = dir or name ~ '*.rs'", "output": {"format": "json"}}
+{"query": "type = dir", "output": {"format": "json"}}
 ```
 
 ```json response
@@ -107,12 +111,28 @@ Fixture: `json-out`
   "version": 1,
   "exists": true,
   "result": "r1",
-  "counts": { "files": 3, "lines": 0, "matches": 0 },
-  "legend": { "#1": "type = dir", "#2": "name ~ '*.rs'" },
+  "counts": { "files": 1, "lines": 0, "matches": 0 },
+  "legend": { "#1": "type = dir" },
+  "files": [ { "path": "src/", "conditions": ["#1"] } ]
+}
+```
+
+2. `find`
+
+```json request
+{"query": "name ~ '*.rs'", "output": {"format": "json"}}
+```
+
+```json response
+{
+  "version": 1,
+  "exists": true,
+  "result": "r2",
+  "counts": { "files": 2, "lines": 0, "matches": 0 },
+  "legend": { "#1": "name ~ '*.rs'" },
   "files": [
-    { "path": "src/", "conditions": ["#1"] },
-    { "path": "src/config.rs", "conditions": ["#2"] },
-    { "path": "src/main.rs", "conditions": ["#2"] }
+    { "path": "src/config.rs", "conditions": ["#1"] },
+    { "path": "src/main.rs", "conditions": ["#1"] }
   ]
 }
 ```
