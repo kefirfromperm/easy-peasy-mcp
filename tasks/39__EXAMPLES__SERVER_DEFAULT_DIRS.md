@@ -211,7 +211,6 @@ Fixture: `dirs`
 ```text response
 [server]
 default_dirs = ['api']    # was ['.']
-timeout = "30s"    # default
 ```
 
 2. `get_config`
@@ -253,7 +252,6 @@ main.rs  [#1]
 ```text response
 [server]
 default_dirs = ['.']    # was ['api'], reset
-timeout = "30s"    # default
 ```
 
 5. `update_config`
