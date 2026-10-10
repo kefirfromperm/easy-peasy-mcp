@@ -9,7 +9,8 @@ pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Spec vers
 pub const FIND_DESCRIPTION: &str = "\
 Search files by name and path in one query. Read-only. Only regular files are returned. Spec version 1.
 
-QUERY: one condition on the file name or path. Empty query = all files.
+QUERY: conditions on the file name or path joined with not, and, xor, or (this precedence) and brackets.
+Empty query = all files.
   name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
                                  [*] [?] [[] [{] match the character itself

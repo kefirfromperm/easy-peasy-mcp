@@ -233,8 +233,8 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 - `funnel:` and `hints:`, when present, after the legend, see [Funnel](#funnel)
 - `src/` — a directory header, the files under it are written relative to it, see
   [Directory groups](#directory-groups)
-- per file: the path, the matched conditions in `[ ]` (left out when the query has no conditions, e.g. the empty
-  query), counts (left out when they are 0), `(cut)` if a per file
+- per file: the path, the matched conditions in `[ ]` (left out when no condition made the file match: the empty
+  query, or a match only through `not`), counts (left out when they are 0), `(cut)` if a per file
   limit was hit, the encoding if it is not UTF-8; with `meta` also type, size, date, language, kind and, with
   `sort = relevance`, the score:
   `file 2.1K 2026-10-08 14:03 rust source 0.82`
@@ -276,7 +276,7 @@ Which conditions made the file match, from the top of the query down:
 - a true `and` which contributes — all its parts contribute
 - a true `or` / `xor` which contributes — only its true parts contribute
 - `not` — nothing under it contributes: for `not text has 'license' @lic` the file is returned because `@lic` is
-  false, so `@lic` is not listed
+  false, so `@lic` is not listed; a file which matches only through `not` has an empty list
 
 A condition which is true, but in a branch which didn't make the file match, is not listed:
 
