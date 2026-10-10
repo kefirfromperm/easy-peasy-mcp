@@ -238,6 +238,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"
+
+[languages.c]
+extensions = ['c', 'h']
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+
+[languages.csharp]
+extensions = ['cs']
+
+[languages.java]
+extensions = ['java']
+
+[languages.kotlin]
+extensions = ['kt', 'kts']
+
+[languages.scala]
+extensions = ['scala', 'sc']
+
+[languages.go]
+extensions = ['go']
+
+[languages.swift]
+extensions = ['swift']
+
+[languages.dart]
+extensions = ['dart']
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']
+
+[languages.rust]
+extensions = ['rs']
+
+[languages.php]
+extensions = ['php']
+
+[languages.css]
+extensions = ['css']
+
+[languages.scss]
+extensions = ['scss', 'less']
+
+[languages.python]
+extensions = ['py', 'pyi']
+
+[languages.ruby]
+extensions = ['rb']
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']
+
+[languages.perl]
+extensions = ['pl', 'pm']
+
+[languages.r]
+extensions = ['r']
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']
+
+[languages.batch]
+extensions = ['bat', 'cmd']
+
+[languages.sql]
+extensions = ['sql']
+
+[languages.lua]
+extensions = ['lua']
+
+[languages.haskell]
+extensions = ['hs']
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']
+
+[languages.html]
+extensions = ['html', 'htm']
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']
+
+[languages.vue]
+extensions = ['vue']
+
+[languages.markdown]
+extensions = ['md', 'markdown']
+
+[languages.yaml]
+extensions = ['yml', 'yaml']
+
+[languages.toml]
+extensions = ['toml']
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']
+
+[languages.properties]
+extensions = ['properties']
+
+[languages.dotenv]
+extensions = ['env']
+
+[languages.json]
+extensions = ['json']
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']
+
+[languages.dockerfile]
+extensions = ['dockerfile']
+
+[languages.makefile]
+extensions = ['mk']
 ```
 
 3. `find`

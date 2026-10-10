@@ -67,6 +67,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"
+
+[languages.c]
+extensions = ['c', 'h']
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+
+[languages.csharp]
+extensions = ['cs']
+
+[languages.java]
+extensions = ['java']
+
+[languages.kotlin]
+extensions = ['kt', 'kts']
+
+[languages.scala]
+extensions = ['scala', 'sc']
+
+[languages.go]
+extensions = ['go']
+
+[languages.swift]
+extensions = ['swift']
+
+[languages.dart]
+extensions = ['dart']
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']
+
+[languages.rust]
+extensions = ['rs']
+
+[languages.php]
+extensions = ['php']
+
+[languages.css]
+extensions = ['css']
+
+[languages.scss]
+extensions = ['scss', 'less']
+
+[languages.python]
+extensions = ['py', 'pyi']
+
+[languages.ruby]
+extensions = ['rb']
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']
+
+[languages.perl]
+extensions = ['pl', 'pm']
+
+[languages.r]
+extensions = ['r']
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']
+
+[languages.batch]
+extensions = ['bat', 'cmd']
+
+[languages.sql]
+extensions = ['sql']
+
+[languages.lua]
+extensions = ['lua']
+
+[languages.haskell]
+extensions = ['hs']
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']
+
+[languages.html]
+extensions = ['html', 'htm']
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']
+
+[languages.vue]
+extensions = ['vue']
+
+[languages.markdown]
+extensions = ['md', 'markdown']
+
+[languages.yaml]
+extensions = ['yml', 'yaml']
+
+[languages.toml]
+extensions = ['toml']
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']
+
+[languages.properties]
+extensions = ['properties']
+
+[languages.dotenv]
+extensions = ['env']
+
+[languages.json]
+extensions = ['json']
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']
+
+[languages.dockerfile]
+extensions = ['dockerfile']
+
+[languages.makefile]
+extensions = ['mk']
 ```
 
 ## E38.2 With the source
@@ -123,6 +246,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"    # default
+
+[languages.c]
+extensions = ['c', 'h']    # default
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+
+[languages.csharp]
+extensions = ['cs']    # default
+
+[languages.java]
+extensions = ['java']    # default
+
+[languages.kotlin]
+extensions = ['kt', 'kts']    # default
+
+[languages.scala]
+extensions = ['scala', 'sc']    # default
+
+[languages.go]
+extensions = ['go']    # default
+
+[languages.swift]
+extensions = ['swift']    # default
+
+[languages.dart]
+extensions = ['dart']    # default
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']    # default
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+
+[languages.rust]
+extensions = ['rs']    # default
+
+[languages.php]
+extensions = ['php']    # default
+
+[languages.css]
+extensions = ['css']    # default
+
+[languages.scss]
+extensions = ['scss', 'less']    # default
+
+[languages.python]
+extensions = ['py', 'pyi']    # default
+
+[languages.ruby]
+extensions = ['rb']    # default
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']    # default
+
+[languages.perl]
+extensions = ['pl', 'pm']    # default
+
+[languages.r]
+extensions = ['r']    # default
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']    # default
+
+[languages.batch]
+extensions = ['bat', 'cmd']    # default
+
+[languages.sql]
+extensions = ['sql']    # default
+
+[languages.lua]
+extensions = ['lua']    # default
+
+[languages.haskell]
+extensions = ['hs']    # default
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']    # default
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']    # default
+
+[languages.html]
+extensions = ['html', 'htm']    # default
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+
+[languages.vue]
+extensions = ['vue']    # default
+
+[languages.markdown]
+extensions = ['md', 'markdown']    # default
+
+[languages.yaml]
+extensions = ['yml', 'yaml']    # default
+
+[languages.toml]
+extensions = ['toml']    # default
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']    # default
+
+[languages.properties]
+extensions = ['properties']    # default
+
+[languages.dotenv]
+extensions = ['env']    # default
+
+[languages.json]
+extensions = ['json']    # default
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']    # default
+
+[languages.dockerfile]
+extensions = ['dockerfile']    # default
+
+[languages.makefile]
+extensions = ['mk']    # default
 ```
 
 ## E38.3 Another section
@@ -198,6 +444,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"    # default
+
+[languages.c]
+extensions = ['c', 'h']    # default
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+
+[languages.csharp]
+extensions = ['cs']    # default
+
+[languages.java]
+extensions = ['java']    # default
+
+[languages.kotlin]
+extensions = ['kt', 'kts']    # default
+
+[languages.scala]
+extensions = ['scala', 'sc']    # default
+
+[languages.go]
+extensions = ['go']    # default
+
+[languages.swift]
+extensions = ['swift']    # default
+
+[languages.dart]
+extensions = ['dart']    # default
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']    # default
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+
+[languages.rust]
+extensions = ['rs']    # default
+
+[languages.php]
+extensions = ['php']    # default
+
+[languages.css]
+extensions = ['css']    # default
+
+[languages.scss]
+extensions = ['scss', 'less']    # default
+
+[languages.python]
+extensions = ['py', 'pyi']    # default
+
+[languages.ruby]
+extensions = ['rb']    # default
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']    # default
+
+[languages.perl]
+extensions = ['pl', 'pm']    # default
+
+[languages.r]
+extensions = ['r']    # default
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']    # default
+
+[languages.batch]
+extensions = ['bat', 'cmd']    # default
+
+[languages.sql]
+extensions = ['sql']    # default
+
+[languages.lua]
+extensions = ['lua']    # default
+
+[languages.haskell]
+extensions = ['hs']    # default
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']    # default
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']    # default
+
+[languages.html]
+extensions = ['html', 'htm']    # default
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+
+[languages.vue]
+extensions = ['vue']    # default
+
+[languages.markdown]
+extensions = ['md', 'markdown']    # default
+
+[languages.yaml]
+extensions = ['yml', 'yaml']    # default
+
+[languages.toml]
+extensions = ['toml']    # default
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']    # default
+
+[languages.properties]
+extensions = ['properties']    # default
+
+[languages.dotenv]
+extensions = ['env']    # default
+
+[languages.json]
+extensions = ['json']    # default
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']    # default
+
+[languages.dockerfile]
+extensions = ['dockerfile']    # default
+
+[languages.makefile]
+extensions = ['mk']    # default
 ```
 
 ```json request
@@ -296,6 +665,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"    # default
+
+[languages.c]
+extensions = ['c', 'h']    # default
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+
+[languages.csharp]
+extensions = ['cs']    # default
+
+[languages.java]
+extensions = ['java']    # default
+
+[languages.kotlin]
+extensions = ['kt', 'kts']    # default
+
+[languages.scala]
+extensions = ['scala', 'sc']    # default
+
+[languages.go]
+extensions = ['go']    # default
+
+[languages.swift]
+extensions = ['swift']    # default
+
+[languages.dart]
+extensions = ['dart']    # default
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']    # default
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+
+[languages.rust]
+extensions = ['rs']    # default
+
+[languages.php]
+extensions = ['php']    # default
+
+[languages.css]
+extensions = ['css']    # default
+
+[languages.scss]
+extensions = ['scss', 'less']    # default
+
+[languages.python]
+extensions = ['py', 'pyi']    # default
+
+[languages.ruby]
+extensions = ['rb']    # default
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']    # default
+
+[languages.perl]
+extensions = ['pl', 'pm']    # default
+
+[languages.r]
+extensions = ['r']    # default
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']    # default
+
+[languages.batch]
+extensions = ['bat', 'cmd']    # default
+
+[languages.sql]
+extensions = ['sql']    # default
+
+[languages.lua]
+extensions = ['lua']    # default
+
+[languages.haskell]
+extensions = ['hs']    # default
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']    # default
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']    # default
+
+[languages.html]
+extensions = ['html', 'htm']    # default
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+
+[languages.vue]
+extensions = ['vue']    # default
+
+[languages.markdown]
+extensions = ['md', 'markdown']    # default
+
+[languages.yaml]
+extensions = ['yml', 'yaml']    # default
+
+[languages.toml]
+extensions = ['toml']    # default
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']    # default
+
+[languages.properties]
+extensions = ['properties']    # default
+
+[languages.dotenv]
+extensions = ['env']    # default
+
+[languages.json]
+extensions = ['json']    # default
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']    # default
+
+[languages.dockerfile]
+extensions = ['dockerfile']    # default
+
+[languages.makefile]
+extensions = ['mk']    # default
 ```
 
 ```json request
@@ -373,6 +865,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"
+
+[languages.c]
+extensions = ['c', 'h']
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+
+[languages.csharp]
+extensions = ['cs']
+
+[languages.java]
+extensions = ['java']
+
+[languages.kotlin]
+extensions = ['kt', 'kts']
+
+[languages.scala]
+extensions = ['scala', 'sc']
+
+[languages.go]
+extensions = ['go']
+
+[languages.swift]
+extensions = ['swift']
+
+[languages.dart]
+extensions = ['dart']
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']
+
+[languages.rust]
+extensions = ['rs']
+
+[languages.php]
+extensions = ['php']
+
+[languages.css]
+extensions = ['css']
+
+[languages.scss]
+extensions = ['scss', 'less']
+
+[languages.python]
+extensions = ['py', 'pyi']
+
+[languages.ruby]
+extensions = ['rb']
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']
+
+[languages.perl]
+extensions = ['pl', 'pm']
+
+[languages.r]
+extensions = ['r']
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']
+
+[languages.batch]
+extensions = ['bat', 'cmd']
+
+[languages.sql]
+extensions = ['sql']
+
+[languages.lua]
+extensions = ['lua']
+
+[languages.haskell]
+extensions = ['hs']
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']
+
+[languages.html]
+extensions = ['html', 'htm']
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']
+
+[languages.vue]
+extensions = ['vue']
+
+[languages.markdown]
+extensions = ['md', 'markdown']
+
+[languages.yaml]
+extensions = ['yml', 'yaml']
+
+[languages.toml]
+extensions = ['toml']
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']
+
+[languages.properties]
+extensions = ['properties']
+
+[languages.dotenv]
+extensions = ['env']
+
+[languages.json]
+extensions = ['json']
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']
+
+[languages.dockerfile]
+extensions = ['dockerfile']
+
+[languages.makefile]
+extensions = ['mk']
 ```
 
 ```json request
@@ -451,6 +1066,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"
+
+[languages.c]
+extensions = ['c', 'h']
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
+
+[languages.csharp]
+extensions = ['cs']
+
+[languages.java]
+extensions = ['java']
+
+[languages.kotlin]
+extensions = ['kt', 'kts']
+
+[languages.scala]
+extensions = ['scala', 'sc']
+
+[languages.go]
+extensions = ['go']
+
+[languages.swift]
+extensions = ['swift']
+
+[languages.dart]
+extensions = ['dart']
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']
+
+[languages.rust]
+extensions = ['rs']
+
+[languages.php]
+extensions = ['php']
+
+[languages.css]
+extensions = ['css']
+
+[languages.scss]
+extensions = ['scss', 'less']
+
+[languages.python]
+extensions = ['py', 'pyi']
+
+[languages.ruby]
+extensions = ['rb']
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']
+
+[languages.perl]
+extensions = ['pl', 'pm']
+
+[languages.r]
+extensions = ['r']
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']
+
+[languages.batch]
+extensions = ['bat', 'cmd']
+
+[languages.sql]
+extensions = ['sql']
+
+[languages.lua]
+extensions = ['lua']
+
+[languages.haskell]
+extensions = ['hs']
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']
+
+[languages.html]
+extensions = ['html', 'htm']
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']
+
+[languages.vue]
+extensions = ['vue']
+
+[languages.markdown]
+extensions = ['md', 'markdown']
+
+[languages.yaml]
+extensions = ['yml', 'yaml']
+
+[languages.toml]
+extensions = ['toml']
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']
+
+[languages.properties]
+extensions = ['properties']
+
+[languages.dotenv]
+extensions = ['env']
+
+[languages.json]
+extensions = ['json']
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']
+
+[languages.dockerfile]
+extensions = ['dockerfile']
+
+[languages.makefile]
+extensions = ['mk']
 ```
 
 ## E38.9 An invalid value

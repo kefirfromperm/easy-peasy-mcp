@@ -2,6 +2,7 @@
 //! `get_config` and `update_config`.
 
 mod keys;
+mod languages;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -15,6 +16,11 @@ use crate::error::{ErrorCode, Report};
 use crate::query::did_you_mean;
 
 pub use keys::{Key, Type, Value as KeyValue, encoding};
+pub use languages::{
+    LanguageSetting, Problem as LanguageProblem, from_json as languages_from_json,
+};
+
+use crate::languages::Language;
 
 /// An error which stops the server at start: `<path>:<line>: <message>`, or `<path>: <message>` without a line.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -207,6 +213,8 @@ pub struct FileValues {
     pub allow_update: Option<bool>,
     /// The values of the keys which `update_config` changes too, in the order of the file.
     pub values: Vec<(Key, KeyValue)>,
+    /// The languages of the file, in its order.
+    pub languages: Vec<Language>,
 }
 
 /// A checked config file.
@@ -227,6 +235,8 @@ pub struct Settings {
     pub allow_update_source: Source,
     /// The values of the changeable keys with their sources; every key has one.
     values: BTreeMap<Key, (KeyValue, Source)>,
+    /// The languages: the built-in table with the replaced and added ones.
+    pub languages: Vec<LanguageSetting>,
 }
 
 impl Settings {
@@ -242,6 +252,13 @@ impl Settings {
                 .into_iter()
                 .map(|key| (key, (key.default_value(), Source::Default)))
                 .collect(),
+            languages: crate::languages::builtin_languages()
+                .into_iter()
+                .map(|language| LanguageSetting {
+                    language,
+                    source: Source::Default,
+                })
+                .collect(),
         }
     }
 
@@ -251,6 +268,10 @@ impl Settings {
     /// # Errors
     ///
     /// A root which doesn't exist.
+    ///
+    /// # Panics
+    ///
+    /// Never: the languages of the file are checked when it is read.
     pub fn resolve(
         file: Option<&ConfigFile>,
         cli: &CommandLine,
@@ -269,6 +290,17 @@ impl Settings {
             for (key, value) in &file.values.values {
                 settings.set(*key, value.clone(), Source::File(file.path.clone()));
             }
+            let changes = file
+                .values
+                .languages
+                .iter()
+                .map(|language| LanguageSetting {
+                    language: language.clone(),
+                    source: Source::File(file.path.clone()),
+                })
+                .collect();
+            settings.languages = languages::merge(&settings.languages, changes)
+                .expect("the languages of the file are checked with it");
         }
         if cli.no_update {
             settings.allow_update = false;
@@ -327,15 +359,39 @@ impl Settings {
         self.values.insert(key, (value, source));
     }
 
-    /// The settings of one request: its values replace the ones of these settings.
-    #[must_use]
-    pub fn with(&self, values: &[(Key, KeyValue)]) -> Self {
+    /// The settings of one request: its values replace the ones of these settings, its languages the languages with
+    /// the same names.
+    ///
+    /// # Errors
+    ///
+    /// An extension or a name of a request language is also in another language.
+    pub fn with(
+        &self,
+        values: &[(Key, KeyValue)],
+        request_languages: &[Language],
+    ) -> Result<Self, LanguageProblem> {
         let mut settings = self.clone();
         for (key, value) in values {
             let source = settings.source(*key).clone();
             settings.set(*key, value.clone(), source);
         }
-        settings
+        if !request_languages.is_empty() {
+            let changes = request_languages
+                .iter()
+                .map(|language| LanguageSetting {
+                    language: language.clone(),
+                    source: Source::Update,
+                })
+                .collect();
+            settings.languages = languages::merge(&settings.languages, changes)?;
+        }
+        Ok(settings)
+    }
+
+    /// The languages as a list.
+    #[must_use]
+    pub fn language_list(&self) -> Vec<Language> {
+        self.languages.iter().map(|l| l.language.clone()).collect()
     }
 
     /// The value of a boolean key.
@@ -559,6 +615,8 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
         (line(offset), format!("invalid TOML: {}", e.message()))
     })?;
     let mut values = FileValues::default();
+    // the lines of the keys of the languages, for a conflict found after all of them are read
+    let mut key_lines: Vec<(String, String, usize)> = Vec::new();
     for (at, entry) in entries(&doc) {
         let message = match entry {
             Entry::UnknownSection(name) => format!(
@@ -591,6 +649,28 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     "invalid value for 'server.allow_update': true or false is expected".to_string()
                 }
             },
+            Entry::Key {
+                section: "languages",
+                key: name,
+                item,
+            } => match languages::from_toml(name, item) {
+                Ok(language) => {
+                    if let Some(table) = item.as_table_like() {
+                        for (key, _) in table.iter() {
+                            let offset = table
+                                .get_key_value(key)
+                                .and_then(|(k, _)| k.span())
+                                .map_or(at, |s| s.start);
+                            key_lines.push((language.name.clone(), key.to_string(), line(offset)));
+                        }
+                    }
+                    values.languages.push(language);
+                    continue;
+                }
+                Err((problem, offset)) => {
+                    return Err((line(offset.unwrap_or(at)), problem.file_message()));
+                }
+            },
             Entry::Key { section, key, item } if let Some(found) = Key::find(section, key) => {
                 match found.ty().check_toml(item) {
                     Ok(value) => {
@@ -616,7 +696,39 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
         };
         return Err((line(at), message));
     }
+    check_language_conflicts(&values.languages, &key_lines)?;
     Ok(values)
+}
+
+/// An extension or a name of a language of the config file which is also in another language: the line of its key
+/// and the message.
+fn check_language_conflicts(
+    file_languages: &[Language],
+    key_lines: &[(String, String, usize)],
+) -> Result<(), (usize, String)> {
+    let builtin: Vec<LanguageSetting> = crate::languages::builtin_languages()
+        .into_iter()
+        .map(|language| LanguageSetting {
+            language,
+            source: Source::Default,
+        })
+        .collect();
+    let changes = file_languages
+        .iter()
+        .map(|language| LanguageSetting {
+            language: language.clone(),
+            source: Source::Default,
+        })
+        .collect();
+    if let Err(problem) = languages::merge(&builtin, changes) {
+        let key = problem.key();
+        let at = key_lines
+            .iter()
+            .find(|(language, k, _)| format!("languages.{language}.{k}") == key)
+            .map_or(1, |(_, _, line)| *line);
+        return Err((at, problem.file_message()));
+    }
+    Ok(())
 }
 
 /// The fields of `get_config`, in the order of its input schema.
@@ -695,6 +807,9 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             push_lines(&mut out, &lines, sources);
         }
     }
+    if section.is_none_or(|s| s == "languages") {
+        out.push_str(&languages::render(&settings.languages, sources));
+    }
     Ok(out)
 }
 
@@ -753,28 +868,12 @@ pub(crate) fn update_config(
     arguments: &Value,
 ) -> Result<String, Report> {
     let object = arguments_object(arguments, &UPDATE_CONFIG_FIELDS)?;
-    let set = match object.get("set") {
-        None => "",
-        Some(Value::String(set)) => set.as_str(),
-        Some(_) => {
-            return Err(Report::new(
-                ErrorCode::InvalidOption,
-                "'set' must be a string",
-            ));
-        }
-    };
-    let reset: Vec<&str> = match object.get("reset") {
-        None => Some(Vec::new()),
-        Some(Value::Array(keys)) => keys.iter().map(Value::as_str).collect::<Option<_>>(),
-        Some(_) => None,
-    }
-    .ok_or_else(|| {
-        Report::new(
-            ErrorCode::InvalidOption,
-            "'reset' must be a list of strings",
-        )
-    })?;
-    let resets = reset_keys(&reset)?;
+    let (set, reset) = update_arguments(&object)?;
+    let Resets {
+        keys: resets,
+        languages: language_resets,
+        all,
+    } = reset_keys(&reset)?;
     let doc = toml_edit::Document::parse(set).map_err(|e| {
         let offset = e.span().map_or(0, |s| s.start).min(set.len());
         let line_start = set[..offset].rfind('\n').map_or(0, |i| i + 1);
@@ -784,8 +883,16 @@ pub(crate) fn update_config(
             .hint(format!("line {line}, col {column}: {}", e.message()))
     })?;
     let mut values = Vec::new();
+    let mut language_sets = Vec::new();
     for (_, entry) in entries(&doc) {
         match entry {
+            Entry::Key {
+                section: "languages",
+                key: name,
+                item,
+            } => language_sets.push(
+                languages::from_toml(name, item).map_err(|(problem, _)| problem.update_report())?,
+            ),
             Entry::UnknownSection(name) => {
                 return Err(unknown_key(name)
                     .hint(format!("expected one of: {}", section_names().join(", "))));
@@ -820,17 +927,134 @@ pub(crate) fn update_config(
     for (key, value) in values {
         updated.set(key, value, Source::Update);
     }
-    let out = changes(session, &updated, &resets, &set_keys);
+    let (reset_languages, set_languages) = update_languages(
+        base,
+        session,
+        &mut updated,
+        all,
+        language_resets,
+        language_sets,
+    )?;
+    let mut out = changes(session, &updated, &resets, &set_keys);
+    let language_changes = languages::changes(
+        &session.languages,
+        &updated.languages,
+        &reset_languages,
+        &set_languages,
+    );
+    if out.is_empty() {
+        out.push_str(language_changes.trim_start_matches('\n'));
+    } else {
+        out.push_str(&language_changes);
+    }
+    if out.is_empty() {
+        out.push_str("# nothing changed\n");
+    }
     *session = updated;
     Ok(out)
 }
 
-/// The keys of `reset`, `all` for every key, or the error of the first invalid one.
-fn reset_keys(reset: &[&str]) -> Result<Vec<Key>, Report> {
-    let mut resets = Vec::new();
+/// The `set` and `reset` fields of `update_config`.
+fn update_arguments(object: &serde_json::Map<String, Value>) -> Result<(&str, Vec<&str>), Report> {
+    let set = match object.get("set") {
+        None => "",
+        Some(Value::String(set)) => set.as_str(),
+        Some(_) => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "'set' must be a string",
+            ));
+        }
+    };
+    let reset: Vec<&str> = match object.get("reset") {
+        None => Some(Vec::new()),
+        Some(Value::Array(keys)) => keys.iter().map(Value::as_str).collect::<Option<_>>(),
+        Some(_) => None,
+    }
+    .ok_or_else(|| {
+        Report::new(
+            ErrorCode::InvalidOption,
+            "'reset' must be a list of strings",
+        )
+    })?;
+    Ok((set, reset))
+}
+
+/// Resets (all, or by name) and sets the languages of `updated`; the names of the reset and of the set languages.
+fn update_languages(
+    base: &Settings,
+    session: &Settings,
+    updated: &mut Settings,
+    all: bool,
+    language_resets: Vec<String>,
+    language_sets: Vec<Language>,
+) -> Result<(Vec<String>, Vec<String>), Report> {
+    let reset_languages: Vec<String> = if all {
+        updated.languages.clone_from(&base.languages);
+        session
+            .languages
+            .iter()
+            .map(|l| l.language.name.clone())
+            .collect()
+    } else {
+        for name in &language_resets {
+            let restored = base.languages.iter().find(|l| &l.language.name == name);
+            let current = updated
+                .languages
+                .iter()
+                .position(|l| &l.language.name == name);
+            match (restored, current) {
+                (Some(restored), Some(i)) => updated.languages[i] = restored.clone(),
+                (Some(restored), None) => updated.languages.push(restored.clone()),
+                (None, Some(i)) => {
+                    updated.languages.remove(i);
+                }
+                (None, None) => {}
+            }
+        }
+        language_resets
+    };
+    let set_languages: Vec<String> = language_sets.iter().map(|l| l.name.clone()).collect();
+    updated.languages = languages::merge(
+        &updated.languages,
+        language_sets
+            .into_iter()
+            .map(|language| LanguageSetting {
+                language,
+                source: Source::Update,
+            })
+            .collect(),
+    )
+    .map_err(|problem| problem.update_report())?;
+    Ok((reset_languages, set_languages))
+}
+
+/// The keys of `reset`: the keys of sections, the names of languages, and whether everything is reset.
+
+#[derive(Debug, Default)]
+struct Resets {
+    keys: Vec<Key>,
+    languages: Vec<String>,
+    all: bool,
+}
+
+/// The keys of `reset`, `all` for every key and language, or the error of the first invalid one.
+fn reset_keys(reset: &[&str]) -> Result<Resets, Report> {
+    let mut resets = Resets::default();
     for &key in reset {
         if key == "all" {
-            resets.extend(Key::ALL);
+            resets.keys.extend(Key::ALL);
+            resets.all = true;
+            continue;
+        }
+        if let Some(name) = key.strip_prefix("languages.") {
+            if name.contains('.') {
+                return Err(unknown_key(key).hint("expected a language like 'languages.rust'"));
+            }
+            if !languages::is_name(name) {
+                return Err(LanguageProblem::Name(name.to_string()).update_report());
+            }
+            resets.languages.push(name.to_lowercase());
             continue;
         }
         let Some((section, name)) = key.split_once('.') else {
@@ -846,12 +1070,12 @@ fn reset_keys(reset: &[&str]) -> Result<Vec<Key>, Report> {
                 unknown_key(key).hint(format!("expected one of: {}", section_names().join(", ")))
             );
         };
-        resets.push(check_update_key(section, name)?);
+        resets.keys.push(check_update_key(section, name)?);
     }
     Ok(resets)
 }
 
-/// The result of `update_config`: the keys whose value changed with the old value, or `# nothing changed`.
+/// The lines of `update_config` for the keys of the sections whose value changed, with the old value.
 fn changes(old: &Settings, new: &Settings, resets: &[Key], set_keys: &[Key]) -> String {
     let mut out = String::new();
     let mut section = "";
@@ -875,9 +1099,6 @@ fn changes(old: &Settings, new: &Settings, resets: &[Key], set_keys: &[Key]) -> 
         let line = key_line(key.name(), value.as_deref());
         let was = was.as_deref().unwrap_or("(not set)");
         let _ = writeln!(out, "{line}    # was {was}{reset}");
-    }
-    if out.is_empty() {
-        out.push_str("# nothing changed\n");
     }
     out
 }
@@ -1127,10 +1348,36 @@ mod tests {
             )
         );
         assert_eq!(
-            error("[languages.terraform]\nextensions = ['tf']\n"),
+            error("[languages.terraform]\nextensions = ['tf', 'rs']\n"),
+            (
+                2,
+                "invalid value for 'languages.terraform.extensions': the extension 'rs' is also in 'languages.rust'".into()
+            )
+        );
+        assert_eq!(
+            error("[languages.terraform]\nsource = false\n"),
+            (
+                2,
+                "the key 'languages.terraform.source' is not implemented yet".into()
+            )
+        );
+        assert_eq!(
+            error("[languages.terraform]\nextension = []\n"),
+            (
+                2,
+                "unknown key 'languages.terraform.extension', did you mean 'languages.terraform.extensions'?".into()
+            )
+        );
+        assert_eq!(
+            error("languages.rust = 1\n"),
+            (1, "'languages.rust' must be a section".into())
+        );
+        assert_eq!(
+            error("[languages.\"c++\"]\nextensions = []\n"),
             (
                 1,
-                "the key 'languages.terraform' is not implemented yet".into()
+                "invalid language name 'c++': a letter, then letters, digits, _ and - are expected"
+                    .into()
             )
         );
         // the first error in the file wins, whatever the section order of the spec
@@ -1219,7 +1466,11 @@ mod tests {
         );
         assert_eq!(
             update(&json!({ "reset": ["languages.rust"] })),
-            "error[not_implemented]: the key 'languages.rust' is not implemented yet\n"
+            "# nothing changed\n"
+        );
+        assert_eq!(
+            update(&json!({ "reset": ["languages.rust.extensions"] })),
+            "error[unknown_key]: unknown key 'languages.rust.extensions'\n  hint: expected a language like 'languages.rust'\n"
         );
     }
 
@@ -1374,6 +1625,7 @@ mod tests {
                     (Key::GitExcludes, KeyValue::Bool(false)),
                     (Key::IgnorePaths, KeyValue::List(vec!["~/i".into()])),
                 ],
+                languages: Vec::new(),
             },
         };
         let cli = CommandLine {

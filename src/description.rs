@@ -35,7 +35,8 @@ Empty query = all files.
   created > -1d                  creation date, the same forms; unknown where the file system has none
   accessed < -30d                last access date, the same forms
   lang = rust                    language by extension, file name (Dockerfile) or shebang; lang in (ts, js) style
-                                 lists, lang != markdown, lang = unknown
+                                 lists, lang != markdown, lang = unknown; \"languages\": {\"terraform\":
+                                 {\"extensions\": [\"tf\"]}} adds a language or replaces one with the same name
   kind in (source, test)         source test config doc generated other; generated files (lock files, *.min.js,
                                  '@generated' markers) are skipped unless the query has a kind condition
                                  or traversal.skip_generated is false
@@ -140,6 +141,16 @@ pub fn find_schema() -> Value {
                     "test": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of tests (matched like path ~). Default: **/test/**, **/tests/**, **/*_test.*, ..." },
                     "doc": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of documentation (matched like path ~). Default: **/*.md, **/README*, **/docs/**, ..." },
                     "config": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of configuration (matched like path ~). Default: **/*.toml, **/*.yaml, **/Dockerfile, ..." }
+                }
+            },
+            "languages": {
+                "type": "object",
+                "description": "Languages, replace the configured languages with the same name; a new name adds a language.",
+                "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                        "extensions": { "type": "array", "items": { "type": "string" }, "description": "File extensions without the dot, compared in any case." }
+                    }
                 }
             }
         }

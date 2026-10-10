@@ -1,0 +1,2 @@
+# Terraform
+resource "x" "y" {}

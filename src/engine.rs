@@ -97,7 +97,6 @@ pub struct Engine {
     options: EngineOptions,
     /// The session settings: the settings of the options changed by `update_config`.
     settings: RwLock<Settings>,
-    languages: Arc<LanguageTable>,
     /// The results kept for `within` and `since`.
     results: Mutex<ResultCache>,
 }
@@ -112,7 +111,6 @@ impl Engine {
         Self {
             settings: RwLock::new(options.settings.clone()),
             options,
-            languages: Arc::new(LanguageTable::builtin()),
             results: Mutex::default(),
         }
     }
@@ -172,7 +170,11 @@ impl Engine {
     fn try_find(&self, arguments: &Value) -> Result<String, Report> {
         let arrival = std::time::Instant::now();
         let request = request::parse(arguments)?;
-        let settings = self.settings().with(&request.config);
+        let settings = self
+            .settings()
+            .with(&request.config, &request.languages)
+            .map_err(|p| p.request_report())?;
+        let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
         let dirs = request
@@ -192,13 +194,14 @@ impl Engine {
             case_insensitive_paths,
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),
-            languages: Arc::clone(&self.languages),
+            languages: Arc::clone(&languages),
             max_escape_level: settings.whole(Key::MaxLevel),
             fuzzy_min_score: settings.number(Key::FuzzyMinScore),
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
-        let search_options = self.search_options(&settings, deadline, case_insensitive_paths);
+        let search_options =
+            self.search_options(&settings, deadline, case_insensitive_paths, languages);
         let mut files = Vec::new();
         let mut warnings = Warnings::default();
         let mut seen = HashSet::new();
@@ -252,6 +255,7 @@ impl Engine {
         settings: &Settings,
         deadline: Option<std::time::Instant>,
         case_insensitive_paths: bool,
+        languages: Arc<LanguageTable>,
     ) -> SearchOptions {
         let binary = match settings.text(Key::Binary) {
             "search" => Binary::Search,
@@ -261,7 +265,7 @@ impl Engine {
         SearchOptions {
             git_global_excludes: self.options.git_global_excludes,
             case_insensitive_paths,
-            languages: Arc::clone(&self.languages),
+            languages,
             deadline,
             threads: settings.whole(Key::Threads),
             min_depth: settings.whole(Key::MinDepth),

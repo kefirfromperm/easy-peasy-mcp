@@ -45,11 +45,13 @@ pub struct Request {
     pub timeout: Option<std::time::Duration>,
     /// The configuration values of the request: they replace the session values.
     pub config: Vec<(Key, KeyValue)>,
+    /// The languages of the request: they replace the languages with the same names.
+    pub languages: Vec<crate::languages::Language>,
 }
 
 /// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
 fn is_implemented(field: &str) -> bool {
-    ["query", "dirs", "timeout"].contains(&field)
+    ["query", "dirs", "timeout", "languages"].contains(&field)
         || SECTION_FIELDS
             .iter()
             .any(|(f, section)| *f == field && Key::ALL.iter().any(|k| k.section() == *section))
@@ -133,11 +135,27 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
             }
         }
     }
+    let languages = match object.get("languages") {
+        None => Vec::new(),
+        Some(Value::Object(languages)) => languages
+            .iter()
+            .map(|(name, value)| {
+                config::languages_from_json(name, value).map_err(|p| p.request_report())
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        Some(_) => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "'languages' must be an object",
+            ));
+        }
+    };
     Ok(Request {
         query,
         dirs,
         timeout,
         config,
+        languages,
     })
 }
 
@@ -484,6 +502,32 @@ mod tests {
                 "error[invalid_option]: 'git.base' must be \"auto\" or a branch, tag or commit\n"
             );
         }
+    }
+
+    #[test]
+    fn languages() {
+        assert!(parse(&json!({ "languages": { "terraform": { "extensions": ["tf"] } } })).is_ok());
+        assert_eq!(
+            text(&json!({ "languages": { "terraform": { "extensions": "tf" } } })),
+            "error[invalid_option]: 'languages.terraform.extensions' must be a list of strings\n"
+        );
+        assert_eq!(
+            text(&json!({ "languages": { "c++": { "extensions": ["c2"] } } })),
+            "error[invalid_option]: invalid language name 'c++'\n  hint: a letter, then letters, digits, _ and - are expected\n"
+        );
+        assert_eq!(
+            text(&json!({ "languages": { "rust": 1 } })),
+            "error[invalid_option]: 'languages.rust' must be an object\n"
+        );
+        assert_eq!(
+            text(&json!({ "languages": [] })),
+            "error[invalid_option]: 'languages' must be an object\n"
+        );
+        assert!(
+            text(&json!({ "languages": { "rust": { "extension": [] } } })).starts_with(
+                "error[invalid_option]: unknown field 'languages.rust.extension'\n  hint: did you mean 'extensions'? expected one of: extensions, names,"
+            )
+        );
     }
 
     #[test]

@@ -140,6 +140,31 @@ const BUILTIN: &[BuiltinLanguage] = &[
     ("makefile", &["mk"], &["Makefile", "GNUmakefile"], &[], true),
 ];
 
+/// The built-in languages of CONFIG.md#built-in-languages, in the order of the spec.
+pub fn builtin_languages() -> Vec<Language> {
+    let to_vec = |items: &[&str]| items.iter().map(ToString::to_string).collect();
+    BUILTIN
+        .iter()
+        .map(|(name, extensions, names, shebangs, source)| {
+            let (line, block, nested, strings) = comment_syntax(name);
+            Language {
+                name: (*name).to_string(),
+                extensions: to_vec(extensions),
+                names: to_vec(names),
+                shebangs: to_vec(shebangs),
+                source: *source,
+                line_comments: to_vec(line),
+                block_comments: block
+                    .iter()
+                    .map(|(a, b)| ((*a).to_string(), (*b).to_string()))
+                    .collect(),
+                nested_block_comments: nested,
+                strings: to_vec(strings),
+            }
+        })
+        .collect()
+}
+
 /// The languages and the lookup maps by lower case name, extension and interpreter.
 #[derive(Debug, Clone)]
 pub struct LanguageTable {
@@ -151,30 +176,9 @@ pub struct LanguageTable {
 
 impl LanguageTable {
     /// The built-in table of CONFIG.md#built-in-languages.
+    #[cfg(test)]
     pub fn builtin() -> Self {
-        let to_vec = |items: &[&str]| items.iter().map(ToString::to_string).collect();
-        Self::new(
-            BUILTIN
-                .iter()
-                .map(|(name, extensions, names, shebangs, source)| {
-                    let (line, block, nested, strings) = comment_syntax(name);
-                    Language {
-                        name: (*name).to_string(),
-                        extensions: to_vec(extensions),
-                        names: to_vec(names),
-                        shebangs: to_vec(shebangs),
-                        source: *source,
-                        line_comments: to_vec(line),
-                        block_comments: block
-                            .iter()
-                            .map(|(a, b)| ((*a).to_string(), (*b).to_string()))
-                            .collect(),
-                        nested_block_comments: nested,
-                        strings: to_vec(strings),
-                    }
-                })
-                .collect(),
-        )
+        Self::new(builtin_languages())
     }
 
     /// A table of these languages.

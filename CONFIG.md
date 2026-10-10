@@ -605,8 +605,23 @@ extensions = ["html", "htm", "tpl"]
 block_comments = [["<!--", "-->"]]
 ```
 
-A language section with the same name as a built-in one replaces it completely. An extension or a name listed in two
-languages is an error at start.
+A language section with the same name as a built-in one replaces it completely: its keys which are not written get the
+values of a new language — empty lists, `nested_block_comments = false`, `source = true`. A language name is a word:
+a letter, then letters, digits, `_` and `-`, compared in lower case. An extension or a name listed in two languages is
+an error at start: `invalid value for 'languages.terraform.extensions': the extension 'rs' is also in
+'languages.rust'`; with `update_config` the same `invalid_value` with the part after the colon as the hint, in a
+request `invalid_option`: `the extension 'rs' of 'languages.terraform.extensions' is also in 'languages.rust'`. An
+invalid name is `invalid language name 'c++': a letter, then letters, digits, _ and - are expected` (with
+`update_config` and in a request the message `invalid language name 'c++'` and the rest as the hint), a language
+written as a value `'languages.rust' must be a section` (in a request `'languages.rust' must be an object`), a key of
+a wrong type `invalid value for 'languages.terraform.extensions': a list of strings is expected` (in a request
+`'languages.terraform.extensions' must be a list of strings`).
+
+`get_config` shows the languages in the order of the built-in table, then the added ones in the order they were added,
+every language as a table `[languages.<name>]` with all its keys; a language comes from one source as a whole.
+`update_config` sets a language by its section (`set`: `"[languages.terraform]\nextensions = ['tf']"`) and resets it
+by its name (`reset`: `["languages.terraform"]`): a reset language gets its value from the config file or the built-in
+table, or is removed. A request field `languages` replaces languages for the request only.
 
 ## Platforms
 
