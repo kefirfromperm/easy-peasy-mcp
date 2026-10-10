@@ -853,4 +853,19 @@ mod tests {
             None
         );
     }
+
+    #[test]
+    fn positive_numbers() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        assert_eq!(Type::Positive.parse_toml(&item("4")), Some(Value::Number(4.0)));
+        assert_eq!(Type::Positive.parse_toml(&item("3.5")), Some(Value::Number(3.5)));
+        assert_eq!(Type::Positive.parse_toml(&item("0")), None);
+        assert_eq!(Type::Positive.parse_json(&json!(-1)), None);
+        assert_eq!(Type::Positive.expected(), "a positive number is expected");
+        assert_eq!(Key::CharsPerToken.default_value().to_toml().unwrap(), "4");
+    }
 }
