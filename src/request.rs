@@ -2,6 +2,7 @@
 
 use serde_json::Value;
 
+use crate::config::{self, Key, KeyValue};
 use crate::error::{ErrorCode, Report};
 use crate::query::did_you_mean;
 
@@ -23,19 +24,18 @@ pub const FIELDS: [&str; 14] = [
     "languages",
 ];
 
-/// The `traversal` object of a request: the values which replace the configuration for this request.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Traversal {
-    pub min_depth: Option<usize>,
-    pub max_depth: Option<usize>,
-    pub follow_symlinks: Option<bool>,
-    pub hidden: Option<bool>,
-    pub ignore_files: Option<Vec<String>>,
-    pub git_excludes: Option<bool>,
-}
+/// The request fields which hold the keys of a configuration section, and their sections.
+const SECTION_FIELDS: [(&str, &str); 6] = [
+    ("traversal", "traversal"),
+    ("output", "output"),
+    ("escape", "escape"),
+    ("query_options", "query"),
+    ("kinds", "kinds"),
+    ("git", "git"),
+];
 
 /// A validated `find` request.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Request {
     /// The query text; empty for a missing `query`.
     pub query: String,
@@ -43,7 +43,16 @@ pub struct Request {
     pub dirs: Option<Vec<String>>,
     /// The time limit; `None` — `server.timeout`; zero — no limit.
     pub timeout: Option<std::time::Duration>,
-    pub traversal: Traversal,
+    /// The configuration values of the request: they replace the session values.
+    pub config: Vec<(Key, KeyValue)>,
+}
+
+/// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
+fn is_implemented(field: &str) -> bool {
+    ["query", "dirs", "timeout"].contains(&field)
+        || SECTION_FIELDS
+            .iter()
+            .any(|(f, section)| *f == field && Key::ALL.iter().any(|k| k.section() == *section))
 }
 
 /// Checks the arguments of `find`.
@@ -71,9 +80,10 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         )
         .hint(hint));
     }
-    if let Some(field) = FIELDS.iter().find(|f| {
-        !["query", "dirs", "timeout", "traversal"].contains(*f) && object.contains_key(**f)
-    }) {
+    if let Some(field) = FIELDS
+        .iter()
+        .find(|f| !is_implemented(f) && object.contains_key(**f))
+    {
         return Err(Report::not_implemented(&format!("the field '{field}'")));
     }
     let dirs = match object.get("dirs") {
@@ -110,97 +120,63 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
                 })?,
         ),
     };
-    let traversal = match object.get("traversal") {
-        None => Traversal::default(),
-        Some(Value::Object(fields)) => parse_traversal(fields)?,
-        Some(_) => {
-            return Err(Report::new(
-                ErrorCode::InvalidOption,
-                "'traversal' must be an object",
-            ));
+    let mut config = Vec::new();
+    for (field, section) in SECTION_FIELDS {
+        match object.get(field) {
+            None => {}
+            Some(Value::Object(fields)) => parse_section(field, section, fields, &mut config)?,
+            Some(_) => {
+                return Err(Report::new(
+                    ErrorCode::InvalidOption,
+                    format!("'{field}' must be an object"),
+                ));
+            }
         }
-    };
+    }
     Ok(Request {
         query,
         dirs,
         timeout,
-        traversal,
+        config,
     })
 }
 
-/// A whole number of the `traversal` object.
-fn whole_number(key: &str, value: &Value) -> Result<usize, Report> {
-    value
-        .as_u64()
-        .and_then(|n| usize::try_from(n).ok())
-        .ok_or_else(|| {
-            Report::new(
-                ErrorCode::InvalidOption,
-                format!("'traversal.{key}' must be a whole number"),
-            )
-        })
-}
-
-/// A boolean of the `traversal` object.
-fn boolean(key: &str, value: &Value) -> Result<bool, Report> {
-    value.as_bool().ok_or_else(|| {
-        Report::new(
-            ErrorCode::InvalidOption,
-            format!("'traversal.{key}' must be true or false"),
-        )
-    })
-}
-
-/// A list of strings of the `traversal` object.
-fn strings(key: &str, value: &Value) -> Result<Vec<String>, Report> {
-    value
-        .as_array()
-        .and_then(|items| {
-            items
-                .iter()
-                .map(|v| v.as_str().map(str::to_string))
-                .collect::<Option<Vec<_>>>()
-        })
-        .ok_or_else(|| {
-            Report::new(
-                ErrorCode::InvalidOption,
-                format!("'traversal.{key}' must be a list of strings"),
-            )
-        })
-}
-
-/// The `traversal` object: the implemented keys of the section, `not_implemented` for the others of the spec.
-fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal, Report> {
-    let keys = crate::config::section_keys("traversal");
-    let mut traversal = Traversal::default();
-    for (key, value) in fields {
-        match key.as_str() {
-            "min_depth" => traversal.min_depth = Some(whole_number(key, value)?),
-            "max_depth" => traversal.max_depth = Some(whole_number(key, value)?),
-            "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
-            "hidden" => traversal.hidden = Some(boolean(key, value)?),
-            "ignore_files" => traversal.ignore_files = Some(strings(key, value)?),
-            "git_excludes" => traversal.git_excludes = Some(boolean(key, value)?),
-            other if keys.contains(&other) => {
-                return Err(Report::not_implemented(&format!(
-                    "the field 'traversal.{other}'"
-                )));
-            }
-            other => {
-                let expected = format!("expected one of: {}", keys.join(", "));
-                let hint = match did_you_mean(other, keys) {
-                    Some(close) => format!("did you mean '{close}'? {expected}"),
-                    None => expected,
-                };
-                return Err(Report::new(
+/// The object of a request field which holds the keys of a configuration section: the implemented keys,
+/// `not_implemented` for the others of the spec, `invalid_option` for an unknown key or a wrong value.
+fn parse_section(
+    field: &str,
+    section: &str,
+    fields: &serde_json::Map<String, Value>,
+    config: &mut Vec<(Key, KeyValue)>,
+) -> Result<(), Report> {
+    let keys = config::section_keys(section);
+    for (name, value) in fields {
+        if let Some(key) = Key::find(section, name) {
+            let checked = key.ty().from_json(value).ok_or_else(|| {
+                Report::new(
                     ErrorCode::InvalidOption,
-                    format!("unknown field 'traversal.{other}'"),
+                    format!("'{field}.{name}' must be {}", key.ty().must_be()),
                 )
-                .hint(hint));
-            }
+            })?;
+            config.push((key, checked));
+        } else if keys.contains(&name.as_str()) {
+            return Err(Report::not_implemented(&format!(
+                "the field '{field}.{name}'"
+            )));
+        } else {
+            let expected = format!("expected one of: {}", keys.join(", "));
+            let hint = match did_you_mean(name, keys) {
+                Some(close) => format!("did you mean '{close}'? {expected}"),
+                None => expected,
+            };
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                format!("unknown field '{field}.{name}'"),
+            )
+            .hint(hint));
         }
     }
-    Ok(traversal)
+    Ok(())
 }
 
 /// The error of a `dirs` field which doesn't match the schema.
@@ -260,23 +236,20 @@ mod tests {
         }
     }
 
+    fn config(arguments: &Value) -> Vec<(Key, KeyValue)> {
+        parse(arguments).unwrap().config
+    }
+
     #[test]
     fn traversal() {
         assert_eq!(
-            parse(&json!({ "traversal": { "min_depth": 2 } }))
-                .unwrap()
-                .traversal
-                .min_depth,
-            Some(2)
+            config(&json!({ "traversal": { "min_depth": 2, "max_depth": 1 } })),
+            [
+                (Key::MaxDepth, KeyValue::Whole(1)),
+                (Key::MinDepth, KeyValue::Whole(2))
+            ]
         );
-        assert_eq!(parse(&json!({})).unwrap().traversal, Traversal::default());
-        assert_eq!(
-            parse(&json!({ "traversal": { "max_depth": 1 } }))
-                .unwrap()
-                .traversal
-                .max_depth,
-            Some(1)
-        );
+        assert_eq!(config(&json!({})), []);
         assert_eq!(
             text(&json!({ "traversal": { "max_depth": 1.5 } })),
             "error[invalid_option]: 'traversal.max_depth' must be a whole number\n"
@@ -294,42 +267,36 @@ mod tests {
                 .starts_with("error[invalid_option]: unknown field 'traversal.colour'\n  hint: expected one of: min_depth, ")
         );
         assert_eq!(
-            parse(&json!({ "traversal": { "follow_symlinks": true } }))
-                .unwrap()
-                .traversal
-                .follow_symlinks,
-            Some(true)
+            config(&json!({ "traversal": { "follow_symlinks": true, "hidden": true } })),
+            [
+                (Key::FollowSymlinks, KeyValue::Bool(true)),
+                (Key::Hidden, KeyValue::Bool(true))
+            ]
         );
         assert_eq!(
             text(&json!({ "traversal": { "follow_symlinks": 1 } })),
             "error[invalid_option]: 'traversal.follow_symlinks' must be true or false\n"
         );
         assert_eq!(
-            parse(&json!({ "traversal": { "hidden": true } }))
-                .unwrap()
-                .traversal
-                .hidden,
-            Some(true)
-        );
-        assert_eq!(
-            parse(&json!({ "traversal": { "ignore_files": [".aiignore"] } }))
-                .unwrap()
-                .traversal
-                .ignore_files,
-            Some(vec![".aiignore".to_string()])
+            config(
+                &json!({ "traversal": { "ignore_files": [".aiignore"], "git_excludes": false } })
+            ),
+            [
+                (Key::GitExcludes, KeyValue::Bool(false)),
+                (Key::IgnoreFiles, KeyValue::List(vec![".aiignore".into()]))
+            ]
         );
         assert_eq!(
             text(&json!({ "traversal": { "ignore_files": [1] } })),
             "error[invalid_option]: 'traversal.ignore_files' must be a list of strings\n"
         );
         assert_eq!(
-            parse(&json!({ "traversal": { "git_excludes": false } }))
-                .unwrap()
-                .traversal
-                .git_excludes,
-            Some(false)
+            config(&json!({ "traversal": { "ignore_paths": ["~/ignore", "a"] } })),
+            [(
+                Key::IgnorePaths,
+                KeyValue::List(vec!["~/ignore".into(), "a".into()])
+            )]
         );
-        assert!(parse(&json!({ "traversal": { "ignore_paths": ["~/ignore", "a"] } })).is_ok());
         assert_eq!(
             text(&json!({ "traversal": { "ignore_paths": "a" } })),
             "error[invalid_option]: 'traversal.ignore_paths' must be a list of strings\n"

@@ -47,6 +47,8 @@ pub struct SearchOptions {
     pub ignore_files: Vec<String>,
     /// Respect `.git/info/exclude` and the global git excludes file.
     pub git_excludes: bool,
+    /// Ignore files applied as if they were in the working directory, with the lowest priority; a later one wins.
+    pub ignore_paths: Vec<PathBuf>,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -223,6 +225,10 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     }
     for name in &options.ignore_files {
         builder.add_custom_ignore_filename(name);
+    }
+    builder.current_dir(root);
+    for path in options.ignore_paths.iter().filter(|p| p.is_file()) {
+        let _ = builder.add_ignore(path);
     }
     let walk = Walk {
         root,

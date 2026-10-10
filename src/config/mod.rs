@@ -1,5 +1,9 @@
-//! The config file: where it is, and its checks at start (CONFIG.md#config-file).
+//! The configuration: the config file and its checks at start (CONFIG.md#config-file), the settings of a session,
+//! `get_config` and `update_config`.
 
+mod keys;
+
+use std::collections::BTreeMap;
 use std::fmt;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -9,6 +13,8 @@ use serde_json::Value;
 use crate::SPEC_VERSION;
 use crate::error::{ErrorCode, Report};
 use crate::query::did_you_mean;
+
+pub use keys::{Key, Type, Value as KeyValue};
 
 /// An error which stops the server at start: `<path>:<line>: <message>`, or `<path>: <message>` without a line.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -170,22 +176,6 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
     })
 }
 
-/// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 12] = [
-    ("server", "allowed_roots"),
-    ("server", "default_dirs"),
-    ("server", "timeout"),
-    ("server", "threads"),
-    ("server", "allow_update"),
-    ("server", "result_cache"),
-    ("traversal", "min_depth"),
-    ("traversal", "max_depth"),
-    ("traversal", "follow_symlinks"),
-    ("traversal", "hidden"),
-    ("traversal", "ignore_files"),
-    ("traversal", "git_excludes"),
-];
-
 /// Where a value comes from (`CONFIG.md#get_config`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Source {
@@ -209,63 +199,34 @@ impl fmt::Display for Source {
 }
 
 /// The values of the implemented keys of a config file, with the lines of their keys.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct FileValues {
     /// `server.allowed_roots` as written.
     pub allowed_roots: Option<(Vec<String>, usize)>,
     /// `server.allow_update`.
     pub allow_update: Option<bool>,
     /// The values of the keys which `update_config` changes too, in the order of the file.
-    pub(crate) mutable: Vec<MutableValue>,
+    pub values: Vec<(Key, KeyValue)>,
 }
 
 /// A checked config file.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConfigFile {
     pub path: PathBuf,
     pub values: FileValues,
 }
 
 /// The effective configuration of the server: an immutable value, resolved at start.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(clippy::struct_excessive_bools)] // one field per configuration key
+#[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
     /// `server.allowed_roots`: canonical, never empty.
     pub allowed_roots: Vec<PathBuf>,
     pub allowed_roots_source: Source,
-    /// `server.default_dirs` as written, never empty.
-    pub default_dirs: Vec<String>,
-    pub default_dirs_source: Source,
-    /// `server.timeout` as written, a valid duration.
-    pub timeout: String,
-    pub timeout_source: Source,
-    /// `server.threads`: `0` — the number of CPU cores.
-    pub threads: usize,
-    pub threads_source: Source,
     /// `server.allow_update`: whether `update_config` is available.
     pub allow_update: bool,
     pub allow_update_source: Source,
-    /// `server.result_cache`: the results kept for `within` and `since`; `0` — off.
-    pub result_cache: usize,
-    pub result_cache_source: Source,
-    /// `traversal.min_depth`: entries closer to the working directory are skipped; its children are depth 1.
-    pub min_depth: usize,
-    pub min_depth_source: Source,
-    /// `traversal.max_depth`: don't descend deeper; `None` — unlimited.
-    pub max_depth: Option<usize>,
-    pub max_depth_source: Source,
-    /// `traversal.follow_symlinks`: descend into symlinked directories, read symlinked files.
-    pub follow_symlinks: bool,
-    pub follow_symlinks_source: Source,
-    /// `traversal.hidden`: include hidden entries.
-    pub hidden: bool,
-    pub hidden_source: Source,
-    /// `traversal.ignore_files`: the ignore files looked up in every directory, in order.
-    pub ignore_files: Vec<String>,
-    pub ignore_files_source: Source,
-    /// `traversal.git_excludes`: respect `.git/info/exclude` and the global git excludes file.
-    pub git_excludes: bool,
-    pub git_excludes_source: Source,
+    /// The values of the changeable keys with their sources; every key has one.
+    values: BTreeMap<Key, (KeyValue, Source)>,
 }
 
 impl Settings {
@@ -275,28 +236,12 @@ impl Settings {
         Self {
             allowed_roots: vec![canonical_or_same(start_dir)],
             allowed_roots_source: Source::Default,
-            default_dirs: vec![".".to_string()],
-            default_dirs_source: Source::Default,
-            timeout: "30s".to_string(),
-            timeout_source: Source::Default,
-            threads: 0,
-            threads_source: Source::Default,
             allow_update: true,
             allow_update_source: Source::Default,
-            result_cache: 50,
-            result_cache_source: Source::Default,
-            min_depth: 0,
-            min_depth_source: Source::Default,
-            max_depth: None,
-            max_depth_source: Source::Default,
-            follow_symlinks: false,
-            follow_symlinks_source: Source::Default,
-            hidden: false,
-            hidden_source: Source::Default,
-            ignore_files: IGNORE_FILES.iter().map(ToString::to_string).collect(),
-            ignore_files_source: Source::Default,
-            git_excludes: true,
-            git_excludes_source: Source::Default,
+            values: Key::ALL
+                .into_iter()
+                .map(|key| (key, (key.default_value(), Source::Default)))
+                .collect(),
         }
     }
 
@@ -321,8 +266,8 @@ impl Settings {
             settings.allow_update_source = Source::File(file.path.clone());
         }
         if let Some(file) = file {
-            for value in &file.values.mutable {
-                settings.assign(value.clone(), Source::File(file.path.clone()));
+            for (key, value) in &file.values.values {
+                settings.set(*key, value.clone(), Source::File(file.path.clone()));
             }
         }
         if cli.no_update {
@@ -330,8 +275,7 @@ impl Settings {
             settings.allow_update_source = Source::Cli;
         }
         if let Some(timeout) = &cli.timeout {
-            settings.timeout.clone_from(timeout);
-            settings.timeout_source = Source::Cli;
+            settings.set(Key::Timeout, KeyValue::Text(timeout.clone()), Source::Cli);
         }
         let (roots, source, line) = if !cli_roots.is_empty() {
             (cli_roots.clone(), Source::Cli, None)
@@ -344,14 +288,8 @@ impl Settings {
         };
         let mut allowed_roots = Vec::new();
         for root in &roots {
-            let expanded = match (root.strip_prefix('~'), home) {
-                (Some(rest), Some(home)) if rest.is_empty() || rest.starts_with(['/', '\\']) => {
-                    home.join(rest.trim_start_matches(['/', '\\']))
-                }
-                _ => PathBuf::from(root),
-            };
-            let canonical =
-                std::fs::canonicalize(start_dir.join(expanded)).map_err(|_| StartError {
+            let canonical = std::fs::canonicalize(start_dir.join(expand_home(root, home)))
+                .map_err(|_| StartError {
                     path: file.filter(|_| line.is_some()).map(|f| f.path.clone()),
                     line,
                     message: format!("the allowed root '{root}' doesn't exist"),
@@ -366,123 +304,95 @@ impl Settings {
         Ok(settings)
     }
 
-    /// The time limit of a search; `None` — no limit.
+    /// The value of a key.
     #[must_use]
-    pub fn timeout(&self) -> Option<std::time::Duration> {
-        parse_duration(&self.timeout).filter(|d| !d.is_zero())
+    pub fn value(&self, key: Key) -> &KeyValue {
+        &self.entry(key).0
     }
 
-    /// The value of a key which `update_config` changes, as TOML; `None` when it is not set.
-    fn value(&self, key: Mutable) -> Option<String> {
-        Some(match key {
-            Mutable::DefaultDirs => toml_list(self.default_dirs.iter().map(String::as_str)),
-            Mutable::Timeout => format!("\"{}\"", self.timeout),
-            Mutable::Threads => self.threads.to_string(),
-            Mutable::ResultCache => self.result_cache.to_string(),
-            Mutable::MinDepth => self.min_depth.to_string(),
-            Mutable::MaxDepth => self.max_depth?.to_string(),
-            Mutable::FollowSymlinks => self.follow_symlinks.to_string(),
-            Mutable::Hidden => self.hidden.to_string(),
-            Mutable::IgnoreFiles => toml_list(self.ignore_files.iter().map(String::as_str)),
-            Mutable::GitExcludes => self.git_excludes.to_string(),
-        })
+    /// Where the value of a key comes from.
+    #[must_use]
+    pub fn source(&self, key: Key) -> &Source {
+        &self.entry(key).1
     }
 
-    /// The `key = value` line of a key which `update_config` changes.
-    fn line(&self, key: Mutable) -> String {
-        key_line(key.name().1, self.value(key).as_deref())
-    }
-
-    /// Sets a key to its value of `base`, with its source.
-    fn reset(&mut self, key: Mutable, base: &Settings) {
-        match key {
-            Mutable::DefaultDirs => {
-                self.default_dirs.clone_from(&base.default_dirs);
-                self.default_dirs_source = base.default_dirs_source.clone();
-            }
-            Mutable::Timeout => {
-                self.timeout.clone_from(&base.timeout);
-                self.timeout_source = base.timeout_source.clone();
-            }
-            Mutable::Threads => {
-                self.threads = base.threads;
-                self.threads_source = base.threads_source.clone();
-            }
-            Mutable::ResultCache => {
-                self.result_cache = base.result_cache;
-                self.result_cache_source = base.result_cache_source.clone();
-            }
-            Mutable::MinDepth => {
-                self.min_depth = base.min_depth;
-                self.min_depth_source = base.min_depth_source.clone();
-            }
-            Mutable::MaxDepth => {
-                self.max_depth = base.max_depth;
-                self.max_depth_source = base.max_depth_source.clone();
-            }
-            Mutable::FollowSymlinks => {
-                self.follow_symlinks = base.follow_symlinks;
-                self.follow_symlinks_source = base.follow_symlinks_source.clone();
-            }
-            Mutable::Hidden => {
-                self.hidden = base.hidden;
-                self.hidden_source = base.hidden_source.clone();
-            }
-            Mutable::IgnoreFiles => {
-                self.ignore_files.clone_from(&base.ignore_files);
-                self.ignore_files_source = base.ignore_files_source.clone();
-            }
-            Mutable::GitExcludes => {
-                self.git_excludes = base.git_excludes;
-                self.git_excludes_source = base.git_excludes_source.clone();
-            }
-        }
+    fn entry(&self, key: Key) -> &(KeyValue, Source) {
+        self.values
+            .get(&key)
+            .unwrap_or_else(|| unreachable!("every key has a value: {key:?}"))
     }
 
     /// Sets a key to a checked value from `source`.
-    fn assign(&mut self, value: MutableValue, source: Source) {
-        match value {
-            MutableValue::DefaultDirs(dirs) => {
-                self.default_dirs = dirs;
-                self.default_dirs_source = source;
-            }
-            MutableValue::Timeout(timeout) => {
-                self.timeout = timeout;
-                self.timeout_source = source;
-            }
-            MutableValue::Threads(threads) => {
-                self.threads = threads;
-                self.threads_source = source;
-            }
-            MutableValue::ResultCache(results) => {
-                self.result_cache = results;
-                self.result_cache_source = source;
-            }
-            MutableValue::MinDepth(depth) => {
-                self.min_depth = depth;
-                self.min_depth_source = source;
-            }
-            MutableValue::MaxDepth(depth) => {
-                self.max_depth = Some(depth);
-                self.max_depth_source = source;
-            }
-            MutableValue::FollowSymlinks(follow) => {
-                self.follow_symlinks = follow;
-                self.follow_symlinks_source = source;
-            }
-            MutableValue::Hidden(value) => {
-                self.hidden = value;
-                self.hidden_source = source;
-            }
-            MutableValue::IgnoreFiles(value) => {
-                self.ignore_files = value;
-                self.ignore_files_source = source;
-            }
-            MutableValue::GitExcludes(value) => {
-                self.git_excludes = value;
-                self.git_excludes_source = source;
-            }
+    pub fn set(&mut self, key: Key, value: KeyValue, source: Source) {
+        self.values.insert(key, (value, source));
+    }
+
+    /// The settings of one request: its values replace the ones of these settings.
+    #[must_use]
+    pub fn with(&self, values: &[(Key, KeyValue)]) -> Self {
+        let mut settings = self.clone();
+        for (key, value) in values {
+            let source = settings.source(*key).clone();
+            settings.set(*key, value.clone(), source);
         }
+        settings
+    }
+
+    /// The value of a boolean key.
+    #[must_use]
+    pub fn bool(&self, key: Key) -> bool {
+        match self.value(key) {
+            KeyValue::Bool(b) => *b,
+            _ => unreachable!("{key:?} is a boolean key"),
+        }
+    }
+
+    /// The value of a whole number key.
+    #[must_use]
+    pub fn whole(&self, key: Key) -> usize {
+        match self.value(key) {
+            KeyValue::Whole(n) => *n,
+            _ => unreachable!("{key:?} is a whole number key"),
+        }
+    }
+
+    /// The value of a whole number key which may be not set.
+    #[must_use]
+    pub fn opt_whole(&self, key: Key) -> Option<usize> {
+        match self.value(key) {
+            KeyValue::Whole(n) => Some(*n),
+            KeyValue::NotSet => None,
+            _ => unreachable!("{key:?} is a whole number key"),
+        }
+    }
+
+    /// The value of a string key.
+    #[must_use]
+    pub fn text(&self, key: Key) -> &str {
+        match self.value(key) {
+            KeyValue::Text(text) => text,
+            _ => unreachable!("{key:?} is a string key"),
+        }
+    }
+
+    /// The value of a list key.
+    #[must_use]
+    pub fn list(&self, key: Key) -> &[String] {
+        match self.value(key) {
+            KeyValue::List(items) => items,
+            _ => unreachable!("{key:?} is a list key"),
+        }
+    }
+
+    /// The time limit of a search; `None` — no limit.
+    #[must_use]
+    pub fn timeout(&self) -> Option<std::time::Duration> {
+        parse_duration(self.text(Key::Timeout)).filter(|d| !d.is_zero())
+    }
+
+    /// The `key = value` line of a changeable key.
+    fn line(&self, key: Key) -> String {
+        key_line(key.name(), self.value(key).to_toml().as_deref())
     }
 
     /// Whether the canonical `dir` is inside an allowed root.
@@ -492,143 +402,21 @@ impl Settings {
     }
 }
 
+/// A path of the configuration with `~` expanded to `home`; other paths as they are.
+#[must_use]
+pub fn expand_home(path: &str, home: Option<&Path>) -> PathBuf {
+    match (path.strip_prefix('~'), home) {
+        (Some(rest), Some(home)) if rest.is_empty() || rest.starts_with(['/', '\\']) => {
+            home.join(rest.trim_start_matches(['/', '\\']))
+        }
+        _ => PathBuf::from(path),
+    }
+}
+
 /// The canonical form of `path`, or `path` itself when it can't be resolved.
 fn canonical_or_same(path: &Path) -> PathBuf {
     std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
-
-/// The keys which `update_config` changes, in the order of the spec.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Mutable {
-    DefaultDirs,
-    Timeout,
-    Threads,
-    ResultCache,
-    MinDepth,
-    MaxDepth,
-    FollowSymlinks,
-    Hidden,
-    IgnoreFiles,
-    GitExcludes,
-}
-
-impl Mutable {
-    const ALL: [Mutable; 10] = [
-        Self::DefaultDirs,
-        Self::Timeout,
-        Self::Threads,
-        Self::ResultCache,
-        Self::MinDepth,
-        Self::MaxDepth,
-        Self::FollowSymlinks,
-        Self::Hidden,
-        Self::IgnoreFiles,
-        Self::GitExcludes,
-    ];
-
-    /// The section and the key.
-    fn name(self) -> (&'static str, &'static str) {
-        match self {
-            Self::DefaultDirs => ("server", "default_dirs"),
-            Self::Timeout => ("server", "timeout"),
-            Self::Threads => ("server", "threads"),
-            Self::ResultCache => ("server", "result_cache"),
-            Self::MinDepth => ("traversal", "min_depth"),
-            Self::MaxDepth => ("traversal", "max_depth"),
-            Self::FollowSymlinks => ("traversal", "follow_symlinks"),
-            Self::Hidden => ("traversal", "hidden"),
-            Self::IgnoreFiles => ("traversal", "ignore_files"),
-            Self::GitExcludes => ("traversal", "git_excludes"),
-        }
-    }
-
-    fn find(section: &str, key: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|m| m.name() == (section, key))
-    }
-
-    /// The checked value of `item`, or the hint of `invalid_value`.
-    fn parse(self, item: &toml_edit::Item) -> Result<MutableValue, &'static str> {
-        match self {
-            Self::DefaultDirs => string_list(item)
-                .filter(|dirs| !dirs.is_empty())
-                .map(MutableValue::DefaultDirs)
-                .ok_or(NON_EMPTY_PATHS),
-            Self::GitExcludes => item.as_bool().map(MutableValue::GitExcludes).ok_or(BOOLEAN),
-            Self::Timeout => item
-                .as_str()
-                .filter(|t| parse_duration(t).is_some())
-                .map(|t| MutableValue::Timeout(t.to_string()))
-                .ok_or(DURATION),
-            Self::Threads => item
-                .as_integer()
-                .and_then(|n| usize::try_from(n).ok())
-                .map(MutableValue::Threads)
-                .ok_or(THREADS),
-            Self::ResultCache => item
-                .as_integer()
-                .and_then(|n| usize::try_from(n).ok())
-                .map(MutableValue::ResultCache)
-                .ok_or(RESULT_CACHE),
-            Self::MinDepth => item
-                .as_integer()
-                .and_then(|n| usize::try_from(n).ok())
-                .map(MutableValue::MinDepth)
-                .ok_or(WHOLE_NUMBER),
-            Self::MaxDepth => item
-                .as_integer()
-                .and_then(|n| usize::try_from(n).ok())
-                .map(MutableValue::MaxDepth)
-                .ok_or(WHOLE_NUMBER),
-            Self::FollowSymlinks => item
-                .as_bool()
-                .map(MutableValue::FollowSymlinks)
-                .ok_or(BOOLEAN),
-            Self::Hidden => item.as_bool().map(MutableValue::Hidden).ok_or(BOOLEAN),
-            Self::IgnoreFiles => string_list(item)
-                .map(MutableValue::IgnoreFiles)
-                .ok_or(FILE_NAMES),
-        }
-    }
-}
-
-/// A checked value of a key which `update_config` changes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum MutableValue {
-    DefaultDirs(Vec<String>),
-    Timeout(String),
-    Threads(usize),
-    ResultCache(usize),
-    MinDepth(usize),
-    MaxDepth(usize),
-    FollowSymlinks(bool),
-    Hidden(bool),
-    IgnoreFiles(Vec<String>),
-    GitExcludes(bool),
-}
-
-/// What `default_dirs` must be.
-const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
-
-/// What `threads` must be.
-const THREADS: &str = "a whole number is expected (0: the number of CPU cores)";
-
-/// What `ignore_files` must be.
-const FILE_NAMES: &str = "a list of file names is expected";
-
-/// The ignore files of the defaults.
-const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
-
-/// What a boolean must be.
-const BOOLEAN: &str = "true or false is expected";
-
-/// What a depth must be.
-const WHOLE_NUMBER: &str = "a whole number is expected";
-
-/// What `result_cache` must be.
-const RESULT_CACHE: &str = "a whole number is expected (0: off)";
-
-/// What `timeout` must be.
-const DURATION: &str = "a duration like \"30s\" is expected (units ms, s, m)";
 
 /// A duration of the configuration: a whole number and `ms`, `s` or `m` (`CONFIG.md#server`).
 #[must_use]
@@ -653,14 +441,6 @@ pub struct CommandLine {
     pub timeout: Option<String>,
     /// `--no-update`.
     pub no_update: bool,
-}
-
-/// A list of strings as TOML.
-fn toml_list<'a>(items: impl Iterator<Item = &'a str>) -> String {
-    format!(
-        "[{}]",
-        items.map(toml_string).collect::<Vec<_>>().join(", ")
-    )
 }
 
 /// A path as a TOML string, without the `\\?\` prefix of Windows.
@@ -736,12 +516,12 @@ pub(crate) fn section_keys(section: &str) -> &'static [&'static str] {
 }
 
 /// The names of the sections, in the order of the spec.
-fn section_names() -> Vec<&'static str> {
+pub(crate) fn section_names() -> Vec<&'static str> {
     SECTIONS.iter().map(|(section, _)| *section).collect()
 }
 
 /// Whether the spec defines `key` in `section`: one of its keys, or any language in `languages`.
-fn is_spec_key(section: &str, key: &str) -> bool {
+pub(crate) fn is_spec_key(section: &str, key: &str) -> bool {
     section == "languages"
         || SECTIONS
             .iter()
@@ -774,7 +554,7 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                 section: "server",
                 key: "allowed_roots",
                 item,
-            } => match string_list(item) {
+            } => match keys::toml_strings(item) {
                 Some(roots) => {
                     values.allowed_roots = Some((roots, line(at)));
                     continue;
@@ -795,15 +575,16 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     "invalid value for 'server.allow_update': true or false is expected".to_string()
                 }
             },
-            Entry::Key { section, key, item }
-                if let Some(mutable) = Mutable::find(section, key) =>
-            {
-                match mutable.parse(item) {
-                    Ok(value) => {
-                        values.mutable.push(value);
+            Entry::Key { section, key, item } if let Some(found) = Key::find(section, key) => {
+                match found.ty().from_toml(item) {
+                    Some(value) => {
+                        values.values.push((found, value));
                         continue;
                     }
-                    Err(expected) => format!("invalid value for '{section}.{key}': {expected}"),
+                    None => format!(
+                        "invalid value for '{section}.{key}': {}",
+                        found.ty().expected()
+                    ),
                 }
             }
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
@@ -821,20 +602,11 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
     Ok(values)
 }
 
-/// A TOML array of strings.
-fn string_list(item: &toml_edit::Item) -> Option<Vec<String>> {
-    item.as_array()?
-        .iter()
-        .map(|v| v.as_str().map(str::to_string))
-        .collect()
-}
-
 /// The fields of `get_config`, in the order of its input schema.
 const GET_CONFIG_FIELDS: [&str; 2] = ["section", "sources"];
 
 /// The `get_config` tool (`CONFIG.md#get_config`): the effective configuration as TOML. The first line names the server
-/// and the spec versions; the read-only keys and the sections with their keys follow, as far as they are
-/// implemented — no key is implemented yet, so `section` and `sources` don't change the result.
+/// and the spec versions, the second the read-only keys; the sections with their implemented keys follow.
 pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<String, Report> {
     let object = arguments_object(arguments, &GET_CONFIG_FIELDS)?;
     let section = match object.get("section") {
@@ -866,62 +638,45 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
     let mut out = format!(
         "# easy-peasy-mcp {}, spec {SPEC_VERSION}, supported specs: {SPEC_VERSION}\n# read-only: {}\n",
         env!("CARGO_PKG_VERSION"),
-        IMPLEMENTED
+        READ_ONLY
             .iter()
-            .filter(|(s, k)| READ_ONLY.iter().any(|(rs, rk, _)| rs == s && rk == k))
-            .map(|(s, k)| format!("{s}.{k}"))
+            .map(|(s, k, _)| format!("{s}.{k}"))
             .collect::<Vec<_>>()
             .join(", ")
     );
-    if section.is_none_or(|s| s == "server") {
-        let roots: Vec<String> = settings
-            .allowed_roots
-            .iter()
-            .map(|r| toml_path(r))
-            .collect();
-        let lines = [
-            (
-                format!("allowed_roots = [{}]", roots.join(", ")),
-                &settings.allowed_roots_source,
-            ),
-            (
-                settings.line(Mutable::DefaultDirs),
-                &settings.default_dirs_source,
-            ),
-            (settings.line(Mutable::Timeout), &settings.timeout_source),
-            (settings.line(Mutable::Threads), &settings.threads_source),
-            (
-                format!("allow_update = {}", settings.allow_update),
-                &settings.allow_update_source,
-            ),
-            (
-                settings.line(Mutable::ResultCache),
-                &settings.result_cache_source,
-            ),
-        ];
-        out.push_str("\n[server]\n");
-        push_lines(&mut out, &lines, sources);
-    }
-    if section.is_none_or(|s| s == "traversal") {
-        let lines = [
-            (settings.line(Mutable::MinDepth), &settings.min_depth_source),
-            (settings.line(Mutable::MaxDepth), &settings.max_depth_source),
-            (
-                settings.line(Mutable::FollowSymlinks),
-                &settings.follow_symlinks_source,
-            ),
-            (settings.line(Mutable::Hidden), &settings.hidden_source),
-            (
-                settings.line(Mutable::IgnoreFiles),
-                &settings.ignore_files_source,
-            ),
-            (
-                settings.line(Mutable::GitExcludes),
-                &settings.git_excludes_source,
-            ),
-        ];
-        out.push_str("\n[traversal]\n");
-        push_lines(&mut out, &lines, sources);
+    for (name, keys) in SECTIONS {
+        if section.is_some_and(|s| s != name) {
+            continue;
+        }
+        let mut lines = Vec::new();
+        for &key in keys {
+            match (name, key) {
+                ("server", "allowed_roots") => {
+                    let roots: Vec<String> = settings
+                        .allowed_roots
+                        .iter()
+                        .map(|r| toml_path(r))
+                        .collect();
+                    lines.push((
+                        format!("allowed_roots = [{}]", roots.join(", ")),
+                        &settings.allowed_roots_source,
+                    ));
+                }
+                ("server", "allow_update") => lines.push((
+                    format!("allow_update = {}", settings.allow_update),
+                    &settings.allow_update_source,
+                )),
+                _ => {
+                    if let Some(key) = Key::find(name, key) {
+                        lines.push((settings.line(key), settings.source(key)));
+                    }
+                }
+            }
+        }
+        if !lines.is_empty() {
+            let _ = write!(out, "\n[{name}]\n");
+            push_lines(&mut out, &lines, sources);
+        }
     }
     Ok(out)
 }
@@ -973,8 +728,8 @@ const READ_ONLY: [(&str, &str, &str); 2] = [
     ),
 ];
 
-/// The `update_config` tool (`CONFIG.md#update_config`): the `reset` keys, then the `set` TOML, checked in this order.
-/// No key is implemented yet, so a valid call changes nothing.
+/// The `update_config` tool (`CONFIG.md#update_config`): the `reset` keys, then the `set` TOML, checked in this order;
+/// nothing changes unless all of them are valid.
 pub(crate) fn update_config(
     base: &Settings,
     session: &mut Settings,
@@ -1025,25 +780,25 @@ pub(crate) fn update_config(
                 ));
             }
             Entry::Key { section, key, item } => {
-                let mutable = check_update_key(section, key)?;
-                let value = mutable.parse(item).map_err(|expected| {
+                let found = check_update_key(section, key)?;
+                let value = found.ty().from_toml(item).ok_or_else(|| {
                     Report::new(
                         ErrorCode::InvalidValue,
                         format!("invalid value for '{section}.{key}'"),
                     )
-                    .hint(expected)
+                    .hint(found.ty().expected())
                 })?;
-                values.push((mutable, value));
+                values.push((found, value));
             }
         }
     }
     let mut updated = session.clone();
-    for key in &resets {
-        updated.reset(*key, base);
+    for &key in &resets {
+        updated.set(key, base.value(key).clone(), base.source(key).clone());
     }
-    let set_keys: Vec<Mutable> = values.iter().map(|(key, _)| *key).collect();
-    for (_, value) in values {
-        updated.assign(value, Source::Update);
+    let set_keys: Vec<Key> = values.iter().map(|(key, _)| *key).collect();
+    for (key, value) in values {
+        updated.set(key, value, Source::Update);
     }
     let out = changes(session, &updated, &resets, &set_keys);
     *session = updated;
@@ -1051,11 +806,11 @@ pub(crate) fn update_config(
 }
 
 /// The keys of `reset`, `all` for every key, or the error of the first invalid one.
-fn reset_keys(reset: &[&str]) -> Result<Vec<Mutable>, Report> {
+fn reset_keys(reset: &[&str]) -> Result<Vec<Key>, Report> {
     let mut resets = Vec::new();
     for &key in reset {
         if key == "all" {
-            resets.extend(Mutable::ALL);
+            resets.extend(Key::ALL);
             continue;
         }
         let Some((section, name)) = key.split_once('.') else {
@@ -1077,28 +832,27 @@ fn reset_keys(reset: &[&str]) -> Result<Vec<Mutable>, Report> {
 }
 
 /// The result of `update_config`: the keys whose value changed with the old value, or `# nothing changed`.
-fn changes(old: &Settings, new: &Settings, resets: &[Mutable], set_keys: &[Mutable]) -> String {
+fn changes(old: &Settings, new: &Settings, resets: &[Key], set_keys: &[Key]) -> String {
     let mut out = String::new();
     let mut section = "";
-    for key in Mutable::ALL {
-        let (was, value) = (old.value(key), new.value(key));
+    for key in Key::ALL {
+        let (was, value) = (old.value(key).to_toml(), new.value(key).to_toml());
         if was == value {
             continue;
         }
-        let (key_section, name) = key.name();
-        if key_section != section {
+        if key.section() != section {
             if !out.is_empty() {
                 out.push('\n');
             }
-            let _ = writeln!(out, "[{key_section}]");
-            section = key_section;
+            let _ = writeln!(out, "[{}]", key.section());
+            section = key.section();
         }
         let reset = if resets.contains(&key) && !set_keys.contains(&key) {
             ", reset"
         } else {
             ""
         };
-        let line = key_line(name, value.as_deref());
+        let line = key_line(key.name(), value.as_deref());
         let was = was.as_deref().unwrap_or("(not set)");
         let _ = writeln!(out, "{line}    # was {was}{reset}");
     }
@@ -1109,7 +863,7 @@ fn changes(old: &Settings, new: &Settings, resets: &[Mutable], set_keys: &[Mutab
 }
 
 /// The key which `update_config` changes, or the error: read-only, unknown, or not implemented yet.
-fn check_update_key(section: &str, key: &str) -> Result<Mutable, Report> {
+fn check_update_key(section: &str, key: &str) -> Result<Key, Report> {
     let full = format!("{section}.{key}");
     if let Some((_, _, hint)) = READ_ONLY
         .iter()
@@ -1117,8 +871,8 @@ fn check_update_key(section: &str, key: &str) -> Result<Mutable, Report> {
     {
         return Err(Report::new(ErrorCode::ReadOnly, format!("'{full}' is read-only")).hint(*hint));
     }
-    if let Some(mutable) = Mutable::find(section, key) {
-        return Ok(mutable);
+    if let Some(found) = Key::find(section, key) {
+        return Ok(found);
     }
     if is_spec_key(section, key) {
         return Err(Report::not_implemented(&format!("the key '{full}'")));
@@ -1361,7 +1115,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\nignore_files = ['.gitignore', '.ignore', '.aiignore']\ngit_excludes = true\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\nignore_files = ['.gitignore', '.ignore', '.aiignore']\ngit_excludes = true\nignore_paths = []\n"
             )
         );
         assert_eq!(
@@ -1427,11 +1181,12 @@ mod tests {
     #[test]
     fn update_config_changes_the_session() {
         use serde_json::json;
-        let base = Settings {
-            default_dirs: vec!["src".into()],
-            default_dirs_source: Source::File("c.toml".into()),
-            ..Settings::defaults(Path::new("/"))
-        };
+        let mut base = Settings::defaults(Path::new("/"));
+        base.set(
+            Key::DefaultDirs,
+            KeyValue::List(vec!["src".into()]),
+            Source::File("c.toml".into()),
+        );
         let mut session = base.clone();
         let mut call = |arguments: Value| match update_config(&base, &mut session, &arguments) {
             Ok(text) => text,
@@ -1561,17 +1316,18 @@ mod tests {
             values: FileValues {
                 allowed_roots: Some((Vec::new(), 1)),
                 allow_update: Some(false),
-                mutable: vec![
-                    MutableValue::DefaultDirs(vec!["src".into()]),
-                    MutableValue::Timeout("1m".into()),
-                    MutableValue::Threads(2),
-                    MutableValue::ResultCache(0),
-                    MutableValue::MinDepth(3),
-                    MutableValue::MaxDepth(5),
-                    MutableValue::FollowSymlinks(true),
-                    MutableValue::Hidden(true),
-                    MutableValue::IgnoreFiles(Vec::new()),
-                    MutableValue::GitExcludes(false),
+                values: vec![
+                    (Key::DefaultDirs, KeyValue::List(vec!["src".into()])),
+                    (Key::Timeout, KeyValue::Text("1m".into())),
+                    (Key::Threads, KeyValue::Whole(2)),
+                    (Key::ResultCache, KeyValue::Whole(0)),
+                    (Key::MinDepth, KeyValue::Whole(3)),
+                    (Key::MaxDepth, KeyValue::Whole(5)),
+                    (Key::FollowSymlinks, KeyValue::Bool(true)),
+                    (Key::Hidden, KeyValue::Bool(true)),
+                    (Key::IgnoreFiles, KeyValue::List(Vec::new())),
+                    (Key::GitExcludes, KeyValue::Bool(false)),
+                    (Key::IgnorePaths, KeyValue::List(vec!["~/i".into()])),
                 ],
             },
         };
@@ -1581,23 +1337,27 @@ mod tests {
             no_update: false,
         };
         let settings = Settings::resolve(Some(&empty), &cli, &start, None).unwrap();
-        assert_eq!(settings.timeout, "5s");
-        assert_eq!(settings.timeout_source, Source::Cli);
-        assert_eq!(settings.threads, 2);
+        assert_eq!(settings.text(Key::Timeout), "5s");
+        assert_eq!(settings.source(Key::Timeout), &Source::Cli);
+        assert_eq!(settings.whole(Key::Threads), 2);
         assert!(!settings.allow_update);
-        assert_eq!(settings.result_cache, 0);
-        assert_eq!(settings.min_depth, 3);
-        assert_eq!(settings.max_depth, Some(5));
-        assert!(settings.follow_symlinks);
-        assert!(settings.hidden);
-        assert!(settings.ignore_files.is_empty());
-        assert!(!settings.git_excludes);
+        assert_eq!(settings.whole(Key::ResultCache), 0);
+        assert_eq!(settings.whole(Key::MinDepth), 3);
+        assert_eq!(settings.opt_whole(Key::MaxDepth), Some(5));
+        assert!(settings.bool(Key::FollowSymlinks));
+        assert!(settings.bool(Key::Hidden));
+        assert!(settings.list(Key::IgnoreFiles).is_empty());
+        assert!(!settings.bool(Key::GitExcludes));
+        assert_eq!(settings.list(Key::IgnorePaths), ["~/i"]);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
         assert_eq!(settings.allowed_roots_source, Source::File("c.toml".into()));
-        assert_eq!(settings.default_dirs, ["src"]);
-        assert_eq!(settings.default_dirs_source, Source::File("c.toml".into()));
+        assert_eq!(settings.list(Key::DefaultDirs), ["src"]);
+        assert_eq!(
+            settings.source(Key::DefaultDirs),
+            &Source::File("c.toml".into())
+        );
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
@@ -1611,10 +1371,8 @@ mod tests {
         for bad in ["", "10", "s", "1h", "1.5s", "-1s", " 1s", "1 s"] {
             assert_eq!(parse_duration(bad), None, "{bad}");
         }
-        let settings = Settings {
-            timeout: "0m".into(),
-            ..Settings::defaults(Path::new("/"))
-        };
+        let mut settings = Settings::defaults(Path::new("/"));
+        settings.set(Key::Timeout, KeyValue::Text("0m".into()), Source::Default);
         assert_eq!(settings.timeout(), None);
     }
 
