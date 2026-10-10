@@ -1,6 +1,6 @@
 # Task 25: Encoding detection
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 20
 
