@@ -1,6 +1,6 @@
 # Task 34: Config file
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 1
 
