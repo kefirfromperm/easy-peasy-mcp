@@ -53,7 +53,7 @@ Fixture: `sorting`
 ```
 
 ```text response
-files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)
+files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)  next cursor: eyJ2IjoxLCJoIjoiNWE2MTI2OTUiLCJmIjoxLCJtIjoxLCJ0IjpbNCw0LDhdfQ
 #1 text has 'TODO'
 
 ./
@@ -82,6 +82,7 @@ Fixture: `sorting`
   "counts": { "files": 4, "lines": 4, "matches": 8 },
   "truncated": true,
   "truncated_by": ["max_matches"],
+  "next_cursor": "eyJ2IjoxLCJoIjoiZmUwZGI2MGEiLCJmIjoxLCJtIjoxLCJ0IjpbNCw0LDhdfQ",
   "legend": { "#1": "text has 'TODO'" },
   "files": [
     { "path": "a.txt", "lines": 1, "matches": 1, "conditions": ["#1"],
@@ -107,7 +108,7 @@ Fixture: `sorting`
 ```
 
 ```text response
-files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_lines, max_matches)
+files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_lines, max_matches)  next cursor: eyJ2IjoxLCJoIjoiZDA5OWYyNWMiLCJmIjoxLCJtIjoyLCJ0IjpbNCw0LDhdfQ
 #1 text has 'TODO'
 
 ./
@@ -164,7 +165,7 @@ max_matches = 1    # was 1000
 ```
 
 ```text response
-files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)
+files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)  next cursor: eyJ2IjoxLCJoIjoiOWMxMGRjZTgiLCJmIjowLCJtIjoxLCJ0IjpbNCw0LDhdfQ
 #1 text has 'TODO'
 
 d/e.txt  [#1]  lines: 1  matches: 2
@@ -252,7 +253,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)
+files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)  next cursor: eyJ2IjoxLCJoIjoiOWFmNTY0YjQiLCJmIjoxLCJ0IjpbNCw0LDhdfQ
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
