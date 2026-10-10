@@ -1,6 +1,6 @@
 # Task 81: `output.before`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80
 
