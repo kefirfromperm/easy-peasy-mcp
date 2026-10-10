@@ -285,6 +285,7 @@ impl Engine {
                 "exclude" => Binary::Exclude,
                 _ => Binary::Skip,
             },
+            max_file_size: settings.size(Key::MaxFileSize),
             read_delay: self.options.read_delay,
         }
     }

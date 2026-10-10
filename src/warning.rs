@@ -10,6 +10,7 @@ use crate::output::display_path;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WarningCode {
     PermissionDenied,
+    TooBig,
     BinarySkipped,
     DecodeErrors,
     DateUnsupported,
@@ -22,6 +23,7 @@ impl WarningCode {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::PermissionDenied => "permission_denied",
+            Self::TooBig => "too_big",
             Self::BinarySkipped => "binary_skipped",
             Self::DecodeErrors => "decode_errors",
             Self::DateUnsupported => "date_unsupported",

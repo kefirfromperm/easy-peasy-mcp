@@ -45,7 +45,8 @@ Empty query = all files.
                                  text =~ `fn \\w+_test` regex (Rust syntax), per line: ^ $ are line ends;
                                  with /m on the whole content: \\n matches a line break;
                                  binary files are not searched: content conditions are unknown for them
-                                 (traversal.binary: \"search\" searches them as text, \"exclude\" never returns them)
+                                 (traversal.binary: \"search\" searches them as text, \"exclude\" never returns them),
+                                 neither are files bigger than traversal.max_file_size (default \"10M\")
   line(text has 'a' and not text has 'b')    conditions on the same line; not line(...) = no line matches;
                                  len > 120 (characters of the line) works inside line()
   near(text has 'lock', text has 'await', 3[, ordered][, closest|first])   lines within 3 of each other
@@ -96,7 +97,8 @@ pub fn find_schema() -> Value {
                     "ignore_paths": { "type": "array", "items": { "type": "string" }, "description": "Extra ignore files (gitignore format) applied as if they were in every working directory, with the lowest priority; ~ is the home directory. Default: []." },
                     "exclude": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of paths which are never walked, relative to the working directory, matched like path ~: ['**/target/**'] prunes every target directory. Default: []." },
                     "path_case": { "enum": ["native", "sensitive", "insensitive"], "description": "Case sensitivity of path and name conditions and of exclude; native: sensitive on Linux, insensitive on macOS and Windows. /i, ~~ and /n are always case-insensitive. Default: native." },
-                    "binary": { "enum": ["skip", "search", "exclude"], "description": "Binary files (a zero byte in the first 8K): skip — not searched by content, content conditions are unknown for them; search — searched as text; exclude — never returned. Default: skip." }
+                    "binary": { "enum": ["skip", "search", "exclude"], "description": "Binary files (a zero byte in the first 8K): skip — not searched by content, content conditions are unknown for them; search — searched as text; exclude — never returned. Default: skip." },
+                    "max_file_size": { "type": "string", "description": "Bigger files are not searched by content (content conditions are unknown for them, a too_big warning), e.g. '1G'; units B K M G. Default: 10M." }
                 }
             }
         }

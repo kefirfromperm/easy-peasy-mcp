@@ -375,6 +375,13 @@ impl Settings {
         }
     }
 
+    /// The value of a size key in bytes.
+    #[must_use]
+    pub fn size(&self, key: Key) -> f64 {
+        crate::query::parse_size(self.text(key))
+            .unwrap_or_else(|| unreachable!("{key:?} is a size key, checked with its type"))
+    }
+
     /// The value of a list key.
     #[must_use]
     pub fn list(&self, key: Key) -> &[String] {

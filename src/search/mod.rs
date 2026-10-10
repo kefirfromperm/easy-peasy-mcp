@@ -53,6 +53,8 @@ pub struct SearchOptions {
     pub exclude: Vec<regex::Regex>,
     /// What happens to binary files.
     pub binary: Binary,
+    /// Bigger files are not searched by content, in bytes.
+    pub max_file_size: f64,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -449,6 +451,10 @@ impl Walk<'_> {
         let mut text = false;
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
+        if matches!(file.content, ContentState::NotRead) && self.too_big(path) {
+            file.content = ContentState::Unknown;
+            self.warn(WarningCode::TooBig, rel, false);
+        }
         if matches!(file.content, ContentState::NotRead) {
             self.slow_read();
             let bytes = std::fs::read(path);
@@ -509,6 +515,13 @@ impl Walk<'_> {
             encoding,
             text,
         })
+    }
+
+    /// Whether a file is bigger than `max_file_size`; a file without metadata is not.
+    fn too_big(&self, path: &Path) -> bool {
+        #[allow(clippy::cast_precision_loss)]
+        // sizes far below 2^53 are exact, bigger ones are surely too big
+        std::fs::metadata(path).is_ok_and(|m| m.len() as f64 > self.options.max_file_size)
     }
 
     /// The dates of an entry; `date_unsupported` when the query needs a date the file system doesn't provide.
