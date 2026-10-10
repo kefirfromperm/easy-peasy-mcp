@@ -1,6 +1,6 @@
 # Task 69: `git.base`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 18, task 36
 
