@@ -268,8 +268,12 @@ mod tests {
             [(Key::After, KeyValue::Whole(1))]
         );
         assert_eq!(
-            text(&json!({ "output": { "blank_context": true } })),
-            "error[not_implemented]: the field 'output.blank_context' is not implemented yet\n"
+            config(&json!({ "output": { "blank_context": true } })),
+            [(Key::BlankContext, KeyValue::Bool(true))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "dedent": false } })),
+            "error[not_implemented]: the field 'output.dedent' is not implemented yet\n"
         );
     }
 
