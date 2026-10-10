@@ -1,6 +1,6 @@
 # Task 48: `traversal.ignore_files`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 44
 
