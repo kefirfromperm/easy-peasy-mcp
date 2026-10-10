@@ -158,9 +158,9 @@ Fixture: `small-rust`
   another tool) are sent to it over MCP. A line
   `` Platform: `linux` `` (or `macos`, `windows`) runs the example only there
 - a startup example can also be a JSON-RPC exchange after `initialize`: a `json send` block is a message sent as it
-  is; a `json receive` block waits (at most 10 seconds) for the next message which matches it — the block is a
-  subset of the message, a string `*` matches any value and a `*` inside a string any characters — skipping the
-  messages before it; a `json never` block fails when a message which matches it has arrived in the exchange or
+  is; a `json receive` block waits (at most 10 seconds) for a message which matches it and no earlier `json receive`
+  took — the block is a subset of the message, a string `*` matches any value and a `*` inside a string any
+  characters — so concurrent responses can be received in any order; a `json never` block fails when a message which matches it has arrived in the exchange or
   arrives within one second
 - `<version>` in a response stands for the server version (`CARGO_PKG_VERSION`), e.g. in the first line of
   `get_config`; `<fixture>` in any example stands for the canonical absolute path of the fixture directory
