@@ -9,13 +9,14 @@ pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Spec vers
 pub const FIND_DESCRIPTION: &str = "\
 Search files and directories by name, path and type in one query. Read-only. Only regular files are returned. Spec version 1.
 
-QUERY: conditions on the name, path and type joined with not, and, xor, or (this precedence) and brackets.
+QUERY: conditions on the name, path, type and size joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
   name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
                                  [*] [?] [[] [{] match the character itself
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends work on paths too
+  size > 1M                      also: = != < <= >= and size in 10K..1M; units B K M G (1024)
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'

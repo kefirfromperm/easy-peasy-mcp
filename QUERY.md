@@ -391,7 +391,9 @@ is the query ``text =~ `\bfoo\(` and name ~ '*.rs'``. With a quoted string it wo
 
 ### Sizes
 
-A number of bytes with an optional unit: `B`, `K`, `M`, `G` (powers of 1024), e.g. `0`, `512`, `10K`, `1.5M`, `2G`.
+A number of bytes with an optional unit: `B`, `K`, `M`, `G` (powers of 1024, also in lower case), e.g. `0`, `512`,
+`10K`, `1.5M`, `2G`. A fraction is not rounded: `size = 1.5K` is 1536 bytes, `size = 0.3K` matches no file. The size of
+a directory or a symlink is the size the file system reports for the entry itself.
 
 ### Dates
 

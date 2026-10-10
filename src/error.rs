@@ -16,6 +16,8 @@ pub enum ErrorCode {
     InvalidWildcard,
     DuplicateLabel,
     UnknownValue,
+    InvalidSize,
+    InvalidRange,
     InvalidOption,
     NotImplemented,
 }
@@ -35,6 +37,8 @@ impl ErrorCode {
             Self::InvalidWildcard => "invalid_wildcard",
             Self::DuplicateLabel => "duplicate_label",
             Self::UnknownValue => "unknown_value",
+            Self::InvalidSize => "invalid_size",
+            Self::InvalidRange => "invalid_range",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

@@ -32,7 +32,7 @@ pub struct Fixture {
     pub name: String,
     /// Paths and their modification times in seconds since the Unix epoch, UTC; directories end with `/`.
     pub tree: Vec<(String, i64)>,
-    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path>`, `symlink <path> -> <target>`.
+    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `symlink <path> -> <target>`.
     pub setup: Vec<String>,
 }
 
@@ -213,9 +213,13 @@ fn run_setup(root: &Path, action: &str) {
     match verb {
         "mkdir" => fs::create_dir_all(root.join(rest.trim())).unwrap(),
         "file" => {
-            let p = root.join(rest.trim());
+            let mut parts = rest.split_whitespace();
+            let p = root.join(parts.next().expect("file <path> [<bytes>]"));
+            let bytes: usize = parts
+                .next()
+                .map_or(0, |n| n.parse().expect("a number of bytes"));
             fs::create_dir_all(p.parent().unwrap()).unwrap();
-            fs::write(p, "").unwrap();
+            fs::write(p, "x".repeat(bytes)).unwrap();
         }
         "symlink" => {
             let (link, target) = rest.split_once(" -> ").expect("symlink <path> -> <target>");

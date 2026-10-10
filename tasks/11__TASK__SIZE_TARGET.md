@@ -1,6 +1,6 @@
 # Task 11: `size` target
 
-Status: not implemented
+Status: implemented, see [11__SUMMARY__SIZE_TARGET.md](11__SUMMARY__SIZE_TARGET.md)
 
 Depends on: task 6
 

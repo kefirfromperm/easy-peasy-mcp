@@ -64,6 +64,38 @@ pub struct FileValues<'a> {
     pub entry_type: EntryType,
     /// A file of size 0 or a directory without entries; only computed when the query has `empty`.
     pub empty: bool,
+    /// The size in bytes; only read when the query has `size`.
+    pub size: u64,
+}
+
+/// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Bounds {
+    /// The lower end and whether it is included.
+    pub min: Option<(f64, bool)>,
+    /// The upper end and whether it is included.
+    pub max: Option<(f64, bool)>,
+    pub negated: bool,
+}
+
+impl Bounds {
+    /// Whether `v` is in the interval (or outside of it when negated).
+    pub fn contains(&self, v: f64) -> bool {
+        let above = self
+            .min
+            .is_none_or(|(m, incl)| if incl { v >= m } else { v > m });
+        let below = self
+            .max
+            .is_none_or(|(m, incl)| if incl { v <= m } else { v < m });
+        (above && below) != self.negated
+    }
+}
+
+/// The numeric values a comparison condition can look at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NumberTarget {
+    /// The size in bytes.
+    Size,
 }
 
 /// The compiled query, evaluated for every file; brackets are gone, the precedence is in the tree.
@@ -93,6 +125,13 @@ pub enum Filter {
         id: CondId,
         order: usize,
     },
+    /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
+    Number {
+        id: CondId,
+        order: usize,
+        target: NumberTarget,
+        bounds: Bounds,
+    },
 }
 
 impl Filter {
@@ -113,6 +152,10 @@ impl Filter {
                 values, negated, ..
             } => values.contains(&file.entry_type) != *negated,
             Self::Empty { .. } => file.empty,
+            #[allow(clippy::cast_precision_loss)] // sizes up to 2^53 bytes are exact
+            Self::Number { target, bounds, .. } => bounds.contains(match target {
+                NumberTarget::Size => file.size as f64,
+            }),
         }
     }
 
@@ -138,7 +181,8 @@ impl Filter {
             Self::Not(_) => {}
             Self::Text { id, order, .. }
             | Self::Type { id, order, .. }
-            | Self::Empty { id, order } => {
+            | Self::Empty { id, order }
+            | Self::Number { id, order, .. } => {
                 found.push((*order, id.clone()));
             }
         }
@@ -164,6 +208,7 @@ mod tests {
             path: name,
             entry_type: EntryType::File,
             empty: false,
+            size: 0,
         };
         filter.eval(&file).then(|| {
             filter
