@@ -437,6 +437,18 @@ mod tests {
     }
 
     #[test]
+    fn kinds_test() {
+        assert_eq!(
+            config(&json!({ "kinds": { "test": ["**/x/**"] } })),
+            [(Key::KindsTest, KeyValue::List(vec!["**/x/**".into()]))]
+        );
+        assert_eq!(
+            text(&json!({ "kinds": { "test": ["[a-"] } })),
+            "error[invalid_option]: invalid wildcard '[a-' in 'kinds.test'\n  hint: unclosed '['\n"
+        );
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
