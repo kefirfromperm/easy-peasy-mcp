@@ -147,7 +147,8 @@ Fixture: `small-rust`
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
   pagination) is written as a numbered sequence of requests and responses in one example
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates
-  are absolute or relative to a fixed `now` given in the fixture section
+  are absolute or relative to a fixed `now` given in the fixture section: a line `` Now: `2026-10-08 12:00` `` (UTC); the
+  test server runs with this `now` and with UTC as its local time zone
 
 ### 3. Plan — `N__PLAN__NAME.md`
 

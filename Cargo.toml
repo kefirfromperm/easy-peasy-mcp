@@ -18,6 +18,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.104"
 ignore = "0.4.33"
+jiff = "0.2.38"
 regex = "1.13.1"
 rmcp = { version = "3.5.1", features = ["server", "transport-io"] }
 serde = { version = "1.0.229", features = ["derive"] }
