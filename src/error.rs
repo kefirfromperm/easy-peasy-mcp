@@ -22,6 +22,7 @@ pub enum ErrorCode {
     InvalidRegex,
     FileTargetInside,
     NestedLine,
+    LineTargetOutside,
     InvalidOption,
     NotImplemented,
 }
@@ -47,6 +48,7 @@ impl ErrorCode {
             Self::InvalidRegex => "invalid_regex",
             Self::FileTargetInside => "file_target_inside",
             Self::NestedLine => "nested_line",
+            Self::LineTargetOutside => "line_target_outside",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }
