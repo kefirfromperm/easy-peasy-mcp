@@ -29,7 +29,8 @@ Empty query = all files.
   git = changed                  also: modified staged untracked conflicted clean; git in (modified, untracked);
                                  git = branch: changed, or changed by the commits since the base (main/master);
                                  false outside of a repository
-  text has 'TODO'                content contains, /i ignore case; a value with '\n' matches across lines
+  text has 'TODO'                content contains, /i ignore case; a value with '\n' matches across lines;
+                                 binary files are not searched: content conditions are unknown for them
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'

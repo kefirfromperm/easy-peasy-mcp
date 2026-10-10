@@ -9,7 +9,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
-use crate::content::Content;
+use crate::content::{Content, is_binary};
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::LanguageTable;
 use crate::output::{Fragment, matched_lines, merge_identical};
@@ -201,7 +201,7 @@ impl Walk<'_> {
         } else {
             Kind::Other
         };
-        let mut file = FileValues {
+        let file = FileValues {
             name: &name,
             path: &nfc_path,
             entry_type,
@@ -219,32 +219,9 @@ impl Walk<'_> {
                 ContentState::Absent
             },
         };
-        let content;
         let (conditions, matches) = match &query.filter {
             None => (Vec::new(), None),
-            Some(filter) => {
-                if filter.eval(&file) == Truth::False {
-                    return None;
-                }
-                if matches!(file.content, ContentState::NotRead) {
-                    content = Content::from_bytes(&std::fs::read(entry.path()).ok()?);
-                    file.content = ContentState::Text(&content);
-                }
-                if !filter.matches(&file) {
-                    return None;
-                }
-                let leaves = filter.contributing_leaves(&file);
-                let conditions = leaves
-                    .iter()
-                    .filter_map(|f| f.id())
-                    .map(|(_, id)| id.clone())
-                    .collect();
-                let matches = match file.content {
-                    ContentState::Text(content) => file_matches(content, &leaves),
-                    _ => None,
-                };
-                (conditions, matches)
-            }
+            Some(filter) => self.evaluate(filter, file, entry.path(), rel)?,
         };
         let is_file = entry_type == EntryType::File;
         if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
@@ -260,6 +237,47 @@ impl Walk<'_> {
             matches,
         };
         Some((found, id))
+    }
+
+    /// The conditions which made the file match and its content fragments, or `None` if it doesn't match. The file
+    /// is read only when the conditions without the content don't decide; a binary file's content is unknown.
+    fn evaluate(
+        &self,
+        filter: &Filter,
+        file: FileValues<'_>,
+        path: &Path,
+        rel: &Path,
+    ) -> Option<(Vec<CondId>, Option<FileMatches>)> {
+        if filter.eval(&file) == Truth::False {
+            return None;
+        }
+        let content: Content;
+        // a copy with a shorter lifetime, which can borrow the content read here
+        let mut file = file;
+        if matches!(file.content, ContentState::NotRead) {
+            let bytes = std::fs::read(path).ok()?;
+            if is_binary(&bytes) {
+                file.content = ContentState::Unknown;
+                self.warn(WarningCode::BinarySkipped, rel, false);
+            } else {
+                content = Content::from_bytes(&bytes);
+                file.content = ContentState::Text(&content);
+            }
+        }
+        if !filter.matches(&file) {
+            return None;
+        }
+        let leaves = filter.contributing_leaves(&file);
+        let conditions = leaves
+            .iter()
+            .filter_map(|f| f.id())
+            .map(|(_, id)| id.clone())
+            .collect();
+        let matches = match file.content {
+            ContentState::Text(content) => file_matches(content, &leaves),
+            _ => None,
+        };
+        Some((conditions, matches))
     }
 
     /// The dates of an entry; `date_unsupported` when the query needs a date the file system doesn't provide.
