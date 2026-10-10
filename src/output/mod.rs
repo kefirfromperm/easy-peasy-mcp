@@ -112,6 +112,8 @@ pub struct Response<'a> {
     pub limits: Limits,
     /// Where the page starts.
     pub page: Page,
+    /// The steps of the funnel with their numbers of files, when it is shown.
+    pub funnel: Option<Vec<(String, usize)>>,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -170,12 +172,14 @@ impl Response<'_> {
         out.push_str(&timeout);
         out.push('\n');
         if self.files.is_empty() || self.detail == Detail::Count {
+            self.push_funnel(&mut out);
             self.push_warnings(&mut out);
             return out;
         }
         for (id, text) in self.legend {
             let _ = writeln!(out, "{id} {text}");
         }
+        self.push_funnel(&mut out);
         out.push('\n');
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
@@ -391,6 +395,12 @@ impl Response<'_> {
         out
     }
 
+    fn push_funnel(&self, out: &mut String) {
+        if let Some(steps) = &self.funnel {
+            out.push_str(&funnel::lines(steps));
+        }
+    }
+
     fn push_warnings(&self, out: &mut String) {
         let warnings = self.all_warnings();
         if !warnings.is_empty() {
@@ -539,6 +549,7 @@ mod tests {
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
+            funnel: None,
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -568,6 +579,7 @@ mod tests {
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
+            funnel: None,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -608,6 +620,7 @@ mod tests {
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
+            funnel: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -637,6 +650,7 @@ mod tests {
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
+            funnel: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -682,6 +696,7 @@ mod tests {
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
+            funnel: None,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -722,6 +737,7 @@ mod tests {
                 highlight,
                 time_zone: jiff::tz::TimeZone::UTC,
                 page: Page::default(),
+                funnel: None,
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -766,6 +782,7 @@ mod tests {
                 highlight: Highlight::Markers("⟦", "⟧"),
                 time_zone: jiff::tz::TimeZone::UTC,
                 page: Page::default(),
+                funnel: None,
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -800,6 +817,7 @@ mod tests {
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
+            funnel: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],

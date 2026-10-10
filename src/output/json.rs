@@ -23,6 +23,8 @@ struct Document<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<&'a str>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    funnel: Vec<FunnelStep<'a>>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     repeated: Vec<Repeated>,
     #[serde(skip_serializing_if = "Option::is_none")]
     counts: Option<Counts>,
@@ -40,6 +42,13 @@ struct Document<'a> {
     warnings: Vec<Warning>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     files: Vec<File>,
+}
+
+/// A step of the funnel (OUTPUT.md#funnel).
+#[derive(Serialize)]
+struct FunnelStep<'a> {
+    step: &'a str,
+    files: usize,
 }
 
 /// A matched line repeated in many files (OUTPUT.md#repeated-lines).
@@ -174,6 +183,15 @@ impl Response<'_> {
             version: VERSION,
             exists: !self.files.is_empty(),
             result: self.result_id,
+            funnel: self
+                .funnel
+                .iter()
+                .flatten()
+                .map(|(step, files)| FunnelStep {
+                    step,
+                    files: *files,
+                })
+                .collect(),
             repeated: repeated
                 .lines
                 .iter()
@@ -456,6 +474,7 @@ mod tests {
             highlight: Highlight::Columns,
             time_zone: jiff::tz::TimeZone::UTC,
             page: super::super::Page::default(),
+            funnel: None,
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
