@@ -103,7 +103,8 @@ pub fn find_schema() -> Value {
                     "max_file_size": { "type": "string", "description": "Bigger files are not searched by content (content conditions are unknown for them, a too_big warning), e.g. '1G'; units B K M G. Default: 10M." },
                     "encoding": { "type": "string", "description": "auto: by the BOM, UTF-16 by its zero bytes, otherwise UTF-8; or a WHATWG encoding name like windows-1252 for every file without a BOM. The output shows the encoding of every file which is not UTF-8. Default: auto." },
                     "fallback_encoding": { "type": "string", "description": "With encoding auto: files which are not valid UTF-8 are decoded with this WHATWG encoding, e.g. windows-1251, instead of replacing the invalid bytes. Default: not set." },
-                    "archives": { "enum": ["none", "compressed", "all"], "description": "none: compressed files and archives are binary files; compressed: .gz .bz2 .xz .zst .lz4 files are searched as their decompressed content (max_file_size applies to it); all: also the members of .zip .jar .tar .tar.gz/.tgz .tar.bz2 .tar.xz .tar.zst .7z, with the path <archive>!/<member>. Default: none." }
+                    "archives": { "enum": ["none", "compressed", "all"], "description": "none: compressed files and archives are binary files; compressed: .gz .bz2 .xz .zst .lz4 files are searched as their decompressed content (max_file_size applies to it); all: also the members of .zip .jar .tar .tar.gz/.tgz .tar.bz2 .tar.xz .tar.zst .7z, with the path <archive>!/<member>. Default: none." },
+                    "max_archive_size": { "type": "string", "description": "The total uncompressed size of the members of one archive; the rest is skipped with an archive_too_big warning (zip bombs). Default: 100M." }
                 }
             }
         }

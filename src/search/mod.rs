@@ -63,6 +63,8 @@ pub struct SearchOptions {
     pub time_zone: jiff::tz::TimeZone,
     /// Bigger files are not searched by content, in bytes.
     pub max_file_size: f64,
+    /// The total uncompressed size of the members of one archive, in bytes.
+    pub max_archive_size: f64,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -565,12 +567,21 @@ impl Walk<'_> {
         let archive = slash_path(rel);
         let id = entry.metadata().ok().and_then(|m| file_id(&m));
         let mut found = Vec::new();
+        let mut total = 0_u64;
+        let mut too_big = false;
         let result = for_each_member(
             entry.path(),
             kind,
             &self.options.time_zone,
             &mut |member, reader| {
                 if self.past_deadline() {
+                    return false;
+                }
+                total = total.saturating_add(member.size);
+                #[allow(clippy::cast_precision_loss)]
+                // sizes far below 2^53 are exact, bigger ones surely too big
+                if total as f64 > self.options.max_archive_size {
+                    too_big = true;
                     return false;
                 }
                 if let Some(mut item) = self.visit_member(rel, &archive, member, reader) {
@@ -580,6 +591,9 @@ impl Walk<'_> {
                 true
             },
         );
+        if too_big {
+            self.warn(WarningCode::ArchiveTooBig, rel, false);
+        }
         if let Err(e) = result {
             let code = if e.kind() == std::io::ErrorKind::PermissionDenied {
                 WarningCode::PermissionDenied
