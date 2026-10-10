@@ -49,6 +49,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 ```
 
 ## E85.2 Full paths in a request
@@ -127,6 +128,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = false    # update
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 ## E85.4 An invalid value in a request
@@ -190,6 +192,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = false    # file: conf/o.toml
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 2. `find`

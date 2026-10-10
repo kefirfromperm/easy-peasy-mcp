@@ -59,6 +59,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 ```
 
 ## E79.2 Does anything match?
@@ -206,6 +207,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 ## E79.7 An invalid value in a request
@@ -269,6 +271,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 2. `find`
