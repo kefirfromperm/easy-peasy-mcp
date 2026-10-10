@@ -58,6 +58,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E54.2 A smaller limit in a request
@@ -159,6 +160,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "0.5k"    # update
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E54.5 An invalid value in a request
@@ -222,6 +224,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "1K"    # file: conf/s.toml
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 2. `find`

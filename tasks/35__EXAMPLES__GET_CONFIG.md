@@ -45,6 +45,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E35.2 One section
@@ -72,6 +73,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E35.3 With the sources
@@ -107,6 +109,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E35.4 An unknown section

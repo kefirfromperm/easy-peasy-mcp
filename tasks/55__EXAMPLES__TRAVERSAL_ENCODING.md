@@ -71,6 +71,7 @@ path_case = "native"
 binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
+# fallback_encoding =  (not set)
 ```
 
 ## E55.2 An encoding in a request
@@ -167,6 +168,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "windows-1252"    # update
+# fallback_encoding =  (not set)    # default
 ```
 
 ## E55.5 An invalid value in a request
@@ -230,6 +232,7 @@ path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
 encoding = "windows-1252"    # file: conf/e.toml
+# fallback_encoding =  (not set)    # default
 ```
 
 2. `find`
