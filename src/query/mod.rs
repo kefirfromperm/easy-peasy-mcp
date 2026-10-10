@@ -986,6 +986,30 @@ mod tests {
     }
 
     #[test]
+    fn regex_per_line() {
+        assert!(content_matches("text =~ `^b$`", "a\nb\nc"));
+        assert!(!content_matches("text =~ `a\\s+b`", "a\nb"));
+        assert!(content_matches("text =~ `A\\d` /i", "xa1"));
+        assert!(matcher("name =~ `^[a-c]\\.rs$`", false).is_match("b.rs"));
+        assert!(matcher("name =~ `README` /i", false).is_match("readme.md"));
+        assert!(matcher("path =~ `src/` ", false).is_match("a/src/b"));
+    }
+
+    #[test]
+    fn invalid_regexes() {
+        let hint = |q: &str| {
+            let e = parse(q, &SENSITIVE).unwrap_err();
+            assert_eq!(e.code, ErrorCode::InvalidRegex, "{q}");
+            e.hint.unwrap()
+        };
+        assert_eq!(hint("text =~ `(?<=a)b`"), "look-arounds are not supported");
+        assert_eq!(hint("text =~ `(a)\\1`"), "backreferences are not supported");
+        assert_eq!(hint("name =~ `(x`"), "unclosed group");
+        let e = parse("name =~ `(x`", &SENSITIVE).unwrap_err();
+        assert_eq!((e.message.as_str(), e.span), ("invalid regex", 8..12));
+    }
+
+    #[test]
     fn unknown_content() {
         let q = parse("text has 'x'", &SENSITIVE).unwrap();
         let file = FileValues {
