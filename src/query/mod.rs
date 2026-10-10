@@ -462,6 +462,55 @@ mod tests {
         assert_eq!(texts, ["name = 'a#b'", "name = 'd'"]);
     }
 
+    fn matches(q: &str, name: &str, entry_type: EntryType) -> bool {
+        let query = parse(q, SENSITIVE).unwrap();
+        let file = FileValues {
+            name,
+            path: name,
+            entry_type,
+        };
+        query.filter.unwrap().eval(&file)
+    }
+
+    #[test]
+    fn type_conditions() {
+        assert!(matches("type = dir", "a", EntryType::Dir));
+        assert!(!matches("type = dir", "a", EntryType::File));
+        assert!(matches("TYPE = LINK", "a", EntryType::Link));
+        assert!(matches("type != file", "a", EntryType::Link));
+        assert!(!matches("type != file", "a", EntryType::File));
+        assert!(matches("type in (file, link)", "a", EntryType::Link));
+        assert!(!matches("type in (file, link)", "a", EntryType::Dir));
+    }
+
+    #[test]
+    fn has_type_anywhere() {
+        assert!(!parse("name = 'a'", SENSITIVE).unwrap().has_type);
+        assert!(
+            parse("name = 'a' or not type = dir", SENSITIVE)
+                .unwrap()
+                .has_type
+        );
+        assert!(!parse("", SENSITIVE).unwrap().has_type);
+    }
+
+    #[test]
+    fn unknown_type_values() {
+        let e = parse("type = folder", SENSITIVE).unwrap_err();
+        assert_eq!(
+            (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
+            (
+                ErrorCode::UnknownValue,
+                "unknown value 'folder'",
+                7..13,
+                Some("did you mean 'dir'? expected one of: file, dir, link")
+            )
+        );
+        let e = parse("type in (file, sym)", SENSITIVE).unwrap_err();
+        assert_eq!(e.span, 15..18);
+        assert_eq!(e.hint.as_deref(), Some("expected one of: file, dir, link"));
+    }
+
     #[test]
     fn the_empty_query_has_no_filter_and_no_legend() {
         let q = parse(" \n ", SENSITIVE).unwrap();

@@ -190,8 +190,12 @@ pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
     for (path, mtime) in &fixture.tree {
         let p = root.join(path.trim_end_matches('/'));
         let time = filetime::FileTime::from_unix_time(*mtime, 0);
-        let meta = fs::symlink_metadata(&p)
-            .unwrap_or_else(|_| panic!("fixture {}: {path} is listed in the tree, but missing", fixture.name));
+        let meta = fs::symlink_metadata(&p).unwrap_or_else(|_| {
+            panic!(
+                "fixture {}: {path} is listed in the tree, but missing",
+                fixture.name
+            )
+        });
         if meta.file_type().is_symlink() {
             filetime::set_symlink_file_times(&p, time, time).unwrap();
         } else {
@@ -202,7 +206,10 @@ pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
 }
 
 fn run_setup(root: &Path, action: &str) {
-    let (verb, rest) = action.trim().split_once(' ').expect("an action has an argument");
+    let (verb, rest) = action
+        .trim()
+        .split_once(' ')
+        .expect("an action has an argument");
     match verb {
         "mkdir" => fs::create_dir_all(root.join(rest.trim())).unwrap(),
         "file" => {

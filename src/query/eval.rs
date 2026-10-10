@@ -106,7 +106,11 @@ mod tests {
     }
 
     fn ids(filter: &Filter, name: &str) -> Option<Vec<String>> {
-        let file = FileValues { name, path: name };
+        let file = FileValues {
+            name,
+            path: name,
+            entry_type: EntryType::File,
+        };
         filter.eval(&file).then(|| {
             filter
                 .contributors(&file)
