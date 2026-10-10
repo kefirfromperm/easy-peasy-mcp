@@ -505,6 +505,12 @@ matches all of these:
 
 `backslash`: JSON doesn't escape `'`, so both `'` and `\'` are accepted for it.
 
+`url`: every character except `A`–`Z`, `a`–`z`, `0`–`9`, `-`, `.`, `_`, `~` is reserved and becomes `%XX` for each
+byte of its UTF-8 form, with upper case hex digits (`/i` also accepts lower case ones).
+
+Escaping is applied to every character of the value on its own, so a value without characters to escape is the same
+on every level.
+
 ### Levels
 
 Level `n` means the escaping is applied `n` times. For `"`:
@@ -519,7 +525,13 @@ Level `n` means the escaping is applied `n` times. For `"`:
 - a range: `/e(backslash, 0..2)` — raw, once and twice
 - `any`: `/e(backslash, any)` — from 0 to [`escape.max_level`](CONFIG.md#escape) (default 3)
 
-The output says on which level each fragment was found, see [OUTPUT.md](OUTPUT.md#fragments).
+The output says on which level each fragment was found, see [OUTPUT.md](OUTPUT.md#fragments). When the variants of
+several levels match at the same position, the lowest of these levels is reported.
+
+Styles and `any` are written in any case. An unknown style is `unknown_value`; levels which are not a number, a range
+or `any` (`invalid escape level 'all'`, hint `levels: a number, a range like 0..2, or any`), and a level above
+`escape.max_level` (at that number) are `invalid_escape_level`; a range whose start is greater than its end is
+`invalid_range`.
 
 ### Examples
 

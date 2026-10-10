@@ -322,8 +322,8 @@ Which conditions produce fragments
 - `size`, dates, `type`, `empty`, `lang`, `kind`, `git`, `len` never produce fragments
 - `path` and `name` conditions produce `path_fragments` only with the `path_fragments` option
 
-Several conditions can match the same text. Overlapping fragments are all reported; identical ones are merged into one
-fragment with all ids.
+Several conditions can match the same text. Overlapping fragments are all reported; identical ones (the same text and
+escape level) are merged into one fragment with all ids.
 
 ### Blocks
 
@@ -357,8 +357,9 @@ Markers wrap a fragment with its ids: `⟦ids:text⟧`, ids separated by `,`.
 42:    let cfg: Config = toml::from_str(&raw).⟦#2:unwrap(⟧);
 ```
 
-Overlapping fragments are merged into one marked part with all ids. The escape level is written after the ids:
-`⟦#1/e1:\"type\": \"admin\"⟧`. A multiline fragment opens on its first line and closes on its last one.
+Overlapping fragments are merged into one marked part with all ids. The escape level of the fragments of a condition
+with `/e` is written after the ids, level `0` too: `⟦#1/e1:\"type\": \"admin\"⟧`, `⟦#1/e0:"type": "admin"⟧`; a part
+merged from fragments of several levels lists them in ascending order: `⟦#1,#2/e0/e1:…⟧`. A multiline fragment opens on its first line and closes on its last one.
 
 The markers are `⟦` and `⟧` by default and can be changed in the [configuration](CONFIG.md#output). If a file contains
 the marker characters, the response has a warning and `columns` should be used.
