@@ -412,7 +412,9 @@ generated = ["**/*.lock", "**/src/gen/**", "**/*.pb.go"]
 uncommitted changes. On the base branch itself it is the same as `changed`.
 
 The git status is read only if the query has a `git` condition or the `git` facet is requested, so searches without
-it don't pay for it.
+it don't pay for it. It is read by the `git` program (`git status` and `git ls-files` once per repository), which
+must be installed; without it every file is outside of a repository. The server runs it with `core.fsmonitor`
+off, so the configuration of a cloned repository can't start a program through it.
 
 ### Languages
 
