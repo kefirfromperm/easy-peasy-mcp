@@ -1173,6 +1173,53 @@ mod tests {
         assert_eq!(order, [1, 0]);
     }
 
+    fn variations(q: &str) -> Vec<(String, Vec<String>)> {
+        parse(q, &SENSITIVE)
+            .unwrap()
+            .funnel
+            .unwrap()
+            .steps
+            .into_iter()
+            .map(|s| (s.condition, s.variations))
+            .collect()
+    }
+
+    #[test]
+    fn the_variations_of_a_step() {
+        assert_eq!(
+            variations("text has 'parseQuery'"),
+            [(
+                "text has 'parseQuery'".to_string(),
+                vec![
+                    "text has 'parseQuery' /i".to_string(),
+                    "text has 'parseQuery' /n".to_string()
+                ]
+            )]
+        );
+        assert_eq!(
+            variations("text has 'Query' /w")[0].1,
+            ["text has 'Query' /w /i", "text has 'Query'"]
+        );
+        assert_eq!(
+            variations("name = 'config.yml'")[0].1,
+            [
+                "name = 'config.yml' /i",
+                "name = 'config.yml' /n",
+                "name has 'config.yml'"
+            ]
+        );
+        assert!(variations("text has 'x' /i")[0].1.is_empty());
+        assert!(variations("size > 1K")[0].1.is_empty());
+        assert!(variations("name ~~ 'cfg'")[0].1.is_empty());
+        assert_eq!(
+            variations("(text has 'a b')")[0].1,
+            ["text has 'a b' /i", "text has 'a b' /n"]
+        );
+        let steps = variations("lang = rust and (text has 'a' or text has 'b')");
+        assert_eq!(steps[1].0, "(text has 'a' or text has 'b')");
+        assert!(steps[1].1.is_empty(), "a group has no variations");
+    }
+
     fn legend(q: &str) -> Vec<String> {
         let lexed = lexer::lex(q);
         let mut expr = parser::parse(q, &lexed).unwrap().unwrap();
