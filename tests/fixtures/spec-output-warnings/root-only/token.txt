@@ -1,0 +1,1 @@
+password: only root may read it

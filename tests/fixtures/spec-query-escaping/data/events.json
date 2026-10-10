@@ -1,0 +1,3 @@
+{"id": 1, "body": {"type": "admin"}}
+{"id": 2, "body": "{\"payload\": \"{\\\"data\\\": \\\"{\\\\\\\"type\\\\\\\": \\\\\\\"admin\\\\\\\"}\\\"}\"}"}
+{"id": 3, "body": {"type": "user"}}

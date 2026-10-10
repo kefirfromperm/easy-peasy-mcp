@@ -1,0 +1,10 @@
+diff --git a/src/main.rs b/src/main.rs
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -3,5 +3,6 @@
+ 
+ fn main() {
+     let config = config_loader::load("app.toml").expect("app.toml is readable");
++    dbg!(&config);
+     println!("{} bytes of configuration", config.len());
+ }

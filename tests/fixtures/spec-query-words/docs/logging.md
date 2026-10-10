@@ -1,0 +1,1 @@
+Log with `log::info!`.

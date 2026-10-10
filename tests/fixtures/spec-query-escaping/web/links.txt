@@ -1,0 +1,3 @@
+/redirect?next=%2Fsearch%3Fq%3Dhello%20world
+/redirect?next=%2Fsearch%3Fq%3Dhello+world
+/search?q=hello world

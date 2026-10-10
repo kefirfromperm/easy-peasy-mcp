@@ -1,0 +1,13 @@
+[package]
+name = "easy-interp"
+version = "0.3.0"
+edition = "2021"
+description = "A small interpreter for the .ez scripting language"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+thiserror = "1"
+tokio = { version = "1", features = ["rt", "macros"] }
+toml = "0.8"

@@ -1,0 +1,5 @@
+# .aiignore
+fixtures/large/
+*.min.js
+secrets/**
+!secrets/README.md

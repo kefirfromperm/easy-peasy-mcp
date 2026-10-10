@@ -1,0 +1,9 @@
+{
+  "users": [
+  { "name": "root", "role": "admin" },
+  { "name": "guest", "role": "viewer" }
+  ],
+  "event": "login",
+  "user": "root",
+  "payload": "{\"role\": \"admin\"}"
+}
