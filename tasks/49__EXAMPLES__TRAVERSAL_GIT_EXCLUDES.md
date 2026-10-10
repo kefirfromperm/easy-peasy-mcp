@@ -60,6 +60,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E49.2 Without the git excludes in the request
@@ -129,6 +130,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E49.4 An invalid value in a request
@@ -191,6 +193,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 2. `find`

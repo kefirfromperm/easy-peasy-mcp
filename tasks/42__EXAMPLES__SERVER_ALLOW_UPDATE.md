@@ -97,6 +97,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 3. `find`
@@ -156,6 +157,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 2. `update_config`

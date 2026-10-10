@@ -123,6 +123,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 3. `find`
@@ -203,6 +204,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -246,6 +248,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -289,6 +292,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

@@ -44,6 +44,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E35.2 One section
@@ -70,6 +71,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E35.3 With the sources
@@ -104,6 +106,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E35.4 An unknown section

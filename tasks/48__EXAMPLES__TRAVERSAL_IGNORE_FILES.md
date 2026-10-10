@@ -61,6 +61,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E48.2 No ignore files
@@ -166,6 +167,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E48.6 An invalid value in a request
@@ -228,6 +230,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 2. `find`
