@@ -143,6 +143,7 @@ pub fn find_schema() -> Value {
                     "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." },
                     "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." },
                     "dedent": { "type": "boolean", "description": "Remove the common indentation of every block, written once as ⇥N (indent in JSON). Default: true." },
+                    "group_dirs": { "type": "boolean", "description": "Text: files under directory headers, with paths relative to them; false: the full path on every file line. Default: true." },
                     "blank_context": { "type": "boolean", "description": "Keep empty and whitespace-only context lines; the line numbers show the skipped ones. Default: false." }
                 }
             },

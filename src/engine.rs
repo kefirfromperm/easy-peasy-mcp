@@ -231,6 +231,7 @@ impl Engine {
         let context = settings.whole(Key::Context);
         let response = Response {
             detail,
+            group_dirs: settings.bool(Key::GroupDirs),
             blocks: BlockOptions {
                 before: settings.opt_whole(Key::Before).unwrap_or(context),
                 after: settings.opt_whole(Key::After).unwrap_or(context),

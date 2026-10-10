@@ -34,6 +34,8 @@ pub struct Response<'a> {
     pub detail: Detail,
     /// How the matched lines of a file are put into blocks.
     pub blocks: BlockOptions,
+    /// Text: files under directory headers, with paths relative to them.
+    pub group_dirs: bool,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -92,15 +94,19 @@ impl Response<'_> {
         out.push('\n');
         let mut current: Option<String> = None;
         for file in self.files {
-            let (dir, name) = split_found(file);
-            if current.as_deref() != Some(dir.as_str()) {
-                out.push_str(&dir);
-                out.push('\n');
-                current = Some(dir);
-            }
-            out.push_str(&name);
-            if file.is_dir {
-                out.push(SEP);
+            if self.group_dirs {
+                let (dir, name) = split_found(file);
+                if current.as_deref() != Some(dir.as_str()) {
+                    out.push_str(&dir);
+                    out.push('\n');
+                    current = Some(dir);
+                }
+                out.push_str(&name);
+                if file.is_dir {
+                    out.push(SEP);
+                }
+            } else {
+                out.push_str(&display_found(file));
             }
             if !file.conditions.is_empty() {
                 let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
@@ -224,6 +230,7 @@ mod tests {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
+            group_dirs: true,
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -236,6 +243,30 @@ mod tests {
             text,
             format!(
                 "files: 4  lines: 0  matches: 0  result: r3\n#1 name ~ '*'\n\n.{s}\nCargo.toml  [#1]\nsrc{s}\na.rs  [#1]\nb.rs  [#1]\nsrc{s}x{s}\nc.rs  [#1]\n"
+            )
+        );
+    }
+
+    #[test]
+    fn full_paths_without_groups() {
+        let files = [found("Cargo.toml"), found("src/a.rs")];
+        let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
+        let text = Response {
+            detail: Detail::Lines,
+            blocks: BlockOptions::default(),
+            group_dirs: false,
+            result_id: None,
+            legend: &legend,
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+        }
+        .to_text();
+        let s = SEP;
+        assert_eq!(
+            text,
+            format!(
+                "files: 2  lines: 0  matches: 0\n#1 name ~ '*'\n\nCargo.toml  [#1]\nsrc{s}a.rs  [#1]\n"
             )
         );
     }
@@ -254,6 +285,7 @@ mod tests {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
+            group_dirs: true,
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -277,6 +309,7 @@ mod tests {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
+            group_dirs: true,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -296,6 +329,7 @@ mod tests {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
+            group_dirs: true,
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],
