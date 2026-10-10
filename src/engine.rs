@@ -13,6 +13,7 @@ use crate::cursor::{self, Cursor};
 use crate::error::{ErrorCode, Report};
 use crate::hints;
 use crate::languages::LanguageTable;
+use crate::output;
 use crate::output::{
     BlockOptions, Detail, Highlight, Hint, Limits, Page, Response, Sort, sort_files,
 };
@@ -196,19 +197,8 @@ impl Engine {
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
         let working_dirs = self.working_dirs(request.dirs.as_deref(), &settings)?;
-        let case_insensitive_paths = match settings.text(Key::PathCase) {
-            "sensitive" => false,
-            "insensitive" => true,
-            _ => NATIVE_CASE_INSENSITIVE,
-        };
-        let options = ParseOptions {
-            case_insensitive_paths,
-            now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
-            time_zone: self.options.time_zone.clone(),
-            languages: Arc::clone(&languages),
-            max_escape_level: settings.whole(Key::MaxLevel),
-            fuzzy_min_score: settings.number(Key::FuzzyMinScore),
-        };
+        let options = self.parse_options(&settings, Arc::clone(&languages));
+        let case_insensitive_paths = options.case_insensitive_paths;
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
         let (page, cursor_totals) = page(arguments, request.cursor.as_deref())?;
@@ -218,6 +208,7 @@ impl Engine {
         let detail = detail(&settings);
         let funnel = settings.text(Key::Funnel);
         search_options.funnel = funnel != "never" && detail >= Detail::Count;
+        let facet_names = facet_names(&settings, detail, &mut search_options);
         let search::SearchResult {
             mut files,
             mut warnings,
@@ -251,6 +242,8 @@ impl Engine {
         } else {
             Vec::new()
         };
+        let facets =
+            output::facets::facets(&files, &facet_names, &query.legend, hints::FACET_DEPTH);
         if !settings.bool(Key::Meta) {
             for file in &mut files {
                 file.meta = None;
@@ -271,6 +264,7 @@ impl Engine {
             page,
             funnel: shown,
             hints,
+            facets,
             limits: limits(&settings),
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),
@@ -284,6 +278,22 @@ impl Engine {
         } else {
             response.to_text()
         })
+    }
+
+    /// The options of the query of a request.
+    fn parse_options(&self, settings: &Settings, languages: Arc<LanguageTable>) -> ParseOptions {
+        ParseOptions {
+            case_insensitive_paths: match settings.text(Key::PathCase) {
+                "sensitive" => false,
+                "insensitive" => true,
+                _ => NATIVE_CASE_INSENSITIVE,
+            },
+            now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
+            time_zone: self.options.time_zone.clone(),
+            languages,
+            max_escape_level: settings.whole(Key::MaxLevel),
+            fuzzy_min_score: settings.number(Key::FuzzyMinScore),
+        }
     }
 
     /// The working directories of a request (`server.default_dirs` without `dirs`) and their prefixes: as written,
@@ -383,6 +393,7 @@ impl Engine {
             meta: settings.bool(Key::Meta),
             rank: false,
             funnel: false,
+            git_status: false,
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
@@ -465,7 +476,7 @@ fn search_sorted(
 ) -> search::SearchResult {
     let sort = Sort::parse(settings.text(Key::Sort));
     // the hints of a huge result look at the languages and kinds
-    options.meta = settings.bool(Key::Meta) || sort.needs_meta() || options.funnel;
+    options.meta |= settings.bool(Key::Meta) || sort.needs_meta() || options.funnel;
     options.rank = sort == Sort::Relevance;
     let mut result = search_all(working_dirs, query, options);
     if sort == Sort::Relevance {
@@ -563,11 +574,24 @@ fn totals_of(files: &[search::Found]) -> [usize; 3] {
     [files.len(), lines, matches]
 }
 
+/// The facets of `detail = facets` (none in other detail levels); the search then reads the metadata and, for the
+/// `git` facet, the git status.
+fn facet_names(settings: &Settings, detail: Detail, options: &mut SearchOptions) -> Vec<String> {
+    if detail != Detail::Facets {
+        return Vec::new();
+    }
+    let names = settings.list(Key::Facets).to_vec();
+    options.meta = true;
+    options.git_status = names.iter().any(|f| f == "git");
+    names
+}
+
 /// How much the response returns.
 fn detail(settings: &Settings) -> Detail {
     match settings.text(Key::Detail) {
         "exists" => Detail::Exists,
         "count" => Detail::Count,
+        "facets" => Detail::Facets,
         "files" => Detail::Files,
         _ => Detail::Lines,
     }
