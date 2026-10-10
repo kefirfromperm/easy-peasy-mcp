@@ -90,6 +90,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 ## E41.2 The default
@@ -160,6 +161,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 2. `find`

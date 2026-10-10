@@ -41,6 +41,10 @@ pub struct SearchOptions {
     pub min_depth: usize,
     /// The walk doesn't descend deeper; `None` — unlimited.
     pub max_depth: Option<usize>,
+    /// Descend into symlinked directories and read symlinked files.
+    pub follow_symlinks: bool,
+    /// The canonical allowed roots: a followed symlink must point inside them.
+    pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
     pub read_delay: Option<Duration>,
 }
@@ -185,9 +189,34 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .git_global(options.git_global_excludes)
         .git_exclude(true)
         .require_git(false)
-        .follow_links(false)
+        .follow_links(options.follow_symlinks)
         .threads(options.threads)
         .max_depth(options.max_depth);
+    let outside: std::sync::Arc<Mutex<Vec<(PathBuf, bool)>>> = std::sync::Arc::default();
+    if options.follow_symlinks {
+        let roots = std::sync::Arc::clone(&options.allowed_roots);
+        let outside = std::sync::Arc::clone(&outside);
+        let base = root.to_path_buf();
+        builder.filter_entry(move |entry| {
+            if !entry.path_is_symlink() {
+                return true;
+            }
+            let target = std::fs::canonicalize(entry.path());
+            if target
+                .as_ref()
+                .is_ok_and(|t| roots.iter().any(|r| t.starts_with(r)))
+            {
+                return true;
+            }
+            if let (Ok(target), Ok(rel)) = (&target, entry.path().strip_prefix(&base)) {
+                outside
+                    .lock()
+                    .expect("no thread panics while holding the lock")
+                    .push((rel.to_path_buf(), target.is_dir()));
+            }
+            false
+        });
+    }
     for name in IGNORE_FILES {
         builder.add_custom_ignore_filename(name);
     }
@@ -222,6 +251,14 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         })
     });
     let mut found = walk.found.into_inner().expect("the walk is finished");
+    let mut warnings = walk.warnings.into_inner().expect("the walk is finished");
+    for (rel, is_dir) in outside
+        .lock()
+        .expect("no thread panics while holding the lock")
+        .drain(..)
+    {
+        warnings.add(WarningCode::PermissionDenied, rel, is_dir);
+    }
     found.sort_by(|a, b| a.rel.cmp(&b.rel));
     let mut seen = std::collections::HashSet::new();
     let files = found
@@ -230,7 +267,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .collect();
     SearchResult {
         files,
-        warnings: walk.warnings.into_inner().expect("the walk is finished"),
+        warnings,
         timed_out: walk.timed_out.into_inner(),
     }
 }
@@ -299,6 +336,7 @@ impl Walk<'_> {
             name: &name,
             path: &nfc_path,
             entry_type,
+            is_link: entry.path_is_symlink(),
             empty,
             size: metadata.as_ref().map_or(0, std::fs::Metadata::len),
             modified: dates.modified,

@@ -114,6 +114,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 3. `find`
@@ -185,6 +186,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -219,6 +221,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -253,6 +256,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

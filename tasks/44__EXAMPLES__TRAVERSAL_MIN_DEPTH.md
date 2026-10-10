@@ -45,6 +45,7 @@ top.txt  [#1]
 [traversal]
 min_depth = 0
 # max_depth =  (not set)
+follow_symlinks = false
 ```
 
 ## E44.2 A minimum depth in the request
@@ -111,6 +112,7 @@ y.txt  [#1]
 [traversal]
 min_depth = 2    # update
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 ## E44.4 Invalid values in a request
@@ -187,6 +189,7 @@ easy-peasy-mcp --config conf/d.toml
 [traversal]
 min_depth = 2    # file: conf/d.toml
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 2. `find`

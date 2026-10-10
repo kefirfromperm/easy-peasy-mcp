@@ -13,7 +13,8 @@ Call get_config once first to learn the allowed roots and defaults.
 \"dirs\": [\"src\", \"../api\"] sets the working directories (default server.default_dirs); paths are relative to
 them, with the directory first when it is not \".\". \"timeout\": \"10s\" limits the search (default server.timeout, 30s):
 the files found so far are returned with \"truncated: yes (timeout)\". \"traversal\": {\"min_depth\": 2, \"max_depth\": 3} skips the
-entries directly in the working directory and doesn't descend deeper than 3 (defaults traversal.min_depth, max_depth).
+entries directly in the working directory and doesn't descend deeper than 3 (defaults traversal.min_depth, max_depth);
+\"follow_symlinks\": true follows symlinks (a symlinked file is then type file and link).
 
 QUERY: conditions on the name, path, type, size, dates, language, kind, git status and content joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
@@ -83,7 +84,8 @@ pub fn find_schema() -> Value {
                 "type": "object",
                 "properties": {
                     "min_depth": { "type": "integer", "minimum": 0, "description": "Skip entries closer to the working directory; its children are depth 1." },
-                    "max_depth": { "type": "integer", "minimum": 0, "description": "Don't descend deeper. Default: unlimited." }
+                    "max_depth": { "type": "integer", "minimum": 0, "description": "Don't descend deeper. Default: unlimited." },
+                    "follow_symlinks": { "type": "boolean", "description": "Descend into symlinked directories, read symlinked files." }
                 }
             }
         }

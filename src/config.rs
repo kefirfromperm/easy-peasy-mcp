@@ -171,7 +171,7 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 8] = [
+const IMPLEMENTED: [(&str, &str); 9] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
@@ -180,6 +180,7 @@ const IMPLEMENTED: [(&str, &str); 8] = [
     ("server", "result_cache"),
     ("traversal", "min_depth"),
     ("traversal", "max_depth"),
+    ("traversal", "follow_symlinks"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -223,6 +224,8 @@ pub struct FileValues {
     pub min_depth: Option<usize>,
     /// `traversal.max_depth`.
     pub max_depth: Option<usize>,
+    /// `traversal.follow_symlinks`.
+    pub follow_symlinks: Option<bool>,
 }
 
 /// A checked config file.
@@ -259,6 +262,9 @@ pub struct Settings {
     /// `traversal.max_depth`: don't descend deeper; `None` — unlimited.
     pub max_depth: Option<usize>,
     pub max_depth_source: Source,
+    /// `traversal.follow_symlinks`: descend into symlinked directories, read symlinked files.
+    pub follow_symlinks: bool,
+    pub follow_symlinks_source: Source,
 }
 
 impl Settings {
@@ -282,6 +288,8 @@ impl Settings {
             min_depth_source: Source::Default,
             max_depth: None,
             max_depth_source: Source::Default,
+            follow_symlinks: false,
+            follow_symlinks_source: Source::Default,
         }
     }
 
@@ -310,6 +318,12 @@ impl Settings {
         {
             settings.threads = threads;
             settings.threads_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(follow) = file.values.follow_symlinks
+        {
+            settings.follow_symlinks = follow;
+            settings.follow_symlinks_source = Source::File(file.path.clone());
         }
         if let Some(file) = file
             && let Some(max_depth) = file.values.max_depth
@@ -397,6 +411,7 @@ impl Settings {
             Mutable::ResultCache => self.result_cache.to_string(),
             Mutable::MinDepth => self.min_depth.to_string(),
             Mutable::MaxDepth => self.max_depth?.to_string(),
+            Mutable::FollowSymlinks => self.follow_symlinks.to_string(),
         })
     }
 
@@ -432,6 +447,10 @@ impl Settings {
                 self.max_depth = base.max_depth;
                 self.max_depth_source = base.max_depth_source.clone();
             }
+            Mutable::FollowSymlinks => {
+                self.follow_symlinks = base.follow_symlinks;
+                self.follow_symlinks_source = base.follow_symlinks_source.clone();
+            }
         }
     }
 
@@ -462,6 +481,10 @@ impl Settings {
                 self.max_depth = Some(depth);
                 self.max_depth_source = Source::Update;
             }
+            MutableValue::FollowSymlinks(follow) => {
+                self.follow_symlinks = follow;
+                self.follow_symlinks_source = Source::Update;
+            }
         }
     }
 
@@ -486,16 +509,18 @@ enum Mutable {
     ResultCache,
     MinDepth,
     MaxDepth,
+    FollowSymlinks,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 6] = [
+    const ALL: [Mutable; 7] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
         Self::ResultCache,
         Self::MinDepth,
         Self::MaxDepth,
+        Self::FollowSymlinks,
     ];
 
     /// The section and the key.
@@ -507,6 +532,7 @@ impl Mutable {
             Self::ResultCache => ("server", "result_cache"),
             Self::MinDepth => ("traversal", "min_depth"),
             Self::MaxDepth => ("traversal", "max_depth"),
+            Self::FollowSymlinks => ("traversal", "follow_symlinks"),
         }
     }
 
@@ -546,6 +572,10 @@ impl Mutable {
                 .and_then(|n| usize::try_from(n).ok())
                 .map(MutableValue::MaxDepth)
                 .ok_or(WHOLE_NUMBER),
+            Self::FollowSymlinks => item
+                .as_bool()
+                .map(MutableValue::FollowSymlinks)
+                .ok_or(BOOLEAN),
         }
     }
 }
@@ -559,6 +589,7 @@ enum MutableValue {
     ResultCache(usize),
     MinDepth(usize),
     MaxDepth(usize),
+    FollowSymlinks(bool),
 }
 
 /// What `default_dirs` must be.
@@ -566,6 +597,9 @@ const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
 
 /// What `threads` must be.
 const THREADS: &str = "a whole number is expected (0: the number of CPU cores)";
+
+/// What a boolean must be.
+const BOOLEAN: &str = "true or false is expected";
 
 /// What a depth must be.
 const WHOLE_NUMBER: &str = "a whole number is expected";
@@ -767,6 +801,10 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                         values.max_depth = Some(depth);
                         continue;
                     }
+                    Some(Ok(MutableValue::FollowSymlinks(follow))) => {
+                        values.follow_symlinks = Some(follow);
+                        continue;
+                    }
                     Some(Err(expected)) => {
                         format!("invalid value for '{section}.{key}': {expected}")
                     }
@@ -873,6 +911,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
         let lines = [
             (settings.line(Mutable::MinDepth), &settings.min_depth_source),
             (settings.line(Mutable::MaxDepth), &settings.max_depth_source),
+            (
+                settings.line(Mutable::FollowSymlinks),
+                &settings.follow_symlinks_source,
+            ),
         ];
         out.push_str("\n[traversal]\n");
         push_lines(&mut out, &lines, sources);
@@ -1307,7 +1349,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\n"
             )
         );
         assert_eq!(
@@ -1513,6 +1555,7 @@ mod tests {
                 result_cache: Some(0),
                 min_depth: Some(3),
                 max_depth: Some(5),
+                follow_symlinks: Some(true),
             },
         };
         let cli = CommandLine {
@@ -1528,6 +1571,7 @@ mod tests {
         assert_eq!(settings.result_cache, 0);
         assert_eq!(settings.min_depth, 3);
         assert_eq!(settings.max_depth, Some(5));
+        assert!(settings.follow_symlinks);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
