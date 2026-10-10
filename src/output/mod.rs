@@ -41,6 +41,9 @@ impl Response<'_> {
                 current = Some(dir);
             }
             out.push_str(&name);
+            if file.is_dir {
+                out.push(SEP);
+            }
             if !file.conditions.is_empty() {
                 let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
                 let _ = write!(out, "  [{}]", ids.join(" "));
@@ -81,6 +84,7 @@ mod tests {
     fn found(path: &str) -> Found {
         Found {
             rel: PathBuf::from(path),
+            is_dir: false,
             conditions: vec![CondId::Number(1)],
         }
     }
@@ -113,6 +117,7 @@ mod tests {
     fn files_without_conditions_have_no_brackets() {
         let files = [Found {
             rel: PathBuf::from("a.md"),
+            is_dir: false,
             conditions: vec![],
         }];
         let text = Response {
@@ -125,6 +130,25 @@ mod tests {
         assert_eq!(
             text,
             format!("files: 1  lines: 0  matches: 0  result: r1\n\n.{s}\na.md\n")
+        );
+    }
+
+    #[test]
+    fn directories_end_with_the_separator() {
+        let mut dir = found("lib/sub");
+        dir.is_dir = true;
+        let files = [dir];
+        let legend = [(CondId::Number(1), "type = dir".to_string())];
+        let text = Response {
+            result_id: "r1",
+            legend: &legend,
+            files: &files,
+        }
+        .to_text();
+        let s = SEP;
+        assert!(
+            text.ends_with(&format!("\n\nlib{s}\nsub{s}  [#1]\n")),
+            "{text}"
         );
     }
 

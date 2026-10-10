@@ -24,6 +24,35 @@ pub enum TextTarget {
     Path,
 }
 
+/// The type of an entry (QUERY.md#files-and-directories).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntryType {
+    File,
+    Dir,
+    Link,
+}
+
+impl EntryType {
+    /// All types in the order of the spec.
+    pub const ALL: [EntryType; 3] = [Self::File, Self::Dir, Self::Link];
+
+    /// The value as written in a query.
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::File => "file",
+            Self::Dir => "dir",
+            Self::Link => "link",
+        }
+    }
+
+    /// The type written as `word`, in any case.
+    pub fn from_keyword(word: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|t| t.keyword().eq_ignore_ascii_case(word))
+    }
+}
+
 /// The values of one file which conditions look at.
 #[derive(Debug, Clone, Copy)]
 pub struct FileValues<'a> {
@@ -31,6 +60,8 @@ pub struct FileValues<'a> {
     pub name: &'a str,
     /// The NFC path relative to the working directory, `/` as the separator.
     pub path: &'a str,
+    /// The type of the entry; symlinks are not followed.
+    pub entry_type: EntryType,
 }
 
 /// The compiled query, evaluated for every file; brackets are gone, the precedence is in the tree.
@@ -48,6 +79,13 @@ pub enum Filter {
         target: TextTarget,
         matcher: TextMatcher,
     },
+    /// `type = v`, `type in (...)`: the entry type is one of `values`; `type != v`: `negated`.
+    Type {
+        id: CondId,
+        order: usize,
+        values: Vec<EntryType>,
+        negated: bool,
+    },
 }
 
 impl Filter {
@@ -64,6 +102,9 @@ impl Filter {
                 TextTarget::Name => file.name,
                 TextTarget::Path => file.path,
             }),
+            Self::Type {
+                values, negated, ..
+            } => values.contains(&file.entry_type) != *negated,
         }
     }
 
@@ -87,7 +128,9 @@ impl Filter {
                 }
             }
             Self::Not(_) => {}
-            Self::Text { id, order, .. } => found.push((*order, id.clone())),
+            Self::Text { id, order, .. } | Self::Type { id, order, .. } => {
+                found.push((*order, id.clone()));
+            }
         }
     }
 }
@@ -106,7 +149,11 @@ mod tests {
     }
 
     fn ids(filter: &Filter, name: &str) -> Option<Vec<String>> {
-        let file = FileValues { name, path: name };
+        let file = FileValues {
+            name,
+            path: name,
+            entry_type: EntryType::File,
+        };
         filter.eval(&file).then(|| {
             filter
                 .contributors(&file)

@@ -89,6 +89,8 @@ only `link` and its target is not read.
 
 Content conditions (`text`, `len`, `line(...)`, `near(...)`) are false for directories: a directory has no content.
 
+The working directory itself is not an entry: `type = dir` returns the directories inside it.
+
 ### Generated files
 
 Generated files (`kind = generated`: lock files, `*.min.js`, files with an `@generated` or `DO NOT EDIT` marker in

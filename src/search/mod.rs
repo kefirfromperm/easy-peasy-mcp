@@ -9,7 +9,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use generated::GeneratedRules;
 
-use crate::query::{FileValues, Query, ast::CondId, nfc};
+use crate::query::{EntryType, FileValues, Query, ast::CondId, nfc};
 
 /// The ignore files respected in every directory, a later one wins at the same level.
 pub const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
@@ -28,6 +28,8 @@ pub struct SearchOptions {
 pub struct Found {
     /// The path relative to the working directory.
     pub rel: PathBuf,
+    /// Whether the entry is a directory, written with a trailing separator.
+    pub is_dir: bool,
     /// The ids of the conditions which made the file match.
     pub conditions: Vec<CondId>,
 }
@@ -35,7 +37,8 @@ pub struct Found {
 /// A device and inode pair which identifies a file reachable by several hard links.
 type FileId = (u64, u64);
 
-/// Searches `root` and returns the matched files in path order, every file once.
+/// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
+/// regular files.
 pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found> {
     let generated = GeneratedRules::builtin(options.case_insensitive_paths);
     let mut builder = WalkBuilder::new(root);
@@ -59,7 +62,23 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
             let Ok(entry) = entry else {
                 return WalkState::Continue;
             };
-            if !entry.file_type().is_some_and(|t| t.is_file()) {
+            if entry.depth() == 0 {
+                return WalkState::Continue;
+            }
+            let Some(entry_type) = entry.file_type().and_then(|t| {
+                if t.is_symlink() {
+                    Some(EntryType::Link)
+                } else if t.is_dir() {
+                    Some(EntryType::Dir)
+                } else if t.is_file() {
+                    Some(EntryType::File)
+                } else {
+                    None
+                }
+            }) else {
+                return WalkState::Continue;
+            };
+            if !query.has_type && entry_type != EntryType::File {
                 return WalkState::Continue;
             }
             let Ok(rel) = entry.path().strip_prefix(root) else {
@@ -71,19 +90,23 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
             let file = FileValues {
                 name: &name,
                 path: &nfc_path,
+                entry_type,
             };
             let conditions = match &query.filter {
                 None => Vec::new(),
                 Some(filter) if filter.eval(&file) => filter.contributors(&file),
                 Some(_) => return WalkState::Continue,
             };
-            if generated.is_generated(&path, entry.path()) {
+            if entry_type == EntryType::File && generated.is_generated(&path, entry.path()) {
                 return WalkState::Continue;
             }
-            let id = entry.metadata().ok().and_then(|m| file_id(&m));
+            let id = (entry_type == EntryType::File)
+                .then(|| entry.metadata().ok().and_then(|m| file_id(&m)))
+                .flatten();
             let item = (
                 Found {
                     rel: rel.to_path_buf(),
+                    is_dir: entry_type == EntryType::Dir,
                     conditions,
                 },
                 id,

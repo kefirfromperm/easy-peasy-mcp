@@ -146,6 +146,8 @@ Per file
   The working directory `.` is omitted: `src/main.rs`.
 - `absolute`: the full canonical path.
 - Paths are written in the native form of the platform: `src/main.rs` on Linux and macOS, `src\main.rs` on Windows.
+- A directory is written with a trailing separator: `src/parser/`; in a directory group its line is `parser/`. A
+  symlink is written as the link itself, its target is not shown.
 - A member of an archive: `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`; the part after
   `!/` always uses `/`.
 - With [`within`](#refine-within) the paths are written as in the referred result.
