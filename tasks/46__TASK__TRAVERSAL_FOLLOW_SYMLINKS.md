@@ -1,6 +1,6 @@
 # Task 46: `traversal.follow_symlinks`
 
-Status: in progress
+Status: implemented, see [46__SUMMARY__TRAVERSAL_FOLLOW_SYMLINKS.md](46__SUMMARY__TRAVERSAL_FOLLOW_SYMLINKS.md)
 
 Depends on: task 44, task 9
 
