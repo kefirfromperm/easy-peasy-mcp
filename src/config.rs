@@ -21,26 +21,189 @@ impl fmt::Display for StartError {
     }
 }
 
+/// The sections of the config file and their keys (CONFIG.md#full-example); `languages` takes any language name.
+const SECTIONS: [(&str, &[&str]); 8] = [
+    (
+        "server",
+        &[
+            "allowed_roots",
+            "default_dirs",
+            "timeout",
+            "threads",
+            "allow_update",
+            "result_cache",
+        ],
+    ),
+    (
+        "traversal",
+        &[
+            "min_depth",
+            "max_depth",
+            "follow_symlinks",
+            "hidden",
+            "ignore_files",
+            "git_excludes",
+            "ignore_paths",
+            "exclude",
+            "path_case",
+            "binary",
+            "max_file_size",
+            "encoding",
+            "fallback_encoding",
+            "archives",
+            "max_archive_size",
+            "skip_generated",
+        ],
+    ),
+    (
+        "output",
+        &[
+            "format",
+            "detail",
+            "budget",
+            "chars_per_token",
+            "funnel",
+            "facets",
+            "facet_depth",
+            "facet_limit",
+            "meta",
+            "context",
+            "before",
+            "after",
+            "path_fragments",
+            "highlight",
+            "markers",
+            "max_files",
+            "max_lines",
+            "max_matches",
+            "max_matches_per_file",
+            "max_line_length",
+            "max_output_per_file",
+            "max_output",
+            "dedent",
+            "blank_context",
+            "group_dirs",
+            "group_repeated",
+            "sort",
+            "path_style",
+        ],
+    ),
+    ("escape", &["max_level"]),
+    ("query", &["fuzzy_min_score"]),
+    (
+        "kinds",
+        &[
+            "generated_markers",
+            "generated_marker_lines",
+            "generated",
+            "test",
+            "doc",
+            "config",
+        ],
+    ),
+    ("git", &["base"]),
+    ("languages", &[]),
+];
+
 /// The config file to read: `--config`, a non-empty `$EASY_PEASY_CONFIG`, or the file of the platform config
 /// directory when it exists; `None` for the built-in defaults. `env` looks up an environment variable, `os` is
 /// `std::env::consts::OS`.
 pub fn locate(
-    _cli: Option<&Path>,
-    _env: &dyn Fn(&str) -> Option<String>,
-    _os: &str,
-    _exists: &dyn Fn(&Path) -> bool,
+    cli: Option<&Path>,
+    env: &dyn Fn(&str) -> Option<String>,
+    os: &str,
+    exists: &dyn Fn(&Path) -> bool,
 ) -> Option<PathBuf> {
-    None
+    if let Some(path) = cli {
+        return Some(path.to_path_buf());
+    }
+    if let Some(path) = env("EASY_PEASY_CONFIG").filter(|v| !v.is_empty()) {
+        return Some(PathBuf::from(path));
+    }
+    let var = |name: &str| env(name).filter(|v| !v.is_empty()).map(PathBuf::from);
+    let dir = match os {
+        "windows" => var("APPDATA"),
+        "macos" => var("HOME").map(|home| home.join("Library").join("Application Support")),
+        _ => var("XDG_CONFIG_HOME")
+            .filter(|dir| dir.is_absolute())
+            .or_else(|| var("HOME").map(|home| home.join(".config"))),
+    }?;
+    let file = dir.join("easy-peasy-mcp").join("config.toml");
+    exists(&file).then_some(file)
 }
 
 /// Reads and checks the config file at `path`.
-pub fn load(_path: &Path) -> Result<(), StartError> {
-    Ok(())
+///
+/// # Errors
+///
+/// The file doesn't exist or can't be read, isn't TOML, or has a section or key which doesn't exist or isn't
+/// implemented yet.
+pub fn load(path: &Path) -> Result<(), StartError> {
+    let error = |line, message: String| StartError {
+        path: path.to_path_buf(),
+        line,
+        message,
+    };
+    let text = std::fs::read_to_string(path).map_err(|e| {
+        let message = if e.kind() == std::io::ErrorKind::NotFound {
+            "the config file doesn't exist"
+        } else {
+            "the config file can't be read"
+        };
+        error(None, message.to_string())
+    })?;
+    check(&text).map_err(|(line, message)| error(Some(line), message))
 }
 
 /// Checks the text of a config file: the 1-based line and the message of the first error.
-fn check(_text: &str) -> Result<(), (usize, String)> {
-    Ok(())
+fn check(text: &str) -> Result<(), (usize, String)> {
+    let line = |offset: usize| text[..offset.min(text.len())].matches('\n').count() + 1;
+    let doc = toml_edit::Document::parse(text).map_err(|e| {
+        let offset = e.span().map_or(0, |s| s.start);
+        (line(offset), format!("invalid TOML: {}", e.message()))
+    })?;
+    let root = doc.as_table();
+    let mut errors: Vec<(usize, String)> = Vec::new();
+    let offset = |key: Option<&toml_edit::Key>, item: &toml_edit::Item| {
+        key.and_then(toml_edit::Key::span)
+            .or_else(|| item.span())
+            .map_or(0, |s| s.start)
+    };
+    for (name, item) in root {
+        let at = offset(root.key(name), item);
+        let Some((_, keys)) = SECTIONS.iter().find(|(section, _)| *section == name) else {
+            let names: Vec<&str> = SECTIONS.iter().map(|(section, _)| *section).collect();
+            errors.push((
+                at,
+                format!(
+                    "unknown section '{name}', expected one of: {}",
+                    names.join(", ")
+                ),
+            ));
+            continue;
+        };
+        let Some(table) = item.as_table_like() else {
+            errors.push((at, format!("'{name}' must be a section")));
+            continue;
+        };
+        for (key, value) in table.iter() {
+            let at = offset(table.get_key_value(key).map(|(k, _)| k), value);
+            let full = format!("{name}.{key}");
+            let message = if name == "languages" || keys.contains(&key) {
+                format!("the key '{full}' is not implemented yet")
+            } else {
+                match crate::query::did_you_mean(key, keys) {
+                    Some(close) => format!("unknown key '{full}', did you mean '{name}.{close}'?"),
+                    None => format!("unknown key '{full}'"),
+                }
+            };
+            errors.push((at, message));
+        }
+    }
+    match errors.into_iter().min_by_key(|(at, _)| *at) {
+        Some((at, message)) => Err((line(at), message)),
+        None => Ok(()),
+    }
 }
 
 #[cfg(test)]
