@@ -154,7 +154,8 @@ pub fn find_schema() -> Value {
                         "shebangs": { "type": "array", "items": { "type": "string" }, "description": "Interpreters in the shebang of files without an extension, e.g. python3; a trailing version is ignored." },
                         "line_comments": { "type": "array", "items": { "type": "string" }, "description": "Markers which start a comment until the end of the line, for /c." },
                         "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }, "description": "Start and end markers of block comments, for /c, e.g. [[\"/*\", \"*/\"]]." },
-                        "nested_block_comments": { "type": "boolean", "description": "Block comments can be nested (Rust, Haskell). Default: false." }
+                        "nested_block_comments": { "type": "boolean", "description": "Block comments can be nested (Rust, Haskell). Default: false." },
+                        "strings": { "type": "array", "items": { "type": "string" }, "description": "String delimiters: comment markers inside strings are not comments." }
                     }
                 }
             }
