@@ -1,6 +1,6 @@
 # Task 45: `traversal.max_depth`
 
-Status: in progress
+Status: implemented, see [45__SUMMARY__TRAVERSAL_MAX_DEPTH.md](45__SUMMARY__TRAVERSAL_MAX_DEPTH.md)
 
 Depends on: task 44
 
