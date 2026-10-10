@@ -60,6 +60,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E53.2 Binary files searched as text
@@ -154,6 +155,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ## E53.5 An invalid value in a request
@@ -219,6 +221,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 2. `find`

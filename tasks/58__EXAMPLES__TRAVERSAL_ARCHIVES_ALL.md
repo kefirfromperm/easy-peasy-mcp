@@ -232,6 +232,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "all"    # update
+max_archive_size = "100M"    # default
 ```
 
 ## E58.7 An invalid value in a request
@@ -297,6 +298,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "all"    # file: conf/a.toml
+max_archive_size = "100M"    # default
 ```
 
 2. `find`

@@ -60,6 +60,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E54.2 A smaller limit in a request
@@ -163,6 +164,7 @@ max_file_size = "0.5k"    # update
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 ## E54.5 An invalid value in a request
@@ -228,6 +230,7 @@ max_file_size = "1K"    # file: conf/s.toml
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "none"    # default
+max_archive_size = "100M"    # default
 ```
 
 2. `find`

@@ -71,6 +71,7 @@ max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
 archives = "none"
+max_archive_size = "100M"
 ```
 
 ## E57.2 Compressed files in a request
@@ -193,6 +194,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "compressed"    # update
+max_archive_size = "100M"    # default
 ```
 
 ## E57.5 An invalid value in a request
@@ -258,6 +260,7 @@ max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
 archives = "compressed"    # file: conf/a.toml
+max_archive_size = "100M"    # default
 ```
 
 2. `find`
