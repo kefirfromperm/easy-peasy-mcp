@@ -27,11 +27,13 @@ use crate::query::{
 use crate::relevance::{self, Signals};
 use crate::warning::{WarningCode, Warnings};
 
-/// How far the running searches of a call are (TOOLS.md#progress): the entries evaluated and the ones matched.
+/// How far the running searches of a call are (TOOLS.md#progress): the entries evaluated and the ones matched; and
+/// whether the call was cancelled (TOOLS.md#cancellation).
 #[derive(Debug, Default)]
 pub struct Progress {
     scanned: AtomicUsize,
     matched: AtomicUsize,
+    cancelled: AtomicBool,
 }
 
 impl Progress {
@@ -45,6 +47,17 @@ impl Progress {
     #[must_use]
     pub fn matched(&self) -> usize {
         self.matched.load(AtomicOrdering::Relaxed)
+    }
+
+    /// Stops the searches of the call as soon as possible.
+    pub fn cancel(&self) {
+        self.cancelled.store(true, AtomicOrdering::Relaxed);
+    }
+
+    /// Whether the call was cancelled.
+    #[must_use]
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(AtomicOrdering::Relaxed)
     }
 }
 
@@ -1428,22 +1441,34 @@ impl Walk<'_> {
         let past = self
             .options
             .deadline
-            .is_some_and(|deadline| Instant::now() >= deadline);
+            .is_some_and(|deadline| Instant::now() >= deadline)
+            || self.cancelled();
         if past {
             self.timed_out.store(true, AtomicOrdering::Relaxed);
         }
         past
     }
 
-    /// The test hook `read_delay`: sleeps before a read, at most until the deadline.
+    /// Whether the call of the search was cancelled.
+    fn cancelled(&self) -> bool {
+        self.options
+            .progress
+            .as_ref()
+            .is_some_and(|p| p.is_cancelled())
+    }
+
+    /// The test hook `read_delay`: sleeps before a read, at most until the deadline or the cancellation.
     fn slow_read(&self) {
         let Some(delay) = self.options.read_delay else {
             return;
         };
         let until = Instant::now() + delay;
         let until = self.options.deadline.map_or(until, |d| until.min(d));
-        if let Some(rest) = until.checked_duration_since(Instant::now()) {
-            std::thread::sleep(rest);
+        while let Some(rest) = until.checked_duration_since(Instant::now()) {
+            if self.cancelled() {
+                return;
+            }
+            std::thread::sleep(rest.min(Duration::from_millis(50)));
         }
     }
 

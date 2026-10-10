@@ -147,6 +147,14 @@ impl ServerHandler for Server {
                 started,
             ))
         });
+        let cancelled = {
+            let progress = Arc::clone(&progress);
+            let token = context.ct.clone();
+            tokio::spawn(async move {
+                token.cancelled().await;
+                progress.cancel();
+            })
+        };
         let counted = Arc::clone(&progress);
         let output = tokio::task::spawn_blocking(move || {
             engine.call_with(&tool, &arguments, Some(&counted))
@@ -155,6 +163,7 @@ impl ServerHandler for Server {
         if let Some(ticker) = ticker {
             ticker.abort();
         }
+        cancelled.abort();
         let output = output
             .map_err(|e| ErrorData::internal_error(format!("the search failed: {e}"), None))?
             .map_err(|e| ErrorData::invalid_params(e.to_string(), None))?;
