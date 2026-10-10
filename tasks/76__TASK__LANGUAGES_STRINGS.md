@@ -1,6 +1,6 @@
 # Task 76: `languages.<name>.strings`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 73
 
