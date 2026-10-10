@@ -1,6 +1,6 @@
 # Task 54: `traversal.max_file_size`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 20, task 44
 
