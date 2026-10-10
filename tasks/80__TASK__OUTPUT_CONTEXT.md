@@ -1,6 +1,6 @@
 # Task 80: `output.context`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 79
 
