@@ -1,6 +1,6 @@
 # Task 113: Several queries in one call: `queries`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 110, task 108
 
