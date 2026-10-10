@@ -140,7 +140,8 @@ pub fn find_schema() -> Value {
                     "format": { "enum": ["text", "json"], "description": "text: compact, like grep; json: the same data as a JSON document. Default: text." },
                     "detail": { "enum": ["exists", "count", "files", "lines"], "description": "exists: only whether anything matches (stops at the first match); count: the totals; files: the totals and the files; lines: also the matched lines. Default: lines." },
                     "context": { "type": "integer", "minimum": 0, "description": "Lines before and after every matched line (grep -C). Default: 0." },
-                    "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." }
+                    "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." },
+                    "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." }
                 }
             },
             "kinds": {

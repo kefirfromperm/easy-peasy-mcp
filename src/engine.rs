@@ -233,7 +233,7 @@ impl Engine {
             detail,
             blocks: BlockOptions {
                 before: settings.opt_whole(Key::Before).unwrap_or(context),
-                after: context,
+                after: settings.opt_whole(Key::After).unwrap_or(context),
             },
             result_id: result_id.as_deref(),
             legend: &query.legend,

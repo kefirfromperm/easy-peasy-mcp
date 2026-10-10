@@ -63,6 +63,7 @@ format = "text"
 detail = "lines"
 context = 0
 # before =  (not set)
+# after =  (not set)
 ```
 
 ## E80.2 One line of context in a request
@@ -207,6 +208,7 @@ format = "text"    # default
 detail = "lines"    # default
 context = 1    # update
 # before =  (not set)    # default
+# after =  (not set)    # default
 ```
 
 ## E80.6 An invalid value in a request
@@ -262,6 +264,7 @@ format = "text"    # default
 detail = "lines"    # default
 context = 1    # file: conf/o.toml
 # before =  (not set)    # default
+# after =  (not set)    # default
 ```
 
 2. `find`
