@@ -59,72 +59,14 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
         let found = &found;
         let generated = &generated;
         Box::new(move |entry| {
-            let Ok(entry) = entry else {
-                return WalkState::Continue;
-            };
-            if entry.depth() == 0 {
-                return WalkState::Continue;
+            if let Ok(entry) = entry
+                && let Some(item) = visit(&entry, root, query, generated)
+            {
+                found
+                    .lock()
+                    .expect("no thread panics while holding the lock")
+                    .push(item);
             }
-            let Some(entry_type) = entry.file_type().and_then(|t| {
-                if t.is_symlink() {
-                    Some(EntryType::Link)
-                } else if t.is_dir() {
-                    Some(EntryType::Dir)
-                } else if t.is_file() {
-                    Some(EntryType::File)
-                } else {
-                    None
-                }
-            }) else {
-                return WalkState::Continue;
-            };
-            if !query.has_type && entry_type != EntryType::File {
-                return WalkState::Continue;
-            }
-            let Ok(rel) = entry.path().strip_prefix(root) else {
-                return WalkState::Continue;
-            };
-            let path = slash_path(rel);
-            let name = nfc(&entry.file_name().to_string_lossy());
-            let nfc_path = nfc(&path);
-            let metadata = (query.needs_empty || query.needs_metadata)
-                .then(|| entry.metadata().ok())
-                .flatten();
-            let empty = query.needs_empty
-                && metadata
-                    .as_ref()
-                    .is_some_and(|m| is_empty(entry.path(), entry_type, m));
-            let size = metadata.as_ref().map_or(0, std::fs::Metadata::len);
-            let file = FileValues {
-                name: &name,
-                path: &nfc_path,
-                entry_type,
-                empty,
-                size,
-            };
-            let conditions = match &query.filter {
-                None => Vec::new(),
-                Some(filter) if filter.eval(&file) => filter.contributors(&file),
-                Some(_) => return WalkState::Continue,
-            };
-            if entry_type == EntryType::File && generated.is_generated(&path, entry.path()) {
-                return WalkState::Continue;
-            }
-            let id = (entry_type == EntryType::File)
-                .then(|| entry.metadata().ok().and_then(|m| file_id(&m)))
-                .flatten();
-            let item = (
-                Found {
-                    rel: rel.to_path_buf(),
-                    is_dir: entry_type == EntryType::Dir,
-                    conditions,
-                },
-                id,
-            );
-            found
-                .lock()
-                .expect("no thread panics while holding the lock")
-                .push(item);
             WalkState::Continue
         })
     });
@@ -144,6 +86,86 @@ fn is_empty(path: &Path, entry_type: EntryType, metadata: &std::fs::Metadata) ->
         EntryType::File => metadata.len() == 0,
         EntryType::Dir => std::fs::read_dir(path).is_ok_and(|mut d| d.next().is_none()),
         EntryType::Link => false,
+    }
+}
+
+/// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
+fn visit(
+    entry: &ignore::DirEntry,
+    root: &Path,
+    query: &Query,
+    generated: &GeneratedRules,
+) -> Option<(Found, Option<FileId>)> {
+    if entry.depth() == 0 {
+        return None;
+    }
+    let entry_type = entry.file_type().and_then(|t| {
+        if t.is_symlink() {
+            Some(EntryType::Link)
+        } else if t.is_dir() {
+            Some(EntryType::Dir)
+        } else if t.is_file() {
+            Some(EntryType::File)
+        } else {
+            None
+        }
+    })?;
+    if !query.has_type && entry_type != EntryType::File {
+        return None;
+    }
+    let Ok(rel) = entry.path().strip_prefix(root) else {
+        return None;
+    };
+    let path = slash_path(rel);
+    let name = nfc(&entry.file_name().to_string_lossy());
+    let nfc_path = nfc(&path);
+    let metadata = (query.needs_empty || query.needs_metadata)
+        .then(|| entry.metadata().ok())
+        .flatten();
+    let empty = query.needs_empty
+        && metadata
+            .as_ref()
+            .is_some_and(|m| is_empty(entry.path(), entry_type, m));
+    let size = metadata.as_ref().map_or(0, std::fs::Metadata::len);
+    let modified = metadata
+        .as_ref()
+        .and_then(|m| m.modified().ok())
+        .map_or(0.0, system_seconds);
+    let file = FileValues {
+        name: &name,
+        path: &nfc_path,
+        entry_type,
+        empty,
+        size,
+        modified,
+    };
+    let conditions = match &query.filter {
+        None => Vec::new(),
+        Some(filter) if filter.eval(&file) => filter.contributors(&file),
+        Some(_) => return None,
+    };
+    if entry_type == EntryType::File && generated.is_generated(&path, entry.path()) {
+        return None;
+    }
+    let id = (entry_type == EntryType::File)
+        .then(|| entry.metadata().ok().and_then(|m| file_id(&m)))
+        .flatten();
+    let item = (
+        Found {
+            rel: rel.to_path_buf(),
+            is_dir: entry_type == EntryType::Dir,
+            conditions,
+        },
+        id,
+    );
+    Some(item)
+}
+
+/// Seconds since the Unix epoch, negative before it.
+fn system_seconds(time: std::time::SystemTime) -> f64 {
+    match time.duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_secs_f64(),
+        Err(e) => -e.duration().as_secs_f64(),
     }
 }
 

@@ -32,6 +32,8 @@ pub struct Fixture {
     pub name: String,
     /// Paths and their modification times in seconds since the Unix epoch, UTC; directories end with `/`.
     pub tree: Vec<(String, i64)>,
+    /// The fixed `now` of the fixture in seconds since the Unix epoch, from a line `` Now: `2026-10-08 12:00` ``.
+    pub now: Option<i64>,
     /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `symlink <path> -> <target>`.
     pub setup: Vec<String>,
 }
@@ -92,6 +94,16 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
             if section != Section::Example {
                 section = Section::Fixture(name.trim().to_string());
             }
+        } else if let (Some(rest), Section::Fixture(name)) = (line.strip_prefix("Now: "), &section)
+        {
+            let text = rest.trim().trim_matches('`');
+            let (date, time) = text.split_once(' ').expect("Now: `<date> <time>`");
+            let fixture = fixtures
+                .iter_mut()
+                .rev()
+                .find(|f| &f.name == name)
+                .expect("the Now line comes after the tree block");
+            fixture.now = Some(parse_datetime(date, time));
         } else if let Some(rest) = line.strip_prefix("Fixture: ") {
             if section == Section::Example {
                 let name = rest.trim().trim_matches('`').to_string();
@@ -121,6 +133,7 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 Section::Fixture(name) if info == "text tree" => fixtures.push(Fixture {
                     name: name.clone(),
                     tree: parse_tree(&body),
+                    now: None,
                     setup: Vec::new(),
                 }),
                 Section::Fixture(name) if info == "text setup" => {

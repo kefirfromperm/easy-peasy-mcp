@@ -18,6 +18,7 @@ pub enum ErrorCode {
     UnknownValue,
     InvalidSize,
     InvalidRange,
+    InvalidDate,
     InvalidOption,
     NotImplemented,
 }
@@ -39,6 +40,7 @@ impl ErrorCode {
             Self::UnknownValue => "unknown_value",
             Self::InvalidSize => "invalid_size",
             Self::InvalidRange => "invalid_range",
+            Self::InvalidDate => "invalid_date",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

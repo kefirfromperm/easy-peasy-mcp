@@ -423,6 +423,10 @@ A date without a time means the whole day:
 | `modified > -7d`             | during the last 7 days                         |
 | `modified in -7d..-1d`       | from 7 days ago to 1 day ago                   |
 
+In the same way a date-time without seconds means the whole minute and one with seconds the whole second:
+`modified = 2026-10-01T14:30` is from 14:30:00 to 14:30:59.999. A relative date is a moment. `in a..b` is from the
+start of `a` to the end of `b`, both included. A file has `modified` with the precision of the file system.
+
 ### Numbers
 
 `len` takes a non-negative integer: `len > 120`, `len in 1..10`.

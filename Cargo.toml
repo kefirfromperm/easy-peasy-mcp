@@ -1,6 +1,6 @@
 [package]
 name = "easy-peasy-mcp"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2024"
 rust-version = "1.98"
 description = "Local stdio MCP server: find files and places in files with one query"
@@ -18,6 +18,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.104"
 ignore = "0.4.33"
+jiff = "0.2.38"
 regex = "1.13.1"
 rmcp = { version = "3.5.1", features = ["server", "transport-io"] }
 serde = { version = "1.0.229", features = ["derive"] }

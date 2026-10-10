@@ -19,6 +19,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     let (_tmp, root) = setup_fixture(fixture);
     let mut options = EngineOptions::new(root);
     options.git_global_excludes = false;
+    options.time_zone = jiff::tz::TimeZone::UTC;
+    options.now = fixture
+        .now
+        .map(|secs| jiff::Timestamp::from_second(secs).expect("a valid now"));
     let engine = Engine::new(options);
 
     let mut blocks = example.blocks.iter().peekable();

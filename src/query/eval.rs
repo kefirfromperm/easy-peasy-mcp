@@ -66,6 +66,8 @@ pub struct FileValues<'a> {
     pub empty: bool,
     /// The size in bytes; only read when the query has `size`.
     pub size: u64,
+    /// The modification time in seconds since the Unix epoch; only read when the query has `modified`.
+    pub modified: f64,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -96,6 +98,8 @@ impl Bounds {
 pub enum NumberTarget {
     /// The size in bytes.
     Size,
+    /// The modification time in seconds since the Unix epoch.
+    Modified,
 }
 
 /// The compiled query, evaluated for every file; brackets are gone, the precedence is in the tree.
@@ -155,6 +159,7 @@ impl Filter {
             #[allow(clippy::cast_precision_loss)] // sizes up to 2^53 bytes are exact
             Self::Number { target, bounds, .. } => bounds.contains(match target {
                 NumberTarget::Size => file.size as f64,
+                NumberTarget::Modified => file.modified,
             }),
         }
     }
@@ -209,6 +214,7 @@ mod tests {
             entry_type: EntryType::File,
             empty: false,
             size: 0,
+            modified: 0.0,
         };
         filter.eval(&file).then(|| {
             filter
