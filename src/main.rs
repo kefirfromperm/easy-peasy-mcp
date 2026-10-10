@@ -18,6 +18,8 @@ enum Command {
         config: Option<PathBuf>,
         /// The `tracing` filter of `--log-level`.
         log_level: &'static str,
+        /// `--root`, in order.
+        roots: Vec<String>,
     },
 }
 
@@ -31,6 +33,7 @@ enum ArgError {
 fn parse_args(args: &[String]) -> Result<Command, ArgError> {
     let mut config = None;
     let mut log_level = None;
+    let mut roots = Vec::new();
     let mut args = args.iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -47,7 +50,8 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
                         .ok_or(ArgError::Usage)?,
                 );
             }
-            "--root" | "--timeout" | "--no-update" => {
+            "--root" => roots.push(args.next().ok_or(ArgError::Usage)?.clone()),
+            "--timeout" | "--no-update" => {
                 return Err(ArgError::NotImplemented(arg.clone()));
             }
             _ => return Err(ArgError::Usage),
@@ -56,6 +60,7 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
     Ok(Command::Serve {
         config,
         log_level: log_level.unwrap_or("warn"),
+        roots,
     })
 }
 
@@ -69,23 +74,17 @@ fn main() -> ExitCode {
             );
             ExitCode::SUCCESS
         }
-        Ok(Command::Serve { config, log_level }) => {
+        Ok(Command::Serve {
+            config,
+            log_level,
+            roots,
+        }) => {
             tracing_subscriber::fmt()
                 .with_writer(std::io::stderr)
                 .with_ansi(false)
                 .with_env_filter(tracing_subscriber::EnvFilter::new(log_level))
                 .init();
-            let env = |name: &str| std::env::var(name).ok();
-            let file = config::locate(config.as_deref(), &env, std::env::consts::OS, &|p| {
-                p.is_file()
-            });
-            if let Some(file) = &file
-                && let Err(e) = config::load(file)
-            {
-                eprintln!("easy-peasy-mcp: {e}");
-                return ExitCode::FAILURE;
-            }
-            match run(file.as_deref()) {
+            match start(config.as_deref(), &roots) {
                 Ok(()) => ExitCode::SUCCESS,
                 Err(e) => {
                     eprintln!("easy-peasy-mcp: {e:#}");
@@ -104,15 +103,25 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(config_file: Option<&Path>) -> anyhow::Result<()> {
+/// Reads the configuration and serves MCP over stdio until stdin is closed.
+fn start(config: Option<&Path>, roots: &[String]) -> anyhow::Result<()> {
     let start_dir = std::env::current_dir().context("the current directory is not readable")?;
+    let env = |name: &str| std::env::var(name).ok();
+    let file = config::locate(config, &env, std::env::consts::OS, &|p| p.is_file())
+        .map(|path| config::load(&path))
+        .transpose()?;
+    let home = env(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
+    let settings = config::Settings::resolve(file.as_ref(), roots, &start_dir, home.as_deref())?;
     tracing::info!(
         "easy-peasy-mcp {} started in {}, config file: {}",
         env!("CARGO_PKG_VERSION"),
         start_dir.display(),
-        config_file.map_or_else(|| "none".to_string(), |f| f.display().to_string())
+        file.as_ref()
+            .map_or_else(|| "none".to_string(), |f| f.path.display().to_string())
     );
-    let server = Server::new(Engine::new(EngineOptions::new(start_dir)));
+    let mut options = EngineOptions::new(start_dir);
+    options.settings = settings;
+    let server = Server::new(Engine::new(options));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;

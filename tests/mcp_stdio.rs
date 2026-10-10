@@ -127,11 +127,14 @@ fn unknown_argument() {
 
 #[test]
 fn options_and_keys_not_implemented_yet() {
-    let out = Command::new(BIN).args(["--root", "."]).output().unwrap();
+    let out = Command::new(BIN)
+        .args(["--timeout", "5s"])
+        .output()
+        .unwrap();
     assert_eq!(out.status.code(), Some(2));
     assert_eq!(
         String::from_utf8(out.stderr).unwrap(),
-        "easy-peasy-mcp: the option '--root' is not implemented yet\n"
+        "easy-peasy-mcp: the option '--timeout' is not implemented yet\n"
     );
     let dir = fixture();
     let config = dir.temp().join("config.toml");

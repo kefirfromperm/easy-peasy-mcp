@@ -72,7 +72,15 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         return Ok(());
     }
 
-    let mut server = McpServer::spawn(&mut process);
+    run_session(&mut McpServer::spawn(&mut process), example, &fixture_path)
+}
+
+/// Sends the requests of a startup example to the started server and compares the responses.
+fn run_session(
+    server: &mut McpServer,
+    example: &Example,
+    fixture_path: &str,
+) -> Result<(), String> {
     if server.response_to_initialize().is_none() {
         let status = server.child.wait().map_err(|e| e.to_string())?;
         return Err(format!("the server didn't start: {status}"));
@@ -105,14 +113,14 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         let expected_text = expected
             .text
             .replace("<version>", env!("CARGO_PKG_VERSION"))
-            .replace("<fixture>", &fixture_path);
+            .replace("<fixture>", fixture_path);
         if is_error != (expected.info == "text error") || text != expected_text {
             return Err(format!(
                 "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"
             ));
         }
     }
-    drop(server.stdin);
+    let _ = server.child.kill();
     let _ = server.child.wait();
     Ok(())
 }
