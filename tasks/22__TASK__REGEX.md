@@ -1,6 +1,6 @@
 # Task 22: Regex operator `=~`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 21
 
