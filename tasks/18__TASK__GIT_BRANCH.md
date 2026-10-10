@@ -1,6 +1,6 @@
 # Task 18: `git = branch`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 17
 
