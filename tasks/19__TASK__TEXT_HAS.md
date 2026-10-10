@@ -1,6 +1,6 @@
 # Task 19: `text has` in file scope
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 6
 
