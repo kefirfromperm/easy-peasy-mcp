@@ -233,6 +233,12 @@ pub enum Filter {
         per_line: bool,
         whole_word: bool,
     },
+    /// `len` inside `line( ... )`: the number of characters of the line.
+    Len {
+        id: CondId,
+        order: usize,
+        bounds: Bounds,
+    },
     /// `line( ... )`: true if the inner expression is true for one line.
     Line {
         id: CondId,
@@ -387,6 +393,8 @@ impl Filter {
                 values, negated, ..
             } => Truth::from(values.contains(&file.entry_type) != *negated),
             Self::Empty { .. } => Truth::from(file.empty),
+            // validation keeps `len` inside line scope, where `eval_line` evaluates it
+            Self::Len { .. } => Truth::False,
             Self::Lang {
                 values, negated, ..
             } => Truth::from(values.iter().any(|v| v == file.lang) != *negated),
@@ -468,6 +476,7 @@ impl Filter {
             | Self::Git { id, order, .. }
             | Self::Content { id, order, .. }
             | Self::Line { id, order, .. }
+            | Self::Len { id, order, .. }
             | Self::Number { id, order, .. } => Some((*order, id)),
         }
     }
@@ -482,6 +491,8 @@ impl Filter {
             Self::Content {
                 regex, whole_word, ..
             } => !find_all(regex, line, *whole_word).is_empty(),
+            #[allow(clippy::cast_precision_loss)] // line lengths are far below 2^53
+            Self::Len { bounds, .. } => bounds.contains(line.chars().count() as f64),
             _ => false,
         }
     }

@@ -75,10 +75,10 @@ pub fn render(content: &Content, fragments: &[Fragment]) -> String {
         let (start, end) = content.line_range(line);
         let _ = write!(out, "{}:", line + 1);
         let mut pos = start;
-        for part in parts
-            .iter()
-            .filter(|p| p.range.start <= end && p.range.end > start)
-        {
+        for part in parts.iter().filter(|p| {
+            (p.range.start >= start && p.range.start <= end)
+                || (p.range.start < start && p.range.end > start)
+        }) {
             if part.range.start >= start {
                 out.push_str(&content.text()[pos..part.range.start]);
                 let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
@@ -164,6 +164,12 @@ mod tests {
         let c = Content::from_bytes(b"ab\ncd\nef\n");
         let fragments = vec![frag(1..7, &[1])];
         assert_eq!(render(&c, &fragments), "1:a⟦#1:b\n2:cd\n3:e⟧f\n");
+    }
+
+    #[test]
+    fn empty_fragments_of_empty_lines() {
+        let c = Content::from_bytes(b"a\n\nb\n");
+        assert_eq!(render(&c, &[frag(2..2, &[1])]), "2:⟦#1:⟧\n");
     }
 
     #[test]

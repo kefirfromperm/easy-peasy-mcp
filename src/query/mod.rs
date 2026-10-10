@@ -119,7 +119,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
                 needs.lang |= matches!(c.target, Target::Lang | Target::Kind);
                 needs.kind |= c.target == Target::Kind;
                 needs.git |= c.target == Target::Git;
-                needs.content |= c.target == Target::Text;
+                needs.content |= matches!(c.target, Target::Text | Target::Len);
             }
         });
     }
@@ -208,6 +208,19 @@ fn validate_condition(
     options: &ParseOptions,
     errors: &mut Vec<QueryError>,
 ) {
+    if !in_line && c.target == Target::Len {
+        errors.push(
+            QueryError::new(
+                ErrorCode::LineTargetOutside,
+                "'len' outside of line( ... )",
+                c.target_span.clone(),
+            )
+            .hint("'len' works only inside line( ... ) or near( ... )"),
+        );
+    }
+    if c.target == Target::Len {
+        validate_lens(text, &c.value, errors);
+    }
     if in_line && !matches!(c.target, Target::Text | Target::Len) {
         let target = &text[c.target_span.clone()];
         errors.push(
@@ -233,44 +246,7 @@ fn validate_condition(
             .hint(e.0),
         );
     }
-    let words = words(&c.value);
-    if c.target == Target::Type {
-        let names: Vec<&str> = EntryType::ALL.iter().map(|t| t.keyword()).collect();
-        for word in words
-            .iter()
-            .filter(|w| EntryType::from_keyword(&w.text).is_none())
-        {
-            errors.push(unknown_value(word, &names));
-        }
-    }
-    if c.target == Target::Git {
-        let names: Vec<&str> = GitValue::ALL.iter().map(|v| v.keyword()).collect();
-        for word in words
-            .iter()
-            .filter(|w| GitValue::from_keyword(&w.text).is_none())
-        {
-            errors.push(unknown_value(word, &names));
-        }
-    }
-    if c.target == Target::Kind {
-        let names: Vec<&str> = Kind::ALL.iter().map(|k| k.keyword()).collect();
-        for word in words
-            .iter()
-            .filter(|w| Kind::from_keyword(&w.text).is_none())
-        {
-            errors.push(unknown_value(word, &names));
-        }
-    }
-    if c.target == Target::Lang {
-        let mut names = options.languages.names();
-        names.push(UNKNOWN_LANG);
-        for word in words
-            .iter()
-            .filter(|w| !names.iter().any(|n| n.eq_ignore_ascii_case(&w.text)))
-        {
-            errors.push(unknown_value(word, &names));
-        }
-    }
+    validate_words(c, options, errors);
     if c.target == Target::Size {
         validate_sizes(text, &c.value, errors);
     }
@@ -322,6 +298,83 @@ fn user_regex(pattern: &str, case_insensitive: bool) -> Result<Regex, String> {
                     .to_string()
             }
         })
+}
+
+/// `unknown_value` for the words of `type`, `git`, `kind` and `lang` conditions.
+fn validate_words(c: &Condition, options: &ParseOptions, errors: &mut Vec<QueryError>) {
+    let words = words(&c.value);
+    if c.target == Target::Type {
+        let names: Vec<&str> = EntryType::ALL.iter().map(|t| t.keyword()).collect();
+        for word in words
+            .iter()
+            .filter(|w| EntryType::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+    if c.target == Target::Git {
+        let names: Vec<&str> = GitValue::ALL.iter().map(|v| v.keyword()).collect();
+        for word in words
+            .iter()
+            .filter(|w| GitValue::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+    if c.target == Target::Kind {
+        let names: Vec<&str> = Kind::ALL.iter().map(|k| k.keyword()).collect();
+        for word in words
+            .iter()
+            .filter(|w| Kind::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+    if c.target == Target::Lang {
+        let mut names = options.languages.names();
+        names.push(UNKNOWN_LANG);
+        for word in words
+            .iter()
+            .filter(|w| !names.iter().any(|n| n.eq_ignore_ascii_case(&w.text)))
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+}
+
+/// A non-negative integer for `len`, or the `unexpected_token` error.
+fn validate_lens(text: &str, value: &Value, errors: &mut Vec<QueryError>) {
+    let number = |s: &Spanned, errors: &mut Vec<QueryError>| {
+        let n = s
+            .text
+            .parse::<u64>()
+            .ok()
+            .filter(|_| s.text.bytes().all(|b| b.is_ascii_digit()));
+        if n.is_none() {
+            errors.push(
+                QueryError::new(
+                    ErrorCode::UnexpectedToken,
+                    format!("unexpected '{}'", s.text),
+                    s.span.clone(),
+                )
+                .hint("len takes a number of characters, e.g. len > 120"),
+            );
+        }
+        n
+    };
+    match value {
+        Value::Scalar(s) => {
+            number(s, errors);
+        }
+        Value::Range(from, to) => {
+            if let (Some(a), Some(b)) = (number(from, errors), number(to, errors))
+                && a > b
+            {
+                errors.push(invalid_range(text, from, to));
+            }
+        }
+        _ => {}
+    }
 }
 
 /// `invalid_size` for every value which is not a size, `invalid_range` for a range whose start is greater than its
@@ -501,6 +554,16 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
     let order = node.tokens.start;
     match c.target {
         Target::Size => compile_size(c, id, order),
+        Target::Len => {
+            #[allow(clippy::cast_precision_loss)] // lengths are far below 2^53
+            let len = |s: &Spanned| s.text.parse::<u64>().expect("lengths are validated") as f64;
+            let bounds = match (&c.op, &c.value) {
+                (Some((op, _)), Value::Scalar(v)) => value::bounds(*op, len(v), None),
+                (Some((op, _)), Value::Range(a, b)) => value::bounds(*op, len(a), Some(len(b))),
+                _ => unreachable!("len conditions have an operator and a value"),
+            };
+            Filter::Len { id, order, bounds }
+        }
         Target::Modified | Target::Created | Target::Accessed => {
             compile_date(c, id, order, options)
         }
@@ -1307,7 +1370,11 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("len > 1 and name ~ '[a-'", &SENSITIVE).unwrap_err();
+        let e = parse(
+            "near(text has 'a', text has 'b', 1) and name ~ '[a-'",
+            &SENSITIVE,
+        )
+        .unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }

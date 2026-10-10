@@ -46,6 +46,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                     | Target::Kind
                     | Target::Git
                     | Target::Text
+                    | Target::Len
             ) {
                 let span = c.target_span.clone();
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
