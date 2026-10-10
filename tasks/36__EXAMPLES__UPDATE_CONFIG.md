@@ -222,6 +222,9 @@ archives = "none"
 max_archive_size = "100M"
 skip_generated = true
 
+[output]
+format = "text"
+
 [escape]
 max_level = 3
 

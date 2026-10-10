@@ -50,6 +50,9 @@ archives = "none"
 max_archive_size = "100M"
 skip_generated = true
 
+[output]
+format = "text"
+
 [escape]
 max_level = 3
 
@@ -546,6 +549,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[output]
+format = "text"    # default
 
 [escape]
 max_level = 3    # default
