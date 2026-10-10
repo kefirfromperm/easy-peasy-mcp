@@ -128,6 +128,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 3. `find`
@@ -213,6 +216,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -261,6 +267,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -309,6 +318,9 @@ encoding = "auto"    # default
 archives = "none"    # default
 max_archive_size = "100M"    # default
 skip_generated = true    # default
+
+[escape]
+max_level = 3    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

@@ -221,6 +221,9 @@ encoding = "auto"
 archives = "none"
 max_archive_size = "100M"
 skip_generated = true
+
+[escape]
+max_level = 3
 ```
 
 3. `find`
