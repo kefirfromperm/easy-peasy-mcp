@@ -226,4 +226,27 @@ mod tests {
             [vec![0, 1], vec![0, 1]]
         );
     }
+
+    #[test]
+    fn the_first_matches_of_every_file() {
+        let files = [file("aaa\na\n"), file("a\n"), file("aa\n")];
+        let limits = Limits {
+            max_matches_per_file: 2,
+            max_matches: 3,
+            ..Limits::default()
+        };
+        let listing = Listing::new(&files, &Repeated::default(), &limits);
+        assert_eq!(listing.cut, [true, false, false]);
+        assert_eq!(listed_lines(&listing, &files), [vec![0], vec![0], vec![]]);
+        assert_eq!(listing.truncated_by, ["max_matches", "max_matches_per_file"]);
+        let per_file = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_matches_per_file: 2,
+                ..Limits::default()
+            },
+        );
+        assert_eq!(per_file.truncated_by, ["max_matches_per_file"]);
+    }
 }
