@@ -49,6 +49,7 @@ b.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -206,6 +207,7 @@ files: 2  lines: 4  matches: 4  result: r1
 [output]
 format = "text"    # default
 detail = "count"    # update
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -279,6 +281,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "files"    # file: conf/o.toml
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default

@@ -57,6 +57,7 @@ small.rs  [#1]
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -233,6 +234,7 @@ small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.93
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = true    # update
 context = 0    # default
 # before =  (not set)    # default

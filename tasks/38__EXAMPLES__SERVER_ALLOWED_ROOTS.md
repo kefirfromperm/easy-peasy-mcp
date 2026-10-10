@@ -54,6 +54,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -544,6 +545,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -1010,6 +1012,7 @@ Fixture: `roots`
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -1077,6 +1080,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -1609,6 +1613,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+funnel = "auto"    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -2120,6 +2125,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
@@ -2632,6 +2638,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+funnel = "auto"
 meta = false
 context = 0
 # before =  (not set)
