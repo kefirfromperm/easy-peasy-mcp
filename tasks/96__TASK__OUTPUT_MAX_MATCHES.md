@@ -1,6 +1,6 @@
 # Task 96: `output.max_matches`
 
-Status: not implemented
+Status: implemented, see [96__SUMMARY__OUTPUT_MAX_MATCHES.md](96__SUMMARY__OUTPUT_MAX_MATCHES.md)
 
 Depends on: task 94
 

@@ -34,10 +34,11 @@ impl Listing {
     }
 
     /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, those of the first
-    /// `max_lines` matched lines in the order of the files.
+    /// `max_lines` matched lines and the first `max_matches` fragments in the order of the files.
     pub fn new(files: &[Found], repeated: &Repeated, limits: &Limits) -> Self {
         let mut lines_left = limits.max_lines;
-        let mut cut_lines = false;
+        let mut matches_left = limits.max_matches;
+        let (mut cut_lines, mut cut_matches) = (false, false);
         let mut listed = Vec::with_capacity(files.len());
         for (index, file) in files.iter().enumerate() {
             let Some(m) = file.matches.as_ref().filter(|m| !m.fragments.is_empty()) else {
@@ -56,12 +57,21 @@ impl Listing {
             } else {
                 rest
             };
+            let mut rest = rest;
+            if rest.len() > matches_left {
+                cut_matches = true;
+                rest.truncate(matches_left);
+            }
             lines_left = lines_left.saturating_sub(lines_of(&m.content, &rest).len());
+            matches_left -= rest.len();
             listed.push(Listed::Lines(rest));
         }
         let mut truncated_by = Vec::new();
         if cut_lines {
             truncated_by.push("max_lines");
+        }
+        if cut_matches {
+            truncated_by.push("max_matches");
         }
         Self {
             files: listed,
@@ -175,5 +185,45 @@ mod tests {
         );
         assert_eq!(listed_lines(&one, &files), [vec![0], vec![]]);
         assert!(matches!(one.files[1], Listed::Lines(ref f) if f.is_empty()));
+    }
+
+    #[test]
+    fn the_first_matches() {
+        // three fragments on line 0, one on line 1; the multiline fragment of the second file is one match
+        let files = [file("aaa\na\n"), file("x\ny\na\n")];
+        let listing = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_matches: 2,
+                ..Limits::default()
+            },
+        );
+        assert!(matches!(&listing.files[0], Listed::Lines(f) if f.len() == 2));
+        assert_eq!(listed_lines(&listing, &files), [vec![0], vec![]]);
+        assert_eq!(listing.truncated_by, ["max_matches"]);
+        let both = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_lines: 3,
+                max_matches: 5,
+                ..Limits::default()
+            },
+        );
+        assert_eq!(listed_lines(&both, &files), [vec![0, 1], vec![]]);
+        assert_eq!(both.truncated_by, ["max_lines"]);
+        let matches_left = Listing::new(
+            &files,
+            &Repeated::default(),
+            &Limits {
+                max_matches: 5,
+                ..Limits::default()
+            },
+        );
+        assert_eq!(
+            listed_lines(&matches_left, &files),
+            [vec![0, 1], vec![0, 1]]
+        );
     }
 }
