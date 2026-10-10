@@ -9,7 +9,7 @@ pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Spec vers
 pub const FIND_DESCRIPTION: &str = "\
 Search files and directories by name, path and type in one query. Read-only. Only regular files are returned. Spec version 1.
 
-QUERY: conditions on the name, path, type, size, dates and language joined with not, and, xor, or (this precedence) and brackets.
+QUERY: conditions on the name, path, type, size, dates, language and kind joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
   name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
@@ -24,6 +24,8 @@ Empty query = all files.
   accessed < -30d                last access date, the same forms
   lang = rust                    language by extension, file name (Dockerfile) or shebang; lang in (ts, js) style
                                  lists, lang != markdown, lang = unknown
+  kind in (source, test)         source test config doc generated other; generated files (lock files, *.min.js,
+                                 '@generated' markers) are skipped unless the query has a kind condition
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'

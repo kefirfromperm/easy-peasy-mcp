@@ -19,7 +19,7 @@ use ast::{
 };
 use lexer::Token;
 
-pub use eval::{EntryType, FileValues, Filter, NumberTarget, TextMatcher, TextTarget};
+pub use eval::{EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget};
 pub(crate) use suggest::did_you_mean;
 
 use crate::error::{ErrorCode, QueryError};
@@ -62,8 +62,10 @@ pub struct Needs {
     pub created: bool,
     /// An `accessed` condition: entries without an access date get a warning.
     pub accessed: bool,
-    /// A `lang` condition: the language of entries.
+    /// A `lang` or `kind` condition: the language of entries.
     pub lang: bool,
+    /// A `kind` condition: the kind of entries; nothing is skipped as generated.
+    pub kind: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -106,7 +108,8 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
                 );
                 needs.created |= c.target == Target::Created;
                 needs.accessed |= c.target == Target::Accessed;
-                needs.lang |= c.target == Target::Lang;
+                needs.lang |= matches!(c.target, Target::Lang | Target::Kind);
+                needs.kind |= c.target == Target::Kind;
             }
         });
     }
@@ -201,6 +204,15 @@ fn validate_condition(
         for word in words
             .iter()
             .filter(|w| EntryType::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+    if c.target == Target::Kind {
+        let names: Vec<&str> = Kind::ALL.iter().map(|k| k.keyword()).collect();
+        for word in words
+            .iter()
+            .filter(|w| Kind::from_keyword(&w.text).is_none())
         {
             errors.push(unknown_value(word, &names));
         }
@@ -421,6 +433,15 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
             values: words(&c.value)
                 .iter()
                 .map(|w| w.text.to_lowercase())
+                .collect(),
+            negated: matches!(c.op, Some((Op::Ne, _))),
+        },
+        Target::Kind => Filter::Kind {
+            id,
+            order,
+            values: words(&c.value)
+                .iter()
+                .filter_map(|w| Kind::from_keyword(&w.text))
                 .collect(),
             negated: matches!(c.op, Some((Op::Ne, _))),
         },
@@ -736,6 +757,7 @@ mod tests {
             created: Some(0.0),
             accessed: Some(0.0),
             lang: "unknown",
+            kind: Kind::Other,
         };
         query.filter.unwrap().matches(&file)
     }
@@ -834,6 +856,7 @@ mod tests {
             created: None,
             accessed: None,
             lang,
+            kind: Kind::Other,
         };
         let q = parse("lang in (rust, Python)", &SENSITIVE).unwrap();
         assert!(q.needs.lang);
@@ -847,6 +870,35 @@ mod tests {
             e.hint
                 .unwrap()
                 .starts_with("did you mean 'rust'? expected one of: c, cpp, ")
+        );
+    }
+
+    #[test]
+    fn kind_conditions() {
+        let file = |kind| FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind,
+        };
+        let q = parse("kind in (source, TEST)", &SENSITIVE).unwrap();
+        assert!(q.needs.kind && q.needs.lang);
+        assert!(q.filter.as_ref().unwrap().matches(&file(Kind::Test)));
+        assert!(!q.filter.as_ref().unwrap().matches(&file(Kind::Generated)));
+        let q = parse("kind != generated", &SENSITIVE).unwrap();
+        assert!(q.filter.unwrap().matches(&file(Kind::Other)));
+        let e = parse("kind = tests", &SENSITIVE).unwrap_err();
+        assert_eq!(
+            e.hint.as_deref(),
+            Some(
+                "did you mean 'test'? expected one of: source, test, config, doc, generated, other"
+            )
         );
     }
 
@@ -928,7 +980,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("kind = test and name ~ '[a-'", &SENSITIVE).unwrap_err();
+        let e = parse("git = changed and name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }
