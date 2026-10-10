@@ -48,5 +48,9 @@ fn result_ids_grow_per_session() {
     let second = engine.find(&json!({ "query": "name = 'a.txt'" }));
     assert!(first.text.contains("result: r1\n"));
     assert!(error.is_error);
-    assert!(second.text.contains("result: r2\n"), "errors take no result id: {}", second.text);
+    assert!(
+        second.text.contains("result: r2\n"),
+        "errors take no result id: {}",
+        second.text
+    );
 }

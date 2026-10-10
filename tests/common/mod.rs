@@ -42,9 +42,9 @@ pub fn load_examples() -> (Vec<Example>, Vec<Fixture>) {
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| {
-            p.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.contains("__EXAMPLES__") && n.ends_with(".md"))
+            p.file_name().and_then(|n| n.to_str()).is_some_and(|n| {
+                n.contains("__EXAMPLES__") && p.extension().is_some_and(|e| e == "md")
+            })
         })
         .map(|p| {
             let n = p.file_name().unwrap().to_str().unwrap();
@@ -96,7 +96,11 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 examples.last_mut().unwrap().fixture = Some(name);
             }
         } else if let Some(info) = line.strip_prefix("```") {
-            let fence = if line.starts_with("````") { "````" } else { "```" };
+            let fence = if line.starts_with("````") {
+                "````"
+            } else {
+                "```"
+            };
             let info = info.trim_start_matches('`').trim().to_string();
             let mut body = String::new();
             for l in lines.by_ref() {
@@ -107,7 +111,11 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 body.push('\n');
             }
             match &section {
-                Section::Example => examples.last_mut().unwrap().blocks.push(Block { info, text: body }),
+                Section::Example => examples
+                    .last_mut()
+                    .unwrap()
+                    .blocks
+                    .push(Block { info, text: body }),
                 Section::Fixture(name) if info == "text tree" => fixtures.push(Fixture {
                     name: name.clone(),
                     tree: parse_tree(&body),
@@ -155,10 +163,17 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join(&fixture.name);
-    copy_dir(&repo_root().join("tests/fixtures").join(&fixture.name), &root);
+    copy_dir(
+        &repo_root().join("tests/fixtures").join(&fixture.name),
+        &root,
+    );
     for (path, mtime) in &fixture.tree {
         let p = root.join(path);
-        assert!(p.exists(), "fixture {}: {path} is listed in the tree, but missing", fixture.name);
+        assert!(
+            p.exists(),
+            "fixture {}: {path} is listed in the tree, but missing",
+            fixture.name
+        );
         filetime::set_file_mtime(&p, filetime::FileTime::from_unix_time(*mtime, 0)).unwrap();
     }
     (tmp, root)

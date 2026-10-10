@@ -32,12 +32,14 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
             "" => "find",
             other => other,
         };
-        let arguments: serde_json::Value =
-            serde_json::from_str(&block.text).map_err(|e| format!("step {step}: invalid request JSON: {e}"))?;
+        let arguments: serde_json::Value = serde_json::from_str(&block.text)
+            .map_err(|e| format!("step {step}: invalid request JSON: {e}"))?;
         let expected = blocks
             .next()
             .ok_or_else(|| format!("step {step}: no response after the request"))?;
-        let output = engine.call(tool, &arguments);
+        let output = engine
+            .call(tool, &arguments)
+            .map_err(|e| format!("step {step}: {e}"))?;
         let (want_error, kind) = match expected.info.as_str() {
             "text response" | "json response" => (false, "response"),
             "text error" => (true, "error"),
