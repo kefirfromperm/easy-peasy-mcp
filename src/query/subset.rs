@@ -1,7 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query, or exactly one condition on `name` or `path` with `=`, `has`, `starts`, `ends` or `~`,
-//! without modifiers and labels.
+//! with the modifier `/i` only and without labels.
 
 use std::ops::Range;
 
@@ -51,6 +51,7 @@ fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, 
                 continue;
             }
             (2, Tok::Str { .. }) => continue,
+            (3.., Tok::Modifier(m)) if m.eq_ignore_ascii_case("i") => continue,
             (_, Tok::LParen) => "the bracket '('".to_string(),
             (_, Tok::Word(w)) if w.eq_ignore_ascii_case("line") => {
                 "the group line( ... )".to_string()
