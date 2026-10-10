@@ -711,28 +711,35 @@ error[unknown_operator]: unknown operator 'contains'
   hint: did you mean 'has'? expected one of: =, has, starts, ends, ~, ~~, =~
 ```
 
-| Code                     | Example                                    | Hint                                             |
-|--------------------------|--------------------------------------------|--------------------------------------------------|
-| `unexpected_token`       | `name ~ '*.rs' text has 'x'`               | missing `and` / `or` between conditions?         |
-| `unexpected_end`         | `name ~ '*.rs' and`                        | a condition is expected after `and`              |
-| `unknown_target`         | `content has 'x'`                          | did you mean `text`?                             |
-| `unknown_operator`       | `text contains 'x'`                        | did you mean `has`? expected one of: =, has, starts, ends, ~, ~~, =~ |
-| `operator_not_allowed`   | `text ~ '*foo*'`                           | wildcards work on `path` and `name`; use `has`   |
-| `modifier_not_allowed`   | `name = 'a' /m`                            | `/m` works with `=~` on `text` in file scope     |
-| `unterminated_string`    | `text has 'abc`                            | closing `'` is missing                           |
-| `invalid_regex`          | ``text =~ `(?<=a)b` ``                     | look-arounds are not supported                   |
-| `invalid_wildcard`       | `name ~ '[a-'`                             | unclosed `[`                                     |
-| `invalid_size`           | `size > 10MB`                              | units: B, K, M, G                                |
-| `invalid_date`           | `modified > -1y`                           | units: s, m, h, d, w                             |
-| `invalid_range`          | `size in 10M..1M`                          | the start must not be greater than the end       |
-| `line_target_outside`    | `len > 100`                                | `len` works only inside `line( ... )` or `near( ... )` |
-| `file_target_inside`     | `line(name ~ '*.rs')`                      | move `name` out of `line( ... )`                 |
-| `nested_line`            | `line(line(text has 'a'))`                 | `line( ... )` can't be nested                    |
-| `unknown_value`          | `lang = rusty`                             | did you mean `rust`?                             |
-| `invalid_near_option`    | `near(text has 'a', text has 'b', 3, nearest)` | options: any, ordered, all, closest, first   |
-| `conflicting_options`    | `near(text has 'a', text has 'b', 3, any, ordered)` | choose one of: any, ordered             |
-| `invalid_escape_level`   | `text has 'a' /e(backslash, 9)`            | max level is 3 (configuration `escape.max_level`) |
-| `duplicate_label`        | `text has 'a' @x or text has 'b' @x`       | labels must be unique                            |
+Every error has the message and, where it helps, a hint. The table shows one example per code; the hint depends on
+what was expected at the error position. Quoted parts are the tokens of the query as written, in single quotes; a
+string token is shown with its own quotes: `unexpected 'x'` for `'x'`, `unexpected "x"` for `"x"`.
+
+| Code                     | Example                                    | Message                                  | Hint                                             |
+|--------------------------|--------------------------------------------|------------------------------------------|--------------------------------------------------|
+| `unexpected_token`       | `name ~ '*.rs' text has 'x'`               | unexpected 'text'                        | missing 'and' / 'or' between conditions?         |
+| `unexpected_end`         | `name ~ '*.rs' and`                        | unexpected end of the query              | a condition is expected after 'and'              |
+| `unknown_target`         | `content has 'x'`                          | unknown target 'content'                 | did you mean 'text'? expected one of: path, name, type, size, modified, created, accessed, empty, lang, kind, git, text, len |
+| `unknown_operator`       | `text contains 'x'`                        | unknown operator 'contains'              | did you mean 'has'? expected one of: =, has, starts, ends, ~, ~~, =~ |
+| `operator_not_allowed`   | `text ~ '*foo*'`                           | operator '~' is not allowed for 'text'   | wildcards work on 'path' and 'name'; use 'has'   |
+| `modifier_not_allowed`   | `name = 'a' /m`                            | modifier '/m' is not allowed here        | '/m' works with '=~' on 'text' in file scope     |
+| `unterminated_string`    | `text has 'abc`                            | unterminated string                      | closing ' is missing                             |
+| `invalid_regex`          | ``text =~ `(?<=a)b` ``                     | invalid regex                            | look-arounds are not supported                   |
+| `invalid_wildcard`       | `name ~ '[a-'`                             | invalid wildcard '[a-'                   | unclosed '['                                     |
+| `invalid_size`           | `size > 10MB`                              | invalid size '10MB'                      | units: B, K, M, G                                |
+| `invalid_date`           | `modified > -1y`                           | invalid date '-1y'                       | units: s, m, h, d, w                             |
+| `invalid_range`          | `size in 10M..1M`                          | invalid range '10M..1M'                  | the start must not be greater than the end       |
+| `line_target_outside`    | `len > 100`                                | 'len' outside of line( ... )             | 'len' works only inside line( ... ) or near( ... ) |
+| `file_target_inside`     | `line(name ~ '*.rs')`                      | 'name' inside line( ... )                | move 'name' out of line( ... )                   |
+| `nested_line`            | `line(line(text has 'a'))`                 | nested line( ... )                       | line( ... ) can't be nested                      |
+| `unknown_value`          | `lang = rusty`                             | unknown value 'rusty'                    | did you mean 'rust'?                             |
+| `invalid_near_option`    | `near(text has 'a', text has 'b', 3, nearest)` | unknown option 'nearest'             | options: any, ordered, all, closest, first       |
+| `conflicting_options`    | `near(text has 'a', text has 'b', 3, any, ordered)` | conflicting options 'any' and 'ordered' | choose one of: any, ordered             |
+| `invalid_escape_level`   | `text has 'a' /e(backslash, 9)`            | invalid escape level 9                   | max level is 3 (configuration escape.max_level)  |
+| `duplicate_label`        | `text has 'a' @x or text has 'b' @x`       | duplicate label '@x'                     | labels must be unique                            |
+
+The position marks the token in the message, for `unterminated_string` from the opening quote to the end of the
+query, for `invalid_wildcard` the whole string value. The first error found from the start of the query is reported.
 
 ## Recipes
 
