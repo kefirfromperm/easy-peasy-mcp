@@ -54,6 +54,7 @@ skip_generated = true
 format = "text"
 detail = "lines"
 context = 0
+# before =  (not set)
 
 [escape]
 max_level = 3
@@ -556,6 +557,7 @@ skip_generated = true    # default
 format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
+# before =  (not set)    # default
 
 [escape]
 max_level = 3    # default

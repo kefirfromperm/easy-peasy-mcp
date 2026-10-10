@@ -260,8 +260,12 @@ mod tests {
             [(Key::Context, KeyValue::Whole(1))]
         );
         assert_eq!(
-            text(&json!({ "output": { "before": 1 } })),
-            "error[not_implemented]: the field 'output.before' is not implemented yet\n"
+            config(&json!({ "output": { "before": 1 } })),
+            [(Key::Before, KeyValue::Whole(1))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "after": 1 } })),
+            "error[not_implemented]: the field 'output.after' is not implemented yet\n"
         );
     }
 

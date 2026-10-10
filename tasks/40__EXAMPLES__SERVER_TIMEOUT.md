@@ -133,6 +133,7 @@ skip_generated = true    # default
 format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
+# before =  (not set)    # default
 
 [escape]
 max_level = 3    # default
@@ -650,6 +651,7 @@ skip_generated = true    # default
 format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
+# before =  (not set)    # default
 
 [escape]
 max_level = 3    # default
@@ -1130,6 +1132,7 @@ skip_generated = true    # default
 format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
+# before =  (not set)    # default
 
 [escape]
 max_level = 3    # default
@@ -1610,6 +1613,7 @@ skip_generated = true    # default
 format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
+# before =  (not set)    # default
 
 [escape]
 max_level = 3    # default

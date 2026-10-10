@@ -232,7 +232,7 @@ impl Engine {
         let response = Response {
             detail,
             blocks: BlockOptions {
-                before: context,
+                before: settings.opt_whole(Key::Before).unwrap_or(context),
                 after: context,
             },
             result_id: result_id.as_deref(),

@@ -62,6 +62,7 @@ config.rs  [#1]  lines: 2  matches: 2
 format = "text"
 detail = "lines"
 context = 0
+# before =  (not set)
 ```
 
 ## E80.2 One line of context in a request
@@ -205,6 +206,7 @@ config.rs  [#1]  lines: 2  matches: 2
 format = "text"    # default
 detail = "lines"    # default
 context = 1    # update
+# before =  (not set)    # default
 ```
 
 ## E80.6 An invalid value in a request
@@ -259,6 +261,7 @@ easy-peasy-mcp --config conf/o.toml
 format = "text"    # default
 detail = "lines"    # default
 context = 1    # file: conf/o.toml
+# before =  (not set)    # default
 ```
 
 2. `find`

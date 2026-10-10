@@ -226,6 +226,7 @@ skip_generated = true
 format = "text"
 detail = "lines"
 context = 0
+# before =  (not set)
 
 [escape]
 max_level = 3

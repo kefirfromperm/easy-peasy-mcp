@@ -1,6 +1,6 @@
 # Task 81: `output.before`
 
-Status: not implemented
+Status: implemented, see [81__SUMMARY__OUTPUT_BEFORE.md](81__SUMMARY__OUTPUT_BEFORE.md)
 
 Depends on: task 80
 
