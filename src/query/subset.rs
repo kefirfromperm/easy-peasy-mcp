@@ -117,10 +117,7 @@ mod tests {
     #[test]
     fn other_targets_and_operators() {
         assert_eq!(check_str("size > 1 and size in 1..2"), None);
-        assert_eq!(
-            check_str("git = changed or git in (staged, branch)"),
-            Some(("the value 'branch' is not implemented yet".into(), 33..39))
-        );
+        assert_eq!(check_str("git = changed or git in (staged, branch)"), None);
         assert_eq!(
             check_str("name = 'a' or (path ~ 'b' and text has 'c')"),
             Some(("the target 'text' is not implemented yet".into(), 30..34))

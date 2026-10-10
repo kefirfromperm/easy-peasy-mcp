@@ -312,6 +312,22 @@ mod tests {
     }
 
     #[test]
+    fn branch() {
+        let committed = GitStatus {
+            branch: true,
+            ..GitStatus::default()
+        };
+        assert!(committed.has(GitValue::Branch) && committed.has(GitValue::Clean));
+        assert!(!committed.has(GitValue::Changed));
+        let modified = GitStatus {
+            modified: true,
+            ..GitStatus::default()
+        };
+        assert!(modified.has(GitValue::Branch));
+        assert!(!GitStatus::default().has(GitValue::Branch));
+    }
+
+    #[test]
     fn repositories_are_found_per_file() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
