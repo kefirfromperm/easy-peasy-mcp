@@ -149,6 +149,7 @@ result_cache = 0    # file: conf/c.toml
 
 [traversal]
 min_depth = 0    # default
+# max_depth =  (not set)    # default
 ```
 
 2. `find`

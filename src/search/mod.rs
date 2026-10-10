@@ -39,6 +39,8 @@ pub struct SearchOptions {
     pub threads: usize,
     /// Entries closer to the working directory are not returned; its children are depth 1.
     pub min_depth: usize,
+    /// The walk doesn't descend deeper; `None` — unlimited.
+    pub max_depth: Option<usize>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
     pub read_delay: Option<Duration>,
 }
@@ -184,7 +186,8 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .git_exclude(true)
         .require_git(false)
         .follow_links(false)
-        .threads(options.threads);
+        .threads(options.threads)
+        .max_depth(options.max_depth);
     for name in IGNORE_FILES {
         builder.add_custom_ignore_filename(name);
     }

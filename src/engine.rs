@@ -191,6 +191,7 @@ impl Engine {
             deadline,
             threads: settings.threads,
             min_depth: request.traversal.min_depth.unwrap_or(settings.min_depth),
+            max_depth: request.traversal.max_depth.or(settings.max_depth),
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();

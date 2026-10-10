@@ -206,6 +206,7 @@ result_cache = 50
 
 [traversal]
 min_depth = 0
+# max_depth =  (not set)
 ```
 
 3. `find`
