@@ -1,6 +1,6 @@
 # Task 17: `git` target: working tree statuses
 
-Status: in progress
+Status: implemented, see [17__SUMMARY__GIT_STATUS_TARGET.md](17__SUMMARY__GIT_STATUS_TARGET.md)
 
 Depends on: task 16
 
