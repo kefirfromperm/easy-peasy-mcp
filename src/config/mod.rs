@@ -585,8 +585,12 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
             Entry::Key { section, key, item } if let Some(found) = Key::find(section, key) => {
                 match found.ty().check_toml(item) {
                     Ok(value) => {
-                        values.values.push((found, value));
-                        continue;
+                        if let Some(feature) = found.unimplemented(&value) {
+                            format!("{feature} is not implemented yet")
+                        } else {
+                            values.values.push((found, value));
+                            continue;
+                        }
                     }
                     Err(expected) => format!("invalid value for '{section}.{key}': {expected}"),
                 }
@@ -792,6 +796,9 @@ pub(crate) fn update_config(
                     )
                     .hint(expected)
                 })?;
+                if let Some(feature) = found.unimplemented(&value) {
+                    return Err(Report::not_implemented(&feature));
+                }
                 values.push((found, value));
             }
         }
@@ -1030,6 +1037,13 @@ mod tests {
         );
         assert!(check("[traversal]\nignore_paths = ['~/ignore', 'a']\n").is_ok());
         assert_eq!(
+            error("[traversal]\narchives = 'all'\n"),
+            (
+                2,
+                "the value 'all' of 'traversal.archives' is not implemented yet".into()
+            )
+        );
+        assert_eq!(
             error("[traversal]\nexclude = ['a', '[a-']\n"),
             (
                 2,
@@ -1192,6 +1206,10 @@ mod tests {
         assert_eq!(
             update(&json!({ "set": "output.context = 2" })),
             "error[not_implemented]: the key 'output.context' is not implemented yet\n"
+        );
+        assert_eq!(
+            update(&json!({ "set": "traversal.archives = 'all'" })),
+            "error[not_implemented]: the value 'all' of 'traversal.archives' is not implemented yet\n"
         );
         assert_eq!(
             update(&json!({ "reset": ["languages.rust"] })),

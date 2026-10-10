@@ -153,6 +153,9 @@ fn parse_section(
     for (name, value) in fields {
         if let Some(key) = Key::find(section, name) {
             let checked = key.ty().check_json(&format!("{field}.{name}"), value)?;
+            if let Some(feature) = key.unimplemented(&checked) {
+                return Err(Report::not_implemented(&feature));
+            }
             config.push((key, checked));
         } else if keys.contains(&name.as_str()) {
             return Err(Report::not_implemented(&format!(
@@ -349,8 +352,16 @@ mod tests {
             "error[invalid_option]: 'traversal.fallback_encoding' must be an encoding name like \"windows-1251\"\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "archives": "none" } })),
-            "error[not_implemented]: the field 'traversal.archives' is not implemented yet\n"
+            config(&json!({ "traversal": { "archives": "compressed" } })),
+            [(Key::Archives, KeyValue::Text("compressed".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "archives": "all" } })),
+            "error[not_implemented]: the value 'all' of 'traversal.archives' is not implemented yet\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "max_archive_size": "1G" } })),
+            "error[not_implemented]: the field 'traversal.max_archive_size' is not implemented yet\n"
         );
     }
 

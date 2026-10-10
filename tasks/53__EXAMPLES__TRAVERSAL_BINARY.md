@@ -59,6 +59,7 @@ binary = "skip"
 max_file_size = "10M"
 encoding = "auto"
 # fallback_encoding =  (not set)
+archives = "none"
 ```
 
 ## E53.2 Binary files searched as text
@@ -152,6 +153,7 @@ binary = "search"    # update
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 ## E53.5 An invalid value in a request
@@ -216,6 +218,7 @@ binary = "exclude"    # file: conf/b.toml
 max_file_size = "10M"    # default
 encoding = "auto"    # default
 # fallback_encoding =  (not set)    # default
+archives = "none"    # default
 ```
 
 2. `find`

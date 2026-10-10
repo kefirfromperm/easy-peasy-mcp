@@ -1,6 +1,6 @@
 [package]
 name = "easy-peasy-mcp"
-version = "0.56.0"
+version = "0.57.0"
 edition = "2024"
 rust-version = "1.98"
 description = "Local stdio MCP server: find files and places in files with one query"
@@ -30,6 +30,11 @@ tokio = { version = "1.53.2", features = ["rt-multi-thread", "macros", "io-std",
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
 unicode-normalization = "0.1.25"
+flate2 = "1.1.10"
+bzip2 = "0.6.1"
+ruzstd = "0.9.0"
+lzma-rust2 = { version = "0.21.0", default-features = false, features = ["std", "xz"] }
+lz4_flex = { version = "0.14.0", default-features = false, features = ["std", "safe-decode", "frame"] }
 
 [dev-dependencies]
 filetime = "0.2.29"

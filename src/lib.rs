@@ -4,6 +4,7 @@
 
 mod cache;
 mod comments;
+mod compressed;
 pub mod config;
 mod content;
 mod description;

@@ -14,7 +14,7 @@ use crate::languages::LanguageTable;
 use crate::output::Response;
 use crate::query::{self, ParseOptions};
 use crate::request;
-use crate::search::{self, Binary, SearchOptions};
+use crate::search::{self, Archives, Binary, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
 
 /// Settings of an [`Engine`] which don't come from a request.
@@ -302,6 +302,10 @@ impl Engine {
                     ),
                     _ => None,
                 },
+            },
+            archives: match settings.text(Key::Archives) {
+                "none" => Archives::None,
+                _ => Archives::Compressed,
             },
             max_file_size: settings.size(Key::MaxFileSize),
             read_delay: self.options.read_delay,
