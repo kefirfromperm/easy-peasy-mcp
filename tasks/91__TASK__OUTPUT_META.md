@@ -1,6 +1,6 @@
 # Task 91: `output.meta`
 
-Status: in progress
+Status: implemented, see [91__SUMMARY__OUTPUT_META.md](91__SUMMARY__OUTPUT_META.md)
 
 Depends on: task 79, task 16
 
