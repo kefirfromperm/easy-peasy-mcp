@@ -296,8 +296,12 @@ mod tests {
             [(Key::Markers, KeyValue::List(vec!["<".into(), ">".into()]))]
         );
         assert_eq!(
-            text(&json!({ "output": { "path_fragments": true } })),
-            "error[not_implemented]: the field 'output.path_fragments' is not implemented yet\n"
+            config(&json!({ "output": { "path_fragments": true } })),
+            [(Key::PathFragments, KeyValue::Bool(true))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "path_style": "absolute" } })),
+            "error[not_implemented]: the field 'output.path_style' is not implemented yet\n"
         );
     }
 

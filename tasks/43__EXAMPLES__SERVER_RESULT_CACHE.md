@@ -171,6 +171,7 @@ detail = "lines"    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
+path_fragments = false    # default
 highlight = "auto"    # default
 markers = ['⟦', '⟧']    # default
 dedent = true    # default

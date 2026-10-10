@@ -49,6 +49,20 @@ impl Fuzzy {
     }
 }
 
+impl Fuzzy {
+    /// The character positions of the best alignment of every term, sorted, or `None` when a term doesn't match.
+    pub fn positions(&self, haystack: &str) -> Option<Vec<usize>> {
+        let hay = Haystack::new(haystack, self.path);
+        let mut positions = Vec::new();
+        for term in &self.terms {
+            positions.extend(hay.term_positions(term)?);
+        }
+        positions.sort_unstable();
+        positions.dedup();
+        Some(positions)
+    }
+}
+
 /// A character in lower case, for comparing without case.
 fn lower(c: char) -> char {
     c.to_lowercase().next().unwrap_or(c)
@@ -108,7 +122,46 @@ impl Haystack {
     /// The mean weight of the characters of `term` in their best alignment, or `None` if they don't appear in
     /// order.
     fn term_score(&self, term: &[char]) -> Option<f64> {
+        let rows = self.term_rows(term);
+        let sum = rows.last()?.iter().flatten().copied().reduce(f64::max)?;
+        #[allow(clippy::cast_precision_loss)] // terms are far shorter than 2^52 characters
+        Some(sum / term.len() as f64)
+    }
+
+    /// The character positions of the best alignment of `term`, or `None` if its characters don't appear in order.
+    #[allow(clippy::float_cmp)] // the walk back recomputes the sums of the rows with the same operations
+    fn term_positions(&self, term: &[char]) -> Option<Vec<usize>> {
+        let rows = self.term_rows(term);
+        let last = rows.last()?;
+        let best = last.iter().flatten().copied().reduce(f64::max)?;
+        let mut p = last.iter().position(|s| *s == Some(best))?;
+        let mut positions = vec![p];
+        for i in (1..rows.len()).rev() {
+            let value = rows[i][p]?;
+            let previous = &rows[i - 1];
+            p = (0..p).rev().find(|&q| {
+                let kind = if self.starts[p] {
+                    AT_WORD_START
+                } else if q + 1 == p {
+                    CONSECUTIVE
+                } else if q >= self.word[p] {
+                    SAME_WORD
+                } else {
+                    MID_WORD
+                };
+                previous[q].is_some_and(|s| s + kind * self.factor[p] == value)
+            })?;
+            positions.push(p);
+        }
+        positions.reverse();
+        Some(positions)
+    }
+
+    /// The rows of the alignment: per character of `term` the best sum of the weights of the characters so far with
+    /// this one at every position of the haystack.
+    fn term_rows(&self, term: &[char]) -> Vec<Vec<Option<f64>>> {
         let n = self.chars.len();
+        let mut rows: Vec<Vec<Option<f64>>> = Vec::with_capacity(term.len());
         // best[p]: the best sum of the weights of the term characters so far with the last one at p
         let mut best: Vec<Option<f64>> = vec![None; n];
         for (i, &t) in term.iter().enumerate() {
@@ -155,10 +208,9 @@ impl Haystack {
                     max(max(consecutive, same_word), other_word)
                 })
                 .collect();
+            rows.push(best.clone());
         }
-        let sum = best.into_iter().flatten().reduce(f64::max)?;
-        #[allow(clippy::cast_precision_loss)] // terms are far shorter than 2^52 characters
-        Some(sum / term.len() as f64)
+        rows
     }
 }
 
@@ -230,6 +282,25 @@ mod tests {
         let in_name = path("ab", "x/ab").unwrap();
         let in_dir = path("ab", "ab/x").unwrap();
         assert!(in_name > in_dir);
+    }
+
+    #[test]
+    fn positions_of_the_best_alignment() {
+        let fuzzy = |value: &str| Fuzzy::new(value, false);
+        // r after the dot starts a word, the r of loader doesn't
+        assert_eq!(
+            fuzzy("cfgldr").positions("config_loader.rs"),
+            Some(vec![0, 3, 5, 7, 10, 14])
+        );
+        assert_eq!(
+            fuzzy("load").positions("config_loader.rs"),
+            Some(vec![7, 8, 9, 10])
+        );
+        assert_eq!(
+            fuzzy("cfg rs").positions("config.rs"),
+            Some(vec![0, 3, 5, 7, 8])
+        );
+        assert_eq!(fuzzy("dlc").positions("config_loader.rs"), None);
     }
 
     #[test]

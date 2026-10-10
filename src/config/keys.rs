@@ -34,6 +34,7 @@ pub enum Key {
     Context,
     Before,
     After,
+    PathFragments,
     Highlight,
     Markers,
     Dedent,
@@ -53,7 +54,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 40] = [
+    pub const ALL: [Key; 41] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -79,6 +80,7 @@ impl Key {
         Self::Context,
         Self::Before,
         Self::After,
+        Self::PathFragments,
         Self::Highlight,
         Self::Markers,
         Self::Dedent,
@@ -146,6 +148,7 @@ impl Key {
             Self::After => ("output", "after", Type::OptWhole),
             Self::Dedent => ("output", "dedent", Type::Bool),
             Self::BlankContext => ("output", "blank_context", Type::Bool),
+            Self::PathFragments => ("output", "path_fragments", Type::Bool),
             Self::Highlight => (
                 "output",
                 "highlight",
@@ -184,7 +187,9 @@ impl Key {
             Self::KindsGenerated => list(&crate::search::DEFAULT_GENERATED),
             Self::GeneratedMarkerLines => Value::Whole(crate::search::DEFAULT_MARKER_LINES),
             Self::MaxDepth | Self::FallbackEncoding | Self::Before | Self::After => Value::NotSet,
-            Self::FollowSymlinks | Self::Hidden | Self::BlankContext => Value::Bool(false),
+            Self::FollowSymlinks | Self::Hidden | Self::BlankContext | Self::PathFragments => {
+                Value::Bool(false)
+            }
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
             Self::GitExcludes | Self::SkipGenerated | Self::Dedent | Self::GroupDirs => {
                 Value::Bool(true)

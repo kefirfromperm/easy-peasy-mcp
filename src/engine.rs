@@ -336,6 +336,7 @@ impl Engine {
                 .filter(|base| *base != "auto")
                 .map(str::to_string),
             first_only: false,
+            path_fragments: settings.bool(Key::PathFragments),
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
@@ -430,6 +431,9 @@ fn search_all(
                 .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
                 .map(|mut f| {
                     f.rel = prefix.join(&f.rel);
+                    f.path_fragments = f
+                        .path_fragments
+                        .map(|p| p.shown(prefix, f.member.is_some()));
                     f
                 }),
         );

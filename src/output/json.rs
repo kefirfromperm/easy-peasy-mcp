@@ -9,7 +9,7 @@ use super::lines::{columns, shown_line, starts_in};
 use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
 use crate::query::ast::CondId;
-use crate::search::Found;
+use crate::search::{Found, PathFragments};
 
 /// The version of the JSON response (TOOLS.md#versioning).
 const VERSION: u32 = 1;
@@ -94,6 +94,8 @@ struct File {
     matches: usize,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     conditions: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    path_fragments: Vec<Fragment>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     blocks: Vec<Block>,
 }
@@ -219,6 +221,11 @@ impl Response<'_> {
             lines: found.matches.as_ref().map_or(0, |m| m.lines),
             matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
             conditions: found.conditions.iter().map(ToString::to_string).collect(),
+            path_fragments: found
+                .path_fragments
+                .as_ref()
+                .map(path_fragments)
+                .unwrap_or_default(),
             blocks: match (&found.matches, lines) {
                 (Some(m), Some(fragments)) => {
                     blocks(&m.content, fragments, &self.blocks, self.highlight)
@@ -226,6 +233,28 @@ impl Response<'_> {
                 _ => Vec::new(),
             },
         }
+    }
+}
+
+/// The path fragments with their columns in the path (OUTPUT.md#path-fragments).
+fn path_fragments(path: &PathFragments) -> Vec<Fragment> {
+    let content = Content::from_text(path.path.clone());
+    path.fragments
+        .iter()
+        .filter(|f| starts_in(&content, f, 0))
+        .map(|f| fragment(&content, f, 0))
+        .collect()
+}
+
+/// A fragment which starts in the line `i`.
+fn fragment(content: &Content, f: &super::Fragment, i: usize) -> Fragment {
+    let at = columns(content, f, i);
+    Fragment {
+        col: [at.start, at.end],
+        text: content.text()[f.range.clone()].to_string(),
+        ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
+        escape: f.escape,
+        to: at.to.map(|(n, col)| To { n, col }),
     }
 }
 
@@ -267,16 +296,7 @@ fn json_line(
             fragments
                 .iter()
                 .filter(|f| starts_in(content, f, i))
-                .map(|f| {
-                    let at = columns(content, f, i);
-                    Fragment {
-                        col: [at.start, at.end],
-                        text: content.text()[f.range.clone()].to_string(),
-                        ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
-                        escape: f.escape,
-                        to: at.to.map(|(n, col)| To { n, col }),
-                    }
-                })
+                .map(|f| fragment(content, f, i))
                 .collect()
         } else {
             Vec::new()
@@ -358,6 +378,7 @@ mod tests {
             matches: None,
             encoding: None,
             id: None,
+            path_fragments: None,
         }];
         let text = Response {
             detail: Detail::Lines,

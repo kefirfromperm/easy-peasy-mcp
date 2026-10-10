@@ -329,6 +329,20 @@ Which conditions produce fragments
 Several conditions can match the same text. Overlapping fragments are all reported; identical ones (the same text and
 escape level) are merged into one fragment with all ids.
 
+### Path fragments
+
+With `path_fragments` every listed file (`files` and `lines` detail) gets the fragments of the `path` and `name`
+conditions which made it match. In JSON they are `path_fragments`: `[{ "col": [5, 11], "text": "config", "ids":
+["#1"] }]`, `col` in the characters of `path`. In the text format a line after the file line shows the full path in
+the [highlight](#highlight) style: `  path: src/⟦#1:config⟧.rs` with markers, `  path @ 5..11 #1` with `columns`, no
+line with `none`.
+
+- `=` and `~` match the whole name or path, so the fragment is all of it; `has`, `starts`, `ends`, `=~` and `/n` give
+  every match; `~~` gives every run of matched characters
+- the fragment of a `name` condition is in the name at the end of the path
+- path fragments are not counted as matches; identical ones are merged into one with all ids, overlapping ones are
+  listed one by one in JSON and marked as one part in the text
+
 ### Blocks
 
 Matched lines and their context are grouped into blocks. If the context of two matched lines touches or overlaps, they

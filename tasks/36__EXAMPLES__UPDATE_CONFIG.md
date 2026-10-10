@@ -228,6 +228,7 @@ detail = "lines"
 context = 0
 # before =  (not set)
 # after =  (not set)
+path_fragments = false
 highlight = "auto"
 markers = ['⟦', '⟧']
 dedent = true
