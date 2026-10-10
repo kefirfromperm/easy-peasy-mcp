@@ -206,8 +206,12 @@ The response to this request; all other options are the defaults:
 ```
 
 Empty and default values are omitted: no `truncated`, `truncated_by` and `next_cursor` when nothing was cut, no
-`counts_exact` when the counts are exact, no `warnings` when there are none, etc. `indent` is the indentation removed
-by [dedent](#dedent); `col` refers to the original line.
+`counts_exact` when the counts are exact, no `warnings` when there are none, no `files` and `legend` when nothing
+matches, no `lines`, `matches` and `conditions` of a file when they are 0 or empty, etc. `indent` is the indentation
+removed by [dedent](#dedent); `col` refers to the original line. The document is written without whitespace between
+its tokens (the examples are indented for reading); `legend` lists the ids in the order of the query. A warning is
+`{ "code", "count", "paths" }`, a warning which is not about entries only `{ "code" }`. With `format = "json"` an
+error is the JSON document of [Errors](#errors); `position.col` is 1-based.
 
 ### Text format
 
@@ -306,7 +310,7 @@ A fragment is a matched part of a line, or of several lines for a multiline matc
 | `text`   | the matched text as it is in the file                                                    |
 | `ids`    | the conditions which produced it                                                         |
 | `escape` | the escape level (`0` — unescaped), only for conditions with `/e`                       |
-| `to`     | only for multiline matches: `{ "n": 58, "col": 12 }` — the line and the exclusive end column |
+| `to`     | only for multiline matches: `{ "n": 58, "col": 12 }` — the line and the exclusive end column; `col` of the fragment then ends at the end of its first line, the fragment is in the first line |
 
 Which conditions produce fragments
 
