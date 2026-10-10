@@ -1,6 +1,6 @@
 # Task 108: `output.budget`
 
-Status: in progress
+Status: implemented, see [108__SUMMARY__OUTPUT_BUDGET.md](108__SUMMARY__OUTPUT_BUDGET.md)
 
 Depends on: task 101, task 105, task 98
 
