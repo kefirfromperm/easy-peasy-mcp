@@ -1064,6 +1064,62 @@ mod tests {
     }
 
     #[test]
+    fn line_groups() {
+        assert!(content_matches(
+            "line(text has 'a' and text has 'b')",
+            "a\nab\nb"
+        ));
+        assert!(!content_matches(
+            "line(text has 'a' and text has 'b')",
+            "a\nb"
+        ));
+        assert!(content_matches("line(not text has 'a')", "a\nb"));
+        assert!(!content_matches("line(not text has 'a')", "a\nab"));
+        assert!(content_matches("not line(text has 'x')", "a\nb"));
+        assert!(content_matches("line(text = 'ab')", "x\nab\ny"));
+        assert!(content_matches(
+            "line(text starts 'b' and text ends 'c')",
+            "a\nbxc"
+        ));
+        assert!(content_matches("line(text =~ `^b`)", "a\nb"));
+    }
+
+    fn error(q: &str) -> (ErrorCode, String, Range<usize>, String) {
+        let e = parse(q, &SENSITIVE).unwrap_err();
+        (e.code, e.message, e.span, e.hint.unwrap_or_default())
+    }
+
+    #[test]
+    fn line_group_errors() {
+        assert_eq!(
+            error("line(name ~ '*.rs')"),
+            (
+                ErrorCode::FileTargetInside,
+                "'name' inside line( ... )".into(),
+                5..9,
+                "move 'name' out of line( ... )".into()
+            )
+        );
+        assert_eq!(
+            error("line(text has 'a' and size > 1)").1,
+            "'size' inside line( ... )"
+        );
+        assert_eq!(
+            error("line(line(text has 'a'))"),
+            (
+                ErrorCode::NestedLine,
+                "nested line( ... )".into(),
+                5..9,
+                "line( ... ) can't be nested".into()
+            )
+        );
+        assert_eq!(
+            error("line(near(text has 'a', text has 'b', 1))").3,
+            "line( ... ) can't contain near( ... )"
+        );
+    }
+
+    #[test]
     fn regex_per_line() {
         assert!(content_matches("text =~ `^b$`", "a\nb\nc"));
         assert!(!content_matches("text =~ `a\\s+b`", "a\nb"));
