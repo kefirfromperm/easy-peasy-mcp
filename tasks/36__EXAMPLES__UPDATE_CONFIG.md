@@ -211,6 +211,7 @@ follow_symlinks = false
 hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
+ignore_paths = []
 ```
 
 3. `find`

@@ -49,6 +49,7 @@ follow_symlinks = false
 hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
+ignore_paths = []
 ```
 
 ## E44.2 A minimum depth in the request
@@ -119,6 +120,7 @@ follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 ## E44.4 Invalid values in a request
@@ -199,6 +201,7 @@ follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 2. `find`

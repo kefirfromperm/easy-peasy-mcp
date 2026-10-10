@@ -92,6 +92,7 @@ follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 3. `find`
@@ -146,6 +147,7 @@ follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 2. `update_config`
