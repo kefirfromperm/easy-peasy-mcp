@@ -1,6 +1,6 @@
 # Task 3: `name` with `has`, `starts`, `ends`
 
-Status: in progress
+Status: implemented, see [3__SUMMARY__NAME_OPERATORS.md](3__SUMMARY__NAME_OPERATORS.md)
 
 Depends on: task 1
 
