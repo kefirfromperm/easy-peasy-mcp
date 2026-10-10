@@ -4,8 +4,9 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
+use crate::batch;
 use crate::cache::{CachedFile, CachedResult, ResultCache};
 use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
@@ -164,6 +165,9 @@ impl Engine {
     /// The `find` tool.
     #[must_use]
     pub fn find(&self, arguments: &Value) -> ToolOutput {
+        if arguments.get("queries").is_some() {
+            return self.batch(arguments);
+        }
         match self.try_find(arguments) {
             Ok(text) => ToolOutput {
                 text,
@@ -175,6 +179,81 @@ impl Engine {
             },
             Err(report) => ToolOutput::error(&report),
         }
+    }
+
+    /// A batch request (OUTPUT.md#batch): every query in its section, the budget and `max_output` of the whole
+    /// response split between them; `isError` only when all of them fail.
+    fn batch(&self, arguments: &Value) -> ToolOutput {
+        let shared = batch::shared(arguments);
+        let json = self.json_format(&shared);
+        let fail = |report: &Report| ToolOutput {
+            text: if json {
+                report.to_json()
+            } else {
+                report.to_text()
+            },
+            is_error: true,
+        };
+        let checked = batch::items(arguments).and_then(|items| {
+            let request = request::parse(&shared)?;
+            let settings = self
+                .settings()
+                .with(&request.config, &request.languages)
+                .map_err(|p| p.request_report())?;
+            Ok((items, settings))
+        });
+        let (items, settings) = match checked {
+            Ok(checked) => checked,
+            Err(report) => return fail(&report),
+        };
+        let own = |key: &str| -> Vec<Option<usize>> {
+            items
+                .iter()
+                .map(|item| {
+                    let value = item.get("output")?.get(key)?.as_u64()?;
+                    usize::try_from(value).ok()
+                })
+                .collect()
+        };
+        let mut budget = settings
+            .opt_whole(Key::Budget)
+            .map(|total| batch::Split::new(total, &own("budget")));
+        let mut output = batch::Split::new(settings.whole(Key::MaxOutput), &own("max_output"));
+        let chars_per_token = settings.number(Key::CharsPerToken);
+        let mut sections = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            let parts = (
+                budget.as_mut().map(|b| b.next(index).max(100)),
+                output.next(index).max(100),
+            );
+            let result = batch::item_arguments(&shared, item).and_then(|mut args| {
+                if let Some(object) = args
+                    .as_object_mut()
+                    .and_then(|a| a.entry("output").or_insert(json!({})).as_object_mut())
+                {
+                    object.insert("format".into(), json!(if json { "json" } else { "text" }));
+                    if let Some(budget) = parts.0 {
+                        object.insert("budget".into(), json!(budget));
+                    }
+                    object.insert("max_output".into(), json!(parts.1));
+                }
+                self.try_find(&args)
+            });
+            let used = result.as_ref().map_or(0, |text| text.chars().count());
+            if let Some(budget) = &mut budget {
+                #[allow(
+                    clippy::cast_precision_loss,
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss
+                )]
+                budget.used((used as f64 / chars_per_token).ceil() as usize);
+            }
+            output.used(used);
+            sections.push((batch::label(item, index), result));
+        }
+        let is_error = sections.iter().all(|(_, result)| result.is_err());
+        let text = batch::response(&sections, json);
+        ToolOutput { text, is_error }
     }
 
     /// Whether the response of a request is JSON: its `output.format`, or the format of the session when the request
