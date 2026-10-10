@@ -1,6 +1,6 @@
 # Task 104: Hints for huge results
 
-Status: in progress
+Status: implemented, see [104__SUMMARY__FUNNEL_HINTS_HUGE.md](104__SUMMARY__FUNNEL_HINTS_HUGE.md)
 
 Depends on: task 103, task 15
 
