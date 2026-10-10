@@ -576,15 +576,12 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                 }
             },
             Entry::Key { section, key, item } if let Some(found) = Key::find(section, key) => {
-                match found.ty().from_toml(item) {
-                    Some(value) => {
+                match found.ty().check_toml(item) {
+                    Ok(value) => {
                         values.values.push((found, value));
                         continue;
                     }
-                    None => format!(
-                        "invalid value for '{section}.{key}': {}",
-                        found.ty().expected()
-                    ),
+                    Err(expected) => format!("invalid value for '{section}.{key}': {expected}"),
                 }
             }
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
@@ -781,12 +778,12 @@ pub(crate) fn update_config(
             }
             Entry::Key { section, key, item } => {
                 let found = check_update_key(section, key)?;
-                let value = found.ty().from_toml(item).ok_or_else(|| {
+                let value = found.ty().check_toml(item).map_err(|expected| {
                     Report::new(
                         ErrorCode::InvalidValue,
                         format!("invalid value for '{section}.{key}'"),
                     )
-                    .hint(found.ty().expected())
+                    .hint(expected)
                 })?;
                 values.push((found, value));
             }
@@ -1029,7 +1026,8 @@ mod tests {
             error("[traversal]\nexclude = ['a', '[a-']\n"),
             (
                 2,
-                "invalid value for 'traversal.exclude': invalid wildcard '[a-': unclosed '['".into()
+                "invalid value for 'traversal.exclude': invalid wildcard '[a-': unclosed '['"
+                    .into()
             )
         );
         assert_eq!(
@@ -1126,11 +1124,13 @@ mod tests {
             "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update\n",
             env!("CARGO_PKG_VERSION")
         );
-        assert_eq!(
-            get_config(&settings, &Value::Null).unwrap(),
-            format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\nignore_files = ['.gitignore', '.ignore', '.aiignore']\ngit_excludes = true\nignore_paths = []\n"
-            )
+        // the examples show every section in full; here the start of it
+        let all = get_config(&settings, &Value::Null).unwrap();
+        assert!(
+            all.starts_with(&format!(
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
+            )),
+            "{all}"
         );
         assert_eq!(
             get_config(

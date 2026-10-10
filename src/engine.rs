@@ -212,6 +212,14 @@ impl Engine {
                         .join(config::expand_home(p, self.options.home.as_deref()))
                 })
                 .collect(),
+            exclude: settings
+                .list(Key::Exclude)
+                .iter()
+                .map(|w| {
+                    query::wildcard::compile(&query::nfc(w), NATIVE_CASE_INSENSITIVE)
+                        .expect("the wildcards of exclude are checked with their key")
+                })
+                .collect(),
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();

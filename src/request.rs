@@ -152,12 +152,7 @@ fn parse_section(
     let keys = config::section_keys(section);
     for (name, value) in fields {
         if let Some(key) = Key::find(section, name) {
-            let checked = key.ty().from_json(value).ok_or_else(|| {
-                Report::new(
-                    ErrorCode::InvalidOption,
-                    format!("'{field}.{name}' must be {}", key.ty().must_be()),
-                )
-            })?;
+            let checked = key.ty().check_json(&format!("{field}.{name}"), value)?;
             config.push((key, checked));
         } else if keys.contains(&name.as_str()) {
             return Err(Report::not_implemented(&format!(
@@ -303,10 +298,7 @@ mod tests {
         );
         assert_eq!(
             config(&json!({ "traversal": { "exclude": ["**/target/**"] } })),
-            [(
-                Key::Exclude,
-                KeyValue::List(vec!["**/target/**".into()])
-            )]
+            [(Key::Exclude, KeyValue::List(vec!["**/target/**".into()]))]
         );
         assert_eq!(
             text(&json!({ "traversal": { "exclude": ["a", "[a-"] } })),

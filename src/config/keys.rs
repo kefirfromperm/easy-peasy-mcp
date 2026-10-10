@@ -2,6 +2,9 @@
 
 use std::fmt::Write as _;
 
+use crate::error::{ErrorCode, Report};
+use crate::query::{nfc, wildcard};
+
 /// A key which `update_config` and the request change: every key of the spec except the read-only ones, as far as
 /// it is implemented. The order of the variants is the order of the spec.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -17,11 +20,12 @@ pub enum Key {
     IgnoreFiles,
     GitExcludes,
     IgnorePaths,
+    Exclude,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 11] = [
+    pub const ALL: [Key; 12] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -33,6 +37,7 @@ impl Key {
         Self::IgnoreFiles,
         Self::GitExcludes,
         Self::IgnorePaths,
+        Self::Exclude,
     ];
 
     /// The section, the name and the type.
@@ -53,6 +58,7 @@ impl Key {
             Self::IgnoreFiles => ("traversal", "ignore_files", Type::List("file names")),
             Self::GitExcludes => ("traversal", "git_excludes", Type::Bool),
             Self::IgnorePaths => ("traversal", "ignore_paths", Type::List("paths")),
+            Self::Exclude => ("traversal", "exclude", Type::Wildcards),
         }
     }
 
@@ -69,7 +75,7 @@ impl Key {
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
             Self::GitExcludes => Value::Bool(true),
-            Self::IgnorePaths => list(&[]),
+            Self::IgnorePaths | Self::Exclude => list(&[]),
         }
     }
 
@@ -115,6 +121,8 @@ pub enum Type {
     List(&'static str),
     /// A non-empty list of strings; what they are, e.g. `paths`.
     NonEmptyList(&'static str),
+    /// A list of wildcards, matched like `path ~`.
+    Wildcards,
 }
 
 impl Type {
@@ -129,6 +137,7 @@ impl Type {
             Self::Duration => "a duration like \"30s\" is expected (units ms, s, m)".to_string(),
             Self::List(what) => format!("a list of {what} is expected"),
             Self::NonEmptyList(what) => format!("a non-empty list of {what} is expected"),
+            Self::Wildcards => "a list of wildcards is expected".to_string(),
         }
     }
 
@@ -139,13 +148,59 @@ impl Type {
             Self::Bool => "true or false",
             Self::Whole(_) | Self::OptWhole => "a whole number",
             Self::Duration => "a duration like \"10s\" (units ms, s, m)",
-            Self::List(_) => "a list of strings",
+            Self::List(_) | Self::Wildcards => "a list of strings",
             Self::NonEmptyList(_) => "a non-empty list of strings",
         }
     }
 
-    /// The value of a TOML item, if it has this type.
-    pub fn from_toml(self, item: &toml_edit::Item) -> Option<Value> {
+    /// The value of a TOML item of the config file or of `update_config`; the error is what the value must be, the
+    /// end of `invalid value for '...': ...` and the hint of `invalid_value`.
+    ///
+    /// # Errors
+    ///
+    /// The item doesn't have this type or is an invalid value of it.
+    pub fn check_toml(self, item: &toml_edit::Item) -> Result<Value, String> {
+        let value = self.parse_toml(item).ok_or_else(|| self.expected())?;
+        self.validate(&value).map_err(|p| p.expected())?;
+        Ok(value)
+    }
+
+    /// The value of a field of a request; `name` is the field as written in errors, e.g. `traversal.exclude`.
+    ///
+    /// # Errors
+    ///
+    /// `invalid_option`: the value doesn't have this type or is an invalid value of it.
+    pub fn check_json(self, name: &str, value: &serde_json::Value) -> Result<Value, Report> {
+        let checked = self.parse_json(value).ok_or_else(|| {
+            Report::new(
+                ErrorCode::InvalidOption,
+                format!("'{name}' must be {}", self.must_be()),
+            )
+        })?;
+        self.validate(&checked).map_err(|p| p.report(name))?;
+        Ok(checked)
+    }
+
+    /// Checks a value of the right shape.
+    fn validate(self, value: &Value) -> Result<(), Problem> {
+        match (self, value) {
+            (Self::Wildcards, Value::List(items)) => {
+                for item in items {
+                    if let Err(e) = wildcard::compile(&nfc(item), false) {
+                        return Err(Problem::Wildcard {
+                            wildcard: item.clone(),
+                            hint: e.0,
+                        });
+                    }
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// The value of a TOML item, if it has the shape of this type.
+    fn parse_toml(self, item: &toml_edit::Item) -> Option<Value> {
         match self {
             Self::Bool => item.as_bool().map(Value::Bool),
             Self::Whole(_) | Self::OptWhole => item
@@ -156,15 +211,15 @@ impl Type {
                 .as_str()
                 .filter(|t| super::parse_duration(t).is_some())
                 .map(|t| Value::Text(t.to_string())),
-            Self::List(_) => toml_strings(item).map(Value::List),
+            Self::List(_) | Self::Wildcards => toml_strings(item).map(Value::List),
             Self::NonEmptyList(_) => toml_strings(item)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
         }
     }
 
-    /// The value of a JSON value of a request, if it has this type.
-    pub fn from_json(self, value: &serde_json::Value) -> Option<Value> {
+    /// The value of a JSON value of a request, if it has the shape of this type.
+    fn parse_json(self, value: &serde_json::Value) -> Option<Value> {
         match self {
             Self::Bool => value.as_bool().map(Value::Bool),
             Self::Whole(_) | Self::OptWhole => value
@@ -175,10 +230,36 @@ impl Type {
                 .as_str()
                 .filter(|t| super::parse_duration(t).is_some())
                 .map(|t| Value::Text(t.to_string())),
-            Self::List(_) => json_strings(value).map(Value::List),
+            Self::List(_) | Self::Wildcards => json_strings(value).map(Value::List),
             Self::NonEmptyList(_) => json_strings(value)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
+        }
+    }
+}
+
+/// What is wrong with a value of the right shape.
+enum Problem {
+    /// An invalid wildcard and the hint of `invalid_wildcard`.
+    Wildcard { wildcard: String, hint: String },
+}
+
+impl Problem {
+    /// The problem in the config file and in `update_config`.
+    fn expected(&self) -> String {
+        match self {
+            Self::Wildcard { wildcard, hint } => format!("invalid wildcard '{wildcard}': {hint}"),
+        }
+    }
+
+    /// The problem in the field `name` of a request.
+    fn report(&self, name: &str) -> Report {
+        match self {
+            Self::Wildcard { wildcard, hint } => Report::new(
+                ErrorCode::InvalidOption,
+                format!("invalid wildcard '{wildcard}' in '{name}'"),
+            )
+            .hint(hint.clone()),
         }
     }
 }
@@ -304,29 +385,47 @@ mod tests {
             let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
             doc.as_table()["x"].clone()
         };
-        assert_eq!(Type::Bool.from_toml(&item("true")), Some(Value::Bool(true)));
-        assert_eq!(Type::Bool.from_toml(&item("1")), None);
-        assert_eq!(Type::OptWhole.from_toml(&item("-1")), None);
         assert_eq!(
-            Type::Duration.from_toml(&item("\"2m\"")),
+            Type::Bool.parse_toml(&item("true")),
+            Some(Value::Bool(true))
+        );
+        assert_eq!(Type::Bool.parse_toml(&item("1")), None);
+        assert_eq!(Type::OptWhole.parse_toml(&item("-1")), None);
+        assert_eq!(
+            Type::Duration.parse_toml(&item("\"2m\"")),
             Some(Value::Text("2m".into()))
         );
-        assert_eq!(Type::Duration.from_toml(&item("\"2h\"")), None);
-        assert_eq!(Type::NonEmptyList("paths").from_toml(&item("[]")), None);
+        assert_eq!(Type::Duration.parse_toml(&item("\"2h\"")), None);
+        assert_eq!(Type::NonEmptyList("paths").parse_toml(&item("[]")), None);
         assert_eq!(
-            Type::List("paths").from_toml(&item("[]")),
+            Type::List("paths").parse_toml(&item("[]")),
             Some(Value::List(vec![]))
         );
         assert_eq!(
-            Type::Whole(None).from_json(&json!(2)),
+            Type::Whole(None).parse_json(&json!(2)),
             Some(Value::Whole(2))
         );
-        assert_eq!(Type::Whole(None).from_json(&json!(1.5)), None);
-        assert_eq!(Type::List("paths").from_json(&json!(["a", 1])), None);
+        assert_eq!(Type::Whole(None).parse_json(&json!(1.5)), None);
+        assert_eq!(Type::List("paths").parse_json(&json!(["a", 1])), None);
         assert_eq!(
             Type::Whole(Some("0: off")).expected(),
             "a whole number is expected (0: off)"
         );
         assert_eq!(Type::List("paths").must_be(), "a list of strings");
+        assert_eq!(
+            Type::Wildcards.check_toml(&item("['**/a/**', '[a-']")),
+            Err("invalid wildcard '[a-': unclosed '['".into())
+        );
+        assert_eq!(
+            Type::Wildcards.check_toml(&item("'a'")),
+            Err("a list of wildcards is expected".into())
+        );
+        assert_eq!(
+            Type::Wildcards
+                .check_json("traversal.exclude", &json!(["{a"]))
+                .unwrap_err()
+                .to_text(),
+            "error[invalid_option]: invalid wildcard '{a' in 'traversal.exclude'\n  hint: unclosed '{'\n"
+        );
     }
 }

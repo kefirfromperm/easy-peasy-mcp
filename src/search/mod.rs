@@ -49,6 +49,8 @@ pub struct SearchOptions {
     pub git_excludes: bool,
     /// Ignore files applied as if they were in the working directory, with the lowest priority; a later one wins.
     pub ignore_paths: Vec<PathBuf>,
+    /// Wildcards of the paths which are never walked, compiled like `path ~`.
+    pub exclude: Vec<regex::Regex>,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -199,12 +201,17 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .threads(options.threads)
         .max_depth(options.max_depth);
     let outside: std::sync::Arc<Mutex<Vec<(PathBuf, bool)>>> = std::sync::Arc::default();
-    if options.follow_symlinks {
+    if options.follow_symlinks || !options.exclude.is_empty() {
         let roots = std::sync::Arc::clone(&options.allowed_roots);
         let outside = std::sync::Arc::clone(&outside);
         let base = root.to_path_buf();
+        let follow = options.follow_symlinks;
+        let exclude = options.exclude.clone();
         builder.filter_entry(move |entry| {
-            if !entry.path_is_symlink() {
+            if is_excluded(&exclude, &base, entry) {
+                return false;
+            }
+            if !follow || !entry.path_is_symlink() {
                 return true;
             }
             let target = std::fs::canonicalize(entry.path());
@@ -556,6 +563,30 @@ impl Walk<'_> {
     }
 }
 
+/// Whether an entry under `base` is excluded: a wildcard matches its relative `/` path, or for a directory the path
+/// followed by `/`.
+fn is_excluded(exclude: &[regex::Regex], base: &Path, entry: &ignore::DirEntry) -> bool {
+    if exclude.is_empty() {
+        return false;
+    }
+    let Ok(rel) = entry.path().strip_prefix(base) else {
+        return false;
+    };
+    if rel.as_os_str().is_empty() {
+        return false;
+    }
+    let path = nfc(&slash_path(rel));
+    let is_dir = entry.file_type().is_some_and(|t| t.is_dir());
+    excluded(exclude, &path, is_dir)
+}
+
+/// Whether a relative `/` path is excluded; a directory also by its path followed by `/`.
+fn excluded(exclude: &[regex::Regex], path: &str, is_dir: bool) -> bool {
+    exclude
+        .iter()
+        .any(|r| r.is_match(path) || (is_dir && r.is_match(&format!("{path}/"))))
+}
+
 /// The path of a walker error, through its wrappers.
 fn error_path(err: &ignore::Error) -> Option<&Path> {
     match err {
@@ -674,6 +705,23 @@ mod tests {
         };
         assert_eq!(error_path(&nested), Some(Path::new("/r/a")));
         assert_eq!(error_path(&ignore::Error::Io(io())), None);
+    }
+
+    #[test]
+    fn excluded_paths_and_directories() {
+        let compile = |w: &str| crate::query::wildcard::compile(w, false).unwrap();
+        let every = [compile("**/target/**")];
+        assert!(excluded(&every, "target", true));
+        assert!(excluded(&every, "a/target", true));
+        assert!(excluded(&every, "a/target/x.rs", false));
+        assert!(!excluded(&every, "target", false));
+        assert!(!excluded(&every, "targets", true));
+        let top = [compile("target/**")];
+        assert!(excluded(&top, "target", true));
+        assert!(!excluded(&top, "a/target", true));
+        let file = [compile("*.lock")];
+        assert!(excluded(&file, "Cargo.lock", false));
+        assert!(!excluded(&file, "a/Cargo.lock", false));
     }
 
     #[test]
