@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::{
-    DEFAULT_DOC, DEFAULT_GENERATED, DEFAULT_MARKER_LINES, DEFAULT_MARKERS, DEFAULT_TEST,
-    KindOptions, KindRules,
+    DEFAULT_CONFIG, DEFAULT_DOC, DEFAULT_GENERATED, DEFAULT_MARKER_LINES, DEFAULT_MARKERS,
+    DEFAULT_TEST, KindOptions, KindRules,
 };
 
 use crate::archive::{ArchiveKind, Member, for_each_member};

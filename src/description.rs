@@ -132,7 +132,8 @@ pub fn find_schema() -> Value {
                     "generated_marker_lines": { "type": "integer", "minimum": 1, "description": "How many first lines are checked for the markers. Default: 5." },
                     "generated": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of generated files (matched like path ~). Default: lock files, *.min.js, *.pb.go, ..." },
                     "test": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of tests (matched like path ~). Default: **/test/**, **/tests/**, **/*_test.*, ..." },
-                    "doc": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of documentation (matched like path ~). Default: **/*.md, **/README*, **/docs/**, ..." }
+                    "doc": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of documentation (matched like path ~). Default: **/*.md, **/README*, **/docs/**, ..." },
+                    "config": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of configuration (matched like path ~). Default: **/*.toml, **/*.yaml, **/Dockerfile, ..." }
                 }
             }
         }

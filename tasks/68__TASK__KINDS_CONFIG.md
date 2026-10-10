@@ -1,6 +1,6 @@
 # Task 68: `kinds.config`
 
-Status: not implemented
+Status: implemented, see [68__SUMMARY__KINDS_CONFIG.md](68__SUMMARY__KINDS_CONFIG.md)
 
 Depends on: task 63
 
