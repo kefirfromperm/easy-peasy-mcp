@@ -224,6 +224,7 @@ skip_generated = true
 
 [output]
 format = "text"
+detail = "lines"
 
 [escape]
 max_level = 3
