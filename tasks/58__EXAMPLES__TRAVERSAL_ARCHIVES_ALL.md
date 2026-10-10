@@ -203,7 +203,7 @@ logs/a.jar!/inner/
 jar.log  [#1]  lines: 1  matches: 1
 2:⟦#1:jar request⟧ req-7f3a9c done
 
-warning: binary_skipped (10): logs/a.7z, logs/a.jar, logs/a.tar, … 7 more
+warning: binary_skipped (9): logs/a.7z, logs/a.jar, logs/a.tar, … 6 more
 warning: archive_error (1): logs/broken.zip
 ```
 
