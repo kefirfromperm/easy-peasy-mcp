@@ -16,6 +16,7 @@ mod languages;
 pub mod mcp;
 mod output;
 mod query;
+mod relevance;
 mod request;
 mod search;
 mod warning;
