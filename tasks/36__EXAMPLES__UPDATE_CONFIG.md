@@ -235,6 +235,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 
 [escape]
 max_level = 3

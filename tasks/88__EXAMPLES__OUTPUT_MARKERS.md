@@ -62,6 +62,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 ```
 
 ## E88.2 Other markers in a request
@@ -272,6 +273,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 ## E88.8 Invalid values in a request
@@ -343,6 +345,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 2. `find`

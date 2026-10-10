@@ -71,6 +71,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 ```
 
 ## E80.2 One line of context in a request
@@ -223,6 +224,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 ## E80.6 An invalid value in a request
@@ -286,6 +288,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 ```
 
 2. `find`

@@ -286,15 +286,20 @@ impl Response<'_> {
 }
 
 /// The parts of a path to join with the separator: `..` kept, `.` dropped, an empty first part for the root of an
-/// absolute path.
+/// absolute path, the prefix of a Windows path (`C:`) as its first part.
 fn path_parts(path: &Path) -> Vec<String> {
+    let mut prefixed = false;
     path.components()
         .filter_map(|c| match c {
             Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
             Component::ParentDir => Some("..".to_string()),
             Component::CurDir => None,
-            Component::RootDir => Some(String::new()),
-            Component::Prefix(p) => Some(p.as_os_str().to_string_lossy().into_owned()),
+            // after a prefix (`C:`) the root is the separator which joins them
+            Component::RootDir => (!prefixed).then(String::new),
+            Component::Prefix(p) => {
+                prefixed = true;
+                Some(p.as_os_str().to_string_lossy().into_owned())
+            }
         })
         .collect()
 }
@@ -558,6 +563,20 @@ mod tests {
         );
         assert!(!response(Highlight::Markers("<", ">")).contains("warning"));
         assert!(!response(Highlight::Columns).contains("warning"));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn absolute_paths() {
+        assert_eq!(display_path(Path::new("/tmp/x/a.rs"), false), "/tmp/x/a.rs");
+        assert_eq!(
+            split(Path::new("/tmp/a.rs")),
+            ("/tmp/".to_string(), "a.rs".to_string())
+        );
+        assert_eq!(
+            split(Path::new("/a.rs")),
+            ("/".to_string(), "a.rs".to_string())
+        );
     }
 
     #[test]

@@ -63,6 +63,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 
 [escape]
 max_level = 3
@@ -574,6 +575,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+path_style = "relative"    # default
 
 [escape]
 max_level = 3    # default

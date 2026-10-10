@@ -62,6 +62,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+path_style = "relative"
 ```
 
 ## E86.2 Off in a request
@@ -222,6 +223,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 0    # update
+path_style = "relative"    # default
 ```
 
 ## E86.7 An invalid value in a request
@@ -285,6 +287,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 0    # file: conf/o.toml
+path_style = "relative"    # default
 ```
 
 2. `find`

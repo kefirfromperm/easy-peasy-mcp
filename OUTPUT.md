@@ -144,7 +144,9 @@ Per file
 - `relative`: relative to the working directory. With several working directories the directory is written before
   the path as it was given in the request: `dirs: ["../api", "../web"]` → `../api/src/main.rs`, `../web/src/app.ts`.
   The working directory `.` is omitted: `src/main.rs`.
-- `absolute`: the full canonical path.
+- `absolute`: the full canonical path: the canonical working directory (symlinks resolved, without the `\\?\`
+  prefix on Windows) and the path inside it, a symlink inside it not resolved. The paths of the warnings and the
+  directory headers of the text format are absolute too.
 - Paths are written in the native form of the platform: `src/main.rs` on Linux and macOS, `src\main.rs` on Windows.
 - A directory is written with a trailing separator: `src/parser/`; in a directory group its line is `parser/`. A
   symlink is written as the link itself, its target is not shown.

@@ -41,6 +41,7 @@ pub enum Key {
     BlankContext,
     GroupDirs,
     GroupRepeated,
+    PathStyle,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -54,7 +55,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 41] = [
+    pub const ALL: [Key; 42] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -87,6 +88,7 @@ impl Key {
         Self::BlankContext,
         Self::GroupDirs,
         Self::GroupRepeated,
+        Self::PathStyle,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -157,6 +159,11 @@ impl Key {
             Self::Markers => ("output", "markers", Type::Markers),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
+            Self::PathStyle => (
+                "output",
+                "path_style",
+                Type::Choice(&["relative", "absolute"]),
+            ),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -202,6 +209,7 @@ impl Key {
             Self::Encoding | Self::Base | Self::Highlight => Value::Text("auto".to_string()),
             Self::Archives => Value::Text("none".to_string()),
             Self::Format => Value::Text("text".to_string()),
+            Self::PathStyle => Value::Text("relative".to_string()),
             Self::Detail => Value::Text("lines".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
