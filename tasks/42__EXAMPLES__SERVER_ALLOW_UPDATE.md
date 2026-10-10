@@ -117,6 +117,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+sort = "relevance"    # default
 path_style = "relative"    # default
 
 [escape]
@@ -624,6 +625,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+sort = "relevance"    # default
 path_style = "relative"    # default
 
 [escape]

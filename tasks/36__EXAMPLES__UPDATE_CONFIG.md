@@ -236,6 +236,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+sort = "relevance"
 path_style = "relative"
 
 [escape]
