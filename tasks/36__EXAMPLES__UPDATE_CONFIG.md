@@ -235,6 +235,9 @@ generated = ['**/*.lock', '**/package-lock.json', '**/pnpm-lock.yaml', '**/*.min
 test = ['**/test/**', '**/tests/**', '**/__tests__/**', '**/spec/**', '**/*_test.*', '**/test_*.py', '**/*.test.*', '**/*.spec.*', '**/*Test.java', '**/*Tests.cs']
 doc = ['**/*.md', '**/*.rst', '**/*.adoc', '**/README*', '**/LICENSE*', '**/CHANGELOG*', '**/docs/**']
 config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.conf', '**/*.properties', '**/*.env', '**/package.json', '**/tsconfig*.json', '**/*.config.json', '**/*.config.js', '**/*.config.ts', '**/Dockerfile', '**/Makefile', '**/CMakeLists.txt', '**/requirements*.txt', '**/.github/**', '**/.gitlab-ci.yml']
+
+[git]
+base = "auto"
 ```
 
 3. `find`

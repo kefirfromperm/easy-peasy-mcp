@@ -730,6 +730,7 @@ Problems which don't make the request fail: the response is returned and lists t
 | `timeout`              | the search was stopped by the timeout                                      |
 | `results_changed`      | the totals differ from the ones in the cursor, files changed between pages |
 | `not_a_git_repo`       | the query has `git` conditions, but a file is outside of a repository      |
+| `git_base_not_found`   | `git.base` doesn't exist in the repository of a file: `git = branch` is `changed` there |
 
 Unreadable entries (`permission_denied`): a directory which can't be listed is skipped with everything below it, also
 by `type = dir`; a file which can't be opened is skipped when the server opens it — for its content when the other

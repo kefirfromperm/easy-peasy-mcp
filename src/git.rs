@@ -84,6 +84,8 @@ struct Repo {
     root: PathBuf,
     statuses: HashMap<String, GitStatus>,
     tracked: HashSet<String>,
+    /// Whether the base set by name doesn't exist in the repository.
+    base_missing: bool,
 }
 
 /// The repositories found during one search, cached per directory.
@@ -91,16 +93,33 @@ struct Repo {
 pub struct GitIndex {
     /// Without the global and system git configuration (tests).
     isolated: bool,
+    /// The base of `git = branch`; `None` — `auto`.
+    base: Option<String>,
     by_dir: Mutex<HashMap<PathBuf, Option<Arc<Repo>>>>,
 }
 
 impl GitIndex {
-    /// An empty index; `isolated` runs git without the global and system configuration.
-    pub fn new(isolated: bool) -> Self {
+    /// An empty index; `isolated` runs git without the global and system configuration; `base` is the base of
+    /// `git = branch`, `None` for `auto`.
+    pub fn new(isolated: bool, base: Option<String>) -> Self {
         Self {
             isolated,
+            base,
             by_dir: Mutex::default(),
         }
+    }
+
+    /// Whether the base set by name doesn't exist in the repository of the file at `path`.
+    pub fn base_missing(&self, path: &Path) -> bool {
+        let Some(dir) = path.parent() else {
+            return false;
+        };
+        self.by_dir
+            .lock()
+            .expect("no thread panics while holding the lock")
+            .get(dir)
+            .and_then(Option::as_ref)
+            .is_some_and(|repo| repo.base_missing)
     }
 
     /// The status of the file at the absolute `path`, `None` outside of a repository. A file which is neither
@@ -183,11 +202,13 @@ impl GitIndex {
         )?;
         let tracked = self.git(root, &["ls-files", "-z"])?;
         let mut statuses = parse_status(&status);
-        for path in self.branch_files(root) {
-            statuses.entry(path).or_default().branch = true;
+        let branch = self.branch_files(root);
+        for path in branch.iter().flatten() {
+            statuses.entry(path.clone()).or_default().branch = true;
         }
         Some(Repo {
             root: root.to_path_buf(),
+            base_missing: branch.is_none(),
             statuses,
             tracked: tracked
                 .split(|b| *b == 0)
@@ -199,17 +220,27 @@ impl GitIndex {
 }
 
 impl GitIndex {
-    /// The files changed by the commits between the merge base of the base branch (`auto`: `origin/HEAD`, `main`,
-    /// `master`) and `HEAD`; empty without a base or on the base branch itself.
-    fn branch_files(&self, root: &Path) -> Vec<String> {
-        let Some(base) = ["origin/HEAD", "main", "master"].into_iter().find(|base| {
-            self.git(root, &["rev-parse", "--verify", "-q", base])
-                .is_some()
-        }) else {
-            return Vec::new();
+    /// The files changed by the commits between the merge base of the base (`auto`: `origin/HEAD`, `main`,
+    /// `master`) and `HEAD`; empty without a base of `auto` or on the base branch itself; `None` when a base set by
+    /// name doesn't exist.
+    fn branch_files(&self, root: &Path) -> Option<Vec<String>> {
+        let base = if let Some(base) = &self.base {
+            self.git(
+                root,
+                &["rev-parse", "--verify", "-q", &format!("{base}^{{commit}}")],
+            )?;
+            base.as_str()
+        } else {
+            let Some(base) = ["origin/HEAD", "main", "master"].into_iter().find(|base| {
+                self.git(root, &["rev-parse", "--verify", "-q", base])
+                    .is_some()
+            }) else {
+                return Some(Vec::new());
+            };
+            base
         };
         let Some(merge_base) = self.git(root, &["merge-base", base, "HEAD"]) else {
-            return Vec::new();
+            return Some(Vec::new());
         };
         let merge_base = String::from_utf8_lossy(&merge_base).trim().to_string();
         self.git(
@@ -229,7 +260,7 @@ impl GitIndex {
                 .map(|p| String::from_utf8_lossy(p).into_owned())
                 .collect()
         })
-        .unwrap_or_default()
+        .or(Some(Vec::new()))
     }
 }
 

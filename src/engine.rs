@@ -314,6 +314,9 @@ impl Engine {
             max_file_size: settings.size(Key::MaxFileSize),
             max_archive_size: settings.size(Key::MaxArchiveSize),
             skip_generated: settings.bool(Key::SkipGenerated),
+            git_base: Some(settings.text(Key::Base))
+                .filter(|base| *base != "auto")
+                .map(str::to_string),
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),

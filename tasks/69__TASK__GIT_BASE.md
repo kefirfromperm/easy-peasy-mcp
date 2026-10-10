@@ -1,6 +1,6 @@
 # Task 69: `git.base`
 
-Status: not implemented
+Status: implemented, see [69__SUMMARY__GIT_BASE.md](69__SUMMARY__GIT_BASE.md)
 
 Depends on: task 18, task 36
 
