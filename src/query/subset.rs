@@ -114,10 +114,16 @@ mod tests {
     fn other_targets_and_operators() {
         assert_eq!(check_str("size > 1 and size in 1..2"), None);
         assert_eq!(check_str("git = changed or git in (staged, branch)"), None);
-        assert_eq!(check_str("name = 'a' or (path ~ 'b' and text has 'c' /i)"), None);
+        assert_eq!(
+            check_str("name = 'a' or (path ~ 'b' and text has 'c' /i)"),
+            None
+        );
         assert_eq!(
             check_str("name = 'a' or (path ~ 'b' and text starts 'c')"),
-            Some(("the operator 'starts' is not implemented yet".into(), 35..41))
+            Some((
+                "the operator 'starts' is not implemented yet".into(),
+                35..41
+            ))
         );
         assert_eq!(
             check_str("name = 'a' and name =~ 'a'"),
