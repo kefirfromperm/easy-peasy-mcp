@@ -1,6 +1,6 @@
 # Task 8: Comments in the query
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 6
 
