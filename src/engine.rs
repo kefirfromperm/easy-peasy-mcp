@@ -13,7 +13,7 @@ use crate::languages::LanguageTable;
 use crate::output::Response;
 use crate::query::{self, ParseOptions};
 use crate::request;
-use crate::search::{self, SearchOptions};
+use crate::search::{self, Binary, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
 
 /// Settings of an [`Engine`] which don't come from a request.
@@ -280,6 +280,11 @@ impl Engine {
                         .expect("the wildcards of exclude are checked with their key")
                 })
                 .collect(),
+            binary: match settings.text(Key::Binary) {
+                "search" => Binary::Search,
+                "exclude" => Binary::Exclude,
+                _ => Binary::Skip,
+            },
             read_delay: self.options.read_delay,
         }
     }

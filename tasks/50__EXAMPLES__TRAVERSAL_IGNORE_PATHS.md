@@ -59,6 +59,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E50.2 An extra ignore file in the request
@@ -164,6 +165,7 @@ git_excludes = true    # default
 ignore_paths = ['conf/personal.ignore']    # update
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E50.6 An invalid value in a request
@@ -224,6 +226,7 @@ git_excludes = true    # default
 ignore_paths = ['conf/personal.ignore']    # file: conf/p.toml
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 2. `find`

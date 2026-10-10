@@ -55,6 +55,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E52.2 Case-insensitive in a request
@@ -173,6 +174,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "insensitive"    # update
+binary = "skip"    # default
 ```
 
 ## E52.7 An invalid value in a request
@@ -233,6 +235,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "insensitive"    # file: conf/c.toml
+binary = "skip"    # default
 ```
 
 2. `find`

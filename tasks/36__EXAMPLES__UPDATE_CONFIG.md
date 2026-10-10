@@ -214,6 +214,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 3. `find`

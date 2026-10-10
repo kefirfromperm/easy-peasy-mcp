@@ -58,6 +58,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E51.2 Every `target` directory
@@ -177,6 +178,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = ['**/target/**']    # update
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E51.6 An invalid value in a request
@@ -263,6 +265,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = ['**/target/**']    # file: conf/e.toml
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 2. `find`

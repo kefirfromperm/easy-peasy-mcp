@@ -52,6 +52,7 @@ git_excludes = true
 ignore_paths = []
 exclude = []
 path_case = "native"
+binary = "skip"
 ```
 
 ## E44.2 A minimum depth in the request
@@ -125,6 +126,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 ## E44.4 Invalid values in a request
@@ -208,6 +210,7 @@ git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
 path_case = "native"    # default
+binary = "skip"    # default
 ```
 
 2. `find`

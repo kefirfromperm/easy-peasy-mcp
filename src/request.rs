@@ -317,8 +317,16 @@ mod tests {
             "error[invalid_option]: 'traversal.path_case' must be one of: native, sensitive, insensitive\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "binary": "skip" } })),
-            "error[not_implemented]: the field 'traversal.binary' is not implemented yet\n"
+            config(&json!({ "traversal": { "binary": "exclude" } })),
+            [(Key::Binary, KeyValue::Text("exclude".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "binary": "text" } })),
+            "error[invalid_option]: 'traversal.binary' must be one of: skip, search, exclude\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "max_file_size": "1M" } })),
+            "error[not_implemented]: the field 'traversal.max_file_size' is not implemented yet\n"
         );
     }
 
