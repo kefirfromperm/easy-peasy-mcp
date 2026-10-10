@@ -181,6 +181,18 @@ mod tests {
     }
 
     #[test]
+    fn archive_warnings_in_the_order_of_the_table() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::ArchiveTooBig, PathBuf::from("b.zip"), false);
+        w.add(WarningCode::ArchiveError, PathBuf::from("a.zip"), false);
+        w.add(WarningCode::DateUnsupported, PathBuf::from("c"), false);
+        assert_eq!(
+            w.to_text(),
+            "warning: archive_error (1): a.zip\nwarning: archive_too_big (1): b.zip\nwarning: date_unsupported (1): c\n"
+        );
+    }
+
+    #[test]
     fn permission_denied_comes_first() {
         let mut w = Warnings::default();
         w.add(WarningCode::BinarySkipped, PathBuf::from("b"), false);

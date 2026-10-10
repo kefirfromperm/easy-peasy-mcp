@@ -360,8 +360,12 @@ mod tests {
             [(Key::Archives, KeyValue::Text("all".into()))]
         );
         assert_eq!(
-            text(&json!({ "traversal": { "max_archive_size": "1G" } })),
-            "error[not_implemented]: the field 'traversal.max_archive_size' is not implemented yet\n"
+            config(&json!({ "traversal": { "max_archive_size": "1G" } })),
+            [(Key::MaxArchiveSize, KeyValue::Text("1G".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "skip_generated": false } })),
+            "error[not_implemented]: the field 'traversal.skip_generated' is not implemented yet\n"
         );
     }
 
