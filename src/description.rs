@@ -6,217 +6,185 @@ use serde_json::{Value, json};
 pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Call get_config first to learn allowed roots and \
 defaults. Spec version 1.";
 
-/// The description of the `find` tool: the cheat sheet of TOOLS.md#description for the implemented subset.
-pub const FIND_DESCRIPTION: &str = "\
-Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
+/// The description of the `find` tool: the cheat sheet of TOOLS.md#find.
+pub const FIND_DESCRIPTION: &str = r#"Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
 Call get_config once first to learn the allowed roots and defaults.
-\"dirs\": [\"src\", \"../api\"] sets the working directories (default server.default_dirs); paths are relative to
-them, with the directory first when it is not \".\". \"timeout\": \"10s\" limits the search (default server.timeout, 30s):
-the files found so far are returned with \"truncated: yes (timeout)\". \"traversal\": {\"min_depth\": 2, \"max_depth\": 3} skips the
-entries directly in the working directory and doesn't descend deeper than 3 (defaults traversal.min_depth, max_depth);
-\"follow_symlinks\": true follows symlinks (a symlinked file is then type file and link); \"hidden\": true includes hidden
-entries; \"exclude\": [\"**/target/**\"] never walks these paths (wildcards like path ~), much faster than not path ~;
-\"path_case\": \"insensitive\" compares paths and names case-insensitively (default native: sensitive on Linux only).
 
-QUERY: conditions on the name, path, type, size, dates, language, kind, git status and content joined with not, and, xor, or (this precedence) and brackets.
-Empty query = all files.
-  name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
-  name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
-                                 [*] [?] [[] [{] match the character itself
-  path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
-  path starts 'docs/'            =, has, starts, ends, =~ (regex) work on paths and names too
-  name ~~ 'cfgldr'               fuzzy, like fzf: the characters in order, case-insensitive; space separated terms
-                                 must all match (path ~~ 'srv hndl'); weak matches (score below
-                                 query_options.fuzzy_min_score, default 0.5) are dropped
-  size > 1M                      also: = != < <= >= and size in 10K..1M; units B K M G (1024)
-  modified > -7d                 also: modified = 2026-10-01 (the whole day), modified in -7d..-1d;
-                                 dates 2026-10-01, 2026-10-01T14:30, ...T14:30:00Z, ...+02:00 (local time without
-                                 an offset), relative -30m -2h -7d -2w (units s m h d w)
-  created > -1d                  creation date, the same forms; unknown where the file system has none
-  accessed < -30d                last access date, the same forms
-  lang = rust                    language by extension, file name (Dockerfile) or shebang; lang in (ts, js) style
-                                 lists, lang != markdown, lang = unknown; \"languages\": {\"terraform\":
-                                 {\"extensions\": [\"tf\"]}} adds a language or replaces one with the same name
-  kind in (source, test)         source test config doc generated other; generated files (lock files, *.min.js,
-                                 '@generated' markers) are skipped unless the query has a kind condition
-                                 or traversal.skip_generated is false
-  git = changed                  also: modified staged untracked conflicted clean; git in (modified, untracked);
-                                 git = branch: changed, or changed by the commits since the base (main/master);
-                                 false outside of a repository
-  text has 'TODO'                content contains, /i ignore case; a value with '\n' matches across lines;
-                                 also = starts ends on the whole content: text starts '#!/bin/bash';
-                                 text =~ `fn \\w+_test` regex (Rust syntax), per line: ^ $ are line ends;
-                                 with /m on the whole content: \\n matches a line break;
-                                 binary files are not searched: content conditions are unknown for them
-                                 (traversal.binary: \"search\" searches them as text, \"exclude\" never returns them),
-                                 neither are files bigger than traversal.max_file_size (default \"10M\");
-                                 traversal.archives = \"compressed\" searches .gz .bz2 .xz .zst .lz4 decompressed,
-                                 \"all\" also archive members: path ~ '**/*!/**' is only inside archives
-  line(text has 'a' and not text has 'b')    conditions on the same line; not line(...) = no line matches;
-                                 len > 120 (characters of the line) works inside line()
+QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. Empty query = all files.
+  name ~ '*.rs'                  wildcard on the file name: * ? ** [abc] [!abc] {a,b}
+  path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator
+  text has 'TODO'                content contains; also: = starts ends, =~ regex (Rust syntax)
+  size > 1M  modified > -7d  created  accessed  type = dir  empty
+  lang = rust   kind in (source, test)   git = changed|branch|staged|untracked
+  name ~~ 'cfgldr'               fuzzy file name (also path ~~)
+  line(text has 'a' and not text has 'b')    conditions on the same line; len > 120 works inside line()
   near(text has 'lock', text has 'await', 3[, ordered][, closest|first])   lines within 3 of each other
-  empty                          a file of size 0 or a directory without entries; type = dir and empty
-  type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
-                                 condition only regular files are returned; directories are written as 'name/'
-Modifiers after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i; /w whole word on text
-(no letter, digit or _ right before and after the match); /c ignore matches in comments of the file's language
-(markers in strings are text; files of an unknown language are searched as is): text has 'unsafe' /c;
-/e(backslash|quote_doubling|xml|url, 0..2|1|any) on = has starts ends of text also matches the value escaped that
-many times (JSON inside JSON etc.), e.g. text has `\"type\": \"admin\"` /e(backslash, any); any = 0 to
-escape.max_level (default 3, \"escape\": {\"max_level\": 5} in the request); the
-level of each match is shown after the ids: ⟦#1/e1:...⟧; /n any naming style on = has starts ends of text, name
-and path, case-insensitive: text has 'parse query' /n matches parseQuery ParseQuery parse_query PARSE_QUERY
-parse-query parse.query parsequery; with /w the whole identifier; not with /e.
-Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
-# starts a comment until the end of the line (outside of strings).
-Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
-Hidden files (unless traversal.hidden), files in .gitignore / .ignore / .aiignore (traversal.ignore_files), in
-.git/info/exclude (traversal.git_excludes) and in the extra ignore files of traversal.ignore_paths, and generated files
-are skipped; unreadable files and directories too, with a permission_denied warning.
+Modifiers after a text value: /i ignore case, /w whole word, /m multiline regex, /c skip comments,
+  /n any naming style ('parse query' = parseQuery, parse_query, PARSE_QUERY ...),
+  /e(backslash|quote_doubling|xml|url, 0..2|any) also match the escaped text (JSON inside JSON etc.)
+Labels: text has 'x' @name — the output shows which condition matched.
+Strings: '...' or "..." with \ escapes; `...` raw, best for regex.
+Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 
-OUTPUT: output.detail = exists | count | files | lines (default); output.format = json for a JSON document
-(default text). Text: the header
-\"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
-under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]
-and its counts, then its matched lines: \"42:\" a matched line, \"41-\" a context line (output.context = N lines around),
-\"--\" a gap, ⟦ids:text⟧ a match, ⇥N the indentation removed from a block.
-Spec version 1.";
+OUTPUT: output.detail = exists | count | facets | files | lines (default); output.context = N lines around.
+output.budget = N tokens: the server picks the richest detail which fits. By default files are sorted by relevance.
+Text response with the default options: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match,
+[#1 @x] matched conditions, ⇥N removed indentation; empty or huge results come with a funnel and hints how to fix
+the query.
+If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
+Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
+searches only its files, since = "r12" returns only the changes.
+queries = [{label, query}, ...] runs several queries in one call.
+
+EXAMPLES
+  name ~ '*.py' and text has 'import requests'
+  not text has 'license' /i                                   files without a match
+  name ~ '*.{ts,tsx}' and line(text has 'any' /w and not text starts '//')
+  text has `"role": "admin"` /e(backslash, any)               also inside stringified JSON
+  kind = source and name has 'config loader' /n               a file by a vague name
+  git = changed and text has 'dbg!('                          leftovers in files with uncommitted changes"#;
+
+/// The input schema of the `find` tool, the JSON text of TOOLS.md#find.
+const FIND_SCHEMA: &str = r##"{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." },
+    "queries": {
+      "type": "array", "minItems": 1,
+      "description": "Several queries in one call instead of `query`.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["query"],
+        "properties": {
+          "label": { "type": "string" },
+          "query": { "type": "string" },
+          "dirs": { "$ref": "#/properties/dirs" },
+          "timeout": { "$ref": "#/properties/timeout" },
+          "traversal": { "$ref": "#/properties/traversal" },
+          "output": { "$ref": "#/properties/output" }
+        }
+      }
+    },
+    "within": { "type": "string", "description": "Result id: search only the files of that result." },
+    "since": { "type": "string", "description": "Result id: return only the differences to that result." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max search time, e.g. '10s'. '0s': no limit." },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "detail": { "enum": ["exists", "count", "facets", "files", "lines"] },
+        "budget": { "type": "integer", "minimum": 100, "description": "Max response size in tokens." },
+        "chars_per_token": { "type": "number", "exclusiveMinimum": 0 },
+        "funnel": { "enum": ["auto", "always", "never"] },
+        "facets": { "type": "array", "items": { "enum": ["dir", "ext", "lang", "kind", "git", "condition"] } },
+        "facet_depth": { "type": "integer", "minimum": 1 },
+        "facet_limit": { "type": "integer", "minimum": 1 },
+        "meta": { "type": "boolean" },
+        "context": { "type": "integer", "minimum": 0 },
+        "before": { "type": "integer", "minimum": 0 },
+        "after": { "type": "integer", "minimum": 0 },
+        "path_fragments": { "type": "boolean" },
+        "highlight": { "enum": ["auto", "none", "columns", "markers"] },
+        "markers": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+        "max_files": { "type": "integer", "minimum": 1 },
+        "max_lines": { "type": "integer", "minimum": 1 },
+        "max_matches": { "type": "integer", "minimum": 1 },
+        "max_matches_per_file": { "type": "integer", "minimum": 1 },
+        "max_line_length": { "type": "integer", "minimum": 20 },
+        "max_output_per_file": { "type": "integer", "minimum": 100 },
+        "max_output": { "type": "integer", "minimum": 100 },
+        "dedent": { "type": "boolean" },
+        "blank_context": { "type": "boolean" },
+        "group_dirs": { "type": "boolean" },
+        "group_repeated": { "type": "integer", "minimum": 0 },
+        "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
+        "path_style": { "enum": ["relative", "absolute"] },
+        "cursor": { "type": "string" }
+      }
+    },
+    "escape": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "max_level": { "type": "integer", "minimum": 0 } }
+    },
+    "query_options": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The [query] section of the configuration.",
+      "properties": { "fuzzy_min_score": { "type": "number", "minimum": 0, "maximum": 1 } }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "base": { "type": "string" } }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}"##;
 
 /// The input schema of the `find` tool.
 #[must_use]
 pub fn find_schema() -> Value {
-    json!({
-        "type": "object",
-        "properties": {
-            "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one (1)." },
-            "dirs": {
-                "type": "array", "items": { "type": "string" }, "minItems": 1,
-                "description": "Working directories inside the allowed roots. Default: server.default_dirs."
-            },
-            "within": { "type": "string", "description": "A result id like r12: search only the files of that result, without a walk; dirs and the walk options of traversal are ignored, the paths are written as in that result." },
-            "since": { "type": "string", "description": "A result id like r12: return only the differences to that result — + added, ~ changed (other matched lines), - removed files, and the number of unchanged ones; the counts are of the current result." },
-            "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." },
-            "queries": {
-                "type": "array", "minItems": 1,
-                "description": "Several queries in one call instead of query: every query in its section (== label ==) with its own result id; dirs, timeout, traversal and output of an item override the shared ones; budget and max_output are split between the queries.",
-                "items": {
-                    "type": "object", "additionalProperties": false, "required": ["query"],
-                    "properties": {
-                        "label": { "type": "string" },
-                        "query": { "type": "string" },
-                        "dirs": { "$ref": "#/properties/dirs" },
-                        "timeout": { "$ref": "#/properties/timeout" },
-                        "traversal": { "$ref": "#/properties/traversal" },
-                        "output": { "$ref": "#/properties/output" }
-                    }
-                }
-            },
-            "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max search time, e.g. '10s'. '0s': no limit." },
-            "traversal": {
-                "type": "object",
-                "properties": {
-                    "min_depth": { "type": "integer", "minimum": 0, "description": "Skip entries closer to the working directory; its children are depth 1." },
-                    "max_depth": { "type": "integer", "minimum": 0, "description": "Don't descend deeper. Default: unlimited." },
-                    "follow_symlinks": { "type": "boolean", "description": "Descend into symlinked directories, read symlinked files." },
-                    "hidden": { "type": "boolean", "description": "Include hidden entries (names starting with '.')." },
-                    "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." },
-                    "git_excludes": { "type": "boolean", "description": "Respect .git/info/exclude and the global git excludes file. Default: true." },
-                    "ignore_paths": { "type": "array", "items": { "type": "string" }, "description": "Extra ignore files (gitignore format) applied as if they were in every working directory, with the lowest priority; ~ is the home directory. Default: []." },
-                    "exclude": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of paths which are never walked, relative to the working directory, matched like path ~: ['**/target/**'] prunes every target directory. Default: []." },
-                    "path_case": { "enum": ["native", "sensitive", "insensitive"], "description": "Case sensitivity of path and name conditions and of exclude; native: sensitive on Linux, insensitive on macOS and Windows. /i, ~~ and /n are always case-insensitive. Default: native." },
-                    "binary": { "enum": ["skip", "search", "exclude"], "description": "Binary files (a zero byte in the first 8K): skip — not searched by content, content conditions are unknown for them; search — searched as text; exclude — never returned. Default: skip." },
-                    "max_file_size": { "type": "string", "description": "Bigger files are not searched by content (content conditions are unknown for them, a too_big warning), e.g. '1G'; units B K M G. Default: 10M." },
-                    "encoding": { "type": "string", "description": "auto: by the BOM, UTF-16 by its zero bytes, otherwise UTF-8; or a WHATWG encoding name like windows-1252 for every file without a BOM. The output shows the encoding of every file which is not UTF-8. Default: auto." },
-                    "fallback_encoding": { "type": "string", "description": "With encoding auto: files which are not valid UTF-8 are decoded with this WHATWG encoding, e.g. windows-1251, instead of replacing the invalid bytes. Default: not set." },
-                    "archives": { "enum": ["none", "compressed", "all"], "description": "none: compressed files and archives are binary files; compressed: .gz .bz2 .xz .zst .lz4 files are searched as their decompressed content (max_file_size applies to it); all: also the members of .zip .jar .tar .tar.gz/.tgz .tar.bz2 .tar.xz .tar.zst .7z, with the path <archive>!/<member>. Default: none." },
-                    "max_archive_size": { "type": "string", "description": "The total uncompressed size of the members of one archive; the rest is skipped with an archive_too_big warning (zip bombs). Default: 100M." },
-                    "skip_generated": { "type": "boolean", "description": "Skip generated files (kind = generated: lock files, *.min.js, @generated markers) unless the query has a kind condition. Default: true." }
-                }
-            },
-            "escape": {
-                "type": "object",
-                "properties": {
-                    "max_level": { "type": "integer", "minimum": 0, "description": "The upper level of /e(style, any) and the highest level a query may ask for. Default: 3." }
-                }
-            },
-            "query_options": {
-                "type": "object",
-                "description": "The [query] section of the configuration.",
-                "properties": {
-                    "fuzzy_min_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "~~ matches with a lower score (0-1) are dropped. Default: 0.5." }
-                }
-            },
-            "git": {
-                "type": "object",
-                "properties": {
-                    "base": { "type": "string", "description": "The base of git = branch: a branch, tag or commit; auto: origin/HEAD, main or master, the first which exists. Default: auto." }
-                }
-            },
-            "output": {
-                "type": "object",
-                "properties": {
-                    "format": { "enum": ["text", "json"], "description": "text: compact, like grep; json: the same data as a JSON document. Default: text." },
-                    "detail": { "enum": ["exists", "count", "facets", "files", "lines"], "description": "exists: only whether anything matches (stops at the first match); count: the totals; facets: the totals and the number of files per value of the facets (where the matches are); files: the totals and the files; lines: also the matched lines. Default: lines." },
-                    "budget": { "type": "integer", "minimum": 100, "description": "The max size of the response in tokens (characters / chars_per_token): the detail is lowered until it fits — without context, lines cut to 120, files (at least 10 or all, with a cursor), facets, count; never above the requested detail. The header says detail: files (budget N), JSON detail_used. Default: not set." },
-                    "chars_per_token": { "type": "number", "exclusiveMinimum": 0, "description": "The characters of a token for the estimate of the budget; tune it for the tokenizer of your model. Default: 4." },
-                    "funnel": { "enum": ["auto", "always", "never"], "description": "How many files are left after every condition of an and query (metadata conditions first, then content conditions) or matched by every branch of an or query: 'funnel:' after the legend. With an empty result 'hints:' follow: variations of the condition which dropped to 0 that match (/i, /n, without /w, has instead of =), the skipped files which could match (ignored, generated, too big, binary), similar names and directories; with a huge result the top dir and lang values and 'narrow with:' suggestions. auto: for an empty result or more than 10 x max_files files; always: count detail and higher; never (no hints either). Default: auto." },
-                    "facets": { "type": "array", "items": { "enum": ["dir", "ext", "lang", "kind", "git", "condition"] }, "description": "The facets of detail = facets: dir (facet_depth levels below the working directory), ext, lang, kind, git (statuses), condition (ids); values sorted by the number of files. Default: [\"dir\", \"lang\", \"kind\", \"condition\"]." },
-                    "facet_depth": { "type": "integer", "minimum": 1, "description": "The dir values of the facets and of the hints are the directories this many levels below the working directory; files higher up count in their own directory. Default: 2." },
-                    "facet_limit": { "type": "integer", "minimum": 1, "description": "At most this many values per facet; the others end with '… N more (M)': N values with M files. Default: 8." },
-                    "meta": { "type": "boolean", "description": "Add the metadata to every file: type (file, dir, link), size, language and kind of a file, the modification date and, with sort = relevance, the score (0-1). Text: 'file 2.1K 2026-10-08 14:03 rust source 0.82' after the counts; JSON: type, size (bytes), lang, kind, modified (ISO 8601 with the offset), score. Default: false." },
-                    "context": { "type": "integer", "minimum": 0, "description": "Lines before and after every matched line (grep -C). Default: 0." },
-                    "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." },
-                    "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." },
-                    "path_fragments": { "type": "boolean", "description": "Show which part of the path the name and path conditions matched: JSON path_fragments per file (col in the characters of path), text a line '  path: src/⟦#1:config⟧.rs' after the file line ('  path @ 5..11 #1' with columns). Not counted as matches. Default: false." },
-                    "highlight": { "enum": ["auto", "none", "columns", "markers"], "description": "How matches are marked: markers ⟦ids:text⟧ inside the lines; columns: text — '  @ start..end ids' after a matched line, JSON — fragments with col (1-based characters, end exclusive); none: plain lines, JSON matched lines get match: true. auto: markers in text, columns in JSON. Default: auto." },
-                    "markers": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2, "description": "The opening and the closing marker of highlight = markers, two non-empty strings; a matched line which contains one gets the warning marker_in_content. Default: [\"⟦\", \"⟧\"]." },
-                    "max_files": { "type": "integer", "minimum": 1, "description": "Files and lines detail: list at most this many files, after sorting; the counts stay the totals and the header says truncated: yes (max_files). Default: 100." },
-                    "max_lines": { "type": "integer", "minimum": 1, "description": "Lines detail: list at most this many matched lines under the files, in the order of the files; the next files are listed without lines; truncated: yes (max_lines). Default: 500." },
-                    "max_matches": { "type": "integer", "minimum": 1, "description": "Lines detail: mark at most this many fragments under the files, in the order of the files; lines without a listed fragment are not listed; truncated: yes (max_matches). Default: 1000." },
-                    "max_matches_per_file": { "type": "integer", "minimum": 1, "description": "Lines detail: mark at most this many fragments of one file; the file gets (cut) / truncated: true and the next file is listed as usual. Default: 50." },
-                    "max_line_length": { "type": "integer", "minimum": 20, "description": "Lines longer than this many characters are cut to windows around their fragments, marked with …; a context line keeps its start; JSON lines get cut: true, col refers to the original line. Default: 300." },
-                    "max_output_per_file": { "type": "integer", "minimum": 100, "description": "Lines detail: at most this many characters of the matched and context lines of one file (as shown, without line numbers and markers); the file gets (cut) / truncated: true and the next file is listed as usual. Default: 4000." },
-                    "max_output": { "type": "integer", "minimum": 100, "description": "Files and lines detail: at most this many characters of the full paths and the lines of the listed files; nothing is listed after the path or line which would go over; truncated: yes (max_output). Default: 40000." },
-                    "dedent": { "type": "boolean", "description": "Remove the common indentation of every block, written once as ⇥N (indent in JSON). Default: true." },
-                    "group_dirs": { "type": "boolean", "description": "Text: files under directory headers, with paths relative to them; false: the full path on every file line. Default: true." },
-                    "group_repeated": { "type": "integer", "minimum": 0, "description": "Lines detail: a matched line identical (ignoring leading and trailing whitespace) in this many files is printed once in a repeated section with a few locations, and left out of the files; 0: off. Default: 3." },
-                    "sort": { "enum": ["relevance", "path asc", "path desc", "modified asc", "modified desc", "size asc", "size desc", "matches asc", "matches desc"], "description": "Order of the files, applied before the limits; equal values in path order, missing values (the size of a directory) last. relevance puts the files most likely to be wanted first: the fuzzy score, the query words in the file name, matches per line, the matched conditions, and lightly the kind, the recency and the depth; equal scores in path order. Default: relevance." },
-                    "path_style": { "enum": ["relative", "absolute"], "description": "relative: paths relative to the working directory, a working directory other than '.' written before them as in the request; absolute: the full canonical paths, also of the warnings and the directory headers. Default: relative." },
-                    "cursor": { "type": "string", "description": "Continue a truncated response: repeat the same request with next_cursor of the previous response. Given when max_files, max_lines, max_matches or max_output cut the response; every page runs the search again." },
-                    "blank_context": { "type": "boolean", "description": "Keep empty and whitespace-only context lines; the line numbers show the skipped ones. Default: false." }
-                }
-            },
-            "kinds": {
-                "type": "object",
-                "description": "The rules of the kind target; a list replaces the configured one.",
-                "properties": {
-                    "generated_markers": { "type": "array", "items": { "type": "string" }, "description": "A file with one of them in its first lines is generated. Default: @generated, DO NOT EDIT, Code generated by, auto-generated." },
-                    "generated_marker_lines": { "type": "integer", "minimum": 1, "description": "How many first lines are checked for the markers. Default: 5." },
-                    "generated": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of generated files (matched like path ~). Default: lock files, *.min.js, *.pb.go, ..." },
-                    "test": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of tests (matched like path ~). Default: **/test/**, **/tests/**, **/*_test.*, ..." },
-                    "doc": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of documentation (matched like path ~). Default: **/*.md, **/README*, **/docs/**, ..." },
-                    "config": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of the paths of configuration (matched like path ~). Default: **/*.toml, **/*.yaml, **/Dockerfile, ..." }
-                }
-            },
-            "languages": {
-                "type": "object",
-                "description": "Languages, replace the configured languages with the same name; a new name adds a language.",
-                "additionalProperties": {
-                    "type": "object",
-                    "properties": {
-                        "extensions": { "type": "array", "items": { "type": "string" }, "description": "File extensions without the dot, compared in any case." },
-                        "names": { "type": "array", "items": { "type": "string" }, "description": "Full file names, e.g. Dockerfile, compared in any case." },
-                        "shebangs": { "type": "array", "items": { "type": "string" }, "description": "Interpreters in the shebang of files without an extension, e.g. python3; a trailing version is ignored." },
-                        "line_comments": { "type": "array", "items": { "type": "string" }, "description": "Markers which start a comment until the end of the line, for /c." },
-                        "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }, "description": "Start and end markers of block comments, for /c, e.g. [[\"/*\", \"*/\"]]." },
-                        "nested_block_comments": { "type": "boolean", "description": "Block comments can be nested (Rust, Haskell). Default: false." },
-                        "strings": { "type": "array", "items": { "type": "string" }, "description": "String delimiters: comment markers inside strings are not comments." },
-                        "source": { "type": "boolean", "description": "true: code, its files are kind = source; false: a data or document format. Default: true." }
-                    }
-                }
-            }
-        }
-    })
+    serde_json::from_str(FIND_SCHEMA).expect("the schema of find is JSON")
 }
 
 /// The description of the `get_config` tool (`TOOLS.md#get_config`).

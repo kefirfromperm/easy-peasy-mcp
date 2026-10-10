@@ -84,11 +84,12 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
 /// exchange blocks.
 fn run_session(server: McpServer, example: &Example, fixture_path: &str) -> Result<(), String> {
     let mut server = server;
-    if server.response_to_initialize().is_none() {
+    let Some(initialized) = server.response_to_initialize() else {
         let status = server.child.wait().map_err(|e| e.to_string())?;
         return Err(format!("the server didn't start: {status}"));
-    }
+    };
     let mut exchange = server.into_exchange();
+    exchange.record(initialized);
     let result = run_blocks(&mut exchange, example, fixture_path);
     let _ = exchange.child.kill();
     let _ = exchange.child.wait();

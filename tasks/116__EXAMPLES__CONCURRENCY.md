@@ -6,8 +6,9 @@ Startup examples (AGENTS.md) with JSON-RPC exchanges. The examples use the fixtu
 ## E116.1 Overlapping searches and an `update_config`
 
 The second search waits for the only search thread, so the first search is answered first and keeps `r1`. The
-`update_config` is applied while the first search runs: the first search uses the configuration of its start
-(`detail = lines`), the second one the new one (`detail = count`).
+`update_config` is sent when the first search reports its progress, so it is applied while the first search runs:
+the first search uses the configuration of its start (`detail = lines`), the second one the new one
+(`detail = count`).
 
 Fixture: `funnel`
 
@@ -23,7 +24,11 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```json send
-{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "find", "arguments": {"query": "text has 'x'"}}}
+{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "find", "arguments": {"query": "text has 'x'"}, "_meta": {"progressToken": "p2"}}}
+```
+
+```json receive
+{"jsonrpc": "2.0", "method": "notifications/progress", "params": {"progressToken": "p2"}}
 ```
 
 ```json send

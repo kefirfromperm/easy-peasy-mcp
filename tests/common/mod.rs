@@ -156,6 +156,12 @@ pub struct Exchange {
 }
 
 impl Exchange {
+    /// Adds a message read before the exchange started, e.g. the response to `initialize`.
+    pub fn record(&mut self, message: Value) {
+        self.log.push(message);
+        self.taken.push(false);
+    }
+
     pub fn send(&mut self, message: &Value) {
         writeln!(self.stdin, "{message}").unwrap();
         self.stdin.flush().unwrap();

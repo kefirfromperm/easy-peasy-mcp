@@ -5,7 +5,7 @@ mod common;
 use std::process::Command;
 
 use common::{BIN, McpServer, server_command};
-use serde_json::json;
+use serde_json::{Value, json};
 
 fn fixture() -> common::FixtureDir {
     let (_, fixtures) = common::load_examples();
@@ -61,7 +61,7 @@ fn initialize_list_and_find() {
     assert_eq!(find["inputSchema"]["type"], "object");
     assert_eq!(find["inputSchema"]["properties"]["query"]["type"], "string");
     let description = find["description"].as_str().unwrap();
-    assert!(description.ends_with("Spec version 1."), "{description}");
+    assert!(description.contains("Spec version 1."), "{description}");
 
     let call = server.request(
         3,
@@ -201,4 +201,89 @@ fn logs_go_to_stderr() {
     );
     assert!(debug.contains("tools/call find"), "{debug}");
     assert_eq!(stderr_of_session(&[]), "");
+}
+
+/// The fenced blocks of a markdown text: the headings above each block, its info string and its text.
+fn fenced_blocks(markdown: &str) -> Vec<(Vec<String>, String, String)> {
+    let mut blocks = Vec::new();
+    let mut headings: Vec<(usize, String)> = Vec::new();
+    let mut lines = markdown.lines();
+    while let Some(line) = lines.next() {
+        let level = line.chars().take_while(|&c| c == '#').count();
+        if level > 0 && line[level..].starts_with(' ') {
+            headings.retain(|(l, _)| *l < level);
+            headings.push((level, line[level + 1..].to_string()));
+        } else if let Some(info) = line.strip_prefix("```") {
+            let text: Vec<&str> = lines
+                .by_ref()
+                .take_while(|l| !l.starts_with("```"))
+                .collect();
+            let path = headings.iter().map(|(_, h)| h.clone()).collect();
+            blocks.push((path, info.to_string(), text.join("\n")));
+        }
+    }
+    blocks
+}
+
+/// The block of TOOLS.md with `info` under the headings ending with `path`.
+fn spec_block<'a>(
+    blocks: &'a [(Vec<String>, String, String)],
+    path: &[&str],
+    info: &str,
+) -> &'a str {
+    blocks
+        .iter()
+        .find(|(headings, i, _)| {
+            i == info
+                && headings.ends_with(&path.iter().map(ToString::to_string).collect::<Vec<_>>())
+        })
+        .map_or_else(
+            || panic!("TOOLS.md has a {info} block under {path:?}"),
+            |(_, _, text)| text.as_str(),
+        )
+}
+
+/// The annotations of `tool` in the table of TOOLS.md#tools: `readOnlyHint: true`, ...
+fn spec_annotations(spec: &str, tool: &str) -> Value {
+    let row = spec
+        .lines()
+        .find(|l| l.starts_with(&format!("| `{tool}` ")))
+        .unwrap_or_else(|| panic!("TOOLS.md lists {tool}"));
+    let cell = row.split('|').nth(2).unwrap();
+    let mut annotations = serde_json::Map::new();
+    for hint in cell.split(',') {
+        let (key, value) = hint.trim().trim_matches('`').split_once(": ").unwrap();
+        annotations.insert(key.to_string(), json!(value == "true"));
+    }
+    Value::Object(annotations)
+}
+
+#[test]
+fn tools_are_the_spec_text() {
+    let spec = std::fs::read_to_string(common::repo_root().join("TOOLS.md")).unwrap();
+    let blocks = fenced_blocks(&spec);
+    let dir = fixture();
+    let mut server = McpServer::spawn(&mut server_command(&dir.root, dir.temp()));
+
+    let init = server.initialize();
+    let mut expected: Value =
+        serde_json::from_str(spec_block(&blocks, &["Transport"], "json")).unwrap();
+    expected["serverInfo"]["version"] = json!(env!("CARGO_PKG_VERSION"));
+    for key in ["capabilities", "serverInfo", "instructions"] {
+        assert_eq!(init["result"][key], expected[key], "{key}");
+    }
+
+    let list = server.request(2, "tools/list", &json!({}));
+    let tools = list["result"]["tools"].as_array().expect("tools");
+    assert_eq!(tools.len(), 3);
+    for tool in tools {
+        let name = tool["name"].as_str().unwrap();
+        let expected = json!({
+            "name": name,
+            "description": spec_block(&blocks, &["Tools", name, "Description"], ""),
+            "inputSchema": serde_json::from_str::<Value>(spec_block(&blocks, &["Tools", name, "Input schema"], "json")).unwrap(),
+            "annotations": spec_annotations(&spec, name),
+        });
+        assert_eq!(tool, &expected, "{name}");
+    }
 }

@@ -2,9 +2,6 @@
 //!
 //! The entry point for tests and embedding is [`Engine`]; [`mcp::Server`] exposes it over MCP.
 
-// the input schema of `find` is one `json!` literal
-#![recursion_limit = "256"]
-
 mod archive;
 mod batch;
 mod cache;
