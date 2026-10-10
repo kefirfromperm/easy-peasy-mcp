@@ -195,6 +195,7 @@ Fixture: `dirs`
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
+timeout = "30s"
 ```
 
 ## E39.12 Changing the default working directories in a session
@@ -210,6 +211,7 @@ Fixture: `dirs`
 ```text response
 [server]
 default_dirs = ['api']    # was ['.']
+timeout = "30s"    # default
 ```
 
 2. `get_config`
@@ -225,6 +227,7 @@ default_dirs = ['api']    # was ['.']
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['api']    # update
+timeout = "30s"    # default
 ```
 
 3. `find`
@@ -250,6 +253,7 @@ main.rs  [#1]
 ```text response
 [server]
 default_dirs = ['.']    # was ['api'], reset
+timeout = "30s"    # default
 ```
 
 5. `update_config`
@@ -292,6 +296,7 @@ error[invalid_value]: invalid value for 'server.default_dirs'
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
+timeout = "30s"
 ```
 
 ## E39.14 The default working directories from the config file
@@ -320,6 +325,7 @@ easy-peasy-mcp --config conf/dirs.toml
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['web']    # file: conf/dirs.toml
+timeout = "30s"    # default
 ```
 
 2. `find`
