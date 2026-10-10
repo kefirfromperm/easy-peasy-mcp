@@ -1,6 +1,6 @@
 # Task 35: `get_config` tool
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 34
 
