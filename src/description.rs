@@ -10,6 +10,8 @@ defaults. Spec version 1.";
 pub const FIND_DESCRIPTION: &str = "\
 Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
 Call get_config once first to learn the allowed roots and defaults.
+\"dirs\": [\"src\", \"../api\"] sets the working directories (default server.default_dirs); paths are relative to
+them, with the directory first when it is not \".\".
 
 QUERY: conditions on the name, path, type, size, dates, language, kind, git status and content joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
@@ -69,6 +71,10 @@ pub fn find_schema() -> Value {
     json!({
         "type": "object",
         "properties": {
+            "dirs": {
+                "type": "array", "items": { "type": "string" }, "minItems": 1,
+                "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+            },
             "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." }
         }
     })

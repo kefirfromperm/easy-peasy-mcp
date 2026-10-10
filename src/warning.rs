@@ -44,6 +44,17 @@ impl Warnings {
         self.entries.entry(code).or_default().push((rel, is_dir));
     }
 
+    /// Adds the warnings of another working directory, their paths prefixed with it.
+    pub fn extend(&mut self, other: Warnings, prefix: &std::path::Path) {
+        for (code, entries) in other.entries {
+            self.entries.entry(code).or_default().extend(
+                entries
+                    .into_iter()
+                    .map(|(rel, is_dir)| (prefix.join(rel), is_dir)),
+            );
+        }
+    }
+
     /// Whether there is no warning.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()

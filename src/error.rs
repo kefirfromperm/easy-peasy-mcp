@@ -27,10 +27,12 @@ pub enum ErrorCode {
     ConflictingOptions,
     InvalidEscapeLevel,
     InvalidOption,
+    DirNotFound,
     DirNotAllowed,
     InvalidToml,
     ReadOnly,
     UnknownKey,
+    InvalidValue,
     NotImplemented,
 }
 
@@ -60,10 +62,12 @@ impl ErrorCode {
             Self::ConflictingOptions => "conflicting_options",
             Self::InvalidEscapeLevel => "invalid_escape_level",
             Self::InvalidOption => "invalid_option",
+            Self::DirNotFound => "dir_not_found",
             Self::DirNotAllowed => "dir_not_allowed",
             Self::InvalidToml => "invalid_toml",
             Self::ReadOnly => "read_only",
             Self::UnknownKey => "unknown_key",
+            Self::InvalidValue => "invalid_value",
             Self::NotImplemented => "not_implemented",
         }
     }

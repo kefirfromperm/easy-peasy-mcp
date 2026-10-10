@@ -28,6 +28,8 @@ pub const FIELDS: [&str; 14] = [
 pub struct Request {
     /// The query text; empty for a missing `query`.
     pub query: String,
+    /// The working directories as given; `None` — `server.default_dirs`.
+    pub dirs: Option<Vec<String>>,
 }
 
 /// Checks the arguments of `find`.
@@ -57,20 +59,39 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
     }
     if let Some(field) = FIELDS
         .iter()
-        .find(|f| **f != "query" && object.contains_key(**f))
+        .find(|f| !["query", "dirs"].contains(*f) && object.contains_key(**f))
     {
         return Err(Report::not_implemented(&format!("the field '{field}'")));
     }
-    match object.get("query") {
-        None => Ok(Request {
-            query: String::new(),
-        }),
-        Some(Value::String(q)) => Ok(Request { query: q.clone() }),
-        Some(_) => Err(Report::new(
-            ErrorCode::InvalidOption,
-            "'query' must be a string",
-        )),
-    }
+    let dirs = match object.get("dirs") {
+        None => None,
+        Some(Value::Array(dirs)) if !dirs.is_empty() => Some(
+            dirs.iter()
+                .map(|d| d.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(invalid_dirs)?,
+        ),
+        Some(_) => return Err(invalid_dirs()),
+    };
+    let query = match object.get("query") {
+        None => String::new(),
+        Some(Value::String(q)) => q.clone(),
+        Some(_) => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "'query' must be a string",
+            ));
+        }
+    };
+    Ok(Request { query, dirs })
+}
+
+/// The error of a `dirs` field which doesn't match the schema.
+fn invalid_dirs() -> Report {
+    Report::new(
+        ErrorCode::InvalidOption,
+        "'dirs' must be a non-empty list of strings",
+    )
 }
 
 #[cfg(test)]
@@ -105,6 +126,21 @@ mod tests {
             text(&json!({ "query": "x", "output": {} })),
             "error[not_implemented]: the field 'output' is not implemented yet\n"
         );
+    }
+
+    #[test]
+    fn dirs() {
+        assert_eq!(
+            parse(&json!({ "dirs": ["a", "../b"] })).unwrap().dirs,
+            Some(vec!["a".to_string(), "../b".to_string()])
+        );
+        assert_eq!(parse(&json!({})).unwrap().dirs, None);
+        for dirs in [json!([]), json!("a"), json!([1])] {
+            assert_eq!(
+                text(&json!({ "dirs": dirs })),
+                "error[invalid_option]: 'dirs' must be a non-empty list of strings\n"
+            );
+        }
     }
 
     #[test]

@@ -171,7 +171,7 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 1] = [("server", "allowed_roots")];
+const IMPLEMENTED: [(&str, &str); 2] = [("server", "allowed_roots"), ("server", "default_dirs")];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -180,6 +180,8 @@ pub enum Source {
     /// The config file, as given or found.
     File(PathBuf),
     Cli,
+    /// `update_config`.
+    Update,
 }
 
 impl fmt::Display for Source {
@@ -188,6 +190,7 @@ impl fmt::Display for Source {
             Self::Default => f.write_str("default"),
             Self::File(path) => write!(f, "file: {}", path.display()),
             Self::Cli => f.write_str("cli"),
+            Self::Update => f.write_str("update"),
         }
     }
 }
@@ -197,6 +200,8 @@ impl fmt::Display for Source {
 pub struct FileValues {
     /// `server.allowed_roots` as written.
     pub allowed_roots: Option<(Vec<String>, usize)>,
+    /// `server.default_dirs` as written.
+    pub default_dirs: Option<Vec<String>>,
 }
 
 /// A checked config file.
@@ -212,6 +217,9 @@ pub struct Settings {
     /// `server.allowed_roots`: canonical, never empty.
     pub allowed_roots: Vec<PathBuf>,
     pub allowed_roots_source: Source,
+    /// `server.default_dirs` as written, never empty.
+    pub default_dirs: Vec<String>,
+    pub default_dirs_source: Source,
 }
 
 impl Settings {
@@ -221,6 +229,8 @@ impl Settings {
         Self {
             allowed_roots: vec![canonical_or_same(start_dir)],
             allowed_roots_source: Source::Default,
+            default_dirs: vec![".".to_string()],
+            default_dirs_source: Source::Default,
         }
     }
 
@@ -236,6 +246,13 @@ impl Settings {
         start_dir: &Path,
         home: Option<&Path>,
     ) -> Result<Self, StartError> {
+        let mut settings = Self::defaults(start_dir);
+        if let Some(file) = file
+            && let Some(dirs) = &file.values.default_dirs
+        {
+            settings.default_dirs.clone_from(dirs);
+            settings.default_dirs_source = Source::File(file.path.clone());
+        }
         let (roots, source, line) = if !cli_roots.is_empty() {
             (cli_roots.to_vec(), Source::Cli, None)
         } else if let Some(file) = file
@@ -243,7 +260,7 @@ impl Settings {
         {
             (roots.clone(), Source::File(file.path.clone()), Some(*line))
         } else {
-            return Ok(Self::defaults(start_dir));
+            return Ok(settings);
         };
         let mut allowed_roots = Vec::new();
         for root in &roots {
@@ -264,10 +281,36 @@ impl Settings {
         if allowed_roots.is_empty() {
             allowed_roots.push(canonical_or_same(start_dir));
         }
-        Ok(Self {
-            allowed_roots,
-            allowed_roots_source: source,
-        })
+        settings.allowed_roots = allowed_roots;
+        settings.allowed_roots_source = source;
+        Ok(settings)
+    }
+
+    /// The value of a key which `update_config` changes, as TOML.
+    fn value(&self, key: Mutable) -> String {
+        match key {
+            Mutable::DefaultDirs => toml_list(self.default_dirs.iter().map(String::as_str)),
+        }
+    }
+
+    /// Sets a key to its value of `base`, with its source.
+    fn reset(&mut self, key: Mutable, base: &Settings) {
+        match key {
+            Mutable::DefaultDirs => {
+                self.default_dirs.clone_from(&base.default_dirs);
+                self.default_dirs_source = base.default_dirs_source.clone();
+            }
+        }
+    }
+
+    /// Sets a key to a checked value of `update_config`.
+    fn set(&mut self, value: MutableValue) {
+        match value {
+            MutableValue::DefaultDirs(dirs) => {
+                self.default_dirs = dirs;
+                self.default_dirs_source = Source::Update;
+            }
+        }
     }
 
     /// Whether the canonical `dir` is inside an allowed root.
@@ -282,10 +325,62 @@ fn canonical_or_same(path: &Path) -> PathBuf {
     std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
-/// A path as a TOML string: literal (`'...'`) unless it contains a `'`; without the `\\?\` prefix of Windows.
+/// The keys which `update_config` changes, in the order of the spec.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Mutable {
+    DefaultDirs,
+}
+
+impl Mutable {
+    const ALL: [Mutable; 1] = [Self::DefaultDirs];
+
+    /// The section and the key.
+    fn name(self) -> (&'static str, &'static str) {
+        match self {
+            Self::DefaultDirs => ("server", "default_dirs"),
+        }
+    }
+
+    fn find(section: &str, key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|m| m.name() == (section, key))
+    }
+
+    /// The checked value of `item`, or the hint of `invalid_value`.
+    fn parse(self, item: &toml_edit::Item) -> Result<MutableValue, &'static str> {
+        match self {
+            Self::DefaultDirs => string_list(item)
+                .filter(|dirs| !dirs.is_empty())
+                .map(MutableValue::DefaultDirs)
+                .ok_or(NON_EMPTY_PATHS),
+        }
+    }
+}
+
+/// A checked value of a key which `update_config` changes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MutableValue {
+    DefaultDirs(Vec<String>),
+}
+
+/// What `default_dirs` must be.
+const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
+
+/// A list of strings as TOML.
+fn toml_list<'a>(items: impl Iterator<Item = &'a str>) -> String {
+    format!(
+        "[{}]",
+        items.map(toml_string).collect::<Vec<_>>().join(", ")
+    )
+}
+
+/// A path as a TOML string, without the `\\?\` prefix of Windows.
 fn toml_path(path: &Path) -> String {
     let text = path.to_string_lossy();
-    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+    toml_string(text.strip_prefix(r"\\?\").unwrap_or(&text))
+}
+
+/// A string in TOML: literal (`'...'`) unless it contains a `'`.
+fn toml_string(text: &str) -> String {
     if text.contains('\'') {
         format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
     } else {
@@ -389,6 +484,17 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                 None => "invalid value for 'server.allowed_roots': a list of paths is expected"
                     .to_string(),
             },
+            Entry::Key {
+                section: "server",
+                key: "default_dirs",
+                item,
+            } => match Mutable::DefaultDirs.parse(item) {
+                Ok(MutableValue::DefaultDirs(dirs)) => {
+                    values.default_dirs = Some(dirs);
+                    continue;
+                }
+                Err(expected) => format!("invalid value for 'server.default_dirs': {expected}"),
+            },
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
                 format!("the key '{section}.{key}' is not implemented yet")
             }
@@ -462,27 +568,27 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             .iter()
             .map(|r| toml_path(r))
             .collect();
-        let lines = [(
-            format!("allowed_roots = [{}]", roots.join(", ")),
-            &settings.allowed_roots_source,
-        )];
+        let lines = [
+            (
+                format!("allowed_roots = [{}]", roots.join(", ")),
+                &settings.allowed_roots_source,
+            ),
+            (
+                format!("default_dirs = {}", settings.value(Mutable::DefaultDirs)),
+                &settings.default_dirs_source,
+            ),
+        ];
         out.push_str("\n[server]\n");
         push_lines(&mut out, &lines, sources);
     }
     Ok(out)
 }
 
-/// The `key = value` lines of a section, with the source comments four spaces after the longest line.
+/// The `key = value` lines of a section, with the source comments four spaces after the line.
 fn push_lines(out: &mut String, lines: &[(String, &Source)], sources: bool) {
-    let width = lines
-        .iter()
-        .map(|(line, _)| line.chars().count())
-        .max()
-        .unwrap_or(0)
-        + 4;
     for (line, source) in lines {
         if sources {
-            let _ = writeln!(out, "{line:<width$}# {source}");
+            let _ = writeln!(out, "{line}    # {source}");
         } else {
             out.push_str(line);
             out.push('\n');
@@ -519,7 +625,11 @@ const READ_ONLY: [(&str, &str, &str); 2] = [
 
 /// The `update_config` tool (`CONFIG.md#update_config`): the `reset` keys, then the `set` TOML, checked in this order.
 /// No key is implemented yet, so a valid call changes nothing.
-pub(crate) fn update_config(arguments: &Value) -> Result<String, Report> {
+pub(crate) fn update_config(
+    base: &Settings,
+    session: &mut Settings,
+    arguments: &Value,
+) -> Result<String, Report> {
     let object = arguments_object(arguments, &UPDATE_CONFIG_FIELDS)?;
     let set = match object.get("set") {
         None => "",
@@ -542,7 +652,62 @@ pub(crate) fn update_config(arguments: &Value) -> Result<String, Report> {
             "'reset' must be a list of strings",
         )
     })?;
-    for key in reset.into_iter().filter(|k| *k != "all") {
+    let resets = reset_keys(&reset)?;
+    let doc = toml_edit::Document::parse(set).map_err(|e| {
+        let offset = e.span().map_or(0, |s| s.start).min(set.len());
+        let line_start = set[..offset].rfind('\n').map_or(0, |i| i + 1);
+        let line = set[..offset].matches('\n').count() + 1;
+        let column = set[line_start..offset].chars().count() + 1;
+        Report::new(ErrorCode::InvalidToml, "invalid TOML in 'set'")
+            .hint(format!("line {line}, col {column}: {}", e.message()))
+    })?;
+    let mut values = Vec::new();
+    for (_, entry) in entries(&doc) {
+        match entry {
+            Entry::UnknownSection(name) => {
+                return Err(unknown_key(name)
+                    .hint(format!("expected one of: {}", section_names().join(", "))));
+            }
+            Entry::NotASection(name) => {
+                return Err(Report::new(
+                    ErrorCode::UnknownKey,
+                    format!("'{name}' must be a section"),
+                ));
+            }
+            Entry::Key { section, key, item } => {
+                let mutable = check_update_key(section, key)?;
+                let value = mutable.parse(item).map_err(|expected| {
+                    Report::new(
+                        ErrorCode::InvalidValue,
+                        format!("invalid value for '{section}.{key}'"),
+                    )
+                    .hint(expected)
+                })?;
+                values.push((mutable, value));
+            }
+        }
+    }
+    let mut updated = session.clone();
+    for key in &resets {
+        updated.reset(*key, base);
+    }
+    let set_keys: Vec<Mutable> = values.iter().map(|(key, _)| *key).collect();
+    for (_, value) in values {
+        updated.set(value);
+    }
+    let out = changes(session, &updated, &resets, &set_keys);
+    *session = updated;
+    Ok(out)
+}
+
+/// The keys of `reset`, `all` for every key, or the error of the first invalid one.
+fn reset_keys(reset: &[&str]) -> Result<Vec<Mutable>, Report> {
+    let mut resets = Vec::new();
+    for &key in reset {
+        if key == "all" {
+            resets.extend(Mutable::ALL);
+            continue;
+        }
         let Some((section, name)) = key.split_once('.') else {
             let hint = if section_names().contains(&key) {
                 format!("expected a key like '{key}.max_files', or 'all'")
@@ -556,42 +721,52 @@ pub(crate) fn update_config(arguments: &Value) -> Result<String, Report> {
                 unknown_key(key).hint(format!("expected one of: {}", section_names().join(", ")))
             );
         };
-        check_update_key(section, name)?;
+        resets.push(check_update_key(section, name)?);
     }
-    let doc = toml_edit::Document::parse(set).map_err(|e| {
-        let offset = e.span().map_or(0, |s| s.start).min(set.len());
-        let line_start = set[..offset].rfind('\n').map_or(0, |i| i + 1);
-        let line = set[..offset].matches('\n').count() + 1;
-        let column = set[line_start..offset].chars().count() + 1;
-        Report::new(ErrorCode::InvalidToml, "invalid TOML in 'set'")
-            .hint(format!("line {line}, col {column}: {}", e.message()))
-    })?;
-    for (_, entry) in entries(&doc) {
-        match entry {
-            Entry::UnknownSection(name) => {
-                return Err(unknown_key(name)
-                    .hint(format!("expected one of: {}", section_names().join(", "))));
-            }
-            Entry::NotASection(name) => {
-                return Err(Report::new(
-                    ErrorCode::UnknownKey,
-                    format!("'{name}' must be a section"),
-                ));
-            }
-            Entry::Key { section, key, .. } => check_update_key(section, key)?,
-        }
-    }
-    Ok("# nothing changed\n".to_string())
+    Ok(resets)
 }
 
-/// The error of a key which `update_config` can't change: read-only, unknown, or not implemented yet.
-fn check_update_key(section: &str, key: &str) -> Result<(), Report> {
+/// The result of `update_config`: the keys whose value changed with the old value, or `# nothing changed`.
+fn changes(old: &Settings, new: &Settings, resets: &[Mutable], set_keys: &[Mutable]) -> String {
+    let mut out = String::new();
+    let mut section = "";
+    for key in Mutable::ALL {
+        let (was, value) = (old.value(key), new.value(key));
+        if was == value {
+            continue;
+        }
+        let (key_section, name) = key.name();
+        if key_section != section {
+            if !out.is_empty() {
+                out.push('\n');
+            }
+            let _ = writeln!(out, "[{key_section}]");
+            section = key_section;
+        }
+        let reset = if resets.contains(&key) && !set_keys.contains(&key) {
+            ", reset"
+        } else {
+            ""
+        };
+        let _ = writeln!(out, "{name} = {value}    # was {was}{reset}");
+    }
+    if out.is_empty() {
+        out.push_str("# nothing changed\n");
+    }
+    out
+}
+
+/// The key which `update_config` changes, or the error: read-only, unknown, or not implemented yet.
+fn check_update_key(section: &str, key: &str) -> Result<Mutable, Report> {
     let full = format!("{section}.{key}");
     if let Some((_, _, hint)) = READ_ONLY
         .iter()
         .find(|(s, k, _)| *s == section && *k == key)
     {
         return Err(Report::new(ErrorCode::ReadOnly, format!("'{full}' is read-only")).hint(*hint));
+    }
+    if let Some(mutable) = Mutable::find(section, key) {
+        return Ok(mutable);
     }
     if is_spec_key(section, key) {
         return Err(Report::not_implemented(&format!("the key '{full}'")));
@@ -732,7 +907,8 @@ mod tests {
         assert_eq!(
             check("[server]\n# roots\nallowed_roots = ['a', \"b\"]\n"),
             Ok(FileValues {
-                allowed_roots: Some((vec!["a".into(), "b".into()], 3))
+                allowed_roots: Some((vec!["a".into(), "b".into()], 3)),
+                default_dirs: None,
             })
         );
         assert_eq!(
@@ -816,6 +992,8 @@ mod tests {
         let settings = Settings {
             allowed_roots: vec![PathBuf::from("/a"), PathBuf::from("/it's")],
             allowed_roots_source: Source::Cli,
+            default_dirs: vec![".".into()],
+            default_dirs_source: Source::Default,
         };
         let first = format!(
             "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots\n",
@@ -823,7 +1001,7 @@ mod tests {
         );
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
-            format!("{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\n")
+            format!("{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\n")
         );
         assert_eq!(
             get_config(
@@ -831,7 +1009,9 @@ mod tests {
                 &serde_json::json!({ "sources": true, "section": "server" })
             )
             .unwrap(),
-            format!("{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\n")
+            format!(
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\n"
+            )
         );
         assert_eq!(
             get_config(&settings, &serde_json::json!({ "section": "git" })).unwrap(),
@@ -853,7 +1033,9 @@ mod tests {
     }
 
     fn update(arguments: &Value) -> String {
-        match update_config(arguments) {
+        let base = Settings::defaults(Path::new("/"));
+        let mut session = base.clone();
+        match update_config(&base, &mut session, arguments) {
             Ok(text) => text,
             Err(report) => report.to_text(),
         }
@@ -868,6 +1050,10 @@ mod tests {
             "# nothing changed\n"
         );
         assert_eq!(
+            update(&json!({ "set": "server.default_dirs = ['.']" })),
+            "# nothing changed\n"
+        );
+        assert_eq!(
             update(&json!({ "set": "output.context = 2" })),
             "error[not_implemented]: the key 'output.context' is not implemented yet\n"
         );
@@ -875,6 +1061,44 @@ mod tests {
             update(&json!({ "reset": ["languages.rust"] })),
             "error[not_implemented]: the key 'languages.rust' is not implemented yet\n"
         );
+    }
+
+    #[test]
+    fn update_config_changes_the_session() {
+        use serde_json::json;
+        let base = Settings {
+            default_dirs: vec!["src".into()],
+            default_dirs_source: Source::File("c.toml".into()),
+            ..Settings::defaults(Path::new("/"))
+        };
+        let mut session = base.clone();
+        let mut call = |arguments: Value| match update_config(&base, &mut session, &arguments) {
+            Ok(text) => text,
+            Err(report) => report.to_text(),
+        };
+        assert_eq!(
+            call(json!({ "set": "[server]\ndefault_dirs = ['a', \"it's\"]" })),
+            "[server]\ndefault_dirs = ['a', \"it's\"]    # was ['src']\n"
+        );
+        // atomic: an invalid value changes nothing
+        assert_eq!(
+            call(json!({ "set": "server.default_dirs = ['b']\nserver.zzz = 1" })),
+            "error[unknown_key]: unknown key 'server.zzz'\n"
+        );
+        assert_eq!(
+            call(json!({ "set": "server.default_dirs = [1]" })),
+            "error[invalid_value]: invalid value for 'server.default_dirs'\n  hint: a non-empty list of paths is expected\n"
+        );
+        // set wins over reset
+        assert_eq!(
+            call(json!({ "reset": ["all"], "set": "server.default_dirs = ['b']" })),
+            "[server]\ndefault_dirs = ['b']    # was ['a', \"it's\"]\n"
+        );
+        assert_eq!(
+            call(json!({ "reset": ["server.default_dirs"] })),
+            "[server]\ndefault_dirs = ['src']    # was ['b'], reset\n"
+        );
+        assert_eq!(session, base);
     }
 
     #[test]
@@ -942,6 +1166,7 @@ mod tests {
             path: PathBuf::from("c.toml"),
             values: FileValues {
                 allowed_roots: Some((vec!["missing".into()], 4)),
+                default_dirs: None,
             },
         };
         assert_eq!(
@@ -954,11 +1179,14 @@ mod tests {
             path: PathBuf::from("c.toml"),
             values: FileValues {
                 allowed_roots: Some((Vec::new(), 1)),
+                default_dirs: Some(vec!["src".into()]),
             },
         };
         let settings = Settings::resolve(Some(&empty), &[], &start, None).unwrap();
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
         assert_eq!(settings.allowed_roots_source, Source::File("c.toml".into()));
+        assert_eq!(settings.default_dirs, ["src"]);
+        assert_eq!(settings.default_dirs_source, Source::File("c.toml".into()));
         std::fs::remove_dir_all(&tmp).unwrap();
     }
 
