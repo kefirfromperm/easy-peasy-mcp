@@ -238,12 +238,17 @@ impl Engine {
                 },
                 &files,
                 settings.whole(Key::MaxFiles),
+                settings.whole(Key::FacetDepth),
             )
         } else {
             Vec::new()
         };
-        let facets =
-            output::facets::facets(&files, &facet_names, &query.legend, hints::FACET_DEPTH);
+        let facets = output::facets::facets(
+            &files,
+            &facet_names,
+            &query.legend,
+            settings.whole(Key::FacetDepth),
+        );
         if !settings.bool(Key::Meta) {
             for file in &mut files {
                 file.meta = None;
@@ -497,11 +502,16 @@ fn hints_deadline(limit: Option<std::time::Duration>) -> std::time::Instant {
 }
 
 /// The hints which come with a shown funnel: of an empty result, of a huge one (more than 10 × `max_files` files).
-fn response_hints(cx: &hints::Context<'_>, files: &[search::Found], max_files: usize) -> Vec<Hint> {
+fn response_hints(
+    cx: &hints::Context<'_>,
+    files: &[search::Found],
+    max_files: usize,
+    facet_depth: usize,
+) -> Vec<Hint> {
     if files.is_empty() {
         hints::empty(cx)
     } else if files.len() > max_files.saturating_mul(10) {
-        hints::huge(files, cx.query, hints::FACET_DEPTH)
+        hints::huge(files, cx.query, facet_depth)
     } else {
         Vec::new()
     }

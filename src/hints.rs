@@ -267,9 +267,6 @@ fn similar(cx: &Context<'_>, condition: &str, lookup: &Lookup) -> Result<Option<
     })
 }
 
-/// The depth of the `dir` values of the hints of a huge result (`output.facet_depth` comes with task 106).
-pub const FACET_DEPTH: usize = 2;
-
 /// The values of a facet in the hints of a huge result.
 const HINT_VALUES: usize = 4;
 
