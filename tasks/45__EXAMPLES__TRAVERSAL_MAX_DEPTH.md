@@ -35,6 +35,7 @@ Fixture: `depth`
 [traversal]
 min_depth = 0
 # max_depth =  (not set)
+follow_symlinks = false
 ```
 
 ## E45.3 A maximum depth for the session
@@ -79,6 +80,7 @@ top.txt  [#1]
 [traversal]
 min_depth = 0    # default
 max_depth = 1    # update
+follow_symlinks = false    # default
 ```
 
 4. `update_config`
@@ -161,6 +163,7 @@ easy-peasy-mcp --config conf/d.toml
 [traversal]
 min_depth = 0    # default
 max_depth = 1    # file: conf/d.toml
+follow_symlinks = false    # default
 ```
 
 2. `find`

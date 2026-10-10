@@ -35,6 +35,7 @@ result_cache = 50
 [traversal]
 min_depth = 0
 # max_depth =  (not set)
+follow_symlinks = false
 ```
 
 ## E35.2 One section
@@ -52,6 +53,7 @@ Fixture: `get-config`
 [traversal]
 min_depth = 0
 # max_depth =  (not set)
+follow_symlinks = false
 ```
 
 ## E35.3 With the sources
@@ -77,6 +79,7 @@ result_cache = 50    # default
 [traversal]
 min_depth = 0    # default
 # max_depth =  (not set)    # default
+follow_symlinks = false    # default
 ```
 
 ## E35.4 An unknown section
