@@ -1350,6 +1350,28 @@ mod tests {
         assert!(steps[1].1.is_empty(), "a group has no variations");
     }
 
+    #[test]
+    fn what_narrows_a_query() {
+        let narrowing = |q: &str| parse(q, &SENSITIVE).unwrap().narrowing;
+        assert_eq!(
+            narrowing("text has 'error'"),
+            Narrowing {
+                kind: false,
+                whole_word: true
+            }
+        );
+        assert_eq!(
+            narrowing("text has 'error' /w and kind = source"),
+            Narrowing {
+                kind: true,
+                whole_word: false
+            }
+        );
+        assert!(!narrowing("text has 'error a' /n").whole_word);
+        assert!(!narrowing("text = 'x' or name has 'x'").whole_word);
+        assert!(!narrowing("not text has 'x'").whole_word, "nothing under not");
+    }
+
     fn legend(q: &str) -> Vec<String> {
         let lexed = lexer::lex(q);
         let mut expr = parser::parse(q, &lexed).unwrap().unwrap();
