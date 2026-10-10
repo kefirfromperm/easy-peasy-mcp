@@ -317,10 +317,10 @@ impl Engine {
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
+                config: settings.list(Key::KindsConfig).to_vec(),
                 doc: settings.list(Key::KindsDoc).to_vec(),
                 test: settings.list(Key::KindsTest).to_vec(),
                 generated: settings.list(Key::KindsGenerated).to_vec(),
-                ..KindOptions::default()
             },
             read_delay: self.options.read_delay,
         }
