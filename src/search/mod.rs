@@ -78,6 +78,8 @@ pub struct SearchOptions {
     pub first_only: bool,
     /// Compute the fragments of the `name` and `path` conditions (`output.path_fragments`).
     pub path_fragments: bool,
+    /// Give every matched entry its metadata (`output.meta`).
+    pub meta: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -125,6 +127,23 @@ pub struct Found {
     pub id: Option<FileId>,
     /// The fragments of the `name` and `path` conditions, with `path_fragments`.
     pub path_fragments: Option<PathFragments>,
+    /// The metadata, with `meta`.
+    pub meta: Option<Meta>,
+}
+
+/// The metadata of a matched entry (OUTPUT.md#meta).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Meta {
+    /// The type; a symlink is `Link`, followed or not.
+    pub entry_type: EntryType,
+    /// Of a file: its size in bytes.
+    pub size: Option<u64>,
+    /// Of a file: its language, `unknown` without one.
+    pub lang: Option<String>,
+    /// Of a file: its kind.
+    pub kind: Option<Kind>,
+    /// The modification date in whole seconds since the Unix epoch.
+    pub modified: Option<i64>,
 }
 
 /// The fragments of the `name` and `path` conditions which made an entry match (OUTPUT.md#path-fragments).
@@ -473,6 +492,15 @@ struct Evaluated {
     path_fragments: Option<PathFragments>,
 }
 
+/// What the visit of an entry already knows for its metadata.
+struct Known<'a> {
+    metadata: Option<&'a std::fs::Metadata>,
+    /// The language, if it was detected (`None` also when it is unknown).
+    language: Option<&'a Language>,
+    /// The kind, if it was classified.
+    kind: Option<Kind>,
+}
+
 /// The dates of an entry in seconds since the Unix epoch.
 struct Dates {
     modified: Option<f64>,
@@ -563,6 +591,14 @@ impl Walk<'_> {
         {
             return None;
         }
+        let meta = self.options.meta.then(|| {
+            let known = Known {
+                metadata: metadata.as_ref(),
+                language: language.filter(|_| query.needs.lang || query.needs.comments),
+                kind: query.needs.kind.then_some(kind),
+            };
+            self.meta(entry, entry_type, &name, &path, &known)
+        });
         Some(Found {
             rel: rel.to_path_buf(),
             member: None,
@@ -572,7 +608,93 @@ impl Walk<'_> {
             encoding: evaluated.encoding,
             id: entry.metadata().ok().and_then(|m| file_id(&m)),
             path_fragments: evaluated.path_fragments,
+            meta,
         })
+    }
+
+    /// The metadata of a matched entry of the file system, from what the visit knows and what is missing.
+    fn meta(
+        &self,
+        entry: &ignore::DirEntry,
+        entry_type: EntryType,
+        name: &str,
+        path: &str,
+        known: &Known<'_>,
+    ) -> Meta {
+        let read = known
+            .metadata
+            .is_none()
+            .then(|| entry.metadata().ok())
+            .flatten();
+        let metadata = known.metadata.or(read.as_ref());
+        let is_file = entry_type == EntryType::File;
+        let language = if is_file {
+            known.language.or_else(|| {
+                self.options
+                    .languages
+                    .detect(name, || first_line(entry.path()))
+            })
+        } else {
+            None
+        };
+        Meta {
+            entry_type: if entry.path_is_symlink() {
+                EntryType::Link
+            } else {
+                entry_type
+            },
+            size: metadata.filter(|_| is_file).map(std::fs::Metadata::len),
+            lang: is_file.then(|| {
+                language
+                    .map_or(UNKNOWN_LANG, |l| l.name.as_str())
+                    .to_string()
+            }),
+            kind: is_file.then(|| {
+                known.kind.unwrap_or_else(|| {
+                    self.kinds.classify(
+                        path,
+                        entry.path(),
+                        true,
+                        language.is_some_and(|l| l.source),
+                    )
+                })
+            }),
+            modified: metadata
+                .and_then(|m| m.modified().ok())
+                .map(|t| whole_seconds(system_seconds(t))),
+        }
+    }
+
+    /// The metadata of a matched member of an archive: a file with the size and the date stored in the archive.
+    fn member_meta(
+        &self,
+        member: &Member,
+        path: &str,
+        language: Option<&Language>,
+        kind: Option<Kind>,
+    ) -> Meta {
+        let language = language.or_else(|| {
+            let name = path.rsplit('/').next().unwrap_or(path);
+            self.options.languages.detect(name, || None)
+        });
+        Meta {
+            entry_type: EntryType::File,
+            size: Some(member.size),
+            lang: Some(
+                language
+                    .map_or(UNKNOWN_LANG, |l| l.name.as_str())
+                    .to_string(),
+            ),
+            kind: Some(kind.unwrap_or_else(|| {
+                self.kinds.classify(
+                    path,
+                    Path::new(""),
+                    false,
+                    language.is_some_and(|l| l.source),
+                )
+            })),
+            modified: member.modified.map(whole_seconds),
+        }
     }
 
     /// The conditions which made the file match and its content fragments, or `None` if it doesn't match. The file
@@ -807,6 +929,9 @@ impl Walk<'_> {
             encoding: evaluated.encoding,
             id: None,
             path_fragments: evaluated.path_fragments,
+            meta: self.options.meta.then(|| {
+                self.member_meta(member, &path, language, query.needs.kind.then_some(kind))
+            }),
         })
     }
 
@@ -1082,6 +1207,12 @@ fn system_seconds(time: std::time::SystemTime) -> f64 {
         Ok(d) => d.as_secs_f64(),
         Err(e) => -e.duration().as_secs_f64(),
     }
+}
+
+/// Seconds since the Unix epoch without the fraction, rounded down.
+#[allow(clippy::cast_possible_truncation)] // dates are far from the limits of i64
+fn whole_seconds(seconds: f64) -> i64 {
+    seconds.floor() as i64
 }
 
 /// A relative path with `/` separators.

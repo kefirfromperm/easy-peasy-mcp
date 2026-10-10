@@ -41,6 +41,7 @@ config.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+meta = false
 context = 0
 # before =  (not set)
 # after =  (not set)
@@ -147,6 +148,7 @@ config.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"    # default
 detail = "lines"    # default
+meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
 after = 2    # update
@@ -211,6 +213,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "lines"    # default
+meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
 after = 2    # file: conf/o.toml

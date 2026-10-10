@@ -139,6 +139,7 @@ pub fn find_schema() -> Value {
                 "properties": {
                     "format": { "enum": ["text", "json"], "description": "text: compact, like grep; json: the same data as a JSON document. Default: text." },
                     "detail": { "enum": ["exists", "count", "files", "lines"], "description": "exists: only whether anything matches (stops at the first match); count: the totals; files: the totals and the files; lines: also the matched lines. Default: lines." },
+                    "meta": { "type": "boolean", "description": "Add the metadata to every file: type (file, dir, link), size, language and kind of a file, the modification date. Text: 'file 2.1K 2026-10-08 14:03 rust source' after the counts; JSON: type, size (bytes), lang, kind, modified (ISO 8601 with the offset). Default: false." },
                     "context": { "type": "integer", "minimum": 0, "description": "Lines before and after every matched line (grep -C). Default: 0." },
                     "before": { "type": "integer", "minimum": 0, "description": "Lines before every matched line (grep -B). Default: context." },
                     "after": { "type": "integer", "minimum": 0, "description": "Lines after every matched line (grep -A). Default: context." },

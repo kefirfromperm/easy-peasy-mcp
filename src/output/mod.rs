@@ -12,6 +12,7 @@ use crate::warning::{WarningCode, Warnings};
 mod blocks;
 mod json;
 mod lines;
+mod meta;
 mod repeated;
 
 pub use blocks::BlockOptions;
@@ -54,6 +55,8 @@ pub struct Response<'a> {
     pub group_repeated: usize,
     /// How the fragments are shown.
     pub highlight: Highlight<'a>,
+    /// The time zone of the dates of `meta`.
+    pub time_zone: jiff::tz::TimeZone,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -144,6 +147,9 @@ impl Response<'_> {
             }
             if let Some(encoding) = file.encoding {
                 let _ = write!(out, "  {}", encoding.name());
+            }
+            if let Some(meta) = &file.meta {
+                let _ = write!(out, "  {}", meta::text(meta, &self.time_zone));
             }
             out.push('\n');
             if let Some(path) = &file.path_fragments {
@@ -366,6 +372,7 @@ mod tests {
             encoding: None,
             id: None,
             path_fragments: None,
+            meta: None,
         }
     }
 
@@ -384,6 +391,7 @@ mod tests {
             group_dirs: true,
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -410,6 +418,7 @@ mod tests {
             group_dirs: false,
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: None,
             legend: &legend,
             files: &files,
@@ -437,6 +446,7 @@ mod tests {
             encoding: None,
             id: None,
             path_fragments: None,
+            meta: None,
         }];
         let text = Response {
             detail: Detail::Lines,
@@ -444,6 +454,7 @@ mod tests {
             group_dirs: true,
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -470,6 +481,7 @@ mod tests {
             group_dirs: true,
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -512,6 +524,7 @@ mod tests {
             group_dirs: true,
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: None,
             legend: &legend,
             files: &files,
@@ -549,6 +562,7 @@ mod tests {
                 group_dirs: false,
                 group_repeated: 3,
                 highlight,
+                time_zone: jiff::tz::TimeZone::UTC,
                 result_id: None,
                 legend: &legend,
                 files: &files,
@@ -587,6 +601,7 @@ mod tests {
             group_dirs: true,
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],

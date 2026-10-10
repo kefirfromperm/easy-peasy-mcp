@@ -225,6 +225,7 @@ skip_generated = true
 [output]
 format = "text"
 detail = "lines"
+meta = false
 context = 0
 # before =  (not set)
 # after =  (not set)

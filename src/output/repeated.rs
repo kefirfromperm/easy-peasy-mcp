@@ -157,6 +157,7 @@ mod tests {
             encoding: None,
             id: None,
             path_fragments: None,
+            meta: None,
         }
     }
 

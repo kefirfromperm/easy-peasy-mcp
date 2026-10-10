@@ -249,6 +249,7 @@ impl Engine {
             group_dirs: settings.bool(Key::GroupDirs),
             group_repeated: settings.whole(Key::GroupRepeated),
             highlight,
+            time_zone: self.options.time_zone.clone(),
             blocks: BlockOptions {
                 before: settings.opt_whole(Key::Before).unwrap_or(context),
                 after: settings.opt_whole(Key::After).unwrap_or(context),
@@ -342,6 +343,7 @@ impl Engine {
                 .map(str::to_string),
             first_only: false,
             path_fragments: settings.bool(Key::PathFragments),
+            meta: settings.bool(Key::Meta),
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),
