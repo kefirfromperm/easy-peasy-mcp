@@ -39,6 +39,7 @@ follow_symlinks = false
 hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
+ignore_paths = []
 ```
 
 ## E45.3 A maximum depth for the session
@@ -87,6 +88,7 @@ follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 4. `update_config`
@@ -173,6 +175,7 @@ follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 2. `find`

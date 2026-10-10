@@ -50,6 +50,7 @@ follow_symlinks = false
 hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
+ignore_paths = []
 ```
 
 ## E47.2 Hidden files in the request
@@ -130,6 +131,7 @@ follow_symlinks = false    # default
 hidden = true    # update
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 ## E47.5 An invalid value in a request
@@ -187,6 +189,7 @@ follow_symlinks = false    # default
 hidden = true    # file: conf/h.toml
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
+ignore_paths = []    # default
 ```
 
 2. `find`

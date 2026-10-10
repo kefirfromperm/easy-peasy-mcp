@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use serde_json::Value;
 
 use crate::cache::{CachedFile, ResultCache};
-use crate::config::{self, Settings};
+use crate::config::{self, Key, Settings};
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
 use crate::output::Response;
@@ -21,6 +21,8 @@ use crate::warning::{WarningCode, Warnings};
 pub struct EngineOptions {
     /// The directory the server was started in: the default working directory.
     pub start_dir: PathBuf,
+    /// The home directory: `~` in paths of the configuration.
+    pub home: Option<PathBuf>,
     /// Whether the global excludes file of git (`core.excludesFile`) is respected.
     pub git_global_excludes: bool,
     /// A fixed moment for relative dates; `None` — the clock when a request arrives.
@@ -42,6 +44,7 @@ impl EngineOptions {
             settings: config::Settings::defaults(&start_dir),
             read_delay: None,
             start_dir,
+            home: None,
             git_global_excludes: true,
             now: None,
             time_zone: jiff::tz::TimeZone::system(),
@@ -168,10 +171,13 @@ impl Engine {
     fn try_find(&self, arguments: &Value) -> Result<String, Report> {
         let arrival = std::time::Instant::now();
         let request = request::parse(arguments)?;
-        let settings = self.settings();
+        let settings = self.settings().with(&request.config);
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
-        let dirs = request.dirs.as_ref().unwrap_or(&settings.default_dirs);
+        let dirs = request
+            .dirs
+            .as_deref()
+            .unwrap_or_else(|| settings.list(Key::DefaultDirs));
         let working_dirs = dirs
             .iter()
             .map(|dir| self.working_dir(dir, &settings))
@@ -189,24 +195,23 @@ impl Engine {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             languages: Arc::clone(&self.languages),
             deadline,
-            threads: settings.threads,
-            min_depth: request.traversal.min_depth.unwrap_or(settings.min_depth),
-            max_depth: request.traversal.max_depth.or(settings.max_depth),
-            follow_symlinks: request
-                .traversal
-                .follow_symlinks
-                .unwrap_or(settings.follow_symlinks),
+            threads: settings.whole(Key::Threads),
+            min_depth: settings.whole(Key::MinDepth),
+            max_depth: settings.opt_whole(Key::MaxDepth),
+            follow_symlinks: settings.bool(Key::FollowSymlinks),
             allowed_roots: Arc::new(settings.allowed_roots.clone()),
-            hidden: request.traversal.hidden.unwrap_or(settings.hidden),
-            git_excludes: request
-                .traversal
-                .git_excludes
-                .unwrap_or(settings.git_excludes),
-            ignore_files: request
-                .traversal
-                .ignore_files
-                .clone()
-                .unwrap_or_else(|| settings.ignore_files.clone()),
+            hidden: settings.bool(Key::Hidden),
+            git_excludes: settings.bool(Key::GitExcludes),
+            ignore_files: settings.list(Key::IgnoreFiles).to_vec(),
+            ignore_paths: settings
+                .list(Key::IgnorePaths)
+                .iter()
+                .map(|p| {
+                    self.options
+                        .start_dir
+                        .join(config::expand_home(p, self.options.home.as_deref()))
+                })
+                .collect(),
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();
@@ -244,7 +249,7 @@ impl Engine {
             .results
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
-            .keep(settings.result_cache, arguments.clone(), cached)
+            .keep(settings.whole(Key::ResultCache), arguments.clone(), cached)
             .map(|n| format!("r{n}"));
         Ok(Response {
             result_id: result_id.as_deref(),

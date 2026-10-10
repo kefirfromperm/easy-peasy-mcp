@@ -308,7 +308,9 @@ name from `ignore_files`) to hide generated code, fixtures or secrets from the a
 - when several files apply, a deeper file wins over an upper one, and at the same level a later name in
   `ignore_files` wins over an earlier one; so `!` in `.aiignore` can re-include what `.gitignore` excludes
 - `ignore_paths` are ignore files outside of the tree, e.g. a personal `~/.config/easy-peasy-mcp/ignore`; their rules
-  are applied as if the file were in the working directory, with the lowest priority
+  are applied as if the file were in the working directory, with the lowest priority, a later file winning over an
+  earlier one. `~` is expanded to the home directory, relative paths are resolved against the directory the server is
+  started in, like the [paths of the server section](#server); a file which doesn't exist is skipped
 - `git_excludes` adds `.git/info/exclude` and the global excludes file of git (`core.excludesFile`)
 - `ignore_files = []`, `ignore_paths = []` and `git_excludes = false` turn ignoring off completely
 

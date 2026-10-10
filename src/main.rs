@@ -118,6 +118,7 @@ fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()>
     );
     let mut options = EngineOptions::new(start_dir);
     options.settings = settings;
+    options.home = home;
     let server = Server::new(Engine::new(options));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

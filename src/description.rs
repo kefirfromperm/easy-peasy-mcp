@@ -61,8 +61,9 @@ parse-query parse.query parsequery; with /w the whole identifier; not with /e.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
-Hidden files (unless traversal.hidden), files in .gitignore / .ignore / .aiignore and generated files are skipped; unreadable files and
-directories too, with a permission_denied warning.
+Hidden files (unless traversal.hidden), files in .gitignore / .ignore / .aiignore (traversal.ignore_files), in
+.git/info/exclude (traversal.git_excludes) and in the extra ignore files of traversal.ignore_paths, and generated files
+are skipped; unreadable files and directories too, with a permission_denied warning.
 
 OUTPUT: the header \"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
 under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]
@@ -89,7 +90,8 @@ pub fn find_schema() -> Value {
                     "follow_symlinks": { "type": "boolean", "description": "Descend into symlinked directories, read symlinked files." },
                     "hidden": { "type": "boolean", "description": "Include hidden entries (names starting with '.')." },
                     "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." },
-                    "git_excludes": { "type": "boolean", "description": "Respect .git/info/exclude and the global git excludes file. Default: true." }
+                    "git_excludes": { "type": "boolean", "description": "Respect .git/info/exclude and the global git excludes file. Default: true." },
+                    "ignore_paths": { "type": "array", "items": { "type": "string" }, "description": "Extra ignore files (gitignore format) applied as if they were in every working directory, with the lowest priority; ~ is the home directory. Default: []." }
                 }
             }
         }
