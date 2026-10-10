@@ -1,7 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
-//! `kind` and `git` conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! `kind` and `git` conditions, `text has` in file scope; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
@@ -44,9 +44,18 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                     | Target::Lang
                     | Target::Kind
                     | Target::Git
+                    | Target::Text
             ) {
                 let span = c.target_span.clone();
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
+            } else if c.target == Target::Text
+                && let Some((op, span)) = &c.op
+                && *op != Op::Has
+            {
+                found.push((
+                    span.clone(),
+                    format!("the operator '{}'", &query[span.clone()]),
+                ));
             } else if let Some((op, span)) = &c.op
                 && !matches!(
                     op,
@@ -106,8 +115,15 @@ mod tests {
         assert_eq!(check_str("size > 1 and size in 1..2"), None);
         assert_eq!(check_str("git = changed or git in (staged, branch)"), None);
         assert_eq!(
-            check_str("name = 'a' or (path ~ 'b' and text has 'c')"),
-            Some(("the target 'text' is not implemented yet".into(), 30..34))
+            check_str("name = 'a' or (path ~ 'b' and text has 'c' /i)"),
+            None
+        );
+        assert_eq!(
+            check_str("name = 'a' or (path ~ 'b' and text starts 'c')"),
+            Some((
+                "the operator 'starts' is not implemented yet".into(),
+                35..41
+            ))
         );
         assert_eq!(
             check_str("name = 'a' and name =~ 'a'"),

@@ -3,6 +3,7 @@
 use regex::Regex;
 
 use super::ast::CondId;
+use crate::content::Content;
 use crate::git::{GitStatus, GitValue};
 
 /// How a text value is matched: a regex over the NFC form of the value.
@@ -96,6 +97,17 @@ impl Kind {
     }
 }
 
+/// Whether and how the content of an entry is known.
+#[derive(Debug, Clone, Copy)]
+pub enum ContentState<'a> {
+    /// Not read yet: content conditions are unknown, so cheap conditions decide first.
+    NotRead,
+    /// The entry has no content (a directory, a symlink): content conditions are false.
+    Absent,
+    /// The decoded content.
+    Text(&'a Content),
+}
+
 /// The values of one file which conditions look at.
 #[derive(Debug, Clone, Copy)]
 pub struct FileValues<'a> {
@@ -121,6 +133,8 @@ pub struct FileValues<'a> {
     pub kind: Kind,
     /// The git status; `None` outside of a repository, for directories, or without a `git` condition.
     pub git: Option<GitStatus>,
+    /// The content for `text` conditions.
+    pub content: ContentState<'a>,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -207,6 +221,12 @@ pub enum Filter {
         order: usize,
         values: Vec<GitValue>,
         negated: bool,
+    },
+    /// A `text` condition in file scope: the regex runs over the whole normalized content.
+    Content {
+        id: CondId,
+        order: usize,
+        regex: Regex,
     },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
@@ -312,6 +332,11 @@ impl Filter {
             Self::Kind {
                 values, negated, ..
             } => Truth::from(values.contains(&file.kind) != *negated),
+            Self::Content { regex, .. } => match file.content {
+                ContentState::NotRead => Truth::Unknown,
+                ContentState::Absent => Truth::False,
+                ContentState::Text(content) => Truth::from(regex.is_match(content.text())),
+            },
             Self::Git {
                 values, negated, ..
             } => Truth::from(
@@ -337,17 +362,41 @@ impl Filter {
     }
 
     /// The ids of the conditions which made a matching file match, in the order of appearance.
+    #[cfg(test)]
     pub fn contributors(&self, file: &FileValues<'_>) -> Vec<CondId> {
-        let mut found = Vec::new();
-        self.collect(file, &mut found);
-        found.sort_by_key(|(order, _)| *order);
-        found.dedup_by_key(|(order, _)| *order);
-        found.into_iter().map(|(_, id)| id).collect()
+        self.contributing_leaves(file)
+            .into_iter()
+            .filter_map(Filter::id)
+            .map(|(_, id)| id.clone())
+            .collect()
     }
 
-    /// Adds the contributing conditions of this true part: all parts of `and`, the true parts of `or` / `xor`,
-    /// nothing under `not`.
-    fn collect(&self, file: &FileValues<'_>, found: &mut Vec<(usize, CondId)>) {
+    /// The conditions which made a matching file match, in the order of appearance: all parts of a true `and`, the
+    /// true parts of `or` / `xor`, nothing under `not`.
+    pub fn contributing_leaves(&self, file: &FileValues<'_>) -> Vec<&Filter> {
+        let mut found = Vec::new();
+        self.collect(file, &mut found);
+        found.sort_by_key(|f| f.id().map(|(order, _)| order));
+        found.dedup_by_key(|f| f.id().map(|(order, _)| order));
+        found
+    }
+
+    /// The order of appearance and the id of a condition; `None` for logical operators.
+    pub fn id(&self) -> Option<(usize, &CondId)> {
+        match self {
+            Self::And(_) | Self::Or(_) | Self::Xor(_) | Self::Not(_) => None,
+            Self::Text { id, order, .. }
+            | Self::Type { id, order, .. }
+            | Self::Empty { id, order }
+            | Self::Lang { id, order, .. }
+            | Self::Kind { id, order, .. }
+            | Self::Git { id, order, .. }
+            | Self::Content { id, order, .. }
+            | Self::Number { id, order, .. } => Some((*order, id)),
+        }
+    }
+
+    fn collect<'f>(&'f self, file: &FileValues<'_>, found: &mut Vec<&'f Filter>) {
         match self {
             Self::And(items) => items.iter().for_each(|f| f.collect(file, found)),
             Self::Or(items) | Self::Xor(items) => {
@@ -356,15 +405,7 @@ impl Filter {
                 }
             }
             Self::Not(_) => {}
-            Self::Text { id, order, .. }
-            | Self::Type { id, order, .. }
-            | Self::Empty { id, order }
-            | Self::Lang { id, order, .. }
-            | Self::Kind { id, order, .. }
-            | Self::Git { id, order, .. }
-            | Self::Number { id, order, .. } => {
-                found.push((*order, id.clone()));
-            }
+            leaf => found.push(leaf),
         }
     }
 }
@@ -395,6 +436,7 @@ mod tests {
             lang: "unknown",
             kind: Kind::Other,
             git: None,
+            content: ContentState::Absent,
         };
         filter.matches(&file).then(|| {
             filter
@@ -491,6 +533,7 @@ mod tests {
             lang: "unknown",
             kind: Kind::Other,
             git: None,
+            content: ContentState::Absent,
         };
         assert_eq!(created(1).eval(&file), Truth::Unknown);
         assert!(!Filter::Not(Box::new(created(1))).matches(&file));

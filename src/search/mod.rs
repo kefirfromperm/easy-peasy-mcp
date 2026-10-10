@@ -9,10 +9,14 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
+use crate::content::Content;
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::LanguageTable;
+use crate::output::{Fragment, matched_lines, merge_identical};
 use crate::query::UNKNOWN_LANG;
-use crate::query::{EntryType, FileValues, Kind, Query, ast::CondId, nfc};
+use crate::query::{
+    ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, nfc,
+};
 use crate::warning::{WarningCode, Warnings};
 
 /// The ignore files respected in every directory, a later one wins at the same level.
@@ -38,6 +42,42 @@ pub struct Found {
     pub is_dir: bool,
     /// The ids of the conditions which made the file match.
     pub conditions: Vec<CondId>,
+    /// The content fragments, if any content condition made the file match.
+    pub matches: Option<FileMatches>,
+}
+
+/// The content fragments of a matched file and its counts (OUTPUT.md#counts).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileMatches {
+    /// The content, for the matched lines of the output.
+    pub content: Content,
+    /// Identical fragments merged, sorted by position.
+    pub fragments: Vec<Fragment>,
+    /// The number of lines touched by fragments.
+    pub lines: usize,
+}
+
+/// The fragments of the contributing content conditions; `None` when there is none.
+fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
+    let mut fragments = Vec::new();
+    for leaf in leaves {
+        if let Filter::Content { id, order, regex } = leaf {
+            fragments.extend(regex.find_iter(content.text()).map(|m| Fragment {
+                range: m.range(),
+                ids: vec![(*order, id.clone())],
+            }));
+        }
+    }
+    if fragments.is_empty() {
+        return None;
+    }
+    let fragments = merge_identical(fragments);
+    let lines = matched_lines(content, &fragments);
+    Some(FileMatches {
+        content: content.clone(),
+        fragments,
+        lines,
+    })
 }
 
 /// The result of a search: the matched entries and the warnings.
@@ -161,7 +201,7 @@ impl Walk<'_> {
         } else {
             Kind::Other
         };
-        let file = FileValues {
+        let mut file = FileValues {
             name: &name,
             path: &nfc_path,
             entry_type,
@@ -173,11 +213,38 @@ impl Walk<'_> {
             lang: language.map_or(UNKNOWN_LANG, |l| l.name.as_str()),
             kind,
             git: self.git_status(entry.path(), rel, entry_type),
+            content: if query.needs.content && entry_type == EntryType::File {
+                ContentState::NotRead
+            } else {
+                ContentState::Absent
+            },
         };
-        let conditions = match &query.filter {
-            None => Vec::new(),
-            Some(filter) if filter.matches(&file) => filter.contributors(&file),
-            Some(_) => return None,
+        let content;
+        let (conditions, matches) = match &query.filter {
+            None => (Vec::new(), None),
+            Some(filter) => {
+                if filter.eval(&file) == Truth::False {
+                    return None;
+                }
+                if matches!(file.content, ContentState::NotRead) {
+                    content = Content::from_bytes(&std::fs::read(entry.path()).ok()?);
+                    file.content = ContentState::Text(&content);
+                }
+                if !filter.matches(&file) {
+                    return None;
+                }
+                let leaves = filter.contributing_leaves(&file);
+                let conditions = leaves
+                    .iter()
+                    .filter_map(|f| f.id())
+                    .map(|(_, id)| id.clone())
+                    .collect();
+                let matches = match file.content {
+                    ContentState::Text(content) => file_matches(content, &leaves),
+                    _ => None,
+                };
+                (conditions, matches)
+            }
         };
         let is_file = entry_type == EntryType::File;
         if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
@@ -190,6 +257,7 @@ impl Walk<'_> {
             rel: rel.to_path_buf(),
             is_dir: entry_type == EntryType::Dir,
             conditions,
+            matches,
         };
         Some((found, id))
     }

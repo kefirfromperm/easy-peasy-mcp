@@ -1,6 +1,6 @@
 # Task 19: `text has` in file scope
 
-Status: not implemented
+Status: implemented, see [19__SUMMARY__TEXT_HAS.md](19__SUMMARY__TEXT_HAS.md)
 
 Depends on: task 6
 

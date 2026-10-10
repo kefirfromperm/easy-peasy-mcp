@@ -2,6 +2,7 @@
 //!
 //! The entry point for tests and embedding is [`Engine`]; [`mcp::Server`] exposes it over MCP.
 
+mod content;
 mod description;
 mod engine;
 mod error;
