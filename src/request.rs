@@ -256,8 +256,12 @@ mod tests {
             "error[not_implemented]: the value 'facets' of 'output.detail' is not implemented yet\n"
         );
         assert_eq!(
-            text(&json!({ "output": { "context": 1 } })),
-            "error[not_implemented]: the field 'output.context' is not implemented yet\n"
+            config(&json!({ "output": { "context": 1 } })),
+            [(Key::Context, KeyValue::Whole(1))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "before": 1 } })),
+            "error[not_implemented]: the field 'output.before' is not implemented yet\n"
         );
     }
 
