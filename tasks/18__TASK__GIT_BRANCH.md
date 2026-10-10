@@ -1,6 +1,6 @@
 # Task 18: `git = branch`
 
-Status: in progress
+Status: implemented, see [18__SUMMARY__GIT_BRANCH.md](18__SUMMARY__GIT_BRANCH.md)
 
 Depends on: task 17
 
