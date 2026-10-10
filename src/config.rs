@@ -171,7 +171,7 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 10] = [
+const IMPLEMENTED: [(&str, &str); 11] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
@@ -182,6 +182,7 @@ const IMPLEMENTED: [(&str, &str); 10] = [
     ("traversal", "max_depth"),
     ("traversal", "follow_symlinks"),
     ("traversal", "hidden"),
+    ("traversal", "ignore_files"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -211,24 +212,10 @@ impl fmt::Display for Source {
 pub struct FileValues {
     /// `server.allowed_roots` as written.
     pub allowed_roots: Option<(Vec<String>, usize)>,
-    /// `server.default_dirs` as written.
-    pub default_dirs: Option<Vec<String>>,
-    /// `server.timeout` as written, a valid duration.
-    pub timeout: Option<String>,
-    /// `server.threads`.
-    pub threads: Option<usize>,
     /// `server.allow_update`.
     pub allow_update: Option<bool>,
-    /// `server.result_cache`.
-    pub result_cache: Option<usize>,
-    /// `traversal.min_depth`.
-    pub min_depth: Option<usize>,
-    /// `traversal.max_depth`.
-    pub max_depth: Option<usize>,
-    /// `traversal.follow_symlinks`.
-    pub follow_symlinks: Option<bool>,
-    /// `traversal.hidden`.
-    pub hidden: Option<bool>,
+    /// The values of the keys which `update_config` changes too, in the order of the file.
+    pub(crate) mutable: Vec<MutableValue>,
 }
 
 /// A checked config file.
@@ -271,6 +258,9 @@ pub struct Settings {
     /// `traversal.hidden`: include hidden entries.
     pub hidden: bool,
     pub hidden_source: Source,
+    /// `traversal.ignore_files`: the ignore files looked up in every directory, in order.
+    pub ignore_files: Vec<String>,
+    pub ignore_files_source: Source,
 }
 
 impl Settings {
@@ -298,6 +288,8 @@ impl Settings {
             follow_symlinks_source: Source::Default,
             hidden: false,
             hidden_source: Source::Default,
+            ignore_files: IGNORE_FILES.iter().map(ToString::to_string).collect(),
+            ignore_files_source: Source::Default,
         }
     }
 
@@ -316,52 +308,15 @@ impl Settings {
         let cli_roots = &cli.roots;
         let mut settings = Self::defaults(start_dir);
         if let Some(file) = file
-            && let Some(timeout) = &file.values.timeout
-        {
-            settings.timeout.clone_from(timeout);
-            settings.timeout_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
-            && let Some(threads) = file.values.threads
-        {
-            settings.threads = threads;
-            settings.threads_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
-            && let Some(value) = file.values.hidden
-        {
-            settings.hidden = value;
-            settings.hidden_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
-            && let Some(follow) = file.values.follow_symlinks
-        {
-            settings.follow_symlinks = follow;
-            settings.follow_symlinks_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
-            && let Some(max_depth) = file.values.max_depth
-        {
-            settings.max_depth = Some(max_depth);
-            settings.max_depth_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
-            && let Some(min_depth) = file.values.min_depth
-        {
-            settings.min_depth = min_depth;
-            settings.min_depth_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
-            && let Some(result_cache) = file.values.result_cache
-        {
-            settings.result_cache = result_cache;
-            settings.result_cache_source = Source::File(file.path.clone());
-        }
-        if let Some(file) = file
             && let Some(allow_update) = file.values.allow_update
         {
             settings.allow_update = allow_update;
             settings.allow_update_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file {
+            for value in &file.values.mutable {
+                settings.assign(value.clone(), Source::File(file.path.clone()));
+            }
         }
         if cli.no_update {
             settings.allow_update = false;
@@ -370,12 +325,6 @@ impl Settings {
         if let Some(timeout) = &cli.timeout {
             settings.timeout.clone_from(timeout);
             settings.timeout_source = Source::Cli;
-        }
-        if let Some(file) = file
-            && let Some(dirs) = &file.values.default_dirs
-        {
-            settings.default_dirs.clone_from(dirs);
-            settings.default_dirs_source = Source::File(file.path.clone());
         }
         let (roots, source, line) = if !cli_roots.is_empty() {
             (cli_roots.clone(), Source::Cli, None)
@@ -427,6 +376,7 @@ impl Settings {
             Mutable::MaxDepth => self.max_depth?.to_string(),
             Mutable::FollowSymlinks => self.follow_symlinks.to_string(),
             Mutable::Hidden => self.hidden.to_string(),
+            Mutable::IgnoreFiles => toml_list(self.ignore_files.iter().map(String::as_str)),
         })
     }
 
@@ -470,43 +420,51 @@ impl Settings {
                 self.hidden = base.hidden;
                 self.hidden_source = base.hidden_source.clone();
             }
+            Mutable::IgnoreFiles => {
+                self.ignore_files.clone_from(&base.ignore_files);
+                self.ignore_files_source = base.ignore_files_source.clone();
+            }
         }
     }
 
-    /// Sets a key to a checked value of `update_config`.
-    fn set(&mut self, value: MutableValue) {
+    /// Sets a key to a checked value from `source`.
+    fn assign(&mut self, value: MutableValue, source: Source) {
         match value {
             MutableValue::DefaultDirs(dirs) => {
                 self.default_dirs = dirs;
-                self.default_dirs_source = Source::Update;
+                self.default_dirs_source = source;
             }
             MutableValue::Timeout(timeout) => {
                 self.timeout = timeout;
-                self.timeout_source = Source::Update;
+                self.timeout_source = source;
             }
             MutableValue::Threads(threads) => {
                 self.threads = threads;
-                self.threads_source = Source::Update;
+                self.threads_source = source;
             }
             MutableValue::ResultCache(results) => {
                 self.result_cache = results;
-                self.result_cache_source = Source::Update;
+                self.result_cache_source = source;
             }
             MutableValue::MinDepth(depth) => {
                 self.min_depth = depth;
-                self.min_depth_source = Source::Update;
+                self.min_depth_source = source;
             }
             MutableValue::MaxDepth(depth) => {
                 self.max_depth = Some(depth);
-                self.max_depth_source = Source::Update;
+                self.max_depth_source = source;
             }
             MutableValue::FollowSymlinks(follow) => {
                 self.follow_symlinks = follow;
-                self.follow_symlinks_source = Source::Update;
+                self.follow_symlinks_source = source;
             }
             MutableValue::Hidden(value) => {
                 self.hidden = value;
-                self.hidden_source = Source::Update;
+                self.hidden_source = source;
+            }
+            MutableValue::IgnoreFiles(value) => {
+                self.ignore_files = value;
+                self.ignore_files_source = source;
             }
         }
     }
@@ -534,10 +492,11 @@ enum Mutable {
     MaxDepth,
     FollowSymlinks,
     Hidden,
+    IgnoreFiles,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 8] = [
+    const ALL: [Mutable; 9] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -546,6 +505,7 @@ impl Mutable {
         Self::MaxDepth,
         Self::FollowSymlinks,
         Self::Hidden,
+        Self::IgnoreFiles,
     ];
 
     /// The section and the key.
@@ -559,6 +519,7 @@ impl Mutable {
             Self::MaxDepth => ("traversal", "max_depth"),
             Self::FollowSymlinks => ("traversal", "follow_symlinks"),
             Self::Hidden => ("traversal", "hidden"),
+            Self::IgnoreFiles => ("traversal", "ignore_files"),
         }
     }
 
@@ -603,13 +564,16 @@ impl Mutable {
                 .map(MutableValue::FollowSymlinks)
                 .ok_or(BOOLEAN),
             Self::Hidden => item.as_bool().map(MutableValue::Hidden).ok_or(BOOLEAN),
+            Self::IgnoreFiles => string_list(item)
+                .map(MutableValue::IgnoreFiles)
+                .ok_or(FILE_NAMES),
         }
     }
 }
 
 /// A checked value of a key which `update_config` changes.
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum MutableValue {
+pub(crate) enum MutableValue {
     DefaultDirs(Vec<String>),
     Timeout(String),
     Threads(usize),
@@ -618,6 +582,7 @@ enum MutableValue {
     MaxDepth(usize),
     FollowSymlinks(bool),
     Hidden(bool),
+    IgnoreFiles(Vec<String>),
 }
 
 /// What `default_dirs` must be.
@@ -625,6 +590,12 @@ const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
 
 /// What `threads` must be.
 const THREADS: &str = "a whole number is expected (0: the number of CPU cores)";
+
+/// What `ignore_files` must be.
+const FILE_NAMES: &str = "a list of file names is expected";
+
+/// The ignore files of the defaults.
+const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
 
 /// What a boolean must be.
 const BOOLEAN: &str = "true or false is expected";
@@ -803,44 +774,15 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     "invalid value for 'server.allow_update': true or false is expected".to_string()
                 }
             },
-            Entry::Key { section, key, item } if Mutable::find(section, key).is_some() => {
-                match Mutable::find(section, key).map(|m| m.parse(item)) {
-                    Some(Ok(MutableValue::DefaultDirs(dirs))) => {
-                        values.default_dirs = Some(dirs);
+            Entry::Key { section, key, item }
+                if let Some(mutable) = Mutable::find(section, key) =>
+            {
+                match mutable.parse(item) {
+                    Ok(value) => {
+                        values.mutable.push(value);
                         continue;
                     }
-                    Some(Ok(MutableValue::Timeout(timeout))) => {
-                        values.timeout = Some(timeout);
-                        continue;
-                    }
-                    Some(Ok(MutableValue::Threads(threads))) => {
-                        values.threads = Some(threads);
-                        continue;
-                    }
-                    Some(Ok(MutableValue::ResultCache(results))) => {
-                        values.result_cache = Some(results);
-                        continue;
-                    }
-                    Some(Ok(MutableValue::MinDepth(depth))) => {
-                        values.min_depth = Some(depth);
-                        continue;
-                    }
-                    Some(Ok(MutableValue::MaxDepth(depth))) => {
-                        values.max_depth = Some(depth);
-                        continue;
-                    }
-                    Some(Ok(MutableValue::FollowSymlinks(follow))) => {
-                        values.follow_symlinks = Some(follow);
-                        continue;
-                    }
-                    Some(Ok(MutableValue::Hidden(value))) => {
-                        values.hidden = Some(value);
-                        continue;
-                    }
-                    Some(Err(expected)) => {
-                        format!("invalid value for '{section}.{key}': {expected}")
-                    }
-                    None => unreachable!("these are mutable keys"),
+                    Err(expected) => format!("invalid value for '{section}.{key}': {expected}"),
                 }
             }
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
@@ -948,6 +890,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
                 &settings.follow_symlinks_source,
             ),
             (settings.line(Mutable::Hidden), &settings.hidden_source),
+            (
+                settings.line(Mutable::IgnoreFiles),
+                &settings.ignore_files_source,
+            ),
         ];
         out.push_str("\n[traversal]\n");
         push_lines(&mut out, &lines, sources);
@@ -1072,7 +1018,7 @@ pub(crate) fn update_config(
     }
     let set_keys: Vec<Mutable> = values.iter().map(|(key, _)| *key).collect();
     for (_, value) in values {
-        updated.set(value);
+        updated.assign(value, Source::Update);
     }
     let out = changes(session, &updated, &resets, &set_keys);
     *session = updated;
@@ -1382,7 +1328,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\nignore_files = ['.gitignore', '.ignore', '.aiignore']\n"
             )
         );
         assert_eq!(
@@ -1581,15 +1527,18 @@ mod tests {
             path: PathBuf::from("c.toml"),
             values: FileValues {
                 allowed_roots: Some((Vec::new(), 1)),
-                default_dirs: Some(vec!["src".into()]),
-                timeout: Some("1m".into()),
-                threads: Some(2),
                 allow_update: Some(false),
-                result_cache: Some(0),
-                min_depth: Some(3),
-                max_depth: Some(5),
-                follow_symlinks: Some(true),
-                hidden: Some(true),
+                mutable: vec![
+                    MutableValue::DefaultDirs(vec!["src".into()]),
+                    MutableValue::Timeout("1m".into()),
+                    MutableValue::Threads(2),
+                    MutableValue::ResultCache(0),
+                    MutableValue::MinDepth(3),
+                    MutableValue::MaxDepth(5),
+                    MutableValue::FollowSymlinks(true),
+                    MutableValue::Hidden(true),
+                    MutableValue::IgnoreFiles(Vec::new()),
+                ],
             },
         };
         let cli = CommandLine {
@@ -1607,6 +1556,7 @@ mod tests {
         assert_eq!(settings.max_depth, Some(5));
         assert!(settings.follow_symlinks);
         assert!(settings.hidden);
+        assert!(settings.ignore_files.is_empty());
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));

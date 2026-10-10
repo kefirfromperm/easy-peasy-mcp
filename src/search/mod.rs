@@ -21,9 +21,6 @@ use crate::query::{
 };
 use crate::warning::{WarningCode, Warnings};
 
-/// The ignore files respected in every directory, a later one wins at the same level.
-pub const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
-
 /// Settings of one search.
 #[derive(Debug, Clone)]
 #[allow(clippy::struct_excessive_bools)] // independent switches of the walk, from the configuration
@@ -46,6 +43,8 @@ pub struct SearchOptions {
     pub follow_symlinks: bool,
     /// Include hidden entries: names starting with `.`.
     pub hidden: bool,
+    /// The ignore files looked up in every directory; a later name wins at the same level.
+    pub ignore_files: Vec<String>,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -220,7 +219,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
             false
         });
     }
-    for name in IGNORE_FILES {
+    for name in &options.ignore_files {
         builder.add_custom_ignore_filename(name);
     }
     let walk = Walk {
