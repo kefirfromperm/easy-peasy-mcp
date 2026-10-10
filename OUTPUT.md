@@ -425,7 +425,10 @@ and no `fragments`, with `none` neither.
 
 When a limit is hit:
 
-- `truncated` is `true`, `truncated_by` names the limits
+- `truncated` is `true`, `truncated_by` names the limits in the order of the table; the text header has
+  `truncated: yes (max_files, timeout)` after the result id
+- the limits of the listed files, lines and output only apply where they are listed: `max_files` and `max_output`
+  in `files` and `lines` detail, the others in `lines` detail
 - `counts` still contain the real totals, so the agent knows how much is missing; after the `timeout` they are only
   lower bounds, `counts_exact: false`
 - a file cut by `max_matches_per_file` or `max_output_per_file` gets `"truncated": true`, in the text format `(cut)`

@@ -232,6 +232,7 @@ context = 0
 path_fragments = false
 highlight = "auto"
 markers = ['⟦', '⟧']
+max_files = 100
 dedent = true
 blank_context = false
 group_dirs = true
