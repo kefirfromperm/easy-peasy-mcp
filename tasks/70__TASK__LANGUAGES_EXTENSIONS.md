@@ -1,6 +1,6 @@
 # Task 70: `languages.<name>.extensions`
 
-Status: in progress
+Status: implemented, see [70__SUMMARY__LANGUAGES_EXTENSIONS.md](70__SUMMARY__LANGUAGES_EXTENSIONS.md)
 
 Depends on: task 15, task 36
 
