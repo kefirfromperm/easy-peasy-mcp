@@ -1,6 +1,6 @@
 # Task 30: `/e` match escaped text
 
-Status: in progress
+Status: implemented, see [30__SUMMARY__MODIFIER_E.md](30__SUMMARY__MODIFIER_E.md)
 
 Depends on: task 23
 
