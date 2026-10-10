@@ -376,4 +376,28 @@ mod tests {
         assert_eq!(listed_lines(&listing, &files[1..]), [vec![0]]);
         assert_eq!(listing.until, [Some(2)]);
     }
+
+    #[test]
+    fn the_first_characters_of_the_response() {
+        // the path `f` is one character, every line four
+        let files = [file("aaaa\naaaa\n"), file("aaaa\n")];
+        let limits = |max_output: usize| Limits {
+            max_output,
+            ..Limits::default()
+        };
+        let listing = Listing::new(&files, &Repeated::default(), &limits(6), &BlockOptions::default());
+        assert_eq!(listing.shown, 1);
+        assert_eq!(listed_lines(&listing, &files)[0], [0]);
+        assert_eq!(listing.until[0], Some(1));
+        assert_eq!(listing.truncated_by, ["max_output"]);
+        let listing = Listing::new(&files, &Repeated::default(), &limits(10), &BlockOptions::default());
+        assert_eq!(listing.shown, 2);
+        assert_eq!(listed_lines(&listing, &files), [vec![0, 1], vec![]]);
+        let all = Listing::new(&files, &Repeated::default(), &limits(14), &BlockOptions::default());
+        assert_eq!(all.shown, 2);
+        assert!(all.truncated_by.is_empty());
+        let paths = Listing::without_lines(&files, &limits(1));
+        assert_eq!(paths.shown, 1);
+        assert_eq!(Listing::without_lines(&files, &limits(0)).shown, 0);
+    }
 }
