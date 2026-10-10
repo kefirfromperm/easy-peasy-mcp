@@ -98,10 +98,12 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
             .as_str()
             .unwrap_or_default();
         let is_error = response["result"]["isError"] == json!(true);
-        if is_error != (expected.info == "text error") || text != expected.text {
+        let expected_text = expected
+            .text
+            .replace("<version>", env!("CARGO_PKG_VERSION"));
+        if is_error != (expected.info == "text error") || text != expected_text {
             return Err(format!(
-                "request {id}: expected:\n{}\nactual (isError: {is_error}):\n{text}",
-                expected.text
+                "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"
             ));
         }
     }
