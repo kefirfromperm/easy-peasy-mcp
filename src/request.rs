@@ -487,6 +487,32 @@ mod tests {
     }
 
     #[test]
+    fn languages() {
+        assert!(parse(&json!({ "languages": { "terraform": { "extensions": ["tf"] } } })).is_ok());
+        assert_eq!(
+            text(&json!({ "languages": { "terraform": { "extensions": "tf" } } })),
+            "error[invalid_option]: 'languages.terraform.extensions' must be a list of strings\n"
+        );
+        assert_eq!(
+            text(&json!({ "languages": { "c++": { "extensions": ["c2"] } } })),
+            "error[invalid_option]: invalid language name 'c++'\n  hint: a letter, then letters, digits, _ and - are expected\n"
+        );
+        assert_eq!(
+            text(&json!({ "languages": { "rust": 1 } })),
+            "error[invalid_option]: 'languages.rust' must be an object\n"
+        );
+        assert_eq!(
+            text(&json!({ "languages": [] })),
+            "error[invalid_option]: 'languages' must be an object\n"
+        );
+        assert!(
+            text(&json!({ "languages": { "rust": { "extension": [] } } })).starts_with(
+                "error[invalid_option]: unknown field 'languages.rust.extension'\n  hint: did you mean 'extensions'? expected one of: extensions, names,"
+            )
+        );
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
