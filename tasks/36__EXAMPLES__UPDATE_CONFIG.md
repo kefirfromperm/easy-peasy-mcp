@@ -229,6 +229,7 @@ context = 0
 # before =  (not set)
 # after =  (not set)
 highlight = "auto"
+markers = ['⟦', '⟧']
 dedent = true
 blank_context = false
 group_dirs = true
