@@ -227,6 +227,9 @@ Notes
   `date_unsupported` warning.
 - Lines are split by `\n`, a trailing `\r` is removed, so files with `\r\n` line breaks work the same way.
 - `len` counts Unicode characters, a tab is one character.
+- `empty` is true for a regular file of size 0 and for a directory without any entry on disk, like `find -empty`:
+  hidden or ignored entries, which the search doesn't return, still make the directory non-empty. A symlink is never
+  empty, it is not followed.
 
 ### lang
 
