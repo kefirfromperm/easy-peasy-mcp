@@ -86,6 +86,9 @@ timeout = "30s"    # default
 threads = 1    # update
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ## E41.2 The default
@@ -152,6 +155,9 @@ timeout = "30s"    # default
 threads = 2    # file: conf/t.toml
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 2. `find`

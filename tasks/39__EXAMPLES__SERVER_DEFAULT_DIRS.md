@@ -233,6 +233,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 3. `find`
@@ -336,6 +339,9 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 2. `find`

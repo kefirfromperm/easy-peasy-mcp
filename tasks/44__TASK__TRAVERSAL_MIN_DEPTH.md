@@ -1,6 +1,6 @@
 # Task 44: `traversal.min_depth`
 
-Status: not implemented
+Status: implemented, see [44__SUMMARY__TRAVERSAL_MIN_DEPTH.md](44__SUMMARY__TRAVERSAL_MIN_DEPTH.md)
 
 Depends on: task 36
 

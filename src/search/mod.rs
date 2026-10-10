@@ -37,6 +37,8 @@ pub struct SearchOptions {
     pub deadline: Option<Instant>,
     /// The threads of the walk and the file search; `0` — the number of CPU cores.
     pub threads: usize,
+    /// Entries closer to the working directory are not returned; its children are depth 1.
+    pub min_depth: usize,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
     pub read_delay: Option<Duration>,
 }
@@ -254,7 +256,7 @@ impl Walk<'_> {
     /// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
     fn visit(&self, entry: &ignore::DirEntry) -> Option<Found> {
         let query = self.query;
-        if entry.depth() == 0 {
+        if entry.depth() == 0 || entry.depth() < self.options.min_depth {
             return None;
         }
         let entry_type = entry_type(entry)?;

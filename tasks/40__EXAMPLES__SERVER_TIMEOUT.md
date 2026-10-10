@@ -110,6 +110,9 @@ timeout = "200ms"    # update
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 3. `find`
@@ -177,6 +180,9 @@ timeout = "5s"    # cli
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -207,6 +213,9 @@ timeout = "1m"    # file: conf/t.toml
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -237,6 +246,9 @@ timeout = "5s"    # cli
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+
+[traversal]
+min_depth = 0    # default
 ```
 
 ## E40.10 An invalid timeout in the config file

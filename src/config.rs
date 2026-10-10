@@ -171,13 +171,14 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 6] = [
+const IMPLEMENTED: [(&str, &str); 7] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
     ("server", "threads"),
     ("server", "allow_update"),
     ("server", "result_cache"),
+    ("traversal", "min_depth"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -217,6 +218,8 @@ pub struct FileValues {
     pub allow_update: Option<bool>,
     /// `server.result_cache`.
     pub result_cache: Option<usize>,
+    /// `traversal.min_depth`.
+    pub min_depth: Option<usize>,
 }
 
 /// A checked config file.
@@ -247,6 +250,9 @@ pub struct Settings {
     /// `server.result_cache`: the results kept for `within` and `since`; `0` — off.
     pub result_cache: usize,
     pub result_cache_source: Source,
+    /// `traversal.min_depth`: entries closer to the working directory are skipped; its children are depth 1.
+    pub min_depth: usize,
+    pub min_depth_source: Source,
 }
 
 impl Settings {
@@ -266,6 +272,8 @@ impl Settings {
             allow_update_source: Source::Default,
             result_cache: 50,
             result_cache_source: Source::Default,
+            min_depth: 0,
+            min_depth_source: Source::Default,
         }
     }
 
@@ -294,6 +302,12 @@ impl Settings {
         {
             settings.threads = threads;
             settings.threads_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(min_depth) = file.values.min_depth
+        {
+            settings.min_depth = min_depth;
+            settings.min_depth_source = Source::File(file.path.clone());
         }
         if let Some(file) = file
             && let Some(result_cache) = file.values.result_cache
@@ -367,6 +381,7 @@ impl Settings {
             Mutable::Timeout => format!("\"{}\"", self.timeout),
             Mutable::Threads => self.threads.to_string(),
             Mutable::ResultCache => self.result_cache.to_string(),
+            Mutable::MinDepth => self.min_depth.to_string(),
         }
     }
 
@@ -388,6 +403,10 @@ impl Settings {
             Mutable::ResultCache => {
                 self.result_cache = base.result_cache;
                 self.result_cache_source = base.result_cache_source.clone();
+            }
+            Mutable::MinDepth => {
+                self.min_depth = base.min_depth;
+                self.min_depth_source = base.min_depth_source.clone();
             }
         }
     }
@@ -411,6 +430,10 @@ impl Settings {
                 self.result_cache = results;
                 self.result_cache_source = Source::Update;
             }
+            MutableValue::MinDepth(depth) => {
+                self.min_depth = depth;
+                self.min_depth_source = Source::Update;
+            }
         }
     }
 
@@ -433,14 +456,16 @@ enum Mutable {
     Timeout,
     Threads,
     ResultCache,
+    MinDepth,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 4] = [
+    const ALL: [Mutable; 5] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
         Self::ResultCache,
+        Self::MinDepth,
     ];
 
     /// The section and the key.
@@ -450,6 +475,7 @@ impl Mutable {
             Self::Timeout => ("server", "timeout"),
             Self::Threads => ("server", "threads"),
             Self::ResultCache => ("server", "result_cache"),
+            Self::MinDepth => ("traversal", "min_depth"),
         }
     }
 
@@ -479,6 +505,11 @@ impl Mutable {
                 .and_then(|n| usize::try_from(n).ok())
                 .map(MutableValue::ResultCache)
                 .ok_or(RESULT_CACHE),
+            Self::MinDepth => item
+                .as_integer()
+                .and_then(|n| usize::try_from(n).ok())
+                .map(MutableValue::MinDepth)
+                .ok_or(WHOLE_NUMBER),
         }
     }
 }
@@ -490,6 +521,7 @@ enum MutableValue {
     Timeout(String),
     Threads(usize),
     ResultCache(usize),
+    MinDepth(usize),
 }
 
 /// What `default_dirs` must be.
@@ -497,6 +529,9 @@ const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
 
 /// What `threads` must be.
 const THREADS: &str = "a whole number is expected (0: the number of CPU cores)";
+
+/// What a depth must be.
+const WHOLE_NUMBER: &str = "a whole number is expected";
 
 /// What `result_cache` must be.
 const RESULT_CACHE: &str = "a whole number is expected (0: off)";
@@ -601,6 +636,14 @@ fn entries<S>(doc: &toml_edit::Document<S>) -> Vec<(usize, Entry<'_>)> {
     entries
 }
 
+/// The keys of a section of the spec, in the order of the spec; empty for `languages` and unknown sections.
+pub(crate) fn section_keys(section: &str) -> &'static [&'static str] {
+    SECTIONS
+        .iter()
+        .find(|(name, _)| *name == section)
+        .map_or(&[], |(_, keys)| keys)
+}
+
 /// The names of the sections, in the order of the spec.
 fn section_names() -> Vec<&'static str> {
     SECTIONS.iter().map(|(section, _)| *section).collect()
@@ -661,30 +704,34 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     "invalid value for 'server.allow_update': true or false is expected".to_string()
                 }
             },
-            Entry::Key {
-                section: "server",
-                key: key @ ("default_dirs" | "timeout" | "threads" | "result_cache"),
-                item,
-            } => match Mutable::find("server", key).map(|m| m.parse(item)) {
-                Some(Ok(MutableValue::DefaultDirs(dirs))) => {
-                    values.default_dirs = Some(dirs);
-                    continue;
+            Entry::Key { section, key, item } if Mutable::find(section, key).is_some() => {
+                match Mutable::find(section, key).map(|m| m.parse(item)) {
+                    Some(Ok(MutableValue::DefaultDirs(dirs))) => {
+                        values.default_dirs = Some(dirs);
+                        continue;
+                    }
+                    Some(Ok(MutableValue::Timeout(timeout))) => {
+                        values.timeout = Some(timeout);
+                        continue;
+                    }
+                    Some(Ok(MutableValue::Threads(threads))) => {
+                        values.threads = Some(threads);
+                        continue;
+                    }
+                    Some(Ok(MutableValue::ResultCache(results))) => {
+                        values.result_cache = Some(results);
+                        continue;
+                    }
+                    Some(Ok(MutableValue::MinDepth(depth))) => {
+                        values.min_depth = Some(depth);
+                        continue;
+                    }
+                    Some(Err(expected)) => {
+                        format!("invalid value for '{section}.{key}': {expected}")
+                    }
+                    None => unreachable!("these are mutable keys"),
                 }
-                Some(Ok(MutableValue::Timeout(timeout))) => {
-                    values.timeout = Some(timeout);
-                    continue;
-                }
-                Some(Ok(MutableValue::Threads(threads))) => {
-                    values.threads = Some(threads);
-                    continue;
-                }
-                Some(Ok(MutableValue::ResultCache(results))) => {
-                    values.result_cache = Some(results);
-                    continue;
-                }
-                Some(Err(expected)) => format!("invalid value for 'server.{key}': {expected}"),
-                None => unreachable!("these are mutable keys"),
-            },
+            }
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
                 format!("the key '{section}.{key}' is not implemented yet")
             }
@@ -785,6 +832,14 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             ),
         ];
         out.push_str("\n[server]\n");
+        push_lines(&mut out, &lines, sources);
+    }
+    if section.is_none_or(|s| s == "traversal") {
+        let lines = [(
+            format!("min_depth = {}", settings.value(Mutable::MinDepth)),
+            &settings.min_depth_source,
+        )];
+        out.push_str("\n[traversal]\n");
         push_lines(&mut out, &lines, sources);
     }
     Ok(out)
@@ -1207,7 +1262,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n"
             )
         );
         assert_eq!(
@@ -1395,6 +1450,7 @@ mod tests {
                 threads: Some(2),
                 allow_update: Some(false),
                 result_cache: Some(0),
+                min_depth: Some(3),
             },
         };
         let cli = CommandLine {
@@ -1408,6 +1464,7 @@ mod tests {
         assert_eq!(settings.threads, 2);
         assert!(!settings.allow_update);
         assert_eq!(settings.result_cache, 0);
+        assert_eq!(settings.min_depth, 3);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
