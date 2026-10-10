@@ -1,5 +1,84 @@
 //! The budget of a response: the detail lowered until the response fits (OUTPUT.md#budget).
 
+use super::{BudgetUse, Detail, Response};
+
+/// The length of the lines at the third level.
+const CUT_LINES: usize = 120;
+
+/// The files which have to fit at the level of the files, unless they are all.
+const MIN_FILES: usize = 10;
+
+/// The estimated tokens of a text: its characters divided by `chars_per_token`, rounded up.
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+fn tokens(text: &str, chars_per_token: f64) -> usize {
+    (text.chars().count() as f64 / chars_per_token).ceil() as usize
+}
+
+/// The response written in its format at the first level of the budget it fits in: as requested, without context
+/// lines, lines cut to 120 characters, the files (as many as fit, at least 10 or all), the facets, the counts; never
+/// above the requested detail.
+pub fn fit(mut response: Response<'_>, budget: usize, chars_per_token: f64, json: bool) -> String {
+    let render = |r: &Response<'_>| if json { r.to_json() } else { r.to_text() };
+    let fits = |text: &str| tokens(text, chars_per_token) <= budget;
+    let text = render(&response);
+    let requested = response.detail;
+    if fits(&text) || requested <= Detail::Count {
+        return text;
+    }
+    let lower = |response: &mut Response<'_>, detail: Detail| {
+        response.detail = detail;
+        response.budget = Some(BudgetUse {
+            tokens: budget,
+            lowered: detail < requested,
+        });
+    };
+    if requested == Detail::Lines {
+        lower(&mut response, Detail::Lines);
+        response.blocks.before = 0;
+        response.blocks.after = 0;
+        let text = render(&response);
+        if fits(&text) {
+            return text;
+        }
+        response.limits.max_line_length = response.limits.max_line_length.min(CUT_LINES);
+        let text = render(&response);
+        if fits(&text) {
+            return text;
+        }
+    }
+    if requested >= Detail::Files {
+        lower(&mut response, Detail::Files);
+        let all = response.listed().len();
+        // the most files which fit, searched in halves
+        let (mut low, mut high) = (0, all);
+        while low < high {
+            let middle = (low + high).div_ceil(2);
+            response.limits.budget_files = middle;
+            if fits(&render(&response)) {
+                low = middle;
+            } else {
+                high = middle - 1;
+            }
+        }
+        if low == all || low >= MIN_FILES {
+            response.limits.budget_files = low;
+            return render(&response);
+        }
+        response.limits.budget_files = usize::MAX;
+    }
+    lower(&mut response, Detail::Facets.min(requested));
+    let text = render(&response);
+    if requested >= Detail::Facets && fits(&text) {
+        return text;
+    }
+    lower(&mut response, Detail::Count);
+    render(&response)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -40,7 +119,11 @@ mod tests {
         }
     }
 
-    fn response<'a>(files: &'a [Found], legend: &'a [(CondId, String)], warnings: &'a Warnings) -> Response<'a> {
+    fn response<'a>(
+        files: &'a [Found],
+        legend: &'a [(CondId, String)],
+        warnings: &'a Warnings,
+    ) -> Response<'a> {
         Response {
             detail: Detail::Lines,
             blocks: BlockOptions {
@@ -76,8 +159,14 @@ mod tests {
         let fitted = |budget: usize| fit(response(&files, &legend, &warnings), budget, 4.0, false);
         // without the context lines of 200 characters the lines fit
         let text = fitted(600);
-        assert!(text.contains("f00  [#1]  lines: 1  matches: 1\n2:[#1:x]\n"), "{text}");
-        assert!(text.starts_with("files: 12  lines: 12  matches: 12  truncated: yes (budget)\n"), "{text}");
+        assert!(
+            text.contains("f00  [#1]  lines: 1  matches: 1\n2:[#1:x]\n"),
+            "{text}"
+        );
+        assert!(
+            text.starts_with("files: 12  lines: 12  matches: 12  truncated: yes (budget)\n"),
+            "{text}"
+        );
         // the list of the files: 143 tokens without the context, 122 without the lines
         let text = fitted(130);
         assert!(text.starts_with("files: 12  lines: 12  matches: 12  detail: files (budget 130)  truncated: yes (budget)\n"), "{text}");

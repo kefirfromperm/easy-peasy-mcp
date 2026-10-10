@@ -31,6 +31,7 @@ pub enum Key {
     SkipGenerated,
     Format,
     Detail,
+    Budget,
     Funnel,
     Facets,
     FacetDepth,
@@ -68,7 +69,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 55] = [
+    pub const ALL: [Key; 56] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -91,6 +92,7 @@ impl Key {
         Self::SkipGenerated,
         Self::Format,
         Self::Detail,
+        Self::Budget,
         Self::Funnel,
         Self::Facets,
         Self::FacetDepth,
@@ -180,6 +182,7 @@ impl Key {
             Self::PathFragments => ("output", "path_fragments", Type::Bool),
             Self::Meta => ("output", "meta", Type::Bool),
             Self::Facets => ("output", "facets", Type::Facets),
+            Self::Budget => ("output", "budget", Type::OptAtLeast(100)),
             Self::FacetDepth => ("output", "facet_depth", Type::AtLeast(1)),
             Self::FacetLimit => ("output", "facet_limit", Type::AtLeast(1)),
             Self::Funnel => (
@@ -259,7 +262,9 @@ impl Key {
             Self::KindsTest => list(&crate::search::DEFAULT_TEST),
             Self::KindsGenerated => list(&crate::search::DEFAULT_GENERATED),
             Self::GeneratedMarkerLines => Value::Whole(crate::search::DEFAULT_MARKER_LINES),
-            Self::MaxDepth | Self::FallbackEncoding | Self::Before | Self::After => Value::NotSet,
+            Self::MaxDepth | Self::FallbackEncoding | Self::Before | Self::After | Self::Budget => {
+                Value::NotSet
+            }
             Self::FollowSymlinks
             | Self::Hidden
             | Self::BlankContext
@@ -355,6 +360,8 @@ pub enum Type {
     Score,
     /// A whole number of at least the given one.
     AtLeast(usize),
+    /// A whole number of at least the given one, or not set.
+    OptAtLeast(usize),
     /// `auto` or a branch, tag or commit: a non-empty name which doesn't start with `-`.
     GitBase,
     /// Two non-empty strings: the opening and the closing marker.
@@ -386,7 +393,9 @@ impl Type {
             }
             Self::OptEncoding => "an encoding name like \"windows-1251\" is expected".to_string(),
             Self::Score => "a number from 0 to 1 is expected".to_string(),
-            Self::AtLeast(min) => format!("a whole number of at least {min} is expected"),
+            Self::AtLeast(min) | Self::OptAtLeast(min) => {
+                format!("a whole number of at least {min} is expected")
+            }
             Self::GitBase => "\"auto\" or a branch, tag or commit is expected".to_string(),
             Self::Markers => "two non-empty strings are expected".to_string(),
             Self::Facets => format!("a list of facets ({}) is expected", FACETS.join(", ")),
@@ -407,7 +416,9 @@ impl Type {
             Self::Encoding => "\"auto\" or an encoding name like \"windows-1252\"".to_string(),
             Self::OptEncoding => "an encoding name like \"windows-1251\"".to_string(),
             Self::Score => "a number from 0 to 1".to_string(),
-            Self::AtLeast(min) => format!("a whole number of at least {min}"),
+            Self::AtLeast(min) | Self::OptAtLeast(min) => {
+                format!("a whole number of at least {min}")
+            }
             Self::GitBase => "\"auto\" or a branch, tag or commit".to_string(),
             Self::Markers => "two non-empty strings".to_string(),
             Self::Facets => format!("a list of facets ({})", FACETS.join(", ")),
@@ -468,7 +479,7 @@ impl Type {
                 .as_integer()
                 .and_then(|n| usize::try_from(n).ok())
                 .map(Value::Whole),
-            Self::AtLeast(min) => item
+            Self::AtLeast(min) | Self::OptAtLeast(min) => item
                 .as_integer()
                 .and_then(|n| usize::try_from(n).ok())
                 .filter(|n| *n >= min)
@@ -524,7 +535,7 @@ impl Type {
                 .as_u64()
                 .and_then(|n| usize::try_from(n).ok())
                 .map(Value::Whole),
-            Self::AtLeast(min) => value
+            Self::AtLeast(min) | Self::OptAtLeast(min) => value
                 .as_u64()
                 .and_then(|n| usize::try_from(n).ok())
                 .filter(|n| *n >= min)

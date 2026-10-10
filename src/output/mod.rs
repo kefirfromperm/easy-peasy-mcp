@@ -21,6 +21,7 @@ mod repeated;
 mod sort;
 
 pub use blocks::BlockOptions;
+pub use budget::fit;
 pub use funnel::Hint;
 use listing::{Listed, Listing};
 pub use sort::{Sort, sort_files};
@@ -71,6 +72,8 @@ pub struct Limits {
     pub max_output_per_file: usize,
     /// The characters of the paths and lines of all files.
     pub max_output: usize,
+    /// The files listed within the budget.
+    pub budget_files: usize,
 }
 
 impl Default for Limits {
@@ -84,6 +87,7 @@ impl Default for Limits {
             max_line_length: usize::MAX,
             max_output_per_file: usize::MAX,
             max_output: usize::MAX,
+            budget_files: usize::MAX,
         }
     }
 }
@@ -97,6 +101,29 @@ pub struct Page {
     pub fragment: usize,
     /// The hash of the request; `None`: no cursor.
     pub hash: Option<String>,
+}
+
+impl Detail {
+    /// The level as written in the configuration.
+    #[must_use]
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::Exists => "exists",
+            Self::Count => "count",
+            Self::Facets => "facets",
+            Self::Files => "files",
+            Self::Lines => "lines",
+        }
+    }
+}
+
+/// How the budget changed a response (OUTPUT.md#budget).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BudgetUse {
+    /// The budget in tokens.
+    pub tokens: usize,
+    /// Whether the detail is lower than the requested one.
+    pub lowered: bool,
 }
 
 /// The response of a `find` call.
@@ -125,6 +152,8 @@ pub struct Response<'a> {
     pub facets: Vec<facets::Facet>,
     /// The values of a facet written before `… N more (M)`.
     pub facet_limit: usize,
+    /// How the budget changed the response, if it did.
+    pub budget: Option<BudgetUse>,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -179,6 +208,14 @@ impl Response<'_> {
         );
         if let Some(id) = self.result_id {
             let _ = write!(out, "  result: {id}");
+        }
+        if let Some(budget) = self.budget.filter(|b| b.lowered) {
+            let _ = write!(
+                out,
+                "  detail: {} (budget {})",
+                self.detail.keyword(),
+                budget.tokens
+            );
         }
         out.push_str(&timeout);
         out.push('\n');
@@ -301,7 +338,7 @@ impl Response<'_> {
     fn listed(&self) -> &[Found] {
         if self.detail >= Detail::Files {
             let rest = &self.files[self.page_start()..];
-            &rest[..rest.len().min(self.limits.max_files)]
+            &rest[..rest.len().min(self.files_limit())]
         } else {
             &[]
         }
@@ -314,7 +351,12 @@ impl Response<'_> {
 
     /// Whether `max_files` leaves out files after the page.
     fn files_cut(&self) -> bool {
-        self.detail >= Detail::Files && self.files.len() - self.page_start() > self.limits.max_files
+        self.detail >= Detail::Files && self.files.len() - self.page_start() > self.files_limit()
+    }
+
+    /// The files listed at most: `max_files`, fewer within the budget.
+    fn files_limit(&self) -> usize {
+        self.limits.max_files.min(self.limits.budget_files)
     }
 
     /// The cursor of the next page: where a cursor limit left something out, unless the search was stopped by the
@@ -345,10 +387,15 @@ impl Response<'_> {
     /// The limits which were hit, in the order of the limits table.
     fn truncated_by(&self, listing: &Listing) -> Vec<&'static str> {
         let mut by = Vec::new();
-        if self.files_cut() {
+        if self.detail >= Detail::Files
+            && self.files.len() - self.page_start() > self.limits.max_files
+        {
             by.push("max_files");
         }
         by.extend(&listing.truncated_by);
+        if self.budget.is_some() {
+            by.push("budget");
+        }
         if self.timed_out {
             by.push("timeout");
         }
@@ -572,6 +619,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -605,6 +653,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -650,6 +699,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -683,6 +733,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -732,6 +783,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -776,6 +828,7 @@ mod tests {
                 hints: Vec::new(),
                 facets: Vec::new(),
                 facet_limit: 8,
+                budget: None,
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -824,6 +877,7 @@ mod tests {
                 hints: Vec::new(),
                 facets: Vec::new(),
                 facet_limit: 8,
+                budget: None,
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -862,6 +916,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],

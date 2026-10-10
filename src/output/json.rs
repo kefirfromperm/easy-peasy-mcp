@@ -22,6 +22,8 @@ struct Document<'a> {
     exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail_used: Option<&'static str>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     funnel: Vec<FunnelStep<'a>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -207,6 +209,10 @@ impl Response<'_> {
             version: VERSION,
             exists: !self.files.is_empty(),
             result: self.result_id,
+            detail_used: self
+                .budget
+                .filter(|b| b.lowered)
+                .map(|_| self.detail.keyword()),
             funnel: self
                 .funnel
                 .iter()
@@ -512,6 +518,7 @@ mod tests {
             hints: Vec::new(),
             facets: Vec::new(),
             facet_limit: 8,
+            budget: None,
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,

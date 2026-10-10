@@ -271,6 +271,7 @@ impl Engine {
             hints,
             facets,
             facet_limit: settings.whole(Key::FacetLimit),
+            budget: None,
             limits: limits(&settings),
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),
@@ -279,10 +280,10 @@ impl Engine {
             warnings: &warnings,
             timed_out,
         };
-        Ok(if json {
-            response.to_json()
-        } else {
-            response.to_text()
+        Ok(match settings.opt_whole(Key::Budget) {
+            Some(budget) => output::fit(response, budget, CHARS_PER_TOKEN, json),
+            None if json => response.to_json(),
+            None => response.to_text(),
         })
     }
 
@@ -585,10 +586,12 @@ fn totals_of(files: &[search::Found]) -> [usize; 3] {
     [files.len(), lines, matches]
 }
 
-/// The facets of `detail = facets` (none in other detail levels); the search then reads the metadata and, for the
-/// `git` facet, the git status.
+/// The facets of `detail = facets`, also of a higher detail with a budget (none otherwise); the search then reads the
+/// metadata and, for the `git` facet, the git status.
 fn facet_names(settings: &Settings, detail: Detail, options: &mut SearchOptions) -> Vec<String> {
-    if detail != Detail::Facets {
+    // the budget can lower the detail to the facets
+    let budget = settings.opt_whole(Key::Budget).is_some();
+    if detail != Detail::Facets && !(budget && detail > Detail::Facets) {
         return Vec::new();
     }
     let names = settings.list(Key::Facets).to_vec();
@@ -596,6 +599,9 @@ fn facet_names(settings: &Settings, detail: Detail, options: &mut SearchOptions)
     options.git_status = names.iter().any(|f| f == "git");
     names
 }
+
+/// The characters of a token of the budget (`output.chars_per_token` comes with task 109).
+const CHARS_PER_TOKEN: f64 = 4.0;
 
 /// How much the response returns.
 fn detail(settings: &Settings) -> Detail {
@@ -618,6 +624,7 @@ fn limits(settings: &Settings) -> Limits {
         max_line_length: settings.whole(Key::MaxLineLength),
         max_output_per_file: settings.whole(Key::MaxOutputPerFile),
         max_output: settings.whole(Key::MaxOutput),
+        budget_files: usize::MAX,
     }
 }
 
