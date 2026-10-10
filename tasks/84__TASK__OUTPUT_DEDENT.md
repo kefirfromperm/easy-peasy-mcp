@@ -1,6 +1,6 @@
 # Task 84: `output.dedent`
 
-Status: in progress
+Status: implemented, see [84__SUMMARY__OUTPUT_DEDENT.md](84__SUMMARY__OUTPUT_DEDENT.md)
 
 Depends on: task 80
 
