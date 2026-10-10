@@ -1,6 +1,6 @@
 # Task 103: Hints for empty results
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 102
 
