@@ -38,6 +38,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 ## E38.2 With the source
@@ -65,6 +66,7 @@ min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 ```
 
 ## E38.3 Another section
@@ -111,6 +113,7 @@ min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 ```
 
 ```json request
@@ -180,6 +183,7 @@ min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 ```
 
 ```json request
@@ -228,6 +232,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 ```json request
@@ -277,6 +282,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 ## E38.9 An invalid value

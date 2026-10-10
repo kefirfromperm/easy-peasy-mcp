@@ -37,6 +37,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 ## E45.3 A maximum depth for the session
@@ -83,6 +84,7 @@ min_depth = 0    # default
 max_depth = 1    # update
 follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 ```
 
 4. `update_config`
@@ -167,6 +169,7 @@ min_depth = 0    # default
 max_depth = 1    # file: conf/d.toml
 follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 ```
 
 2. `find`

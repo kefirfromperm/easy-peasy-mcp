@@ -209,6 +209,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 3. `find`
