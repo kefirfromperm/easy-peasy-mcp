@@ -63,6 +63,8 @@ pub struct Limits {
     pub max_line_length: usize,
     /// The characters of the lines of one file.
     pub max_output_per_file: usize,
+    /// The characters of the paths and lines of all files.
+    pub max_output: usize,
 }
 
 impl Default for Limits {
@@ -75,6 +77,7 @@ impl Default for Limits {
             max_matches_per_file: usize::MAX,
             max_line_length: usize::MAX,
             max_output_per_file: usize::MAX,
+            max_output: usize::MAX,
         }
     }
 }
@@ -159,7 +162,7 @@ impl Response<'_> {
         out.push('\n');
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
-        for (index, file) in self.listed().iter().enumerate() {
+        for (index, file) in self.listed().iter().enumerate().take(listing.shown) {
             if listing.files[index] != Listed::LeftOut {
                 self.push_file(&mut out, file, &listing, index, &mut current);
             }
@@ -282,7 +285,7 @@ impl Response<'_> {
         if self.detail == Detail::Lines {
             Listing::new(self.listed(), repeated, &self.limits, &self.blocks)
         } else {
-            Listing::without_lines(self.listed())
+            Listing::without_lines(self.listed(), &self.limits)
         }
     }
 

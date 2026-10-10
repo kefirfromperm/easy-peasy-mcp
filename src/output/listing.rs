@@ -1,9 +1,9 @@
 //! What is listed of the matched files after the repeated lines and the limits (OUTPUT.md#limits-and-truncation).
 
-use super::blocks::{BlockOptions, blocks};
+use super::blocks::{BlockOptions, before, blocks};
 use super::lines::{cut_line, lines_of};
 use super::repeated::Repeated;
-use super::{Fragment, Highlight, Limits};
+use super::{Fragment, Highlight, Limits, display_found};
 use crate::content::Content;
 use crate::search::Found;
 
@@ -24,20 +24,26 @@ pub struct Listing {
     pub files: Vec<Listed>,
     /// Per file whether a per file limit cut it.
     pub cut: Vec<bool>,
-    /// Per file the first line which is not listed, when `max_output_per_file` cut it.
+    /// Per file the first line which is not listed, when `max_output_per_file` or `max_output` cut it.
     pub until: Vec<Option<usize>>,
+    /// How many of the listed files are written: `max_output` leaves out the next ones.
+    pub shown: usize,
     pub truncated_by: Vec<&'static str>,
 }
 
 impl Listing {
     /// The files without lines.
-    pub fn without_lines(files: &[Found]) -> Self {
-        Self {
+    /// The files without lines, as many as `max_output` lets through.
+    pub fn without_lines(files: &[Found], limits: &Limits) -> Self {
+        let mut listing = Self {
             files: vec![Listed::NoLines; files.len()],
             cut: vec![false; files.len()],
             until: vec![None; files.len()],
+            shown: files.len(),
             truncated_by: Vec::new(),
-        }
+        };
+        listing.limit_output(files, limits, None);
+        listing
     }
 
     /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, the first
@@ -105,17 +111,54 @@ impl Listing {
         if until.iter().any(Option::is_some) {
             truncated_by.push("max_output_per_file");
         }
-        Self {
+        let mut listing = Self {
             files: listed,
             cut,
             until,
+            shown: files.len(),
             truncated_by,
+        };
+        listing.limit_output(files, limits, Some(options));
+        listing
+    }
+
+    /// Adds up the characters of the full paths of the files and of their lines (blocks made with `options`, none
+    /// without): the file whose path goes over `max_output` is not written, the line which goes over is not listed,
+    /// and nothing after them.
+    fn limit_output(&mut self, files: &[Found], limits: &Limits, options: Option<&BlockOptions>) {
+        let mut used = 0_usize;
+        for (index, file) in files.iter().enumerate() {
+            if self.files[index] == Listed::LeftOut {
+                continue;
+            }
+            used += display_found(file).chars().count();
+            if used > limits.max_output {
+                self.shown = index;
+                self.truncated_by.push("max_output");
+                return;
+            }
+            let (Some(options), Some(m), Listed::Lines(fragments)) =
+                (options, &file.matches, &mut self.files[index])
+            else {
+                continue;
+            };
+            let lines = shown_lines(&m.content, fragments, options, limits, self.until[index]);
+            for (line, chars) in lines {
+                used += chars;
+                if used > limits.max_output {
+                    self.until[index] = Some(line);
+                    fragments.retain(|f| last_line(&m.content, f) < line);
+                    self.shown = index + 1;
+                    self.truncated_by.push("max_output");
+                    return;
+                }
+            }
         }
     }
 }
 
 /// The first line of the blocks of the fragments which makes their output longer than `max_output_per_file`
-/// characters: the lines as shown, after the dedent and the cut of long lines, without the line numbers and markers.
+/// characters.
 fn first_over(
     content: &Content,
     fragments: &[Fragment],
@@ -123,23 +166,40 @@ fn first_over(
     limits: &Limits,
 ) -> Option<usize> {
     let mut used = 0_usize;
-    for block in blocks(content, fragments, options) {
-        for line in &block.lines {
-            let (text, _) = cut_line(
-                content,
-                fragments,
-                line.index,
-                block.indent,
-                Highlight::None,
-                limits.max_line_length,
-            );
-            used += text.chars().count();
-            if used > limits.max_output_per_file {
-                return Some(line.index);
-            }
-        }
-    }
-    None
+    shown_lines(content, fragments, options, limits, None)
+        .into_iter()
+        .find(|(_, chars)| {
+            used += chars;
+            used > limits.max_output_per_file
+        })
+        .map(|(line, _)| line)
+}
+
+/// The lines of the blocks of the fragments before the line `until` with their characters as they are shown: after
+/// the dedent and the cut of long lines, without the line numbers and markers.
+fn shown_lines(
+    content: &Content,
+    fragments: &[Fragment],
+    options: &BlockOptions,
+    limits: &Limits,
+    until: Option<usize>,
+) -> Vec<(usize, usize)> {
+    before(blocks(content, fragments, options), until)
+        .iter()
+        .flat_map(|block| {
+            block.lines.iter().map(|line| {
+                let (text, _) = cut_line(
+                    content,
+                    fragments,
+                    line.index,
+                    block.indent,
+                    Highlight::None,
+                    limits.max_line_length,
+                );
+                (line.index, text.chars().count())
+            })
+        })
+        .collect()
 }
 
 /// The last line a fragment touches.
@@ -385,15 +445,30 @@ mod tests {
             max_output,
             ..Limits::default()
         };
-        let listing = Listing::new(&files, &Repeated::default(), &limits(6), &BlockOptions::default());
+        let listing = Listing::new(
+            &files,
+            &Repeated::default(),
+            &limits(6),
+            &BlockOptions::default(),
+        );
         assert_eq!(listing.shown, 1);
         assert_eq!(listed_lines(&listing, &files)[0], [0]);
         assert_eq!(listing.until[0], Some(1));
         assert_eq!(listing.truncated_by, ["max_output"]);
-        let listing = Listing::new(&files, &Repeated::default(), &limits(10), &BlockOptions::default());
+        let listing = Listing::new(
+            &files,
+            &Repeated::default(),
+            &limits(10),
+            &BlockOptions::default(),
+        );
         assert_eq!(listing.shown, 2);
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1], vec![]]);
-        let all = Listing::new(&files, &Repeated::default(), &limits(14), &BlockOptions::default());
+        let all = Listing::new(
+            &files,
+            &Repeated::default(),
+            &limits(14),
+            &BlockOptions::default(),
+        );
         assert_eq!(all.shown, 2);
         assert!(all.truncated_by.is_empty());
         let paths = Listing::without_lines(&files, &limits(1));

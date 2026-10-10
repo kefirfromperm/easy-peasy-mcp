@@ -311,6 +311,10 @@ mod tests {
             config(&json!({ "output": { "sort": "path asc" } })),
             [(Key::Sort, KeyValue::Text("path asc".into()))]
         );
+    }
+
+    #[test]
+    fn output_limits() {
         assert_eq!(
             config(&json!({ "output": { "max_files": 1 } })),
             [(Key::MaxFiles, KeyValue::Whole(1))]
@@ -340,8 +344,8 @@ mod tests {
             [(Key::MaxOutput, KeyValue::Whole(100))]
         );
         assert_eq!(
-            text(&json!({ "output": { "cursor": "x" } })),
-            "error[not_implemented]: the field 'output.cursor' is not implemented yet\n"
+            text(&json!({ "output": { "budget": 1000 } })),
+            "error[not_implemented]: the field 'output.budget' is not implemented yet\n"
         );
     }
 
