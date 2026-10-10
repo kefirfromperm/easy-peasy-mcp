@@ -1,6 +1,6 @@
 # Task 28: Proximity `near( ... )`
 
-Status: in progress
+Status: implemented, see [28__SUMMARY__NEAR.md](28__SUMMARY__NEAR.md)
 
 Depends on: task 26
 
