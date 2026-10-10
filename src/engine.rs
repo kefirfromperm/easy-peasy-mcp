@@ -270,6 +270,7 @@ impl Engine {
             funnel: shown,
             hints,
             facets,
+            facet_limit: settings.whole(Key::FacetLimit),
             limits: limits(&settings),
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),

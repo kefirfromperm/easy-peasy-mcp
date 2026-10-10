@@ -48,8 +48,8 @@ struct Document<'a> {
     files: Vec<File>,
 }
 
-/// The facets: an object per facet in their order (OUTPUT.md#facets).
-struct Facets<'a>(&'a [super::facets::Facet]);
+/// The facets: an object per facet in their order, with the limit of their values (OUTPUT.md#facets).
+struct Facets<'a>(&'a [super::facets::Facet], usize);
 
 impl Facets<'_> {
     fn is_empty(&self) -> bool {
@@ -61,7 +61,7 @@ impl Serialize for Facets<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut map = serializer.serialize_map(Some(self.0.len()))?;
         for facet in self.0 {
-            map.serialize_entry(&facet.name, &facet.json(super::facets::LIMIT))?;
+            map.serialize_entry(&facet.name, &facet.json(self.1))?;
         }
         map.end()
     }
@@ -217,11 +217,14 @@ impl Response<'_> {
                 })
                 .collect(),
             hints: self.hints.iter().map(super::Hint::json).collect(),
-            facets: Facets(if self.detail == Detail::Facets {
-                &self.facets
-            } else {
-                &[]
-            }),
+            facets: Facets(
+                if self.detail == Detail::Facets {
+                    &self.facets
+                } else {
+                    &[]
+                },
+                self.facet_limit,
+            ),
             repeated: repeated
                 .lines
                 .iter()
@@ -508,6 +511,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,

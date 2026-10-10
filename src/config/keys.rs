@@ -34,6 +34,7 @@ pub enum Key {
     Funnel,
     Facets,
     FacetDepth,
+    FacetLimit,
     Meta,
     Context,
     Before,
@@ -67,7 +68,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 54] = [
+    pub const ALL: [Key; 55] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -93,6 +94,7 @@ impl Key {
         Self::Funnel,
         Self::Facets,
         Self::FacetDepth,
+        Self::FacetLimit,
         Self::Meta,
         Self::Context,
         Self::Before,
@@ -179,6 +181,7 @@ impl Key {
             Self::Meta => ("output", "meta", Type::Bool),
             Self::Facets => ("output", "facets", Type::Facets),
             Self::FacetDepth => ("output", "facet_depth", Type::AtLeast(1)),
+            Self::FacetLimit => ("output", "facet_limit", Type::AtLeast(1)),
             Self::Funnel => (
                 "output",
                 "funnel",
@@ -240,6 +243,7 @@ impl Key {
             Self::Timeout => Value::Text("30s".to_string()),
             Self::Threads | Self::MinDepth | Self::Context => Value::Whole(0),
             Self::FacetDepth => Value::Whole(2),
+            Self::FacetLimit => Value::Whole(8),
             Self::ResultCache | Self::MaxMatchesPerFile => Value::Whole(50),
             Self::MaxFiles => Value::Whole(100),
             Self::MaxLines => Value::Whole(500),

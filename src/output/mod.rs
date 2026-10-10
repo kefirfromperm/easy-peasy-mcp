@@ -122,6 +122,8 @@ pub struct Response<'a> {
     pub hints: Vec<Hint>,
     /// `detail = facets`: the facets of all matched files.
     pub facets: Vec<facets::Facet>,
+    /// The values of a facet written before `… N more (M)`.
+    pub facet_limit: usize,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -190,7 +192,7 @@ impl Response<'_> {
         self.push_funnel(&mut out);
         if self.detail == Detail::Facets {
             for facet in &self.facets {
-                let _ = writeln!(out, "{}", facet.line(facets::LIMIT));
+                let _ = writeln!(out, "{}", facet.line(self.facet_limit));
             }
             self.push_warnings(&mut out);
             return out;
@@ -568,6 +570,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -600,6 +603,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -644,6 +648,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -676,6 +681,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -724,6 +730,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -767,6 +774,7 @@ mod tests {
                 funnel: None,
                 hints: Vec::new(),
                 facets: Vec::new(),
+                facet_limit: 8,
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -814,6 +822,7 @@ mod tests {
                 funnel: None,
                 hints: Vec::new(),
                 facets: Vec::new(),
+                facet_limit: 8,
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -851,6 +860,7 @@ mod tests {
             funnel: None,
             hints: Vec::new(),
             facets: Vec::new(),
+            facet_limit: 8,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],

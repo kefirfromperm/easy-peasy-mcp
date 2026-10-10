@@ -10,9 +10,6 @@ use super::{SEP, path_parts};
 use crate::query::ast::CondId;
 use crate::search::Found;
 
-/// The values of a facet written before `… N more (M)` (`output.facet_limit` comes with task 107).
-pub const LIMIT: usize = 8;
-
 /// The width of the column of the facet names in the text format.
 const NAME_WIDTH: usize = 12;
 
