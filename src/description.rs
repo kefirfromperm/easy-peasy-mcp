@@ -88,7 +88,8 @@ pub fn find_schema() -> Value {
                     "max_depth": { "type": "integer", "minimum": 0, "description": "Don't descend deeper. Default: unlimited." },
                     "follow_symlinks": { "type": "boolean", "description": "Descend into symlinked directories, read symlinked files." },
                     "hidden": { "type": "boolean", "description": "Include hidden entries (names starting with '.')." },
-                    "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." }
+                    "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." },
+                    "git_excludes": { "type": "boolean", "description": "Respect .git/info/exclude and the global git excludes file. Default: true." }
                 }
             }
         }

@@ -180,6 +180,7 @@ fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal,
             "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
             "hidden" => traversal.hidden = Some(boolean(key, value)?),
             "ignore_files" => traversal.ignore_files = Some(strings(key, value)?),
+            "git_excludes" => traversal.git_excludes = Some(boolean(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"

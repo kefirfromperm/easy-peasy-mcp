@@ -198,6 +198,10 @@ impl Engine {
                 .unwrap_or(settings.follow_symlinks),
             allowed_roots: Arc::new(settings.allowed_roots.clone()),
             hidden: request.traversal.hidden.unwrap_or(settings.hidden),
+            git_excludes: request
+                .traversal
+                .git_excludes
+                .unwrap_or(settings.git_excludes),
             ignore_files: request
                 .traversal
                 .ignore_files
