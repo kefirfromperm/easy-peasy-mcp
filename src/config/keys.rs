@@ -30,6 +30,7 @@ pub enum Key {
     MaxArchiveSize,
     SkipGenerated,
     Format,
+    Detail,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -43,7 +44,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 30] = [
+    pub const ALL: [Key; 31] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -65,6 +66,7 @@ impl Key {
         Self::MaxArchiveSize,
         Self::SkipGenerated,
         Self::Format,
+        Self::Detail,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -116,6 +118,11 @@ impl Key {
             Self::MaxArchiveSize => ("traversal", "max_archive_size", Type::Size),
             Self::SkipGenerated => ("traversal", "skip_generated", Type::Bool),
             Self::Format => ("output", "format", Type::Choice(&["text", "json"])),
+            Self::Detail => (
+                "output",
+                "detail",
+                Type::Choice(&["exists", "count", "facets", "files", "lines"]),
+            ),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -156,6 +163,7 @@ impl Key {
             Self::Encoding | Self::Base => Value::Text("auto".to_string()),
             Self::Archives => Value::Text("none".to_string()),
             Self::Format => Value::Text("text".to_string()),
+            Self::Detail => Value::Text("lines".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
     }
@@ -197,7 +205,7 @@ impl Key {
 }
 
 /// The values of the spec which this server version doesn't implement yet.
-const UNIMPLEMENTED: [(Key, &str); 0] = [];
+const UNIMPLEMENTED: [(Key, &str); 1] = [(Key::Detail, "facets")];
 
 /// The type of the values of a key: how a value is checked and what an invalid one is told.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

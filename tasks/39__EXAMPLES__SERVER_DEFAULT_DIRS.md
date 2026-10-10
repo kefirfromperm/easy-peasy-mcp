@@ -254,6 +254,7 @@ skip_generated = true    # default
 
 [output]
 format = "text"    # default
+detail = "lines"    # default
 
 [escape]
 max_level = 3    # default
@@ -805,6 +806,7 @@ skip_generated = true    # default
 
 [output]
 format = "text"    # default
+detail = "lines"    # default
 
 [escape]
 max_level = 3    # default

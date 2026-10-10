@@ -1,6 +1,6 @@
 # Task 79: `output.detail`
 
-Status: not implemented
+Status: implemented, see [79__SUMMARY__OUTPUT_DETAIL.md](79__SUMMARY__OUTPUT_DETAIL.md)
 
 Depends on: task 78
 

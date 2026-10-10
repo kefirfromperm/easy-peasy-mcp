@@ -53,6 +53,7 @@ skip_generated = true
 
 [output]
 format = "text"
+detail = "lines"
 
 [escape]
 max_level = 3
@@ -522,6 +523,7 @@ skip_generated = true    # default
 
 [output]
 format = "text"    # default
+detail = "lines"    # default
 
 [escape]
 max_level = 3    # default
@@ -967,6 +969,7 @@ Fixture: `roots`
 
 [output]
 format = "text"
+detail = "lines"
 ```
 
 ## E38.4 A root from the command line
@@ -1013,6 +1016,7 @@ skip_generated = true    # default
 
 [output]
 format = "text"    # default
+detail = "lines"    # default
 
 [escape]
 max_level = 3    # default
@@ -1524,6 +1528,7 @@ skip_generated = true    # default
 
 [output]
 format = "text"    # default
+detail = "lines"    # default
 
 [escape]
 max_level = 3    # default
@@ -2014,6 +2019,7 @@ skip_generated = true
 
 [output]
 format = "text"
+detail = "lines"
 
 [escape]
 max_level = 3
@@ -2505,6 +2511,7 @@ skip_generated = true
 
 [output]
 format = "text"
+detail = "lines"
 
 [escape]
 max_level = 3
