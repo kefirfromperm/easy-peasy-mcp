@@ -630,6 +630,12 @@ The hints of a huge result (more than 10 × `max_files` files) in detail:
 - the response says which level was used: `detail: files (budget 2000)`, in JSON `"detail_used": "files"`
 - the budget never raises the detail above the requested one
 - the `max_*` limits still apply; the budget is a limit on top of them
+- the estimate is the number of characters of the whole response divided by `chars_per_token`, rounded up; a level
+  fits when it is at most `budget`; levels 2 and 3 apply only in `lines` detail, `count` is the last resort
+- at level 4 as many files as fit are listed (at most `max_files`); fewer than 10, unless they are all, don't count as
+  fitting; the list cut by the budget has a `next cursor`
+- `detail: files (budget 2000)` comes after the result id when the detail was lowered, `detail_used` after `result`;
+  `truncated` / `truncated_by` name `budget` whenever a level after the first one is used
 
 ```json
 { "query": "lang = rust and text has 'unwrap(' /c", "output": { "budget": 1500 } }
