@@ -605,6 +605,16 @@ hints:
 ... the first 100 files
 ```
 
+The hints of a huge result (more than 10 × `max_files` files) in detail:
+
+- `dir:` and `lang:` — the four values of the facet (see [Facets](#facets), with `facet_depth`) with the most files,
+  more files first, then in the order of the values, separated by ` · `
+- `narrow with:` — `not path ~ '<dir>/**'` for the directory right below the working directory with the most
+  matched files, when it has at least a third of them but not all; `kind = source` when the query has no `kind`
+  condition and at least a tenth of the files are not source; `/w` when the query has a `text ... has` condition
+  without `/w` and `/n`; the line is left out without suggestions
+- in JSON they are lines of `hints`, as written in the text format
+
 ## Budget
 
 `budget` is the max size of the response in tokens. The server estimates tokens as characters divided by
