@@ -368,7 +368,9 @@ Searching inside compressed files and archives, like `rg -z`. Off by default.
 | `compressed` | single compressed files: `.gz`, `.bz2`, `.xz`, `.zst`, `.lz4` — as their decompressed content |
 | `all`        | `compressed` + archives: `.zip`, `.jar`, `.tar`, `.tar.gz` / `.tgz`, `.tar.bz2`, `.tar.xz`, `.tar.zst`, `.7z` |
 
-- a compressed single file keeps its path and name: `logs/app.log.gz`; `size` is the compressed size on disk
+- a compressed single file keeps its path and name: `logs/app.log.gz`; `size` is the compressed size on disk; a compressed
+  file is recognized by its extension, in any case; one which can't be decompressed is not searched by content (its
+  content conditions are unknown) and the response has an `archive_error` warning
 - with `compressed`, a `.tar.gz` / `.tgz` is a single compressed file too: its decompressed content is a tar archive,
   which is binary; its members are searched only with `all`
 - an archive member has the path `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`; `name`,
