@@ -309,8 +309,16 @@ mod tests {
             "error[invalid_option]: 'traversal.exclude' must be a list of strings\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "path_case": "native" } })),
-            "error[not_implemented]: the field 'traversal.path_case' is not implemented yet\n"
+            config(&json!({ "traversal": { "path_case": "insensitive" } })),
+            [(Key::PathCase, KeyValue::Text("insensitive".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "path_case": "upper" } })),
+            "error[invalid_option]: 'traversal.path_case' must be one of: native, sensitive, insensitive\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "binary": "skip" } })),
+            "error[not_implemented]: the field 'traversal.binary' is not implemented yet\n"
         );
     }
 
