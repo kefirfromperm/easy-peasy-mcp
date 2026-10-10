@@ -291,7 +291,8 @@ Text conditions, columns and the output always work on decoded text; the output 
   are replaced with `�` and the response has a `decode_errors` warning.
 - binary detection runs after the BOM check: a UTF-16 file with a BOM is text even though it contains zero bytes.
   A UTF-16 file without a BOM is detected by its pattern of zero bytes (every second byte in ASCII text) and decoded
-  as UTF-16, not skipped as binary.
+  as UTF-16, not skipped as binary: in its first 8K more than half of the bytes at odd positions are zero and none at
+  even positions (UTF-16 LE), or the other way round (UTF-16 BE).
 - the output shows the encoding of every file which is not UTF-8, see [OUTPUT.md](OUTPUT.md#fields)
 - line breaks `\n` and `\r\n` are supported in every encoding
 
