@@ -1,6 +1,6 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: the empty query, or exactly one condition on `name` with `=`, `has`, `starts`, `ends` or `~`,
+//! Implemented: the empty query, or exactly one condition on `name` or `path` with `=`, `has`, `starts`, `ends` or `~`,
 //! without modifiers and labels.
 
 use std::ops::Range;
@@ -37,7 +37,11 @@ fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, 
     for (i, token) in lexed.tokens.iter().enumerate() {
         let text = &query[token.span.clone()];
         let feature = match (i, &token.tok) {
-            (0, Tok::Word(w)) if Target::from_keyword(w) == Some(Target::Name) => continue,
+            (0, Tok::Word(w))
+                if matches!(Target::from_keyword(w), Some(Target::Name | Target::Path)) =>
+            {
+                continue;
+            }
             (1, Tok::Op(o) | Tok::Word(o))
                 if matches!(
                     Op::from_symbol(o),
@@ -84,9 +88,11 @@ mod tests {
 
     #[test]
     fn other_targets_and_operators() {
+        assert_eq!(check_str("path ~ 'a'"), None);
+        assert_eq!(check_str("PATH starts 'a/'"), None);
         assert_eq!(
-            check_str("path ~ 'a'"),
-            Some(("the target 'path' is not implemented yet".into(), 0..4))
+            check_str("size > 1"),
+            Some(("the target 'size' is not implemented yet".into(), 0..4))
         );
         assert_eq!(check_str("name has 'a'"), None);
         assert_eq!(check_str("name STARTS 'a'"), None);

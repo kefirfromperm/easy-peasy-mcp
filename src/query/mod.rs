@@ -37,11 +37,24 @@ impl TextMatcher {
     }
 }
 
+/// The file values a text condition can look at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextTarget {
+    /// The file name.
+    Name,
+    /// The path relative to the working directory, `/` as the separator.
+    Path,
+}
+
 /// The compiled query, evaluated for every file.
 #[derive(Debug, Clone)]
 pub enum Filter {
-    /// `name = ...` or `name ~ ...`, on the NFC form of the file name.
-    Name { id: CondId, matcher: TextMatcher },
+    /// A `name` or `path` condition, on the NFC form of the value.
+    Text {
+        id: CondId,
+        target: TextTarget,
+        matcher: TextMatcher,
+    },
 }
 
 /// A parsed and compiled query.
@@ -76,7 +89,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
         return Err(first);
     }
     let filter = expr.map(|expr| {
-        compile(&expr, options).expect("the subset check allows only one name condition")
+        compile(&expr, options).expect("the subset check allows only one name or path condition")
     });
     Ok(Query { legend, filter })
 }
@@ -164,8 +177,13 @@ fn compile(expr: &Expr, options: ParseOptions) -> Option<Filter> {
         Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex")
     };
     let matcher = TextMatcher(regex);
-    Some(Filter::Name {
+    let target = match c.target {
+        Target::Path => TextTarget::Path,
+        _ => TextTarget::Name,
+    };
+    Some(Filter::Text {
         id: node.id.clone(),
+        target,
         matcher,
     })
 }
@@ -219,11 +237,11 @@ mod tests {
     fn compiles_name_conditions() {
         let q = parse("name ~ '*.rs'", SENSITIVE).unwrap();
         assert_eq!(q.legend, [(CondId::Number(1), "name ~ '*.rs'".to_string())]);
-        let Some(Filter::Name { matcher, .. }) = q.filter else {
+        let Some(Filter::Text { matcher, .. }) = q.filter else {
             panic!()
         };
         assert!(matcher.is_match("a.rs"));
-        let Some(Filter::Name { matcher, .. }) = parse(
+        let Some(Filter::Text { matcher, .. }) = parse(
             "name = 'A.rs'",
             ParseOptions {
                 case_insensitive_paths: true,
@@ -235,7 +253,7 @@ mod tests {
             panic!()
         };
         assert!(matcher.is_match("a.RS"));
-        let Some(Filter::Name { matcher, .. }) =
+        let Some(Filter::Text { matcher, .. }) =
             parse("name = 'caf\u{e9}'", SENSITIVE).unwrap().filter
         else {
             panic!()
@@ -247,10 +265,22 @@ mod tests {
         let options = ParseOptions {
             case_insensitive_paths: insensitive,
         };
-        let Some(Filter::Name { matcher, .. }) = parse(q, options).unwrap().filter else {
+        let Some(Filter::Text { matcher, .. }) = parse(q, options).unwrap().filter else {
             panic!("{q}")
         };
         matcher
+    }
+
+    #[test]
+    fn path_conditions() {
+        let Some(Filter::Text {
+            target, matcher, ..
+        }) = parse("path ~ 'src/**/*.rs'", SENSITIVE).unwrap().filter
+        else {
+            panic!()
+        };
+        assert_eq!(target, TextTarget::Path);
+        assert!(matcher.is_match("src/a/b.rs"));
     }
 
     #[test]

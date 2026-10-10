@@ -7,12 +7,14 @@ pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Spec vers
 
 /// The description of the `find` tool: the cheat sheet of TOOLS.md#description for the implemented subset.
 pub const FIND_DESCRIPTION: &str = "\
-Search files by name in one query. Read-only. Only regular files are returned. Spec version 1.
+Search files by name and path in one query. Read-only. Only regular files are returned. Spec version 1.
 
-QUERY: one condition on the file name. Empty query = all files.
+QUERY: one condition on the file name or path. Empty query = all files.
   name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
                                  [*] [?] [[] [{] match the character itself
+  path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
+  path starts 'docs/'            =, has, starts, ends work on paths too
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
 Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped.
 

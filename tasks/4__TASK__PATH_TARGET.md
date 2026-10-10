@@ -1,6 +1,6 @@
 # Task 4: `path` target
 
-Status: not implemented
+Status: implemented, see [4__SUMMARY__PATH_TARGET.md](4__SUMMARY__PATH_TARGET.md)
 
 Depends on: task 3
 
