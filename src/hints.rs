@@ -6,8 +6,10 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::output::{Hint, display_found};
-use crate::query::{self, FunnelKind, Lookup, ParseOptions, Query, ast::Target, edit_distance};
+use crate::output::{Hint, display_found, facets};
+use crate::query::{
+    self, FunnelKind, Kind, Lookup, ParseOptions, Query, ast::Target, edit_distance,
+};
 use crate::search::{self, Binary, Found, SearchOptions, slash_path};
 
 /// The time budget of the hints is over.
@@ -263,4 +265,74 @@ fn similar(cx: &Context<'_>, condition: &str, lookup: &Lookup) -> Result<Option<
             shown.join(", ")
         ))),
     })
+}
+
+/// The depth of the `dir` values of the hints of a huge result (`output.facet_depth` comes with task 106).
+pub const FACET_DEPTH: usize = 2;
+
+/// The values of a facet in the hints of a huge result.
+const HINT_VALUES: usize = 4;
+
+/// The hints of a huge result: the `dir` and `lang` values with the most files and how to narrow the query.
+pub fn huge(files: &[Found], query: &Query, facet_depth: usize) -> Vec<Hint> {
+    let top = |name: &str, counts: Vec<(String, usize)>| {
+        (!counts.is_empty()).then(|| {
+            let values: Vec<String> = counts
+                .into_iter()
+                .take(HINT_VALUES)
+                .map(|(value, n)| format!("{value} {n}"))
+                .collect();
+            Hint::Line(format!("{name}: {}", values.join(" · ")))
+        })
+    };
+    let mut hints = Vec::new();
+    hints.extend(top(
+        "dir",
+        facets::count(files.iter().map(|f| facets::dir_value(&f.rel, facet_depth))),
+    ));
+    hints.extend(top(
+        "lang",
+        facets::count(files.iter().filter_map(|f| f.meta.as_ref()?.lang.clone())),
+    ));
+    let narrow = narrow(files, query);
+    if !narrow.is_empty() {
+        hints.push(Hint::Line(format!("narrow with: {}", narrow.join(", "))));
+    }
+    hints
+}
+
+/// The suggestions which narrow a huge result: leaving out the directory with a third of the files or more, `kind =
+/// source`, `/w`.
+fn narrow(files: &[Found], query: &Query) -> Vec<String> {
+    let total = files.len();
+    let mut out = Vec::new();
+    let here = facets::dir_value(std::path::Path::new("x"), 1);
+    let first_dirs = facets::count(
+        files
+            .iter()
+            .map(|f| facets::dir_value(&f.rel, 1))
+            .filter(|dir| *dir != here)
+            .map(|dir| dir[..dir.len() - 1].replace(std::path::MAIN_SEPARATOR, "/")),
+    );
+    if let Some((dir, n)) = first_dirs.first()
+        && n * 3 >= total
+        && *n < total
+    {
+        out.push(format!("not path ~ '{dir}/**'"));
+    }
+    let other_kinds = files
+        .iter()
+        .filter(|f| {
+            f.meta
+                .as_ref()
+                .is_some_and(|m| m.kind != Some(Kind::Source))
+        })
+        .count();
+    if !query.narrowing.kind && other_kinds * 10 >= total && other_kinds > 0 {
+        out.push("kind = source".to_string());
+    }
+    if query.narrowing.whole_word {
+        out.push("/w".to_string());
+    }
+    out
 }

@@ -10,7 +10,7 @@ use crate::search::{Found, PathFragments};
 use crate::warning::{WarningCode, Warnings};
 
 mod blocks;
-mod facets;
+pub mod facets;
 mod funnel;
 mod json;
 mod lines;

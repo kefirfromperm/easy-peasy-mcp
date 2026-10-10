@@ -13,7 +13,9 @@ use crate::cursor::{self, Cursor};
 use crate::error::{ErrorCode, Report};
 use crate::hints;
 use crate::languages::LanguageTable;
-use crate::output::{BlockOptions, Detail, Highlight, Limits, Page, Response, Sort, sort_files};
+use crate::output::{
+    BlockOptions, Detail, Highlight, Hint, Limits, Page, Response, Sort, sort_files,
+};
 use crate::query::{self, ParseOptions};
 use crate::relevance;
 use crate::request;
@@ -217,7 +219,7 @@ impl Engine {
         let funnel = settings.text(Key::Funnel);
         search_options.funnel = funnel != "never" && detail >= Detail::Count;
         let search::SearchResult {
-            files,
+            mut files,
             mut warnings,
             timed_out,
             funnel: funnel_counts,
@@ -233,22 +235,27 @@ impl Engine {
             settings.whole(Key::MaxFiles),
         )
         .filter(|_| search_options.funnel);
-        let hints = if shown.is_some() && files.is_empty() {
-            let budget = match limit.filter(|l| !l.is_zero()) {
-                Some(limit) => limit / 5,
-                None => std::time::Duration::from_secs(5),
-            };
-            hints::empty(&hints::Context {
-                working_dirs: &working_dirs,
-                parse: &options,
-                search: &search_options,
-                query: &query,
-                counts: &funnel_counts,
-                deadline: std::time::Instant::now() + budget,
-            })
+        let hints = if shown.is_some() {
+            response_hints(
+                &hints::Context {
+                    working_dirs: &working_dirs,
+                    parse: &options,
+                    search: &search_options,
+                    query: &query,
+                    counts: &funnel_counts,
+                    deadline: hints_deadline(limit),
+                },
+                &files,
+                settings.whole(Key::MaxFiles),
+            )
         } else {
             Vec::new()
         };
+        if !settings.bool(Key::Meta) {
+            for file in &mut files {
+                file.meta = None;
+            }
+        }
         let result_id = if detail == Detail::Exists {
             None
         } else {
@@ -457,8 +464,8 @@ fn search_sorted(
     options: &mut SearchOptions,
 ) -> search::SearchResult {
     let sort = Sort::parse(settings.text(Key::Sort));
-    let meta = settings.bool(Key::Meta);
-    options.meta = meta || sort.needs_meta();
+    // the hints of a huge result look at the languages and kinds
+    options.meta = settings.bool(Key::Meta) || sort.needs_meta() || options.funnel;
     options.rank = sort == Sort::Relevance;
     let mut result = search_all(working_dirs, query, options);
     if sort == Sort::Relevance {
@@ -466,12 +473,27 @@ fn search_sorted(
     } else {
         sort_files(&mut result.files, sort);
     }
-    if !meta {
-        for file in &mut result.files {
-            file.meta = None;
-        }
-    }
     result
+}
+
+/// When the hints must stop: after 20% of the timeout, or 5 seconds without one.
+fn hints_deadline(limit: Option<std::time::Duration>) -> std::time::Instant {
+    let budget = match limit.filter(|l| !l.is_zero()) {
+        Some(limit) => limit / 5,
+        None => std::time::Duration::from_secs(5),
+    };
+    std::time::Instant::now() + budget
+}
+
+/// The hints which come with a shown funnel: of an empty result, of a huge one (more than 10 × `max_files` files).
+fn response_hints(cx: &hints::Context<'_>, files: &[search::Found], max_files: usize) -> Vec<Hint> {
+    if files.is_empty() {
+        hints::empty(cx)
+    } else if files.len() > max_files.saturating_mul(10) {
+        hints::huge(files, cx.query, hints::FACET_DEPTH)
+    } else {
+        Vec::new()
+    }
 }
 
 /// Where the page of a request starts: at its cursor, which must belong to the same request, or at the start; the
