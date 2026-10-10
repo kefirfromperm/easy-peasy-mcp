@@ -1,7 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
-//! modifier `/i`, combined with `not`, `and`, `xor`, `or` and brackets.
+//! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets.
 
 use std::ops::Range;
 
@@ -50,10 +50,6 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                 found.push((span.clone(), format!("the modifier '{}'", &query[span])));
             }
         }
-    }
-    if let Some(label) = &node.label {
-        let span = label.span.clone();
-        found.push((span.clone(), format!("the label '{}'", &query[span])));
     }
 }
 

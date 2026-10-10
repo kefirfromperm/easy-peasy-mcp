@@ -88,6 +88,7 @@ impl<'a> Parser<'a> {
                 let hint = match tok {
                     Tok::Invalid('&') => "use 'and' instead of '&&'",
                     Tok::Invalid('|') => "use 'or' instead of '||'",
+                    Tok::Invalid('@') => "a label starts with a letter or '_', e.g. @name",
                     _ => hint,
                 };
                 QueryError::new(

@@ -54,6 +54,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     let mut errors: Vec<QueryError> = Vec::new();
     if let Some(expr) = &expr {
         validate(text, expr, false, options, &mut errors);
+        duplicate_labels(expr, &mut errors);
     }
     errors.extend(subset::check(text, &lexed, expr.as_ref()));
     // on the same position a real error wins over not_implemented
@@ -158,6 +159,25 @@ fn validate_condition(
             );
         }
     }
+}
+
+/// `duplicate_label` at every repeated use of a label.
+fn duplicate_labels(expr: &Expr, errors: &mut Vec<QueryError>) {
+    let mut seen = std::collections::HashSet::new();
+    expr.visit_nodes(&mut |node| {
+        if let Some(label) = &node.label
+            && !seen.insert(label.text.clone())
+        {
+            errors.push(
+                QueryError::new(
+                    ErrorCode::DuplicateLabel,
+                    format!("duplicate label '@{}'", label.text),
+                    label.span.clone(),
+                )
+                .hint("labels must be unique"),
+            );
+        }
+    });
 }
 
 /// The hint of `modifier_not_allowed` if the modifier is not allowed for the condition (QUERY.md#modifiers).
