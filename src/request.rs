@@ -335,10 +335,22 @@ mod tests {
     }
 
     #[test]
+    fn since() {
+        assert_eq!(
+            parse(&json!({ "query": "x", "since": "r3" })).unwrap().since,
+            Some(3)
+        );
+        assert_eq!(
+            text(&json!({ "since": "3" })),
+            "error[invalid_option]: 'since' must be a result id like 'r12'\n"
+        );
+    }
+
+    #[test]
     fn spec_fields_are_not_implemented() {
         assert_eq!(
-            text(&json!({ "query": "x", "since": "r1" })),
-            "error[not_implemented]: the field 'since' is not implemented yet\n"
+            text(&json!({ "queries": [] })),
+            "error[not_implemented]: the field 'queries' is not implemented yet\n"
         );
     }
 
