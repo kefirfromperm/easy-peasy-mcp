@@ -91,6 +91,7 @@ Fixture: `filenames`
 [languages.groovy]
 names = ['Jenkinsfile']    # was []
 line_comments = []    # was ['//']
+block_comments = []    # was [['/*', '*/']]
 ```
 
 2. `find`

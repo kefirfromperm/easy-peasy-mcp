@@ -90,6 +90,7 @@ extensions = ['tf']    # was (not set)
 names = []    # was (not set)
 shebangs = []    # was (not set)
 line_comments = ['#', '//']    # was (not set)
+block_comments = []    # was (not set)
 ```
 
 2. `find`
