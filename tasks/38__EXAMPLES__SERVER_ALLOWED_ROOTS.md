@@ -35,6 +35,7 @@ result_cache = 50
 
 [traversal]
 min_depth = 0
+# max_depth =  (not set)
 ```
 
 ## E38.2 With the source
@@ -59,6 +60,7 @@ result_cache = 50    # default
 
 [traversal]
 min_depth = 0    # default
+# max_depth =  (not set)    # default
 ```
 
 ## E38.3 Another section
@@ -102,6 +104,7 @@ result_cache = 50    # default
 
 [traversal]
 min_depth = 0    # default
+# max_depth =  (not set)    # default
 ```
 
 ```json request
@@ -168,6 +171,7 @@ result_cache = 50    # default
 
 [traversal]
 min_depth = 0    # default
+# max_depth =  (not set)    # default
 ```
 
 ```json request
@@ -213,6 +217,7 @@ result_cache = 50
 
 [traversal]
 min_depth = 0
+# max_depth =  (not set)
 ```
 
 ```json request
@@ -259,6 +264,7 @@ result_cache = 50
 
 [traversal]
 min_depth = 0
+# max_depth =  (not set)
 ```
 
 ## E38.9 An invalid value

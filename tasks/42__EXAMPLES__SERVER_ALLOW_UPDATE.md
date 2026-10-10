@@ -87,6 +87,7 @@ result_cache = 50    # default
 
 [traversal]
 min_depth = 0    # default
+# max_depth =  (not set)    # default
 ```
 
 3. `find`
@@ -136,6 +137,7 @@ result_cache = 50    # default
 
 [traversal]
 min_depth = 0    # default
+# max_depth =  (not set)    # default
 ```
 
 2. `update_config`
