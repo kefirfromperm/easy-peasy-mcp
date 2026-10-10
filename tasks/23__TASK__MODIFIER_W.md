@@ -1,6 +1,6 @@
 # Task 23: `/w` whole word modifier
 
-Status: not implemented
+Status: implemented, see [23__SUMMARY__MODIFIER_W.md](23__SUMMARY__MODIFIER_W.md)
 
 Depends on: task 22
 

@@ -36,7 +36,8 @@ Empty query = all files.
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'
-Modifier after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i.
+Modifiers after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i; /w whole word on text
+(no letter, digit or _ right before and after the match).
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.

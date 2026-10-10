@@ -67,13 +67,16 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
             order,
             regex,
             per_line,
+            whole_word,
         } = leaf
         {
             fragments.extend(
-                content_matches(regex, *per_line, content).map(|range| Fragment {
-                    range,
-                    ids: vec![(*order, id.clone())],
-                }),
+                content_matches(regex, *per_line, *whole_word, content)
+                    .into_iter()
+                    .map(|range| Fragment {
+                        range,
+                        ids: vec![(*order, id.clone())],
+                    }),
             );
         }
     }

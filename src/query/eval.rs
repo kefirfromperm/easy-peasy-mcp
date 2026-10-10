@@ -225,12 +225,13 @@ pub enum Filter {
         negated: bool,
     },
     /// A `text` condition in file scope: the regex runs over the whole normalized content, or over every line
-    /// separately (`=~` without `/m`).
+    /// separately (`=~` without `/m`); `whole_word` for `/w`.
     Content {
         id: CondId,
         order: usize,
         regex: Regex,
         per_line: bool,
+        whole_word: bool,
     },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
@@ -241,22 +242,54 @@ pub enum Filter {
     },
 }
 
-/// The byte ranges of the matches of `regex` in the normalized content: over the whole text, or per line.
-pub fn content_matches<'c>(
-    regex: &'c Regex,
+/// The byte ranges of the matches of `regex` in the normalized content: over the whole text, or per line; with
+/// `whole_word` only matches without a letter, digit or `_` right before and after them.
+pub fn content_matches(
+    regex: &Regex,
     per_line: bool,
-    content: &'c Content,
-) -> Box<dyn Iterator<Item = std::ops::Range<usize>> + 'c> {
+    whole_word: bool,
+    content: &Content,
+) -> Vec<std::ops::Range<usize>> {
     if per_line {
-        Box::new((0..content.line_count()).flat_map(move |i| {
-            let (start, end) = content.line_range(i);
-            regex
-                .find_iter(&content.text()[start..end])
-                .map(move |m| start + m.start()..start + m.end())
-        }))
+        (0..content.line_count())
+            .flat_map(|i| {
+                let (start, end) = content.line_range(i);
+                find_all(regex, &content.text()[start..end], whole_word)
+                    .into_iter()
+                    .map(move |r| start + r.start..start + r.end)
+            })
+            .collect()
     } else {
-        Box::new(regex.find_iter(content.text()).map(|m| m.range()))
+        find_all(regex, content.text(), whole_word)
     }
+}
+
+/// A letter, a digit or `_`: what `/w` doesn't allow next to a match.
+fn is_word_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+/// All matches in `hay`; with `whole_word` a rejected match lets the search go on one character after its start.
+fn find_all(regex: &Regex, hay: &str, whole_word: bool) -> Vec<std::ops::Range<usize>> {
+    if !whole_word {
+        return regex.find_iter(hay).map(|m| m.range()).collect();
+    }
+    let mut out = Vec::new();
+    let mut pos = 0;
+    while pos <= hay.len() {
+        let Some(m) = regex.find_at(hay, pos) else {
+            break;
+        };
+        let before = hay[..m.start()].chars().next_back();
+        let after = hay[m.end()..].chars().next();
+        if !m.is_empty() && !before.is_some_and(is_word_char) && !after.is_some_and(is_word_char) {
+            out.push(m.range());
+            pos = m.end();
+        } else {
+            pos = m.start() + hay[m.start()..].chars().next().map_or(1, char::len_utf8);
+        }
+    }
+    out
 }
 
 /// A truth value of three-valued logic (QUERY.md#files-whose-content-is-not-searched).
@@ -355,12 +388,15 @@ impl Filter {
                 values, negated, ..
             } => Truth::from(values.contains(&file.kind) != *negated),
             Self::Content {
-                regex, per_line, ..
+                regex,
+                per_line,
+                whole_word,
+                ..
             } => match file.content {
                 ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
                 ContentState::Absent => Truth::False,
                 ContentState::Text(content) => {
-                    Truth::from(content_matches(regex, *per_line, content).next().is_some())
+                    Truth::from(!content_matches(regex, *per_line, *whole_word, content).is_empty())
                 }
             },
             Self::Git {
