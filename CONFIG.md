@@ -687,6 +687,8 @@ Errors — the first one in the order `reset`, then `set` in the order of the TO
 | `invalid_value`  | `set`: `output.detail = "all"`                      | invalid value for 'output.detail'          | expected one of: exists, count, facets, files, lines |
 
 The hint of `invalid_toml` is the line and the column (1-based, in characters) and the message of the TOML parser.
+A section written as a value (`output = 1`) is `unknown_key` with the message `'output' must be a section`; a section
+name in `reset` is `unknown_key` with the hint `expected a key like 'output.max_files', or 'all'`.
 Arguments which don't match the input schema are `invalid_option`, like in `find`.
 
 ## Security
