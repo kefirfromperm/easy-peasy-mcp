@@ -28,6 +28,9 @@ pub struct Listing {
     pub until: Vec<Option<usize>>,
     /// How many of the listed files are written: `max_output` leaves out the next ones.
     pub shown: usize,
+    /// Where the next page starts when a cursor limit (`max_lines`, `max_matches`, `max_output`) left something out:
+    /// the index of the file and of its first fragment which is not listed.
+    pub next: Option<(usize, usize)>,
     pub truncated_by: Vec<&'static str>,
 }
 
@@ -40,6 +43,7 @@ impl Listing {
             cut: vec![false; files.len()],
             until: vec![None; files.len()],
             shown: files.len(),
+            next: None,
             truncated_by: Vec::new(),
         };
         listing.limit_output(files, limits, None);
@@ -49,12 +53,14 @@ impl Listing {
     /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, the first
     /// `max_matches_per_file` of every file, those before the line which makes its output longer than
     /// `max_output_per_file` (its blocks made with `options`), then of those the ones of the first `max_lines` matched
-    /// lines and the first `max_matches` fragments in the order of the files.
+    /// lines and the first `max_matches` fragments in the order of the files. The fragments of the first file start
+    /// at the index `skip`, where the page starts.
     pub fn new(
         files: &[Found],
         repeated: &Repeated,
         limits: &Limits,
         options: &BlockOptions,
+        skip: usize,
     ) -> Self {
         let mut lines_left = limits.max_lines;
         let mut matches_left = limits.max_matches;
@@ -62,12 +68,18 @@ impl Listing {
         let mut listed = Vec::with_capacity(files.len());
         let mut cut = vec![false; files.len()];
         let mut until = vec![None; files.len()];
+        let mut next = None;
         for (index, file) in files.iter().enumerate() {
             let Some(m) = file.matches.as_ref().filter(|m| !m.fragments.is_empty()) else {
                 listed.push(Listed::NoLines);
                 continue;
             };
-            let mut rest = repeated.rest(index, &m.content, &m.fragments);
+            let first = if index == 0 {
+                skip.min(m.fragments.len())
+            } else {
+                0
+            };
+            let mut rest = repeated.rest(index, &m.content, &m.fragments[first..]);
             if rest.is_empty() {
                 listed.push(Listed::LeftOut);
                 continue;
@@ -82,6 +94,7 @@ impl Listing {
                 cut[index] = true;
                 rest.retain(|f| last_line(&m.content, f) < line);
             }
+            let candidates = rest.clone();
             let lines = lines_of(&m.content, &rest);
             let rest = if lines.len() > lines_left {
                 cut_lines = true;
@@ -96,6 +109,9 @@ impl Listing {
             }
             lines_left = lines_left.saturating_sub(lines_of(&m.content, &rest).len());
             matches_left -= rest.len();
+            if next.is_none() {
+                next = first_left_out(&m.fragments, &candidates, &rest).map(|f| (index, f));
+            }
             listed.push(Listed::Lines(rest));
         }
         let mut truncated_by = Vec::new();
@@ -116,10 +132,18 @@ impl Listing {
             cut,
             until,
             shown: files.len(),
+            next,
             truncated_by,
         };
         listing.limit_output(files, limits, Some(options));
         listing
+    }
+
+    /// Sets where the next page starts, unless it starts earlier.
+    fn next_at(&mut self, at: (usize, usize)) {
+        if self.next.is_none_or(|next| at < next) {
+            self.next = Some(at);
+        }
     }
 
     /// Adds up the characters of the full paths of the files and of their lines (blocks made with `options`, none
@@ -135,6 +159,7 @@ impl Listing {
             if used > limits.max_output {
                 self.shown = index;
                 self.truncated_by.push("max_output");
+                self.next_at((index, 0));
                 return;
             }
             let (Some(options), Some(m), Listed::Lines(fragments)) =
@@ -147,9 +172,13 @@ impl Listing {
                 used += chars;
                 if used > limits.max_output {
                     self.until[index] = Some(line);
+                    let candidates = fragments.clone();
                     fragments.retain(|f| last_line(&m.content, f) < line);
                     self.shown = index + 1;
                     self.truncated_by.push("max_output");
+                    let at = first_left_out(&m.fragments, &candidates, fragments)
+                        .map_or((index + 1, 0), |f| (index, f));
+                    self.next_at(at);
                     return;
                 }
             }
@@ -200,6 +229,20 @@ fn shown_lines(
             })
         })
         .collect()
+}
+
+/// The index in `all` of the first of the `candidates` which is not in `kept`, a subsequence of them.
+fn first_left_out(all: &[Fragment], candidates: &[Fragment], kept: &[Fragment]) -> Option<usize> {
+    let mut kept = kept.iter().peekable();
+    let left_out = candidates.iter().find(|c| {
+        if kept.peek() == Some(c) {
+            kept.next();
+            false
+        } else {
+            true
+        }
+    })?;
+    all.iter().position(|f| f == left_out)
 }
 
 /// The last line a fragment touches.
@@ -292,6 +335,7 @@ mod tests {
             &Repeated::default(),
             &limits,
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
         assert_eq!(listing.truncated_by, ["max_lines"]);
@@ -305,6 +349,7 @@ mod tests {
             &Repeated::default(),
             &limits,
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
         let all = Listing::new(
@@ -312,6 +357,7 @@ mod tests {
             &Repeated::default(),
             &Limits::default(),
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(
             listed_lines(&all, &files),
@@ -326,6 +372,7 @@ mod tests {
                 ..Limits::default()
             },
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listed_lines(&one, &files), [vec![0], vec![]]);
         assert!(matches!(one.files[1], Listed::Lines(ref f) if f.is_empty()));
@@ -343,6 +390,7 @@ mod tests {
                 ..Limits::default()
             },
             &BlockOptions::default(),
+            0,
         );
         assert!(matches!(&listing.files[0], Listed::Lines(f) if f.len() == 2));
         assert_eq!(listed_lines(&listing, &files), [vec![0], vec![]]);
@@ -356,6 +404,7 @@ mod tests {
                 ..Limits::default()
             },
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listed_lines(&both, &files), [vec![0, 1], vec![]]);
         assert_eq!(both.truncated_by, ["max_lines"]);
@@ -367,6 +416,7 @@ mod tests {
                 ..Limits::default()
             },
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(
             listed_lines(&matches_left, &files),
@@ -387,6 +437,7 @@ mod tests {
             &Repeated::default(),
             &limits,
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listing.cut, [true, false, false]);
         assert_eq!(listed_lines(&listing, &files), [vec![0], vec![0], vec![]]);
@@ -402,6 +453,7 @@ mod tests {
                 ..Limits::default()
             },
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(per_file.truncated_by, ["max_matches_per_file"]);
     }
@@ -418,6 +470,7 @@ mod tests {
             &Repeated::default(),
             &limits,
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1], vec![0, 2]]);
         assert_eq!(listing.until, [Some(2), None]);
@@ -432,7 +485,7 @@ mod tests {
             max_output_per_file: 5,
             ..Limits::default()
         };
-        let listing = Listing::new(&files[1..], &Repeated::default(), &limits, &context);
+        let listing = Listing::new(&files[1..], &Repeated::default(), &limits, &context, 0);
         assert_eq!(listed_lines(&listing, &files[1..]), [vec![0]]);
         assert_eq!(listing.until, [Some(2)]);
     }
@@ -450,6 +503,7 @@ mod tests {
             &Repeated::default(),
             &limits(6),
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listing.shown, 1);
         assert_eq!(listed_lines(&listing, &files)[0], [0]);
@@ -460,6 +514,7 @@ mod tests {
             &Repeated::default(),
             &limits(10),
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(listing.shown, 2);
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1], vec![]]);
@@ -468,6 +523,7 @@ mod tests {
             &Repeated::default(),
             &limits(14),
             &BlockOptions::default(),
+            0,
         );
         assert_eq!(all.shown, 2);
         assert!(all.truncated_by.is_empty());

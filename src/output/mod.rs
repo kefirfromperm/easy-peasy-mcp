@@ -82,6 +82,17 @@ impl Default for Limits {
     }
 }
 
+/// Where a page starts and what its next cursor is made of (OUTPUT.md#pagination).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Page {
+    /// The index of the first file of the page in the sorted result.
+    pub file: usize,
+    /// The index of the first fragment of that file which is listed.
+    pub fragment: usize,
+    /// The hash of the request; `None`: no cursor.
+    pub hash: Option<String>,
+}
+
 /// The response of a `find` call.
 pub struct Response<'a> {
     /// How much it returns.
@@ -98,6 +109,8 @@ pub struct Response<'a> {
     pub time_zone: jiff::tz::TimeZone,
     /// The limits of what is listed.
     pub limits: Limits,
+    /// Where the page starts.
+    pub page: Page,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -131,11 +144,14 @@ impl Response<'_> {
         let repeated = self.repeated();
         let listing = self.listing(&repeated);
         let truncated_by = self.truncated_by(&listing);
-        let timeout = if truncated_by.is_empty() {
+        let mut timeout = if truncated_by.is_empty() {
             String::new()
         } else {
             format!("  truncated: yes ({})", truncated_by.join(", "))
         };
+        if let Some(cursor) = self.next_cursor(&listing) {
+            let _ = write!(timeout, "  next cursor: {cursor}");
+        }
         if self.detail == Detail::Exists {
             let exists = if self.files.is_empty() { "no" } else { "yes" };
             let mut out = format!("exists: {exists}{timeout}\n");
@@ -258,19 +274,55 @@ impl Response<'_> {
         }
     }
 
-    /// The files which are listed: in `files` and `lines` detail the first `max_files`.
+    /// The files which are listed: in `files` and `lines` detail the first `max_files` from the start of the page.
     fn listed(&self) -> &[Found] {
         if self.detail >= Detail::Files {
-            &self.files[..self.files.len().min(self.limits.max_files)]
+            let rest = &self.files[self.page_start()..];
+            &rest[..rest.len().min(self.limits.max_files)]
         } else {
             &[]
         }
     }
 
+    /// The index of the first file of the page.
+    fn page_start(&self) -> usize {
+        self.page.file.min(self.files.len())
+    }
+
+    /// Whether `max_files` leaves out files after the page.
+    fn files_cut(&self) -> bool {
+        self.detail >= Detail::Files && self.files.len() - self.page_start() > self.limits.max_files
+    }
+
+    /// The cursor of the next page: where a cursor limit left something out, unless the search was stopped by the
+    /// timeout.
+    fn next_cursor(&self, listing: &Listing) -> Option<String> {
+        let hash = self.page.hash.as_ref().filter(|_| !self.timed_out)?;
+        let start = self.page_start();
+        let mut next = listing
+            .next
+            .map(|(file, fragment)| (start + file, fragment));
+        if self.files_cut() {
+            let after = (start + self.limits.max_files, 0);
+            next = Some(next.map_or(after, |n| n.min(after)));
+        }
+        let (file, fragment) = next.filter(|(file, _)| *file < self.files.len())?;
+        let (lines, matches) = self.totals();
+        Some(
+            crate::cursor::Cursor {
+                hash: hash.clone(),
+                file,
+                fragment,
+                totals: [self.files.len(), lines, matches],
+            }
+            .encode(),
+        )
+    }
+
     /// The limits which were hit, in the order of the limits table.
     fn truncated_by(&self, listing: &Listing) -> Vec<&'static str> {
         let mut by = Vec::new();
-        if self.detail >= Detail::Files && self.files.len() > self.limits.max_files {
+        if self.files_cut() {
             by.push("max_files");
         }
         by.extend(&listing.truncated_by);
@@ -283,7 +335,13 @@ impl Response<'_> {
     /// What is listed of the listed files: in `lines` detail their lines after the repeated lines and the limits.
     fn listing(&self, repeated: &repeated::Repeated) -> Listing {
         if self.detail == Detail::Lines {
-            Listing::new(self.listed(), repeated, &self.limits, &self.blocks)
+            Listing::new(
+                self.listed(),
+                repeated,
+                &self.limits,
+                &self.blocks,
+                self.page.fragment,
+            )
         } else {
             Listing::without_lines(self.listed(), &self.limits)
         }
@@ -479,6 +537,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -507,6 +566,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -546,6 +606,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -574,6 +635,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -618,6 +680,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -657,6 +720,7 @@ mod tests {
                 group_repeated: 3,
                 highlight,
                 time_zone: jiff::tz::TimeZone::UTC,
+                page: Page::default(),
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -700,6 +764,7 @@ mod tests {
                 group_repeated: 3,
                 highlight: Highlight::Markers("⟦", "⟧"),
                 time_zone: jiff::tz::TimeZone::UTC,
+                page: Page::default(),
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -733,6 +798,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
