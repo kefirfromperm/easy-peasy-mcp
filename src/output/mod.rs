@@ -49,11 +49,14 @@ pub enum Highlight<'a> {
 
 /// The limits of the listed files, lines and output (OUTPUT.md#limits-and-truncation).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_field_names)] // named like the keys
 pub struct Limits {
     /// The files listed in `files` and `lines` detail.
     pub max_files: usize,
     /// The matched lines listed under the files.
     pub max_lines: usize,
+    /// The fragments listed under the files.
+    pub max_matches: usize,
 }
 
 impl Default for Limits {
@@ -62,6 +65,7 @@ impl Default for Limits {
         Self {
             max_files: usize::MAX,
             max_lines: usize::MAX,
+            max_matches: usize::MAX,
         }
     }
 }

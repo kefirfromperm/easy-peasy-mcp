@@ -34,10 +34,11 @@ impl Listing {
     }
 
     /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, those of the first
-    /// `max_lines` matched lines in the order of the files.
+    /// `max_lines` matched lines and the first `max_matches` fragments in the order of the files.
     pub fn new(files: &[Found], repeated: &Repeated, limits: &Limits) -> Self {
         let mut lines_left = limits.max_lines;
-        let mut cut_lines = false;
+        let mut matches_left = limits.max_matches;
+        let (mut cut_lines, mut cut_matches) = (false, false);
         let mut listed = Vec::with_capacity(files.len());
         for (index, file) in files.iter().enumerate() {
             let Some(m) = file.matches.as_ref().filter(|m| !m.fragments.is_empty()) else {
@@ -56,12 +57,21 @@ impl Listing {
             } else {
                 rest
             };
+            let mut rest = rest;
+            if rest.len() > matches_left {
+                cut_matches = true;
+                rest.truncate(matches_left);
+            }
             lines_left = lines_left.saturating_sub(lines_of(&m.content, &rest).len());
+            matches_left -= rest.len();
             listed.push(Listed::Lines(rest));
         }
         let mut truncated_by = Vec::new();
         if cut_lines {
             truncated_by.push("max_lines");
+        }
+        if cut_matches {
+            truncated_by.push("max_matches");
         }
         Self {
             files: listed,
@@ -211,6 +221,9 @@ mod tests {
                 ..Limits::default()
             },
         );
-        assert_eq!(listed_lines(&matches_left, &files), [vec![0, 1], vec![0, 1]]);
+        assert_eq!(
+            listed_lines(&matches_left, &files),
+            [vec![0, 1], vec![0, 1]]
+        );
     }
 }

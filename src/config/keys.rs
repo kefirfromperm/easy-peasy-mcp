@@ -40,6 +40,7 @@ pub enum Key {
     Markers,
     MaxFiles,
     MaxLines,
+    MaxMatches,
     Dedent,
     BlankContext,
     GroupDirs,
@@ -59,7 +60,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 46] = [
+    pub const ALL: [Key; 47] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -91,6 +92,7 @@ impl Key {
         Self::Markers,
         Self::MaxFiles,
         Self::MaxLines,
+        Self::MaxMatches,
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
@@ -168,6 +170,7 @@ impl Key {
             Self::Markers => ("output", "markers", Type::Markers),
             Self::MaxFiles => ("output", "max_files", Type::AtLeast(1)),
             Self::MaxLines => ("output", "max_lines", Type::AtLeast(1)),
+            Self::MaxMatches => ("output", "max_matches", Type::AtLeast(1)),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::Sort => (
@@ -213,6 +216,7 @@ impl Key {
             Self::ResultCache => Value::Whole(50),
             Self::MaxFiles => Value::Whole(100),
             Self::MaxLines => Value::Whole(500),
+            Self::MaxMatches => Value::Whole(1000),
             Self::MaxLevel | Self::GroupRepeated => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),
