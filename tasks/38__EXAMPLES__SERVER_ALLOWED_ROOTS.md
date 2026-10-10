@@ -75,6 +75,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
@@ -83,6 +84,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.csharp]
 extensions = ['cs']
@@ -91,6 +93,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.java]
 extensions = ['java']
@@ -99,6 +102,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
@@ -107,6 +111,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.scala]
 extensions = ['scala', 'sc']
@@ -115,6 +120,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.go]
 extensions = ['go']
@@ -123,6 +129,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', '`']
 
 [languages.swift]
 extensions = ['swift']
@@ -131,6 +138,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.dart]
 extensions = ['dart']
@@ -139,6 +147,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
@@ -147,6 +156,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
@@ -155,6 +165,7 @@ shebangs = ['node']
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
@@ -163,6 +174,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.rust]
 extensions = ['rs']
@@ -171,6 +183,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"']
 
 [languages.php]
 extensions = ['php']
@@ -179,6 +192,7 @@ shebangs = []
 line_comments = ['//', '#']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.css]
 extensions = ['css']
@@ -187,6 +201,7 @@ shebangs = []
 line_comments = []
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.scss]
 extensions = ['scss', 'less']
@@ -195,6 +210,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.python]
 extensions = ['py', 'pyi']
@@ -203,6 +219,7 @@ shebangs = ['python', 'python3']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.ruby]
 extensions = ['rb']
@@ -211,6 +228,7 @@ shebangs = ['ruby']
 line_comments = ['#']
 block_comments = [['=begin', '=end']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
@@ -219,6 +237,7 @@ shebangs = ['sh', 'bash', 'zsh']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.perl]
 extensions = ['pl', 'pm']
@@ -227,6 +246,7 @@ shebangs = ['perl']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.r]
 extensions = ['r']
@@ -235,6 +255,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
@@ -243,6 +264,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = [['<#', '#>']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.batch]
 extensions = ['bat', 'cmd']
@@ -251,6 +273,7 @@ shebangs = []
 line_comments = ['REM', '::']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.sql]
 extensions = ['sql']
@@ -259,6 +282,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.lua]
 extensions = ['lua']
@@ -267,6 +291,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['--[[', ']]']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.haskell]
 extensions = ['hs']
@@ -275,6 +300,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['{-', '-}']]
 nested_block_comments = true
+strings = ['"']
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
@@ -283,6 +309,7 @@ shebangs = []
 line_comments = [';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
@@ -291,6 +318,7 @@ shebangs = []
 line_comments = [';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.html]
 extensions = ['html', 'htm']
@@ -299,6 +327,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
@@ -307,6 +336,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.vue]
 extensions = ['vue']
@@ -315,6 +345,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['<!--', '-->'], ['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.markdown]
 extensions = ['md', 'markdown']
@@ -323,6 +354,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
@@ -331,6 +363,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.toml]
 extensions = ['toml']
@@ -339,6 +372,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
@@ -347,6 +381,7 @@ shebangs = []
 line_comments = ['#', ';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.properties]
 extensions = ['properties']
@@ -355,6 +390,7 @@ shebangs = []
 line_comments = ['#', '!']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.dotenv]
 extensions = ['env']
@@ -363,6 +399,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.json]
 extensions = ['json']
@@ -371,6 +408,7 @@ shebangs = []
 line_comments = []
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
@@ -379,6 +417,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.dockerfile]
 extensions = ['dockerfile']
@@ -387,6 +426,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.makefile]
 extensions = ['mk']
@@ -395,6 +435,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 ```
 
 ## E38.2 With the source
@@ -459,6 +500,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
@@ -467,6 +509,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
@@ -475,6 +518,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.java]
 extensions = ['java']    # default
@@ -483,6 +527,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
@@ -491,6 +536,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
@@ -499,6 +545,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.go]
 extensions = ['go']    # default
@@ -507,6 +554,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', '`']    # default
 
 [languages.swift]
 extensions = ['swift']    # default
@@ -515,6 +563,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.dart]
 extensions = ['dart']    # default
@@ -523,6 +572,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
@@ -531,6 +581,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
@@ -539,6 +590,7 @@ shebangs = ['node']    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
@@ -547,6 +599,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.rust]
 extensions = ['rs']    # default
@@ -555,6 +608,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"']    # default
 
 [languages.php]
 extensions = ['php']    # default
@@ -563,6 +617,7 @@ shebangs = []    # default
 line_comments = ['//', '#']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.css]
 extensions = ['css']    # default
@@ -571,6 +626,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
@@ -579,6 +635,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
@@ -587,6 +644,7 @@ shebangs = ['python', 'python3']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
@@ -595,6 +653,7 @@ shebangs = ['ruby']    # default
 line_comments = ['#']    # default
 block_comments = [['=begin', '=end']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
@@ -603,6 +662,7 @@ shebangs = ['sh', 'bash', 'zsh']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
@@ -611,6 +671,7 @@ shebangs = ['perl']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.r]
 extensions = ['r']    # default
@@ -619,6 +680,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
@@ -627,6 +689,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = [['<#', '#>']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
@@ -635,6 +698,7 @@ shebangs = []    # default
 line_comments = ['REM', '::']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.sql]
 extensions = ['sql']    # default
@@ -643,6 +707,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.lua]
 extensions = ['lua']    # default
@@ -651,6 +716,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['--[[', ']]']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
@@ -659,6 +725,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['{-', '-}']]    # default
 nested_block_comments = true    # default
+strings = ['"']    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
@@ -667,6 +734,7 @@ shebangs = []    # default
 line_comments = [';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
@@ -675,6 +743,7 @@ shebangs = []    # default
 line_comments = [';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
@@ -683,6 +752,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
@@ -691,6 +761,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.vue]
 extensions = ['vue']    # default
@@ -699,6 +770,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['<!--', '-->'], ['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
@@ -707,6 +779,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
@@ -715,6 +788,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.toml]
 extensions = ['toml']    # default
@@ -723,6 +797,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
@@ -731,6 +806,7 @@ shebangs = []    # default
 line_comments = ['#', ';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.properties]
 extensions = ['properties']    # default
@@ -739,6 +815,7 @@ shebangs = []    # default
 line_comments = ['#', '!']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
@@ -747,6 +824,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.json]
 extensions = ['json']    # default
@@ -755,6 +833,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
@@ -763,6 +842,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
@@ -771,6 +851,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
@@ -779,6 +860,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 ```
 
 ## E38.3 Another section
@@ -862,6 +944,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
@@ -870,6 +953,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
@@ -878,6 +962,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.java]
 extensions = ['java']    # default
@@ -886,6 +971,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
@@ -894,6 +980,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
@@ -902,6 +989,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.go]
 extensions = ['go']    # default
@@ -910,6 +998,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', '`']    # default
 
 [languages.swift]
 extensions = ['swift']    # default
@@ -918,6 +1007,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.dart]
 extensions = ['dart']    # default
@@ -926,6 +1016,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
@@ -934,6 +1025,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
@@ -942,6 +1034,7 @@ shebangs = ['node']    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
@@ -950,6 +1043,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.rust]
 extensions = ['rs']    # default
@@ -958,6 +1052,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"']    # default
 
 [languages.php]
 extensions = ['php']    # default
@@ -966,6 +1061,7 @@ shebangs = []    # default
 line_comments = ['//', '#']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.css]
 extensions = ['css']    # default
@@ -974,6 +1070,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
@@ -982,6 +1079,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
@@ -990,6 +1088,7 @@ shebangs = ['python', 'python3']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
@@ -998,6 +1097,7 @@ shebangs = ['ruby']    # default
 line_comments = ['#']    # default
 block_comments = [['=begin', '=end']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
@@ -1006,6 +1106,7 @@ shebangs = ['sh', 'bash', 'zsh']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
@@ -1014,6 +1115,7 @@ shebangs = ['perl']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.r]
 extensions = ['r']    # default
@@ -1022,6 +1124,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
@@ -1030,6 +1133,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = [['<#', '#>']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
@@ -1038,6 +1142,7 @@ shebangs = []    # default
 line_comments = ['REM', '::']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.sql]
 extensions = ['sql']    # default
@@ -1046,6 +1151,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.lua]
 extensions = ['lua']    # default
@@ -1054,6 +1160,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['--[[', ']]']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
@@ -1062,6 +1169,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['{-', '-}']]    # default
 nested_block_comments = true    # default
+strings = ['"']    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
@@ -1070,6 +1178,7 @@ shebangs = []    # default
 line_comments = [';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
@@ -1078,6 +1187,7 @@ shebangs = []    # default
 line_comments = [';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
@@ -1086,6 +1196,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
@@ -1094,6 +1205,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.vue]
 extensions = ['vue']    # default
@@ -1102,6 +1214,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['<!--', '-->'], ['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
@@ -1110,6 +1223,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
@@ -1118,6 +1232,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.toml]
 extensions = ['toml']    # default
@@ -1126,6 +1241,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
@@ -1134,6 +1250,7 @@ shebangs = []    # default
 line_comments = ['#', ';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.properties]
 extensions = ['properties']    # default
@@ -1142,6 +1259,7 @@ shebangs = []    # default
 line_comments = ['#', '!']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
@@ -1150,6 +1268,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.json]
 extensions = ['json']    # default
@@ -1158,6 +1277,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
@@ -1166,6 +1286,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
@@ -1174,6 +1295,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
@@ -1182,6 +1304,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 ```
 
 ```json request
@@ -1288,6 +1411,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
@@ -1296,6 +1420,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
@@ -1304,6 +1429,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.java]
 extensions = ['java']    # default
@@ -1312,6 +1438,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
@@ -1320,6 +1447,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
@@ -1328,6 +1456,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.go]
 extensions = ['go']    # default
@@ -1336,6 +1465,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', '`']    # default
 
 [languages.swift]
 extensions = ['swift']    # default
@@ -1344,6 +1474,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.dart]
 extensions = ['dart']    # default
@@ -1352,6 +1483,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"', "'"]    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
@@ -1360,6 +1492,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
@@ -1368,6 +1501,7 @@ shebangs = ['node']    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
@@ -1376,6 +1510,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.rust]
 extensions = ['rs']    # default
@@ -1384,6 +1519,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = true    # default
+strings = ['"']    # default
 
 [languages.php]
 extensions = ['php']    # default
@@ -1392,6 +1528,7 @@ shebangs = []    # default
 line_comments = ['//', '#']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.css]
 extensions = ['css']    # default
@@ -1400,6 +1537,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
@@ -1408,6 +1546,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
@@ -1416,6 +1555,7 @@ shebangs = ['python', 'python3']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
@@ -1424,6 +1564,7 @@ shebangs = ['ruby']    # default
 line_comments = ['#']    # default
 block_comments = [['=begin', '=end']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
@@ -1432,6 +1573,7 @@ shebangs = ['sh', 'bash', 'zsh']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
@@ -1440,6 +1582,7 @@ shebangs = ['perl']    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.r]
 extensions = ['r']    # default
@@ -1448,6 +1591,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
@@ -1456,6 +1600,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = [['<#', '#>']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
@@ -1464,6 +1609,7 @@ shebangs = []    # default
 line_comments = ['REM', '::']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.sql]
 extensions = ['sql']    # default
@@ -1472,6 +1618,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.lua]
 extensions = ['lua']    # default
@@ -1480,6 +1627,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['--[[', ']]']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'"]    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
@@ -1488,6 +1636,7 @@ shebangs = []    # default
 line_comments = ['--']    # default
 block_comments = [['{-', '-}']]    # default
 nested_block_comments = true    # default
+strings = ['"']    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
@@ -1496,6 +1645,7 @@ shebangs = []    # default
 line_comments = [';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
@@ -1504,6 +1654,7 @@ shebangs = []    # default
 line_comments = [';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
@@ -1512,6 +1663,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
@@ -1520,6 +1672,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.vue]
 extensions = ['vue']    # default
@@ -1528,6 +1681,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['<!--', '-->'], ['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"', "'", '`']    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
@@ -1536,6 +1690,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = [['<!--', '-->']]    # default
 nested_block_comments = false    # default
+strings = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
@@ -1544,6 +1699,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.toml]
 extensions = ['toml']    # default
@@ -1552,6 +1708,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
@@ -1560,6 +1717,7 @@ shebangs = []    # default
 line_comments = ['#', ';']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.properties]
 extensions = ['properties']    # default
@@ -1568,6 +1726,7 @@ shebangs = []    # default
 line_comments = ['#', '!']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
@@ -1576,6 +1735,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.json]
 extensions = ['json']    # default
@@ -1584,6 +1744,7 @@ shebangs = []    # default
 line_comments = []    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
@@ -1592,6 +1753,7 @@ shebangs = []    # default
 line_comments = ['//']    # default
 block_comments = [['/*', '*/']]    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
@@ -1600,6 +1762,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
@@ -1608,6 +1771,7 @@ shebangs = []    # default
 line_comments = ['#']    # default
 block_comments = []    # default
 nested_block_comments = false    # default
+strings = ['"']    # default
 ```
 
 ```json request
@@ -1693,6 +1857,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
@@ -1701,6 +1866,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.csharp]
 extensions = ['cs']
@@ -1709,6 +1875,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.java]
 extensions = ['java']
@@ -1717,6 +1884,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
@@ -1725,6 +1893,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.scala]
 extensions = ['scala', 'sc']
@@ -1733,6 +1902,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.go]
 extensions = ['go']
@@ -1741,6 +1911,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', '`']
 
 [languages.swift]
 extensions = ['swift']
@@ -1749,6 +1920,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.dart]
 extensions = ['dart']
@@ -1757,6 +1929,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
@@ -1765,6 +1938,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
@@ -1773,6 +1947,7 @@ shebangs = ['node']
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
@@ -1781,6 +1956,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.rust]
 extensions = ['rs']
@@ -1789,6 +1965,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"']
 
 [languages.php]
 extensions = ['php']
@@ -1797,6 +1974,7 @@ shebangs = []
 line_comments = ['//', '#']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.css]
 extensions = ['css']
@@ -1805,6 +1983,7 @@ shebangs = []
 line_comments = []
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.scss]
 extensions = ['scss', 'less']
@@ -1813,6 +1992,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.python]
 extensions = ['py', 'pyi']
@@ -1821,6 +2001,7 @@ shebangs = ['python', 'python3']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.ruby]
 extensions = ['rb']
@@ -1829,6 +2010,7 @@ shebangs = ['ruby']
 line_comments = ['#']
 block_comments = [['=begin', '=end']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
@@ -1837,6 +2019,7 @@ shebangs = ['sh', 'bash', 'zsh']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.perl]
 extensions = ['pl', 'pm']
@@ -1845,6 +2028,7 @@ shebangs = ['perl']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.r]
 extensions = ['r']
@@ -1853,6 +2037,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
@@ -1861,6 +2046,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = [['<#', '#>']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.batch]
 extensions = ['bat', 'cmd']
@@ -1869,6 +2055,7 @@ shebangs = []
 line_comments = ['REM', '::']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.sql]
 extensions = ['sql']
@@ -1877,6 +2064,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.lua]
 extensions = ['lua']
@@ -1885,6 +2073,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['--[[', ']]']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.haskell]
 extensions = ['hs']
@@ -1893,6 +2082,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['{-', '-}']]
 nested_block_comments = true
+strings = ['"']
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
@@ -1901,6 +2091,7 @@ shebangs = []
 line_comments = [';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
@@ -1909,6 +2100,7 @@ shebangs = []
 line_comments = [';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.html]
 extensions = ['html', 'htm']
@@ -1917,6 +2109,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
@@ -1925,6 +2118,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.vue]
 extensions = ['vue']
@@ -1933,6 +2127,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['<!--', '-->'], ['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.markdown]
 extensions = ['md', 'markdown']
@@ -1941,6 +2136,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
@@ -1949,6 +2145,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.toml]
 extensions = ['toml']
@@ -1957,6 +2154,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
@@ -1965,6 +2163,7 @@ shebangs = []
 line_comments = ['#', ';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.properties]
 extensions = ['properties']
@@ -1973,6 +2172,7 @@ shebangs = []
 line_comments = ['#', '!']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.dotenv]
 extensions = ['env']
@@ -1981,6 +2181,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.json]
 extensions = ['json']
@@ -1989,6 +2190,7 @@ shebangs = []
 line_comments = []
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
@@ -1997,6 +2199,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.dockerfile]
 extensions = ['dockerfile']
@@ -2005,6 +2208,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.makefile]
 extensions = ['mk']
@@ -2013,6 +2217,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 ```
 
 ```json request
@@ -2099,6 +2304,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
@@ -2107,6 +2313,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.csharp]
 extensions = ['cs']
@@ -2115,6 +2322,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.java]
 extensions = ['java']
@@ -2123,6 +2331,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
@@ -2131,6 +2340,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.scala]
 extensions = ['scala', 'sc']
@@ -2139,6 +2349,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.go]
 extensions = ['go']
@@ -2147,6 +2358,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', '`']
 
 [languages.swift]
 extensions = ['swift']
@@ -2155,6 +2367,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.dart]
 extensions = ['dart']
@@ -2163,6 +2376,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"', "'"]
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
@@ -2171,6 +2385,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
@@ -2179,6 +2394,7 @@ shebangs = ['node']
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
@@ -2187,6 +2403,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.rust]
 extensions = ['rs']
@@ -2195,6 +2412,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = true
+strings = ['"']
 
 [languages.php]
 extensions = ['php']
@@ -2203,6 +2421,7 @@ shebangs = []
 line_comments = ['//', '#']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.css]
 extensions = ['css']
@@ -2211,6 +2430,7 @@ shebangs = []
 line_comments = []
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.scss]
 extensions = ['scss', 'less']
@@ -2219,6 +2439,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.python]
 extensions = ['py', 'pyi']
@@ -2227,6 +2448,7 @@ shebangs = ['python', 'python3']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.ruby]
 extensions = ['rb']
@@ -2235,6 +2457,7 @@ shebangs = ['ruby']
 line_comments = ['#']
 block_comments = [['=begin', '=end']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
@@ -2243,6 +2466,7 @@ shebangs = ['sh', 'bash', 'zsh']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.perl]
 extensions = ['pl', 'pm']
@@ -2251,6 +2475,7 @@ shebangs = ['perl']
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.r]
 extensions = ['r']
@@ -2259,6 +2484,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
@@ -2267,6 +2493,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = [['<#', '#>']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.batch]
 extensions = ['bat', 'cmd']
@@ -2275,6 +2502,7 @@ shebangs = []
 line_comments = ['REM', '::']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.sql]
 extensions = ['sql']
@@ -2283,6 +2511,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.lua]
 extensions = ['lua']
@@ -2291,6 +2520,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['--[[', ']]']]
 nested_block_comments = false
+strings = ['"', "'"]
 
 [languages.haskell]
 extensions = ['hs']
@@ -2299,6 +2529,7 @@ shebangs = []
 line_comments = ['--']
 block_comments = [['{-', '-}']]
 nested_block_comments = true
+strings = ['"']
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
@@ -2307,6 +2538,7 @@ shebangs = []
 line_comments = [';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
@@ -2315,6 +2547,7 @@ shebangs = []
 line_comments = [';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.html]
 extensions = ['html', 'htm']
@@ -2323,6 +2556,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
@@ -2331,6 +2565,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.vue]
 extensions = ['vue']
@@ -2339,6 +2574,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['<!--', '-->'], ['/*', '*/']]
 nested_block_comments = false
+strings = ['"', "'", '`']
 
 [languages.markdown]
 extensions = ['md', 'markdown']
@@ -2347,6 +2583,7 @@ shebangs = []
 line_comments = []
 block_comments = [['<!--', '-->']]
 nested_block_comments = false
+strings = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
@@ -2355,6 +2592,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.toml]
 extensions = ['toml']
@@ -2363,6 +2601,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
@@ -2371,6 +2610,7 @@ shebangs = []
 line_comments = ['#', ';']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.properties]
 extensions = ['properties']
@@ -2379,6 +2619,7 @@ shebangs = []
 line_comments = ['#', '!']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.dotenv]
 extensions = ['env']
@@ -2387,6 +2628,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.json]
 extensions = ['json']
@@ -2395,6 +2637,7 @@ shebangs = []
 line_comments = []
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
@@ -2403,6 +2646,7 @@ shebangs = []
 line_comments = ['//']
 block_comments = [['/*', '*/']]
 nested_block_comments = false
+strings = ['"']
 
 [languages.dockerfile]
 extensions = ['dockerfile']
@@ -2411,6 +2655,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 
 [languages.makefile]
 extensions = ['mk']
@@ -2419,6 +2664,7 @@ shebangs = []
 line_comments = ['#']
 block_comments = []
 nested_block_comments = false
+strings = ['"']
 ```
 
 ## E38.9 An invalid value

@@ -92,6 +92,7 @@ Fixture: `filenames`
 names = ['Jenkinsfile']    # was []
 line_comments = []    # was ['//']
 block_comments = []    # was [['/*', '*/']]
+strings = []    # was ['"', "'"]
 ```
 
 2. `find`

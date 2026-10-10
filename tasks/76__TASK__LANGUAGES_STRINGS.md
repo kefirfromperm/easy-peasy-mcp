@@ -1,6 +1,6 @@
 # Task 76: `languages.<name>.strings`
 
-Status: not implemented
+Status: implemented, see [76__SUMMARY__LANGUAGES_STRINGS.md](76__SUMMARY__LANGUAGES_STRINGS.md)
 
 Depends on: task 73
 

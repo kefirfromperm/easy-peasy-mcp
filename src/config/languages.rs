@@ -21,13 +21,14 @@ pub const KEYS: [&str; 8] = [
 ];
 
 /// The keys this server version implements.
-const IMPLEMENTED: [&str; 6] = [
+const IMPLEMENTED: [&str; 7] = [
     "extensions",
     "names",
     "shebangs",
     "line_comments",
     "block_comments",
     "nested_block_comments",
+    "strings",
 ];
 
 /// What every language name must be.
