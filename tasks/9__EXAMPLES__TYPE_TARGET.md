@@ -46,14 +46,12 @@ Fixture: `types`
 files: 4  lines: 0  matches: 0  result: r1
 #1 type = dir
 
-api/
-  [#1]
-docs/
-  [#1]
+./
+api/  [#1]
+docs/  [#1]
+lib/  [#1]
 lib/
-  [#1]
-lib/sub/
-  [#1]
+sub/  [#1]
 ```
 
 ## E9.2 A directory by name
@@ -69,8 +67,8 @@ files: 1  lines: 0  matches: 0  result: r1
 #1 type = dir
 #2 name = 'sub'
 
-lib/sub/
-  [#1 #2]
+lib/
+sub/  [#1 #2]
 ```
 
 ## E9.3 `type = link`: symlinks to a directory and to a file
@@ -127,8 +125,7 @@ files: 2  lines: 0  matches: 0  result: r1
 
 ./
 latest  [#1 #2]
-lib/
-  [#1 #2]
+lib/  [#1 #2]
 ```
 
 ## E9.6 Values in any case
@@ -144,8 +141,8 @@ files: 1  lines: 0  matches: 0  result: r1
 #1 TYPE = DIR
 #2 name = 'docs'
 
-docs/
-  [#1 #2]
+./
+docs/  [#1 #2]
 ```
 
 ## E9.7 Without a `type` condition only regular files are returned
