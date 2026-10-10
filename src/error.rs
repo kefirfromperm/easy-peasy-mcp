@@ -34,6 +34,8 @@ pub enum ErrorCode {
     UnknownKey,
     InvalidValue,
     UpdateDisabled,
+    CursorMismatch,
+    CursorInvalid,
     NotImplemented,
 }
 
@@ -70,6 +72,8 @@ impl ErrorCode {
             Self::UnknownKey => "unknown_key",
             Self::InvalidValue => "invalid_value",
             Self::UpdateDisabled => "update_disabled",
+            Self::CursorMismatch => "cursor_mismatch",
+            Self::CursorInvalid => "cursor_invalid",
             Self::NotImplemented => "not_implemented",
         }
     }

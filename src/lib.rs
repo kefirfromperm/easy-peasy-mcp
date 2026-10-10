@@ -8,6 +8,7 @@ mod comments;
 mod compressed;
 pub mod config;
 mod content;
+mod cursor;
 mod description;
 mod engine;
 mod error;

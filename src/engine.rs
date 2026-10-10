@@ -9,9 +9,10 @@ use serde_json::Value;
 use crate::cache::{CachedFile, ResultCache};
 use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
+use crate::cursor::{self, Cursor};
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
-use crate::output::{BlockOptions, Detail, Highlight, Limits, Response, Sort, sort_files};
+use crate::output::{BlockOptions, Detail, Highlight, Limits, Page, Response, Sort, sort_files};
 use crate::query::{self, ParseOptions};
 use crate::relevance;
 use crate::request;
@@ -219,6 +220,7 @@ impl Engine {
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
+        let (page, cursor_totals) = page(arguments, request.cursor.as_deref())?;
         let mut search_options =
             self.search_options(&settings, deadline, case_insensitive_paths, languages);
         search_options.first_only = settings.text(Key::Detail) == "exists";
@@ -232,7 +234,11 @@ impl Engine {
         let meta = settings.bool(Key::Meta);
         search_options.meta = meta || sort.needs_meta();
         search_options.rank = sort == Sort::Relevance;
-        let (mut files, warnings, timed_out) = search_all(&working_dirs, &query, &search_options);
+        let (mut files, mut warnings, timed_out) =
+            search_all(&working_dirs, &query, &search_options);
+        if cursor_totals.is_some_and(|totals| totals != totals_of(&files)) {
+            warnings.add_global(WarningCode::ResultsChanged);
+        }
         if sort == Sort::Relevance {
             relevance::rank(&mut files, &query.ranking);
         } else {
@@ -255,6 +261,7 @@ impl Engine {
             group_repeated: settings.whole(Key::GroupRepeated),
             highlight: highlight(&settings, json),
             time_zone: self.options.time_zone.clone(),
+            page,
             limits: Limits {
                 max_files: settings.whole(Key::MaxFiles),
                 max_lines: settings.whole(Key::MaxLines),
@@ -424,6 +431,51 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
+}
+
+/// Where the page of a request starts: at its cursor, which must belong to the same request, or at the start; the
+/// totals of the cursor.
+fn page(arguments: &Value, cursor: Option<&str>) -> Result<(Page, Option<[usize; 3]>), Report> {
+    let hash = cursor::request_hash(arguments);
+    let Some(text) = cursor else {
+        return Ok((
+            Page {
+                hash: Some(hash),
+                ..Page::default()
+            },
+            None,
+        ));
+    };
+    let cursor = Cursor::decode(text).ok_or_else(|| {
+        Report::new(ErrorCode::CursorInvalid, "the cursor can't be decoded")
+            .hint("pass next_cursor of the previous response unchanged")
+    })?;
+    if cursor.hash != hash {
+        return Err(Report::new(
+            ErrorCode::CursorMismatch,
+            "the cursor belongs to another request",
+        )
+        .hint("repeat the request of the cursor with only output.cursor added"));
+    }
+    Ok((
+        Page {
+            file: cursor.file,
+            fragment: cursor.fragment,
+            hash: Some(hash),
+        },
+        Some(cursor.totals),
+    ))
+}
+
+/// The counts of a result: files, matched lines, fragments.
+fn totals_of(files: &[search::Found]) -> [usize; 3] {
+    let (lines, matches) = files
+        .iter()
+        .filter_map(|f| f.matches.as_ref())
+        .fold((0, 0), |(lines, matches), m| {
+            (lines + m.lines, matches + m.fragments.len())
+        });
+    [files.len(), lines, matches]
 }
 
 /// How the fragments are shown: `auto` is markers in text and columns in JSON.

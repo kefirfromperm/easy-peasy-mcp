@@ -18,6 +18,7 @@ pub enum WarningCode {
     DateUnsupported,
     MarkerInContent,
     Timeout,
+    ResultsChanged,
     NotAGitRepo,
     GitBaseNotFound,
 }
@@ -35,6 +36,7 @@ impl WarningCode {
             Self::DateUnsupported => "date_unsupported",
             Self::MarkerInContent => "marker_in_content",
             Self::Timeout => "timeout",
+            Self::ResultsChanged => "results_changed",
             Self::NotAGitRepo => "not_a_git_repo",
             Self::GitBaseNotFound => "git_base_not_found",
         }

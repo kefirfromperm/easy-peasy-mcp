@@ -52,7 +52,7 @@ Fixture: `detail`
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_lines)
+files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_lines)  next cursor: eyJ2IjoxLCJoIjoiMGQ1OTAxOTAiLCJmIjoxLCJtIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 src/
@@ -68,7 +68,7 @@ b.rs  [#1]  lines: 2  matches: 2
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r2  truncated: yes (max_lines)
+files: 2  lines: 4  matches: 4  result: r2  truncated: yes (max_lines)  next cursor: eyJ2IjoxLCJoIjoiYTA1MmU1NTIiLCJmIjowLCJtIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 src/
@@ -93,6 +93,7 @@ Fixture: `detail`
   "counts": { "files": 2, "lines": 4, "matches": 4 },
   "truncated": true,
   "truncated_by": ["max_lines"],
+  "next_cursor": "eyJ2IjoxLCJoIjoiNjZjNGJiMDEiLCJmIjowLCJtIjoxLCJ0IjpbMiw0LDRdfQ",
   "legend": { "#1": "text has 'TODO'" },
   "files": [
     { "path": "src/a.rs", "lines": 2, "matches": 2, "conditions": ["#1"],
@@ -159,7 +160,7 @@ max_lines = 2    # was 500
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_lines)
+files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_lines)  next cursor: eyJ2IjoxLCJoIjoiYzQ0ZjA3MGIiLCJmIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 src/
@@ -247,7 +248,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_lines)
+files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_lines)  next cursor: eyJ2IjoxLCJoIjoiMTBjM2VhN2QiLCJmIjowLCJtIjoxLCJ0IjpbMiw0LDRdfQ
 #1 text has 'TODO'
 
 src/

@@ -47,6 +47,8 @@ pub struct Request {
     pub config: Vec<(Key, KeyValue)>,
     /// The languages of the request: they replace the languages with the same names.
     pub languages: Vec<crate::languages::Language>,
+    /// `output.cursor`: where the page starts.
+    pub cursor: Option<String>,
 }
 
 /// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
@@ -122,19 +124,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
                 })?,
         ),
     };
-    let mut config = Vec::new();
-    for (field, section) in SECTION_FIELDS {
-        match object.get(field) {
-            None => {}
-            Some(Value::Object(fields)) => parse_section(field, section, fields, &mut config)?,
-            Some(_) => {
-                return Err(Report::new(
-                    ErrorCode::InvalidOption,
-                    format!("'{field}' must be an object"),
-                ));
-            }
-        }
-    }
+    let (config, cursor) = sections(object)?;
     let languages = match object.get("languages") {
         None => Vec::new(),
         Some(Value::Object(languages)) => languages
@@ -156,6 +146,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         timeout,
         config,
         languages,
+        cursor,
     })
 }
 
@@ -180,8 +171,12 @@ fn parse_section(
                 "the field '{field}.{name}'"
             )));
         } else {
+            let mut keys = keys.to_vec();
+            if field == "output" {
+                keys.push("cursor");
+            }
             let expected = format!("expected one of: {}", keys.join(", "));
-            let hint = match did_you_mean(name, keys) {
+            let hint = match did_you_mean(name, &keys) {
                 Some(close) => format!("did you mean '{close}'? {expected}"),
                 None => expected,
             };
@@ -193,6 +188,42 @@ fn parse_section(
         }
     }
     Ok(())
+}
+
+/// The configuration values of the section fields of a request, and `output.cursor`.
+type Sections = (Vec<(Key, KeyValue)>, Option<String>);
+
+/// The configuration values of the section fields of a request and `output.cursor`.
+fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report> {
+    let mut config = Vec::new();
+    let mut cursor = None;
+    for (field, section) in SECTION_FIELDS {
+        match object.get(field) {
+            None => {}
+            Some(Value::Object(fields)) if field == "output" => {
+                let mut fields = fields.clone();
+                cursor = match fields.remove("cursor") {
+                    None => None,
+                    Some(Value::String(text)) => Some(text),
+                    Some(_) => {
+                        return Err(Report::new(
+                            ErrorCode::InvalidOption,
+                            "'output.cursor' must be a string",
+                        ));
+                    }
+                };
+                parse_section(field, section, &fields, &mut config)?;
+            }
+            Some(Value::Object(fields)) => parse_section(field, section, fields, &mut config)?,
+            Some(_) => {
+                return Err(Report::new(
+                    ErrorCode::InvalidOption,
+                    format!("'{field}' must be an object"),
+                ));
+            }
+        }
+    }
+    Ok((config, cursor))
 }
 
 /// The error of a `dirs` field which doesn't match the schema.
@@ -311,6 +342,22 @@ mod tests {
             config(&json!({ "output": { "sort": "path asc" } })),
             [(Key::Sort, KeyValue::Text("path asc".into()))]
         );
+    }
+
+    #[test]
+    fn cursor() {
+        assert_eq!(
+            parse(&json!({ "output": { "cursor": "abc" } }))
+                .unwrap()
+                .cursor,
+            Some("abc".to_string())
+        );
+        assert_eq!(parse(&json!({})).unwrap().cursor, None);
+        assert_eq!(
+            text(&json!({ "output": { "cursor": 5 } })),
+            "error[invalid_option]: 'output.cursor' must be a string\n"
+        );
+        assert!(text(&json!({ "output": { "cursr": "a" } })).ends_with(", path_style, cursor\n"));
     }
 
     #[test]

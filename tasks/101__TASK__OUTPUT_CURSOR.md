@@ -1,6 +1,6 @@
 # Task 101: `output.cursor`: pagination
 
-Status: not implemented
+Status: implemented, see [101__SUMMARY__OUTPUT_CURSOR.md](101__SUMMARY__OUTPUT_CURSOR.md)
 
 Depends on: task 94, task 95, task 96, task 100
 

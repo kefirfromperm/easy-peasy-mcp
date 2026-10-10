@@ -32,6 +32,8 @@ struct Document<'a> {
     truncated: Option<bool>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     truncated_by: Vec<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    next_cursor: Option<String>,
     #[serde(skip_serializing_if = "Legend::is_empty")]
     legend: Legend<'a>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -203,6 +205,7 @@ impl Response<'_> {
             counts_exact: (counted && self.timed_out).then_some(false),
             truncated: (!truncated_by.is_empty()).then_some(true),
             truncated_by,
+            next_cursor: self.next_cursor(&listing),
             legend: Legend(if listed && !self.files.is_empty() {
                 self.legend
             } else {
@@ -452,6 +455,7 @@ mod tests {
             group_repeated: 3,
             highlight: Highlight::Columns,
             time_zone: jiff::tz::TimeZone::UTC,
+            page: super::super::Page::default(),
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,

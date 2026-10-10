@@ -103,7 +103,7 @@ Fixture: `sorting`
 ```
 
 ```text response
-files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches, max_matches_per_file)
+files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches, max_matches_per_file)  next cursor: eyJ2IjoxLCJoIjoiM2Y2Y2EzNzciLCJmIjozLCJ0IjpbNCw0LDhdfQ
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
