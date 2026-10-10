@@ -435,7 +435,7 @@ When a limit is hit:
 - `counts` still contain the real totals, so the agent knows how much is missing; after the `timeout` they are only
   lower bounds, `counts_exact: false`
 - a file cut by `max_matches_per_file` or `max_output_per_file` gets `"truncated": true`, in the text format `(cut)`
-  after its counts
+  after its counts; the per file limits cut a file first, `max_lines` and `max_matches` count what is left of it
 - `next_cursor` is given to get the rest, except for the per file limits, which cut by design, and for `timeout`,
   where the unsearched part is unknown
 
