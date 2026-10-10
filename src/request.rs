@@ -473,6 +473,20 @@ mod tests {
     }
 
     #[test]
+    fn git() {
+        assert_eq!(
+            config(&json!({ "git": { "base": "develop" } })),
+            [(Key::Base, KeyValue::Text("develop".into()))]
+        );
+        for base in [json!(""), json!("-x"), json!(1)] {
+            assert_eq!(
+                text(&json!({ "git": { "base": base } })),
+                "error[invalid_option]: 'git.base' must be \"auto\" or a branch, tag or commit\n"
+            );
+        }
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
