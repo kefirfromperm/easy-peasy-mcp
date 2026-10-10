@@ -161,6 +161,28 @@ pub struct Meta {
     pub modified: Option<i64>,
 }
 
+impl Found {
+    /// An entry known only by its path (and member): a removed file of `since`.
+    #[must_use]
+    pub fn path_only(rel: PathBuf, member: Option<String>) -> Self {
+        Self {
+            rel,
+            member,
+            is_dir: false,
+            conditions: Vec::new(),
+            matches: None,
+            encoding: None,
+            id: None,
+            path_fragments: None,
+            meta: None,
+            signals: None,
+            score: None,
+            git: None,
+            root: 0,
+        }
+    }
+}
+
 /// The fragments of the `name` and `path` conditions which made an entry match (OUTPUT.md#path-fragments).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PathFragments {

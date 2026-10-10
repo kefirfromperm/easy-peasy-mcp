@@ -143,6 +143,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             result_id: None,
             legend,
             files,

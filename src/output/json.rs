@@ -7,7 +7,7 @@ use serde::ser::SerializeMap;
 use super::blocks::BlockLine;
 use super::lines::{columns, cut_line, starts_in};
 use super::listing::{Listed, Listing};
-use super::{BlockOptions, Detail, Highlight, LOCATIONS, Response, display_found};
+use super::{BlockOptions, Change, Detail, Highlight, LOCATIONS, Response, display_found};
 use crate::content::Content;
 use crate::query::Kind;
 use crate::query::ast::CondId;
@@ -32,6 +32,10 @@ struct Document<'a> {
     facets: Facets<'a>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     repeated: Vec<Repeated>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    since: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unchanged: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     counts: Option<Counts>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -121,7 +125,7 @@ struct Warning {
     paths: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Default)]
 struct File {
     path: String,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
@@ -138,6 +142,8 @@ struct File {
     encoding: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    change: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     truncated: Option<bool>,
     #[serde(skip_serializing_if = "is_zero")]
@@ -207,7 +213,7 @@ impl Response<'_> {
         let truncated_by = self.truncated_by(&listing);
         let document = Document {
             version: VERSION,
-            exists: !self.files.is_empty(),
+            exists: self.file_count() > 0,
             result: self.result_id,
             detail_used: self
                 .budget
@@ -254,8 +260,10 @@ impl Response<'_> {
                     }
                 })
                 .collect(),
+            since: self.since.as_ref().map(|s| s.id.as_str()),
+            unchanged: self.since.as_ref().map(|s| s.unchanged),
             counts: counted.then_some(Counts {
-                files: self.files.len(),
+                files: self.file_count(),
                 lines,
                 matches,
             }),
@@ -263,7 +271,7 @@ impl Response<'_> {
             truncated: (!truncated_by.is_empty()).then_some(true),
             truncated_by,
             next_cursor: self.next_cursor(&listing),
-            legend: Legend(if legend && !self.files.is_empty() {
+            legend: Legend(if legend && self.file_count() > 0 {
                 self.legend
             } else {
                 &[]
@@ -293,9 +301,18 @@ impl Response<'_> {
 impl Response<'_> {
     /// The listed file `index` with the blocks of its listed lines.
     fn file(&self, found: &Found, listing: &Listing, index: usize) -> File {
+        let change = self.change(index);
+        if change == Some(Change::Removed) {
+            return File {
+                path: display_found(found),
+                change: Some(Change::Removed.keyword()),
+                ..File::default()
+            };
+        }
         let meta = found.meta.as_ref();
         File {
             path: display_found(found),
+            change: change.map(Change::keyword),
             entry_type: meta.map(|m| m.entry_type.keyword()),
             size: meta.and_then(|m| m.size),
             lang: meta.and_then(|m| m.lang.clone()),
@@ -520,6 +537,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,

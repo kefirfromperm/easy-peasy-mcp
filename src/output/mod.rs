@@ -126,6 +126,47 @@ pub struct BudgetUse {
     pub lowered: bool,
 }
 
+/// The change of a listed file to the result of `since` (OUTPUT.md#changes-since).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Change {
+    Added,
+    Removed,
+    Changed,
+}
+
+impl Change {
+    /// The mark before the path in the text format.
+    fn mark(self) -> char {
+        match self {
+            Self::Added => '+',
+            Self::Removed => '-',
+            Self::Changed => '~',
+        }
+    }
+
+    /// The change in JSON.
+    fn keyword(self) -> &'static str {
+        match self {
+            Self::Added => "added",
+            Self::Removed => "removed",
+            Self::Changed => "changed",
+        }
+    }
+}
+
+/// The differences to a kept result: the response lists the changed files only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Since {
+    /// The id of the kept result.
+    pub id: String,
+    /// The files which match as before.
+    pub unchanged: usize,
+    /// The change of every file of the response, in their order.
+    pub changes: Vec<Change>,
+    /// The counts of the current result: files, matched lines, fragments.
+    pub totals: [usize; 3],
+}
+
 /// The response of a `find` call.
 pub struct Response<'a> {
     /// How much it returns.
@@ -154,6 +195,8 @@ pub struct Response<'a> {
     pub facet_limit: usize,
     /// How the budget changed the response, if it did.
     pub budget: Option<BudgetUse>,
+    /// With `since`: the files are the differences to a kept result.
+    pub since: Option<Since>,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -173,12 +216,28 @@ const LOCATIONS: usize = 3;
 impl Response<'_> {
     /// The matched lines and the fragments of all files.
     fn totals(&self) -> (usize, usize) {
+        if let Some(since) = &self.since {
+            return (since.totals[1], since.totals[2]);
+        }
         self.files
             .iter()
             .filter_map(|file| file.matches.as_ref())
             .fold((0, 0), |(lines, matches), m| {
                 (lines + m.lines, matches + m.fragments.len())
             })
+    }
+
+    /// The number of matched files: of the current result with `since`.
+    fn file_count(&self) -> usize {
+        self.since
+            .as_ref()
+            .map_or(self.files.len(), |s| s.totals[0])
+    }
+
+    /// The change of the listed file `index` to the result of `since`.
+    fn change(&self, index: usize) -> Option<Change> {
+        let since = self.since.as_ref()?;
+        since.changes.get(self.page_start() + index).copied()
     }
 
     /// The text format.
@@ -196,7 +255,7 @@ impl Response<'_> {
             let _ = write!(timeout, "  next cursor: {cursor}");
         }
         if self.detail == Detail::Exists {
-            let exists = if self.files.is_empty() { "no" } else { "yes" };
+            let exists = if self.file_count() == 0 { "no" } else { "yes" };
             let mut out = format!("exists: {exists}{timeout}\n");
             self.push_warnings(&mut out);
             return out;
@@ -204,7 +263,7 @@ impl Response<'_> {
         let (lines, matches) = self.totals();
         let mut out = format!(
             "files: {}  lines: {lines}  matches: {matches}",
-            self.files.len(),
+            self.file_count(),
         );
         if let Some(id) = self.result_id {
             let _ = write!(out, "  result: {id}");
@@ -217,9 +276,12 @@ impl Response<'_> {
                 budget.tokens
             );
         }
+        if let Some(since) = &self.since {
+            let _ = write!(out, "  since: {}  unchanged: {}", since.id, since.unchanged);
+        }
         out.push_str(&timeout);
         out.push('\n');
-        if self.files.is_empty() || self.detail == Detail::Count {
+        if self.file_count() == 0 || self.detail == Detail::Count {
             self.push_funnel(&mut out);
             self.push_warnings(&mut out);
             return out;
@@ -232,6 +294,11 @@ impl Response<'_> {
             for facet in &self.facets {
                 let _ = writeln!(out, "{}", facet.line(self.facet_limit));
             }
+            self.push_warnings(&mut out);
+            return out;
+        }
+        if self.files.is_empty() {
+            // `since` without differences
             self.push_warnings(&mut out);
             return out;
         }
@@ -257,7 +324,14 @@ impl Response<'_> {
         index: usize,
         current: &mut Option<String>,
     ) {
-        if self.group_dirs {
+        let change = self.change(index);
+        if let Some(change) = change {
+            let _ = write!(out, "{} {}", change.mark(), display_found(file));
+            if change == Change::Removed {
+                out.push('\n');
+                return;
+            }
+        } else if self.group_dirs {
             let (dir, name) = split_found(file);
             if current.as_deref() != Some(dir.as_str()) {
                 out.push_str(&dir);
@@ -378,7 +452,7 @@ impl Response<'_> {
                 hash: hash.clone(),
                 file,
                 fragment,
-                totals: [self.files.len(), lines, matches],
+                totals: [self.file_count(), lines, matches],
             }
             .encode(),
         )
@@ -621,6 +695,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -655,6 +730,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -702,6 +778,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -736,6 +813,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -786,6 +864,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -831,6 +910,7 @@ mod tests {
                 facets: Vec::new(),
                 facet_limit: 8,
                 budget: None,
+                since: None,
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -880,6 +960,7 @@ mod tests {
                 facets: Vec::new(),
                 facet_limit: 8,
                 budget: None,
+                since: None,
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -919,6 +1000,7 @@ mod tests {
             facets: Vec::new(),
             facet_limit: 8,
             budget: None,
+            since: None,
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],

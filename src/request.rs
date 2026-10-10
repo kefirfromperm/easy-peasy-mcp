@@ -51,11 +51,22 @@ pub struct Request {
     pub cursor: Option<String>,
     /// `within`: the number of the result whose files are searched.
     pub within: Option<u64>,
+    /// `since`: the number of the result the differences are to.
+    pub since: Option<u64>,
 }
 
 /// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
 fn is_implemented(field: &str) -> bool {
-    ["version", "query", "dirs", "within", "timeout", "languages"].contains(&field)
+    [
+        "version",
+        "query",
+        "dirs",
+        "within",
+        "since",
+        "timeout",
+        "languages",
+    ]
+    .contains(&field)
         || SECTION_FIELDS
             .iter()
             .any(|(f, section)| *f == field && Key::ALL.iter().any(|k| k.section() == *section))
@@ -95,7 +106,14 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
     if let Some(version) = object.get("version") {
         check_version(version)?;
     }
-    let within = object.get("within").map(result_id).transpose()?;
+    let within = object
+        .get("within")
+        .map(|v| result_id("within", v))
+        .transpose()?;
+    let since = object
+        .get("since")
+        .map(|v| result_id("since", v))
+        .transpose()?;
     let dirs = match object.get("dirs") {
         None => None,
         Some(Value::Array(dirs)) if !dirs.is_empty() => Some(
@@ -154,6 +172,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         languages,
         cursor,
         within,
+        since,
     })
 }
 
@@ -233,8 +252,8 @@ fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report>
     Ok((config, cursor))
 }
 
-/// The number of a result id `rN` of `within`.
-fn result_id(value: &Value) -> Result<u64, Report> {
+/// The number of a result id `rN` of the field `within` or `since`.
+fn result_id(field: &str, value: &Value) -> Result<u64, Report> {
     value
         .as_str()
         .and_then(|id| id.strip_prefix('r'))
@@ -242,7 +261,7 @@ fn result_id(value: &Value) -> Result<u64, Report> {
         .ok_or_else(|| {
             Report::new(
                 ErrorCode::InvalidOption,
-                "'within' must be a result id like 'r12'",
+                format!("'{field}' must be a result id like 'r12'"),
             )
         })
 }
@@ -335,10 +354,24 @@ mod tests {
     }
 
     #[test]
+    fn since() {
+        assert_eq!(
+            parse(&json!({ "query": "x", "since": "r3" }))
+                .unwrap()
+                .since,
+            Some(3)
+        );
+        assert_eq!(
+            text(&json!({ "since": "3" })),
+            "error[invalid_option]: 'since' must be a result id like 'r12'\n"
+        );
+    }
+
+    #[test]
     fn spec_fields_are_not_implemented() {
         assert_eq!(
-            text(&json!({ "query": "x", "since": "r1" })),
-            "error[not_implemented]: the field 'since' is not implemented yet\n"
+            text(&json!({ "queries": [] })),
+            "error[not_implemented]: the field 'queries' is not implemented yet\n"
         );
     }
 

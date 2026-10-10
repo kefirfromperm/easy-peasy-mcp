@@ -817,6 +817,14 @@ files: 12  lines: 30  matches: 31  result: r15  since: r12  unchanged: 10
 Changed files show their current matched lines, not only the changed ones; removed files show only the path. The
 counts are of the current result.
 
+- the files are written with their full paths and the mark before them, without directory groups; the added and
+  changed ones in the order of `output.sort`, then the removed ones in the order of `r12`; a file is the same file
+  when its path (and member) is the same
+- JSON: `"since": "r12", "unchanged": 10` after `repeated`, every file with its `change` after `score`; a removed
+  file has only `path` and `change`
+- `since` is a result id like `r12` (`'since' must be a result id like 'r12'`), `result_expired` as for `within`; the
+  current result is kept with an id of its own
+
 ## Batch
 
 Several queries in one call: one round trip, one response.

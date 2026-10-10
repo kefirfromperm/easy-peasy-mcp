@@ -104,3 +104,27 @@ fn within_skips_files_deleted_since_the_result() {
         "files: 1  lines: 1  matches: 1  result: r2\n#1 text has 'retry'\n\n./\na.txt  [#1]  lines: 1  matches: 1\n1:⟦#1:retry⟧\n"
     );
 }
+
+#[test]
+fn since_sees_changed_and_deleted_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(root.join("a.txt"), "retry\n").unwrap();
+    fs::write(root.join("b.txt"), "retry\n").unwrap();
+    fs::write(root.join("c.txt"), "retry\n").unwrap();
+    let engine = engine(root);
+    let first = engine.find(&json!({ "query": "text has 'retry'" }));
+    assert!(first.text.starts_with("files: 3  "), "{}", first.text);
+    fs::write(root.join("a.txt"), "retry again\n").unwrap();
+    fs::remove_file(root.join("b.txt")).unwrap();
+    fs::write(root.join("d.txt"), "retry\n").unwrap();
+    let since = engine.find(&json!({
+        "since": "r1",
+        "query": "text has 'retry'",
+        "output": { "sort": "path asc", "detail": "files" }
+    }));
+    assert_eq!(
+        since.text,
+        "files: 3  lines: 3  matches: 3  result: r2  since: r1  unchanged: 1\n#1 text has 'retry'\n\n~ a.txt  [#1]  lines: 1  matches: 1\n+ d.txt  [#1]  lines: 1  matches: 1\n- b.txt\n"
+    );
+}
