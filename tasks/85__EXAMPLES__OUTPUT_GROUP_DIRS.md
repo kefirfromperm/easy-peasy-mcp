@@ -1,0 +1,216 @@
+# Examples for task 85
+
+Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `detail` of task 79:
+`src/a.rs` and `src/b.rs` with two lines with `TODO` each.
+
+## E85.1 Directory groups by default
+
+Fixture: `detail`
+
+1. `find`
+
+```json request
+{"query": "text has 'TODO'"}
+```
+
+```text response
+files: 2  lines: 4  matches: 4  result: r1
+#1 text has 'TODO'
+
+src/
+a.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ one
+2:// ⟦#1:TODO⟧ four
+b.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ two
+2:// ⟦#1:TODO⟧ three
+```
+
+2. `get_config`
+
+```json request get_config
+{ "section": "output" }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[output]
+format = "text"
+detail = "lines"
+context = 0
+# before =  (not set)
+# after =  (not set)
+dedent = true
+blank_context = false
+group_dirs = true
+```
+
+## E85.2 Full paths in a request
+
+Fixture: `detail`
+
+```json request
+{"query": "text has 'TODO'", "output": {"group_dirs": false}}
+```
+
+```text response
+files: 2  lines: 4  matches: 4  result: r1
+#1 text has 'TODO'
+
+src/a.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ one
+2:// ⟦#1:TODO⟧ four
+src/b.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ two
+2:// ⟦#1:TODO⟧ three
+```
+
+## E85.3 Full paths for the session
+
+Fixture: `detail`
+
+1. `update_config`
+
+```json request update_config
+{"set": "output.group_dirs = false"}
+```
+
+```text response
+[output]
+group_dirs = false    # was true
+```
+
+2. `find`
+
+```json request
+{"query": "text has 'TODO'"}
+```
+
+```text response
+files: 2  lines: 4  matches: 4  result: r1
+#1 text has 'TODO'
+
+src/a.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ one
+2:// ⟦#1:TODO⟧ four
+src/b.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ two
+2:// ⟦#1:TODO⟧ three
+```
+
+3. `get_config`
+
+```json request get_config
+{ "section": "output", "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[output]
+format = "text"    # default
+detail = "lines"    # default
+context = 0    # default
+# before =  (not set)    # default
+# after =  (not set)    # default
+dedent = true    # default
+blank_context = false    # default
+group_dirs = false    # update
+```
+
+## E85.4 An invalid value in a request
+
+Fixture: `detail`
+
+```json request
+{"output": {"group_dirs": "no"}}
+```
+
+```text error
+error[invalid_option]: 'output.group_dirs' must be true or false
+```
+
+## E85.5 An invalid value for `update_config`
+
+Fixture: `detail`
+
+```json request update_config
+{"set": "output.group_dirs = []"}
+```
+
+```text error
+error[invalid_value]: invalid value for 'output.group_dirs'
+  hint: true or false is expected
+```
+
+## E85.6 From the config file
+
+Fixture: `detail`
+
+```toml conf/o.toml
+[output]
+group_dirs = false
+```
+
+```text command
+easy-peasy-mcp --config conf/o.toml
+```
+
+1. `get_config`
+
+```json request get_config
+{ "section": "output", "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
+[output]
+format = "text"    # default
+detail = "lines"    # default
+context = 0    # default
+# before =  (not set)    # default
+# after =  (not set)    # default
+dedent = true    # default
+blank_context = false    # default
+group_dirs = false    # file: conf/o.toml
+```
+
+2. `find`
+
+```json request
+{"query": "text has 'TODO'"}
+```
+
+```text response
+files: 2  lines: 4  matches: 4  result: r1
+#1 text has 'TODO'
+
+src/a.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ one
+2:// ⟦#1:TODO⟧ four
+src/b.rs  [#1]  lines: 2  matches: 2
+1:// ⟦#1:TODO⟧ two
+2:// ⟦#1:TODO⟧ three
+```
+
+## E85.7 An invalid value in the config file
+
+Fixture: `detail`
+
+```toml conf/o.toml
+[output]
+group_dirs = "no"
+```
+
+```text command
+easy-peasy-mcp --config conf/o.toml
+```
+
+```text stderr exit 1
+easy-peasy-mcp: conf/o.toml:2: invalid value for 'output.group_dirs': true or false is expected
+```
