@@ -1,6 +1,6 @@
 # Task 37: `--log-level`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 34
 
