@@ -1,6 +1,6 @@
 # Task 9: `type` target
 
-Status: in progress
+Status: implemented, see [9__SUMMARY__TYPE_TARGET.md](9__SUMMARY__TYPE_TARGET.md)
 
 Depends on: task 6
 
