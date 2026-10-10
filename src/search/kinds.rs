@@ -84,6 +84,34 @@ pub const DEFAULT_MARKER_LINES: usize = 5;
 /// At most this many bytes are read to find the markers.
 const MAX_MARKER_BYTES: u64 = 64 * 1024;
 
+/// The configuration of the kinds (CONFIG.md#kinds); the built-in rules by default.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KindOptions {
+    /// A file with one of them in its first lines is generated.
+    pub generated_markers: Vec<String>,
+    /// How many first lines are checked for the markers.
+    pub generated_marker_lines: usize,
+    /// Wildcards of the paths of each kind.
+    pub generated: Vec<String>,
+    pub test: Vec<String>,
+    pub doc: Vec<String>,
+    pub config: Vec<String>,
+}
+
+impl Default for KindOptions {
+    fn default() -> Self {
+        let list = |items: &[&str]| items.iter().map(ToString::to_string).collect();
+        Self {
+            generated_markers: list(&DEFAULT_MARKERS),
+            generated_marker_lines: DEFAULT_MARKER_LINES,
+            generated: list(&DEFAULT_GENERATED),
+            test: list(&DEFAULT_TEST),
+            doc: list(&DEFAULT_DOC),
+            config: list(&DEFAULT_CONFIG),
+        }
+    }
+}
+
 /// The rules of the kinds.
 #[derive(Debug, Clone)]
 pub struct KindRules {
@@ -95,24 +123,33 @@ pub struct KindRules {
     marker_lines: usize,
 }
 
-fn compile(patterns: &[&str], case_insensitive: bool) -> Vec<Regex> {
+fn compile(patterns: &[String], case_insensitive: bool) -> Vec<Regex> {
     patterns
         .iter()
-        .map(|p| wildcard::compile(p, case_insensitive).expect("the built-in wildcards are valid"))
+        .map(|p| {
+            wildcard::compile(&crate::query::nfc(p), case_insensitive)
+                .expect("the wildcards of the kinds are checked with their keys")
+        })
         .collect()
 }
 
 impl KindRules {
-    /// The built-in rules; wildcards are matched with the given case sensitivity.
-    pub fn builtin(case_insensitive: bool) -> Self {
+    /// The rules of the options; wildcards are matched with the given case sensitivity.
+    pub fn new(options: &KindOptions, case_insensitive: bool) -> Self {
         Self {
-            generated: compile(&DEFAULT_GENERATED, case_insensitive),
-            test: compile(&DEFAULT_TEST, case_insensitive),
-            doc: compile(&DEFAULT_DOC, case_insensitive),
-            config: compile(&DEFAULT_CONFIG, case_insensitive),
-            markers: DEFAULT_MARKERS.iter().map(ToString::to_string).collect(),
-            marker_lines: DEFAULT_MARKER_LINES,
+            generated: compile(&options.generated, case_insensitive),
+            test: compile(&options.test, case_insensitive),
+            doc: compile(&options.doc, case_insensitive),
+            config: compile(&options.config, case_insensitive),
+            markers: options.generated_markers.clone(),
+            marker_lines: options.generated_marker_lines,
         }
+    }
+
+    /// The built-in rules.
+    #[cfg(test)]
+    pub fn builtin(case_insensitive: bool) -> Self {
+        Self::new(&KindOptions::default(), case_insensitive)
     }
 
     /// The kind of an entry with the `/`-separated relative path `rel`; the markers are read from `file` only for
@@ -145,6 +182,9 @@ impl KindRules {
     }
 
     fn has_marker(&self, file: &Path) -> bool {
+        if self.markers.is_empty() {
+            return false;
+        }
         let Ok(f) = File::open(file) else {
             return false;
         };
@@ -190,6 +230,21 @@ mod tests {
         assert_eq!(kind(".github/workflows/ci.yml", false), Kind::Config);
         assert_eq!(kind("src/main.rs", true), Kind::Source);
         assert_eq!(kind("data.csv", false), Kind::Other);
+    }
+
+    #[test]
+    fn other_markers_and_none() {
+        let tmp = tempfile::tempdir().unwrap();
+        let file = tmp.path().join("b.rs");
+        std::fs::write(&file, "// AUTOGEN\nfn b() {}\n").unwrap();
+        let options = |markers: &[&str]| KindOptions {
+            generated_markers: markers.iter().map(ToString::to_string).collect(),
+            ..KindOptions::default()
+        };
+        assert!(KindRules::new(&options(&["AUTOGEN"]), false).is_generated("b.rs", &file));
+        assert!(!KindRules::new(&options(&["autogen"]), false).is_generated("b.rs", &file));
+        assert!(!KindRules::new(&options(&[]), false).is_generated("b.rs", &file));
+        assert!(!KindRules::builtin(false).is_generated("b.rs", &file));
     }
 
     #[test]

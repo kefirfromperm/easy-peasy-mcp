@@ -14,7 +14,7 @@ use crate::languages::LanguageTable;
 use crate::output::Response;
 use crate::query::{self, ParseOptions};
 use crate::request;
-use crate::search::{self, Archives, Binary, SearchOptions};
+use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
 
 /// Settings of an [`Engine`] which don't come from a request.
@@ -314,6 +314,10 @@ impl Engine {
             max_file_size: settings.size(Key::MaxFileSize),
             max_archive_size: settings.size(Key::MaxArchiveSize),
             skip_generated: settings.bool(Key::SkipGenerated),
+            kinds: KindOptions {
+                generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
+                ..KindOptions::default()
+            },
             read_delay: self.options.read_delay,
         }
     }
