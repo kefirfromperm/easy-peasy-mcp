@@ -76,6 +76,8 @@ pub struct SearchOptions {
     pub git_base: Option<String>,
     /// Stop at the first matched entry (`detail = exists`).
     pub first_only: bool,
+    /// Compute the fragments of the `name` and `path` conditions (`output.path_fragments`).
+    pub path_fragments: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -121,6 +123,76 @@ pub struct Found {
     pub encoding: Option<Encoding>,
     /// The identity in the file system, to return an entry reachable several times once.
     pub id: Option<FileId>,
+    /// The fragments of the `name` and `path` conditions, with `path_fragments`.
+    pub path_fragments: Option<PathFragments>,
+}
+
+/// The fragments of the `name` and `path` conditions which made an entry match (OUTPUT.md#path-fragments).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PathFragments {
+    /// The path as shown, without the trailing separator of a directory.
+    pub path: String,
+    /// Byte ranges in `path`, sorted, identical ones merged.
+    pub fragments: Vec<Fragment>,
+}
+
+impl PathFragments {
+    /// The fragments of the contributing conditions in the NFC `path` (relative to the working directory, `/` as
+    /// the separator) of an entry named `name`; `None` without any.
+    fn of(leaves: &[&Filter], name: &str, path: &str) -> Option<Self> {
+        let fragments: Vec<Fragment> = leaves
+            .iter()
+            .flat_map(|leaf| {
+                let ids: Vec<(usize, CondId)> = leaf
+                    .id()
+                    .map(|(order, id)| (order, id.clone()))
+                    .into_iter()
+                    .collect();
+                leaf.path_ranges(name, path)
+                    .into_iter()
+                    .map(move |range| Fragment {
+                        range,
+                        ids: ids.clone(),
+                        escape: None,
+                    })
+            })
+            .collect();
+        (!fragments.is_empty()).then(|| Self {
+            path: path.to_string(),
+            fragments: merge_identical(fragments),
+        })
+    }
+
+    /// The fragments of an entry found in the working directory `prefix`: the path as shown, with the directory before
+    /// it and native separators (the path of a member of an archive keeps `/` after `!/`).
+    #[must_use]
+    pub fn shown(mut self, prefix: &Path, member: bool) -> Self {
+        let archive_end = if member {
+            self.path.find("!/").unwrap_or(self.path.len())
+        } else {
+            self.path.len()
+        };
+        let native: String = self.path[..archive_end]
+            .chars()
+            .map(|c| {
+                if c == '/' {
+                    std::path::MAIN_SEPARATOR
+                } else {
+                    c
+                }
+            })
+            .collect();
+        self.path.replace_range(..archive_end, &native);
+        let dir = crate::output::display_path(prefix, false);
+        if !dir.is_empty() {
+            let shift = dir.len() + std::path::MAIN_SEPARATOR.len_utf8();
+            self.path = format!("{dir}{}{}", std::path::MAIN_SEPARATOR, self.path);
+            for f in &mut self.fragments {
+                f.range = f.range.start + shift..f.range.end + shift;
+            }
+        }
+        self
+    }
 }
 
 /// The content fragments of a matched file and its counts (OUTPUT.md#counts).
@@ -397,6 +469,8 @@ struct Evaluated {
     encoding: Option<Encoding>,
     /// Whether the content was read and decoded as text.
     text: bool,
+    /// The fragments of the `name` and `path` conditions, with `path_fragments`.
+    path_fragments: Option<PathFragments>,
 }
 
 /// The dates of an entry in seconds since the Unix epoch.
@@ -497,6 +571,7 @@ impl Walk<'_> {
             matches: evaluated.matches,
             encoding: evaluated.encoding,
             id: entry.metadata().ok().and_then(|m| file_id(&m)),
+            path_fragments: evaluated.path_fragments,
         })
     }
 
@@ -568,11 +643,17 @@ impl Walk<'_> {
             ContentState::Text(content) => file_matches(content, &leaves),
             _ => None,
         };
+        let path_fragments = if self.options.path_fragments {
+            PathFragments::of(&leaves, file.name, file.path)
+        } else {
+            None
+        };
         Some(Evaluated {
             conditions,
             matches,
             encoding,
             text,
+            path_fragments,
         })
     }
 
@@ -725,6 +806,7 @@ impl Walk<'_> {
             matches: evaluated.matches,
             encoding: evaluated.encoding,
             id: None,
+            path_fragments: evaluated.path_fragments,
         })
     }
 
@@ -1029,6 +1111,25 @@ fn file_id(_metadata: &std::fs::Metadata) -> Option<FileId> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_fragments_after_the_working_directory() {
+        let fragments = PathFragments {
+            path: "src/a.zip!/x/a.rs".into(),
+            fragments: vec![Fragment {
+                range: 4..5,
+                ids: vec![],
+                escape: None,
+            }],
+        };
+        let sep = std::path::MAIN_SEPARATOR;
+        let shown = fragments.clone().shown(Path::new("../api"), true);
+        assert_eq!(shown.path, format!("..{sep}api{sep}src{sep}a.zip!/x/a.rs"));
+        assert_eq!(shown.fragments[0].range, 11..12);
+        let here = fragments.shown(Path::new("."), true);
+        assert_eq!(here.path, format!("src{sep}a.zip!/x/a.rs"));
+        assert_eq!(here.fragments[0].range, 4..5);
+    }
 
     #[test]
     fn emptiness() {

@@ -4,8 +4,9 @@ use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::path::{Component, Path};
 
+use crate::content::Content;
 use crate::query::ast::CondId;
-use crate::search::Found;
+use crate::search::{Found, PathFragments};
 use crate::warning::{WarningCode, Warnings};
 
 mod blocks;
@@ -145,6 +146,9 @@ impl Response<'_> {
                 let _ = write!(out, "  {}", encoding.name());
             }
             out.push('\n');
+            if let Some(path) = &file.path_fragments {
+                self.push_path_fragments(&mut out, path, file.is_dir);
+            }
             if let (Some(m), Some(fragments)) = (&file.matches, rest) {
                 let blocks = blocks::blocks(&m.content, &fragments, &self.blocks);
                 out.push_str(&lines::render(
@@ -157,6 +161,31 @@ impl Response<'_> {
         }
         self.push_warnings(&mut out);
         out
+    }
+
+    /// The line of the path fragments in the highlight style: `  path: <path with markers>`, `  path @ …`, none
+    /// with `none` (OUTPUT.md#path-fragments).
+    fn push_path_fragments(&self, out: &mut String, path: &PathFragments, is_dir: bool) {
+        let mut shown = path.path.clone();
+        if is_dir {
+            shown.push(SEP);
+        }
+        let content = Content::from_text(shown);
+        match self.highlight {
+            Highlight::Markers(..) => {
+                let _ = writeln!(
+                    out,
+                    "  path: {}",
+                    lines::shown_line(&content, &path.fragments, 0, 0, self.highlight)
+                );
+            }
+            Highlight::Columns => {
+                if let Some(columns) = lines::columns_text(&content, &path.fragments, 0) {
+                    let _ = writeln!(out, "  path {columns}");
+                }
+            }
+            Highlight::None => {}
+        }
     }
 
     /// The repeated lines of the files, only in `lines` detail.
@@ -331,6 +360,7 @@ mod tests {
             matches: None,
             encoding: None,
             id: None,
+            path_fragments: None,
         }
     }
 
@@ -401,6 +431,7 @@ mod tests {
             matches: None,
             encoding: None,
             id: None,
+            path_fragments: None,
         }];
         let text = Response {
             detail: Detail::Lines,

@@ -145,12 +145,20 @@ fn write_styled(
 
 /// Writes the line `  @ s..e ids  @ …` of the fragments which start in the line `i`, if any (OUTPUT.md#highlight).
 pub fn push_columns(out: &mut String, content: &Content, fragments: &[Fragment], i: usize) {
-    let mut any = false;
+    if let Some(columns) = columns_text(content, fragments, i) {
+        let _ = writeln!(out, "  {columns}");
+    }
+}
+
+/// `@ s..e ids  @ …`: the columns of the fragments which start in the line `i`; `None` without any.
+pub fn columns_text(content: &Content, fragments: &[Fragment], i: usize) -> Option<String> {
+    let mut out = String::new();
     for f in fragments.iter().filter(|f| starts_in(content, f, i)) {
         let at = columns(content, f, i);
-        out.push_str("  @ ");
-        any = true;
-        let _ = write!(out, "{}..", at.start);
+        if !out.is_empty() {
+            out.push_str("  ");
+        }
+        let _ = write!(out, "@ {}..", at.start);
         match at.to {
             Some((line, col)) => {
                 let _ = write!(out, "{line}:{col}");
@@ -165,9 +173,7 @@ pub fn push_columns(out: &mut String, content: &Content, fragments: &[Fragment],
             let _ = write!(out, "/e{level}");
         }
     }
-    if any {
-        out.push('\n');
-    }
+    (!out.is_empty()).then_some(out)
 }
 
 /// Whether the fragment starts in the line `i`.

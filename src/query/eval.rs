@@ -554,6 +554,49 @@ impl Filter {
         found
     }
 
+    /// The byte ranges in `path` which a `name` or `path` condition matched (OUTPUT.md#path-fragments): every match
+    /// of a regex, the runs of matched characters of `~~`; a `name` range is in the name at the end of the path.
+    /// Empty for other conditions.
+    pub fn path_ranges(&self, name: &str, path: &str) -> Vec<std::ops::Range<usize>> {
+        let Self::Text {
+            target, matcher, ..
+        } = self
+        else {
+            return Vec::new();
+        };
+        let (value, offset) = match target {
+            TextTarget::Path => (path, 0),
+            TextTarget::Name if path.ends_with(name) => (name, path.len() - name.len()),
+            TextTarget::Name => return Vec::new(),
+        };
+        let ranges: Vec<std::ops::Range<usize>> = match matcher {
+            TextMatcher::Regex(regex) => regex
+                .find_iter(value)
+                .filter(|m| !m.is_empty())
+                .map(|m| m.range())
+                .collect(),
+            TextMatcher::Fuzzy { fuzzy, .. } => {
+                let starts: Vec<usize> = value
+                    .char_indices()
+                    .map(|(i, _)| i)
+                    .chain([value.len()])
+                    .collect();
+                let mut runs: Vec<std::ops::Range<usize>> = Vec::new();
+                for p in fuzzy.positions(value).unwrap_or_default() {
+                    match runs.last_mut() {
+                        Some(run) if run.end == starts[p] => run.end = starts[p + 1],
+                        _ => runs.push(starts[p]..starts[p + 1]),
+                    }
+                }
+                runs
+            }
+        };
+        ranges
+            .into_iter()
+            .map(|r| r.start + offset..r.end + offset)
+            .collect()
+    }
+
     /// The order of appearance and the id of a condition; `None` for logical operators.
     pub fn id(&self) -> Option<(usize, &CondId)> {
         match self {
@@ -745,6 +788,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::single_range_in_vec_init)] // lists of ranges
     fn ranges_in_the_path() {
         let filter = |target: TextTarget, matcher: TextMatcher| Filter::Text {
             id: CondId::Number(1),
