@@ -64,6 +64,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E46.2 Following symlinks
@@ -160,6 +161,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E46.5 An invalid value in a request
@@ -222,6 +224,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 2. `find`

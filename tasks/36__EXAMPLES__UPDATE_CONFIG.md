@@ -216,6 +216,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 3. `find`

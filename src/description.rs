@@ -98,7 +98,8 @@ pub fn find_schema() -> Value {
                     "exclude": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of paths which are never walked, relative to the working directory, matched like path ~: ['**/target/**'] prunes every target directory. Default: []." },
                     "path_case": { "enum": ["native", "sensitive", "insensitive"], "description": "Case sensitivity of path and name conditions and of exclude; native: sensitive on Linux, insensitive on macOS and Windows. /i, ~~ and /n are always case-insensitive. Default: native." },
                     "binary": { "enum": ["skip", "search", "exclude"], "description": "Binary files (a zero byte in the first 8K): skip — not searched by content, content conditions are unknown for them; search — searched as text; exclude — never returned. Default: skip." },
-                    "max_file_size": { "type": "string", "description": "Bigger files are not searched by content (content conditions are unknown for them, a too_big warning), e.g. '1G'; units B K M G. Default: 10M." }
+                    "max_file_size": { "type": "string", "description": "Bigger files are not searched by content (content conditions are unknown for them, a too_big warning), e.g. '1G'; units B K M G. Default: 10M." },
+                    "encoding": { "type": "string", "description": "auto: by the BOM, UTF-16 by its zero bytes, otherwise UTF-8; or a WHATWG encoding name like windows-1252 for every file without a BOM. The output shows the encoding of every file which is not UTF-8. Default: auto." }
                 }
             }
         }

@@ -333,8 +333,16 @@ mod tests {
             "error[invalid_option]: 'traversal.max_file_size' must be a size like \"10M\" (units B, K, M, G)\n"
         );
         assert_eq!(
-            text(&json!({ "traversal": { "encoding": "utf-8" } })),
-            "error[not_implemented]: the field 'traversal.encoding' is not implemented yet\n"
+            config(&json!({ "traversal": { "encoding": "Latin1" } })),
+            [(Key::Encoding, KeyValue::Text("Latin1".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "encoding": "latin-99" } })),
+            "error[invalid_option]: 'traversal.encoding' must be \"auto\" or an encoding name like \"windows-1252\"\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "fallback_encoding": "koi8-r" } })),
+            "error[not_implemented]: the field 'traversal.fallback_encoding' is not implemented yet\n"
         );
     }
 

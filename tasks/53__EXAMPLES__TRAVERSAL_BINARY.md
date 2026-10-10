@@ -57,6 +57,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E53.2 Binary files searched as text
@@ -148,6 +149,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "search"    # update
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 ## E53.5 An invalid value in a request
@@ -210,6 +212,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "exclude"    # file: conf/b.toml
 max_file_size = "10M"    # default
+encoding = "auto"    # default
 ```
 
 2. `find`

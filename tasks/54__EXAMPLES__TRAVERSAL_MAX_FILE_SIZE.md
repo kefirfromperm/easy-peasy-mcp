@@ -57,6 +57,7 @@ exclude = []
 path_case = "native"
 binary = "skip"
 max_file_size = "10M"
+encoding = "auto"
 ```
 
 ## E54.2 A smaller limit in a request
@@ -157,6 +158,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "0.5k"    # update
+encoding = "auto"    # default
 ```
 
 ## E54.5 An invalid value in a request
@@ -219,6 +221,7 @@ exclude = []    # default
 path_case = "native"    # default
 binary = "skip"    # default
 max_file_size = "1K"    # file: conf/s.toml
+encoding = "auto"    # default
 ```
 
 2. `find`

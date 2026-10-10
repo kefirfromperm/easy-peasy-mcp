@@ -14,7 +14,7 @@ use crate::SPEC_VERSION;
 use crate::error::{ErrorCode, Report};
 use crate::query::did_you_mean;
 
-pub use keys::{Key, Type, Value as KeyValue};
+pub use keys::{Key, Type, Value as KeyValue, encoding};
 
 /// An error which stops the server at start: `<path>:<line>: <message>`, or `<path>: <message>` without a line.
 #[derive(Debug, Clone, PartialEq, Eq)]
