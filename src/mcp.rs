@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, Implementation,
-    ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig, Tool,
-    ToolAnnotations, ToolsCapability,
+    ListToolsResult, PaginatedRequestParams, ProgressNotificationParam, ProgressToken,
+    ServerCapabilities, ServerConfig, Tool, ToolAnnotations, ToolsCapability,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData, RoleServer, ServerHandler};
@@ -13,6 +13,7 @@ use serde_json::Value;
 
 use crate::description;
 use crate::engine::Engine;
+use crate::search::Progress;
 
 /// The MCP server: a thin layer over [`Engine`].
 #[derive(Debug, Clone)]
@@ -64,6 +65,33 @@ impl Server {
     }
 }
 
+/// Sends `notifications/progress` about once a second, the first after one second (TOOLS.md#progress): the scanned
+/// files and `scanned N files, M matched, T.Ts`.
+async fn notify_progress(
+    peer: rmcp::Peer<RoleServer>,
+    token: ProgressToken,
+    progress: Arc<Progress>,
+    started: std::time::Instant,
+) {
+    let second = std::time::Duration::from_secs(1);
+    let mut ticks = tokio::time::interval_at(tokio::time::Instant::now() + second, second);
+    loop {
+        ticks.tick().await;
+        let scanned = progress.scanned();
+        let message = format!(
+            "scanned {scanned} files, {} matched, {:.1}s",
+            progress.matched(),
+            started.elapsed().as_secs_f64()
+        );
+        #[allow(clippy::cast_precision_loss)] // counts of files far below 2^52
+        let param =
+            ProgressNotificationParam::new(token.clone(), scanned as f64).with_message(message);
+        if peer.notify_progress(param).await.is_err() {
+            return;
+        }
+    }
+}
+
 impl ServerHandler for Server {
     fn get_info(&self) -> ServerConfig {
         let mut tools = ToolsCapability::default();
@@ -96,7 +124,7 @@ impl ServerHandler for Server {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
         let name = request.name.to_string();
         if !Engine::TOOLS.contains(&name.as_str()) {
@@ -110,8 +138,24 @@ impl ServerHandler for Server {
         let started = std::time::Instant::now();
         let engine = Arc::clone(&self.engine);
         let tool = name.clone();
-        let output = tokio::task::spawn_blocking(move || engine.call(&tool, &arguments))
-            .await
+        let progress = Arc::new(Progress::default());
+        let ticker = context.meta.get_progress_token().map(|token| {
+            tokio::spawn(notify_progress(
+                context.peer.clone(),
+                token,
+                Arc::clone(&progress),
+                started,
+            ))
+        });
+        let counted = Arc::clone(&progress);
+        let output = tokio::task::spawn_blocking(move || {
+            engine.call_with(&tool, &arguments, Some(&counted))
+        })
+        .await;
+        if let Some(ticker) = ticker {
+            ticker.abort();
+        }
+        let output = output
             .map_err(|e| ErrorData::internal_error(format!("the search failed: {e}"), None))?
             .map_err(|e| ErrorData::invalid_params(e.to_string(), None))?;
         tracing::debug!(
@@ -119,11 +163,11 @@ impl ServerHandler for Server {
             started.elapsed().as_millis(),
             output.is_error
         );
-        let content = vec![ContentBlock::text(output.text)];
+        let blocks = vec![ContentBlock::text(output.text)];
         let result = if output.is_error {
-            CallToolResult::error(content)
+            CallToolResult::error(blocks)
         } else {
-            CallToolResult::success(content)
+            CallToolResult::success(blocks)
         };
         Ok(result.into())
     }

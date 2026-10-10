@@ -5,8 +5,10 @@ mod common;
 use std::fmt::Write as _;
 use std::fs;
 
-use common::{Example, Fixture, McpServer, load_examples, server_command, setup_fixture};
-use serde_json::json;
+use std::time::Duration;
+
+use common::{Example, Exchange, Fixture, McpServer, load_examples, server_command, setup_fixture};
+use serde_json::{Value, json};
 
 fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     let name = example
@@ -46,6 +48,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     for (key, value) in &env {
         process.env(key, value);
     }
+    if let Some(slow) = example.slow_reads {
+        process.env("EASY_PEASY_TEST_SLOW_READS", slow.as_millis().to_string());
+    }
 
     if let Some(block) = example
         .blocks
@@ -72,62 +77,133 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         return Ok(());
     }
 
-    run_session(&mut McpServer::spawn(&mut process), example, &fixture_path)
+    run_session(McpServer::spawn(&mut process), example, &fixture_path)
 }
 
-/// Sends the requests of a startup example to the started server and compares the responses.
-fn run_session(
-    server: &mut McpServer,
-    example: &Example,
-    fixture_path: &str,
-) -> Result<(), String> {
+/// Sends the requests of a startup example to the started server and compares the responses; runs its JSON-RPC
+/// exchange blocks.
+fn run_session(server: McpServer, example: &Example, fixture_path: &str) -> Result<(), String> {
+    let mut server = server;
     if server.response_to_initialize().is_none() {
         let status = server.child.wait().map_err(|e| e.to_string())?;
         return Err(format!("the server didn't start: {status}"));
     }
+    let mut exchange = server.into_exchange();
+    let result = run_blocks(&mut exchange, example, fixture_path);
+    let _ = exchange.child.kill();
+    let _ = exchange.child.wait();
+    result
+}
+
+/// The blocks of a startup example after `initialize`.
+fn run_blocks(
+    exchange: &mut Exchange,
+    example: &Example,
+    fixture_path: &str,
+) -> Result<(), String> {
     let mut blocks = example.blocks.iter();
     let mut id = 1;
     while let Some(block) = blocks.next() {
-        let Some(tool) = block.info.strip_prefix("json request") else {
-            continue;
+        let parse = |text: &str| -> Result<Value, String> {
+            serde_json::from_str(text).map_err(|e| format!("{}: {e}", block.info))
         };
-        let tool = match tool.trim() {
-            "" => "find",
-            other => other,
-        };
-        id += 1;
-        let arguments: serde_json::Value =
-            serde_json::from_str(&block.text).map_err(|e| e.to_string())?;
-        let expected = blocks
-            .next()
-            .ok_or_else(|| format!("request {id}: no response"))?;
-        let response = server.request(
-            id,
-            "tools/call",
-            &json!({ "name": tool, "arguments": arguments }),
-        );
-        let text = response["result"]["content"][0]["text"]
-            .as_str()
-            .unwrap_or_default();
-        let is_error = response["result"]["isError"] == json!(true);
-        let expected_text = expected
-            .text
-            .replace("<version>", env!("CARGO_PKG_VERSION"))
-            .replace("<fixture>", fixture_path);
-        let same = if expected.info.starts_with("json ") {
-            common::same_json(&expected_text, text)
-        } else {
-            text == expected_text
-        };
-        if is_error != expected.info.ends_with(" error") || !same {
-            return Err(format!(
-                "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"
-            ));
+        match block.info.as_str() {
+            "json send" => exchange.send(&parse(&block.text)?),
+            "json receive" => {
+                let expected = parse(&block.text)?;
+                if exchange
+                    .receive(&expected, Duration::from_secs(10))
+                    .is_none()
+                {
+                    return Err(format!(
+                        "no message like {expected}; received:\n{}",
+                        log(exchange)
+                    ));
+                }
+            }
+            "json never" => {
+                let pattern = parse(&block.text)?;
+                if let Some(message) = exchange.never(&pattern, Duration::from_secs(1)) {
+                    return Err(format!("an unexpected message: {message}"));
+                }
+            }
+            info => {
+                let Some(tool) = info.strip_prefix("json request") else {
+                    continue;
+                };
+                let tool = match tool.trim() {
+                    "" => "find",
+                    other => other,
+                };
+                id += 1;
+                let arguments = parse(&block.text)?;
+                let expected = blocks
+                    .next()
+                    .ok_or_else(|| format!("request {id}: no response"))?;
+                let response = exchange
+                    .request(
+                        id,
+                        "tools/call",
+                        &json!({ "name": tool, "arguments": arguments }),
+                    )
+                    .ok_or_else(|| format!("request {id}: no response from the server"))?;
+                let text = response["result"]["content"][0]["text"]
+                    .as_str()
+                    .unwrap_or_default();
+                let is_error = response["result"]["isError"] == json!(true);
+                let expected_text = expected
+                    .text
+                    .replace("<version>", env!("CARGO_PKG_VERSION"))
+                    .replace("<fixture>", fixture_path);
+                let same = if expected.info.starts_with("json ") {
+                    common::same_json(&expected_text, text)
+                } else {
+                    text == expected_text
+                };
+                if is_error != expected.info.ends_with(" error") || !same {
+                    return Err(format!(
+                        "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"
+                    ));
+                }
+            }
         }
     }
-    let _ = server.child.kill();
-    let _ = server.child.wait();
     Ok(())
+}
+
+/// The messages received in an exchange, one per line.
+fn log(exchange: &Exchange) -> String {
+    exchange
+        .log
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn exchange_blocks_match_messages() {
+    let message = json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "params": { "progressToken": "p7", "progress": 12, "message": "scanned 12 files, 3 matched, 1.0s" }
+    });
+    assert!(common::matches(
+        &json!({ "params": { "progress": "*", "message": "scanned * files, * matched, *s" } }),
+        &message
+    ));
+    assert!(!common::matches(
+        &json!({ "params": { "progressToken": "p8" } }),
+        &message
+    ));
+    assert!(!common::matches(
+        &json!({ "params": { "message": "scanned * dirs*" } }),
+        &message
+    ));
+    assert!(common::matches(
+        &json!({ "method": "notifications/progress" }),
+        &message
+    ));
 }
 
 #[test]

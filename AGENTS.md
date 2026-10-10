@@ -157,10 +157,16 @@ Fixture: `small-rust`
   code; without it the server must start, and the `json request` blocks that follow (`json request get_config` for
   another tool) are sent to it over MCP. A line
   `` Platform: `linux` `` (or `macos`, `windows`) runs the example only there
+- a startup example can also be a JSON-RPC exchange after `initialize`: a `json send` block is a message sent as it
+  is; a `json receive` block waits (at most 10 seconds) for the next message which matches it — the block is a
+  subset of the message, a string `*` matches any value and a `*` inside a string any characters — skipping the
+  messages before it; a `json never` block fails when a message which matches it has arrived in the exchange or
+  arrives within one second
 - `<version>` in a response stands for the server version (`CARGO_PKG_VERSION`), e.g. in the first line of
   `get_config`; `<fixture>` in any example stands for the canonical absolute path of the fixture directory
 - a line `` Slow reads: `2s` `` in an example makes every read of a file's content take that long (a test hook of the
-  library, cut short at the deadline of the request), so a timeout can be shown without depending on the machine
+  library, cut short at the deadline of the request), so a timeout can be shown without depending on the machine; a
+  startup example passes it to the binary in `EASY_PEASY_TEST_SLOW_READS` (milliseconds)
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
   pagination) is written as a numbered sequence of requests and responses in one example
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates
