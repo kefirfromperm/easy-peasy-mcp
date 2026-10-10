@@ -1,6 +1,6 @@
 # Task 50: `traversal.ignore_paths`
 
-Status: in progress
+Status: implemented, see [50__SUMMARY__TRAVERSAL_IGNORE_PATHS.md](50__SUMMARY__TRAVERSAL_IGNORE_PATHS.md)
 
 Depends on: task 48
 
