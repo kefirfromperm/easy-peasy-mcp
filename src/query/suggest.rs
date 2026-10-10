@@ -14,6 +14,10 @@ const SYNONYMS: &[(&str, &str)] = &[
     ("dir", "path"),
     ("directory", "path"),
     ("folder", "path"),
+    ("folder", "dir"),
+    ("directory", "dir"),
+    ("symlink", "link"),
+    ("regular", "file"),
     ("mtime", "modified"),
     ("ctime", "created"),
     ("atime", "accessed"),
@@ -44,8 +48,10 @@ const SYNONYMS: &[(&str, &str)] = &[
 /// the word (`filename` → `name`).
 pub fn did_you_mean<'a>(word: &str, candidates: &[&'a str]) -> Option<&'a str> {
     let lower = word.to_lowercase();
-    if let Some(&(_, to)) = SYNONYMS.iter().find(|(from, _)| *from == lower)
-        && let Some(c) = candidates.iter().find(|c| **c == to)
+    if let Some(c) = SYNONYMS
+        .iter()
+        .filter(|(from, _)| *from == lower)
+        .find_map(|(_, to)| candidates.iter().find(|c| *c == to))
     {
         return Some(c);
     }

@@ -7,15 +7,17 @@ pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Spec vers
 
 /// The description of the `find` tool: the cheat sheet of TOOLS.md#description for the implemented subset.
 pub const FIND_DESCRIPTION: &str = "\
-Search files by name and path in one query. Read-only. Only regular files are returned. Spec version 1.
+Search files and directories by name, path and type in one query. Read-only. Only regular files are returned. Spec version 1.
 
-QUERY: conditions on the file name or path joined with not, and, xor, or (this precedence) and brackets.
+QUERY: conditions on the name, path and type joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
   name = 'Cargo.toml'            exact file name; also: has (contains), starts, ends
   name ~ '*.rs'                  wildcard on the file name: * ? [abc] [a-z] [!abc] {a,b};
                                  [*] [?] [[] [{] match the character itself
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends work on paths too
+  type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
+                                 condition only regular files are returned; directories are written as 'name/'
 Modifier after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).

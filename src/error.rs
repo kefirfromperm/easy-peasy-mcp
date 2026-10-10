@@ -15,6 +15,7 @@ pub enum ErrorCode {
     UnterminatedString,
     InvalidWildcard,
     DuplicateLabel,
+    UnknownValue,
     InvalidOption,
     NotImplemented,
 }
@@ -33,6 +34,7 @@ impl ErrorCode {
             Self::UnterminatedString => "unterminated_string",
             Self::InvalidWildcard => "invalid_wildcard",
             Self::DuplicateLabel => "duplicate_label",
+            Self::UnknownValue => "unknown_value",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

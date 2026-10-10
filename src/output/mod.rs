@@ -41,6 +41,9 @@ impl Response<'_> {
                 current = Some(dir);
             }
             out.push_str(&name);
+            if file.is_dir {
+                out.push(SEP);
+            }
             if !file.conditions.is_empty() {
                 let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
                 let _ = write!(out, "  [{}]", ids.join(" "));

@@ -13,10 +13,12 @@ use std::ops::Range;
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 
-use ast::{CondId, Condition, Expr, Modifier, Node, NodeKind, Op, Target, TargetClass, Value};
+use ast::{
+    CondId, Condition, Expr, Modifier, Node, NodeKind, Op, Spanned, Target, TargetClass, Value,
+};
 use lexer::Token;
 
-pub use eval::{FileValues, Filter, TextMatcher, TextTarget};
+pub use eval::{EntryType, FileValues, Filter, TextMatcher, TextTarget};
 pub(crate) use suggest::did_you_mean;
 
 use crate::error::{ErrorCode, QueryError};
@@ -35,6 +37,8 @@ pub struct Query {
     pub legend: Vec<(CondId, String)>,
     /// `None` for the empty query, which matches every file.
     pub filter: Option<Filter>,
+    /// Whether the query has a `type` condition; without one only regular files are returned.
+    pub has_type: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -64,8 +68,18 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     {
         return Err(first);
     }
+    let mut has_type = false;
+    if let Some(expr) = &expr {
+        expr.visit_nodes(&mut |node| {
+            has_type |= matches!(&node.kind, NodeKind::Condition(c) if c.target == Target::Type);
+        });
+    }
     let filter = expr.map(|expr| compile(&expr, options));
-    Ok(Query { legend, filter })
+    Ok(Query {
+        legend,
+        filter,
+        has_type,
+    })
 }
 
 /// Gives every node its id: its label, or the next number for nodes without a label.
@@ -144,6 +158,20 @@ fn validate_condition(
             .hint(e.0),
         );
     }
+    if c.target == Target::Type {
+        let words = match &c.value {
+            Value::Word(w) => std::slice::from_ref(w),
+            Value::Words(words) => words.as_slice(),
+            _ => &[],
+        };
+        let names: Vec<&str> = EntryType::ALL.iter().map(|t| t.keyword()).collect();
+        for word in words
+            .iter()
+            .filter(|w| EntryType::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
     for modifier in &c.modifiers {
         if let Some(hint) = modifier_not_allowed(c, modifier, in_line) {
             errors.push(
@@ -159,6 +187,21 @@ fn validate_condition(
             );
         }
     }
+}
+
+/// `unknown_value` for a word which is not one of `names`.
+fn unknown_value(word: &Spanned, names: &[&str]) -> QueryError {
+    let expected = format!("expected one of: {}", names.join(", "));
+    let hint = match did_you_mean(&word.text, names) {
+        Some(s) => format!("did you mean '{s}'? {expected}"),
+        None => expected,
+    };
+    QueryError::new(
+        ErrorCode::UnknownValue,
+        format!("unknown value '{}'", word.text),
+        word.span.clone(),
+    )
+    .hint(hint)
 }
 
 /// `duplicate_label` at every repeated use of a label.
@@ -230,6 +273,22 @@ fn compile_node(node: &Node, options: ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
         unreachable!("the subset check allows only conditions")
     };
+    if c.target == Target::Type {
+        let words = match &c.value {
+            Value::Word(w) => vec![w],
+            Value::Words(words) => words.iter().collect(),
+            _ => Vec::new(),
+        };
+        return Filter::Type {
+            id: node.id.clone(),
+            order: node.tokens.start,
+            values: words
+                .iter()
+                .filter_map(|w| EntryType::from_keyword(&w.text))
+                .collect(),
+            negated: matches!(c.op, Some((Op::Ne, _))),
+        };
+    }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
         unreachable!("name and path conditions have an operator and a string")
     };
