@@ -12,6 +12,8 @@ pub struct BlockOptions {
     pub before: usize,
     /// Context lines after every matched line.
     pub after: usize,
+    /// Keep the empty and whitespace-only context lines.
+    pub blank_context: bool,
 }
 
 /// A line of a block: its 0-based index in the content and whether it is matched (or context).
@@ -48,6 +50,11 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
                 .map(|index| BlockLine {
                     index,
                     matched: matched.binary_search(&index).is_ok(),
+                })
+                .filter(|line| {
+                    line.matched
+                        || options.blank_context
+                        || !content.line(line.index).trim().is_empty()
                 })
                 .collect(),
         })
@@ -87,6 +94,7 @@ mod tests {
         let one = BlockOptions {
             before: 1,
             after: 1,
+            ..BlockOptions::default()
         };
         assert_eq!(
             shape(&blocks(&c, &fragments, &one)),
@@ -99,6 +107,7 @@ mod tests {
         let two = BlockOptions {
             before: 2,
             after: 2,
+            ..BlockOptions::default()
         };
         assert_eq!(blocks(&c, &fragments, &two).len(), 1);
         let first = [at(&c, 0)];
@@ -108,19 +117,37 @@ mod tests {
                 &first,
                 &BlockOptions {
                     before: 3,
-                    after: 1
+                    after: 1,
+                    ..BlockOptions::default()
                 }
             )),
             [vec![(1, true), (2, false)]]
         );
         let end = [at(&c, 8)];
+        let blank = Content::from_bytes(b"a\n\nb\n \t\nc\n");
+        let around = [at(&blank, 2)];
+        let wide = BlockOptions {
+            before: 2,
+            after: 2,
+            blank_context: false,
+        };
+        assert_eq!(
+            shape(&blocks(&blank, &around, &wide)),
+            [vec![(1, false), (3, true), (5, false)]]
+        );
+        let kept = BlockOptions {
+            blank_context: true,
+            ..wide
+        };
+        assert_eq!(blocks(&blank, &around, &kept)[0].lines.len(), 5);
         assert_eq!(
             shape(&blocks(
                 &c,
                 &end,
                 &BlockOptions {
                     before: 0,
-                    after: 5
+                    after: 5,
+                    ..BlockOptions::default()
                 }
             )),
             [vec![(9, true)]]
