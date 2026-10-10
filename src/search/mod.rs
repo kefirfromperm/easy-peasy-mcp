@@ -11,7 +11,7 @@ pub use kinds::KindRules;
 
 use crate::languages::LanguageTable;
 use crate::query::UNKNOWN_LANG;
-use crate::query::{EntryType, FileValues, Query, ast::CondId, nfc};
+use crate::query::{EntryType, FileValues, Kind, Query, ast::CondId, nfc};
 use crate::warning::{WarningCode, Warnings};
 
 /// The ignore files respected in every directory, a later one wins at the same level.
@@ -52,7 +52,7 @@ type FileId = (u64, u64);
 /// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
 /// regular files.
 pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
-    let generated = GeneratedRules::builtin(options.case_insensitive_paths);
+    let kinds = KindRules::builtin(options.case_insensitive_paths);
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(true)
@@ -71,10 +71,10 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     builder.build_parallel().run(|| {
         let found = &found;
         let warnings = &warnings;
-        let generated = &generated;
+        let kinds = &kinds;
         Box::new(move |entry| {
             if let Ok(entry) = entry
-                && let Some(item) = visit(&entry, root, query, options, generated, warnings)
+                && let Some(item) = visit(&entry, root, query, options, kinds, warnings)
             {
                 found
                     .lock()
@@ -113,7 +113,7 @@ fn visit(
     root: &Path,
     query: &Query,
     options: &SearchOptions,
-    generated: &GeneratedRules,
+    kinds: &KindRules,
     warnings: &Mutex<Warnings>,
 ) -> Option<(Found, Option<FileId>)> {
     if entry.depth() == 0 {
@@ -169,13 +169,19 @@ fn visit(
                 entry_type == EntryType::Dir,
             );
     }
-    let lang = if query.needs.lang && entry_type != EntryType::Dir {
-        options
-            .languages
-            .detect(&name, || first_line(entry.path()))
-            .map_or(UNKNOWN_LANG, |l| l.name.as_str())
+    let language = (query.needs.lang && entry_type != EntryType::Dir)
+        .then(|| options.languages.detect(&name, || first_line(entry.path())))
+        .flatten();
+    let lang = language.map_or(UNKNOWN_LANG, |l| l.name.as_str());
+    let kind = if query.needs.kind {
+        kinds.classify(
+            &path,
+            entry.path(),
+            entry_type == EntryType::File,
+            language.is_some_and(|l| l.source),
+        )
     } else {
-        UNKNOWN_LANG
+        Kind::Other
     };
     let file = FileValues {
         name: &name,
@@ -187,13 +193,15 @@ fn visit(
         created,
         accessed,
         lang,
+        kind,
     };
     let conditions = match &query.filter {
         None => Vec::new(),
         Some(filter) if filter.matches(&file) => filter.contributors(&file),
         Some(_) => return None,
     };
-    if entry_type == EntryType::File && generated.is_generated(&path, entry.path()) {
+    if !query.needs.kind && entry_type == EntryType::File && kinds.is_generated(&path, entry.path())
+    {
         return None;
     }
     let id = (entry_type == EntryType::File)

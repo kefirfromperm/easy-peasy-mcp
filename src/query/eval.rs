@@ -53,6 +53,48 @@ impl EntryType {
     }
 }
 
+/// What a file is for (QUERY.md#kind).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Source,
+    Test,
+    Config,
+    Doc,
+    Generated,
+    Other,
+}
+
+impl Kind {
+    /// All kinds in the order of the spec.
+    pub const ALL: [Kind; 6] = [
+        Self::Source,
+        Self::Test,
+        Self::Config,
+        Self::Doc,
+        Self::Generated,
+        Self::Other,
+    ];
+
+    /// The value as written in a query.
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::Source => "source",
+            Self::Test => "test",
+            Self::Config => "config",
+            Self::Doc => "doc",
+            Self::Generated => "generated",
+            Self::Other => "other",
+        }
+    }
+
+    /// The kind written as `word`, in any case.
+    pub fn from_keyword(word: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|k| k.keyword().eq_ignore_ascii_case(word))
+    }
+}
+
 /// The values of one file which conditions look at.
 #[derive(Debug, Clone, Copy)]
 pub struct FileValues<'a> {
@@ -72,8 +114,10 @@ pub struct FileValues<'a> {
     pub created: Option<f64>,
     /// The last access time in seconds since the Unix epoch; `None` when the file system doesn't provide it.
     pub accessed: Option<f64>,
-    /// The language, `unknown` without one; only detected when the query has `lang`.
+    /// The language, `unknown` without one; only detected when the query has `lang` or `kind`.
     pub lang: &'a str,
+    /// The kind; only computed when the query has `kind`.
+    pub kind: Kind,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -144,6 +188,13 @@ pub enum Filter {
         id: CondId,
         order: usize,
         values: Vec<String>,
+        negated: bool,
+    },
+    /// `kind = v`, `kind in (...)`: the kind is one of `values`; `kind != v`: `negated`.
+    Kind {
+        id: CondId,
+        order: usize,
+        values: Vec<Kind>,
         negated: bool,
     },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
@@ -247,6 +298,9 @@ impl Filter {
             Self::Lang {
                 values, negated, ..
             } => Truth::from(values.iter().any(|v| v == file.lang) != *negated),
+            Self::Kind {
+                values, negated, ..
+            } => Truth::from(values.contains(&file.kind) != *negated),
             #[allow(clippy::cast_precision_loss)] // sizes up to 2^53 bytes are exact
             Self::Number { target, bounds, .. } => {
                 let value = match target {
@@ -289,6 +343,7 @@ impl Filter {
             | Self::Type { id, order, .. }
             | Self::Empty { id, order }
             | Self::Lang { id, order, .. }
+            | Self::Kind { id, order, .. }
             | Self::Number { id, order, .. } => {
                 found.push((*order, id.clone()));
             }

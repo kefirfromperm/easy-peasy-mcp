@@ -1,4 +1,5 @@
-//! Files of kind `generated` (CONFIG.md#kinds): by path wildcards and by markers in the first lines.
+//! The kind of a file (CONFIG.md#kinds): `generated` by path wildcards and markers in the first lines, `test`,
+//! `doc`, `config` by path wildcards, `source` by the language, `other` for the rest.
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -6,10 +7,10 @@ use std::path::Path;
 
 use regex::Regex;
 
-use crate::query::wildcard;
+use crate::query::{Kind, wildcard};
 
-/// The built-in `kinds.generated` wildcards.
-pub const DEFAULT_PATTERNS: [&str; 9] = [
+/// The built-in `kinds.generated`.
+pub const DEFAULT_GENERATED: [&str; 9] = [
     "**/*.lock",
     "**/package-lock.json",
     "**/pnpm-lock.yaml",
@@ -19,6 +20,54 @@ pub const DEFAULT_PATTERNS: [&str; 9] = [
     "**/*_pb2.py",
     "**/*.g.dart",
     "**/*.generated.*",
+];
+
+/// The built-in `kinds.test`.
+pub const DEFAULT_TEST: [&str; 10] = [
+    "**/test/**",
+    "**/tests/**",
+    "**/__tests__/**",
+    "**/spec/**",
+    "**/*_test.*",
+    "**/test_*.py",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*Test.java",
+    "**/*Tests.cs",
+];
+
+/// The built-in `kinds.doc`.
+pub const DEFAULT_DOC: [&str; 7] = [
+    "**/*.md",
+    "**/*.rst",
+    "**/*.adoc",
+    "**/README*",
+    "**/LICENSE*",
+    "**/CHANGELOG*",
+    "**/docs/**",
+];
+
+/// The built-in `kinds.config`.
+pub const DEFAULT_CONFIG: [&str; 19] = [
+    "**/*.toml",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.ini",
+    "**/*.cfg",
+    "**/*.conf",
+    "**/*.properties",
+    "**/*.env",
+    "**/package.json",
+    "**/tsconfig*.json",
+    "**/*.config.json",
+    "**/*.config.js",
+    "**/*.config.ts",
+    "**/Dockerfile",
+    "**/Makefile",
+    "**/CMakeLists.txt",
+    "**/requirements*.txt",
+    "**/.github/**",
+    "**/.gitlab-ci.yml",
 ];
 
 /// The built-in `kinds.generated_markers`.
@@ -35,33 +84,59 @@ pub const DEFAULT_MARKER_LINES: usize = 5;
 /// At most this many bytes are read to find the markers.
 const MAX_MARKER_BYTES: u64 = 64 * 1024;
 
-/// The rules which make a file `generated`.
+/// The rules of the kinds.
 #[derive(Debug, Clone)]
-pub struct GeneratedRules {
-    patterns: Vec<Regex>,
+pub struct KindRules {
+    generated: Vec<Regex>,
+    test: Vec<Regex>,
+    doc: Vec<Regex>,
+    config: Vec<Regex>,
     markers: Vec<String>,
     marker_lines: usize,
 }
 
-impl GeneratedRules {
+fn compile(patterns: &[&str], case_insensitive: bool) -> Vec<Regex> {
+    patterns
+        .iter()
+        .map(|p| wildcard::compile(p, case_insensitive).expect("the built-in wildcards are valid"))
+        .collect()
+}
+
+impl KindRules {
     /// The built-in rules; wildcards are matched with the given case sensitivity.
     pub fn builtin(case_insensitive: bool) -> Self {
         Self {
-            patterns: DEFAULT_PATTERNS
-                .iter()
-                .map(|p| {
-                    wildcard::compile(p, case_insensitive)
-                        .expect("the built-in wildcards are valid")
-                })
-                .collect(),
+            generated: compile(&DEFAULT_GENERATED, case_insensitive),
+            test: compile(&DEFAULT_TEST, case_insensitive),
+            doc: compile(&DEFAULT_DOC, case_insensitive),
+            config: compile(&DEFAULT_CONFIG, case_insensitive),
             markers: DEFAULT_MARKERS.iter().map(ToString::to_string).collect(),
             marker_lines: DEFAULT_MARKER_LINES,
         }
     }
 
-    /// Whether the file with this `/`-separated relative path is generated; `file` is read for the markers.
+    /// The kind of an entry with the `/`-separated relative path `rel`; the markers are read from `file` only for
+    /// regular files; `source` is whether the language of the entry is code.
+    pub fn classify(&self, rel: &str, file: &Path, is_file: bool, source: bool) -> Kind {
+        let any = |rules: &[Regex]| rules.iter().any(|r| r.is_match(rel));
+        if any(&self.generated) || (is_file && self.has_marker(file)) {
+            Kind::Generated
+        } else if any(&self.test) {
+            Kind::Test
+        } else if any(&self.doc) {
+            Kind::Doc
+        } else if any(&self.config) {
+            Kind::Config
+        } else if source {
+            Kind::Source
+        } else {
+            Kind::Other
+        }
+    }
+
+    /// Whether a regular file is generated.
     pub fn is_generated(&self, rel: &str, file: &Path) -> bool {
-        self.patterns.iter().any(|p| p.is_match(rel)) || self.has_marker(file)
+        self.generated.iter().any(|p| p.is_match(rel)) || self.has_marker(file)
     }
 
     fn has_marker(&self, file: &Path) -> bool {
@@ -90,23 +165,37 @@ impl GeneratedRules {
 mod tests {
     use super::*;
 
+    const MISSING: &str = "/nonexistent/file";
+
+    fn kind(rel: &str, source: bool) -> Kind {
+        KindRules::builtin(false).classify(rel, Path::new(MISSING), true, source)
+    }
+
     #[test]
     fn by_path() {
-        let rules = GeneratedRules::builtin(false);
-        let missing = Path::new("/nonexistent/file");
-        assert!(rules.is_generated("Cargo.lock", missing));
-        assert!(rules.is_generated("web/dist/app.min.js", missing));
-        assert!(rules.is_generated("src/schema.generated.rs", missing));
-        assert!(!rules.is_generated("src/main.rs", missing));
+        assert_eq!(kind("Cargo.lock", false), Kind::Generated);
+        assert_eq!(kind("web/dist/app.min.js", true), Kind::Generated);
+        assert_eq!(kind("src/schema.generated.rs", true), Kind::Generated);
+        assert_eq!(kind("tests/a.rs", true), Kind::Test);
+        assert_eq!(kind("pkg/main_test.go", true), Kind::Test);
+        assert_eq!(kind("notes_test.md", false), Kind::Test);
+        assert_eq!(kind("README.md", false), Kind::Doc);
+        assert_eq!(kind("docs/x.rs", true), Kind::Doc);
+        assert_eq!(kind("Cargo.toml", false), Kind::Config);
+        assert_eq!(kind(".github/workflows/ci.yml", false), Kind::Config);
+        assert_eq!(kind("src/main.rs", true), Kind::Source);
+        assert_eq!(kind("data.csv", false), Kind::Other);
     }
 
     #[test]
     fn by_marker_in_the_first_lines() {
         let tmp = tempfile::tempdir().unwrap();
-        let rules = GeneratedRules::builtin(false);
+        let rules = KindRules::builtin(false);
         let first = tmp.path().join("a.rs");
         std::fs::write(&first, "// @generated\nfn a() {}\n").unwrap();
         assert!(rules.is_generated("a.rs", &first));
+        assert_eq!(rules.classify("a.rs", &first, true, true), Kind::Generated);
+        assert_eq!(rules.classify("a.rs", &first, false, true), Kind::Source);
         let fifth = tmp.path().join("b.go");
         std::fs::write(&fifth, "1\n2\n3\n4\n// Code generated by x. DO NOT EDIT.\n").unwrap();
         assert!(rules.is_generated("b.go", &fifth));
