@@ -158,6 +158,7 @@ fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal,
             "min_depth" => traversal.min_depth = Some(whole_number(key, value)?),
             "max_depth" => traversal.max_depth = Some(whole_number(key, value)?),
             "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
+            "hidden" => traversal.hidden = Some(boolean(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"

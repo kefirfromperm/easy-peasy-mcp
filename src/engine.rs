@@ -197,6 +197,7 @@ impl Engine {
                 .follow_symlinks
                 .unwrap_or(settings.follow_symlinks),
             allowed_roots: Arc::new(settings.allowed_roots.clone()),
+            hidden: request.traversal.hidden.unwrap_or(settings.hidden),
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();
