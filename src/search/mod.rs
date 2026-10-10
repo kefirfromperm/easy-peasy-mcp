@@ -1,13 +1,13 @@
 //! Walks the working directory and collects the files which match the query (CONFIG.md#traversal).
 
-mod generated;
+mod kinds;
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 
 use ignore::{WalkBuilder, WalkState};
 
-pub use generated::GeneratedRules;
+pub use kinds::KindRules;
 
 use crate::languages::LanguageTable;
 use crate::query::UNKNOWN_LANG;

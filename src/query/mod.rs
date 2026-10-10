@@ -736,6 +736,7 @@ mod tests {
             created: Some(0.0),
             accessed: Some(0.0),
             lang: "unknown",
+            kind: Kind::Other,
         };
         query.filter.unwrap().matches(&file)
     }
@@ -834,6 +835,7 @@ mod tests {
             created: None,
             accessed: None,
             lang,
+            kind: Kind::Other,
         };
         let q = parse("lang in (rust, Python)", &SENSITIVE).unwrap();
         assert!(q.needs.lang);
@@ -847,6 +849,35 @@ mod tests {
             e.hint
                 .unwrap()
                 .starts_with("did you mean 'rust'? expected one of: c, cpp, ")
+        );
+    }
+
+    #[test]
+    fn kind_conditions() {
+        let file = |kind| FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind,
+        };
+        let q = parse("kind in (source, TEST)", &SENSITIVE).unwrap();
+        assert!(q.needs.kind && q.needs.lang);
+        assert!(q.filter.as_ref().unwrap().matches(&file(Kind::Test)));
+        assert!(!q.filter.as_ref().unwrap().matches(&file(Kind::Generated)));
+        let q = parse("kind != generated", &SENSITIVE).unwrap();
+        assert!(q.filter.unwrap().matches(&file(Kind::Other)));
+        let e = parse("kind = tests", &SENSITIVE).unwrap_err();
+        assert_eq!(
+            e.hint.as_deref(),
+            Some(
+                "did you mean 'test'? expected one of: source, test, config, doc, generated, other"
+            )
         );
     }
 

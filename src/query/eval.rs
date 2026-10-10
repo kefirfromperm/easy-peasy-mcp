@@ -320,6 +320,7 @@ mod tests {
             created: None,
             accessed: None,
             lang: "unknown",
+            kind: Kind::Other,
         };
         filter.matches(&file).then(|| {
             filter
@@ -414,6 +415,7 @@ mod tests {
             created: None,
             accessed: None,
             lang: "unknown",
+            kind: Kind::Other,
         };
         assert_eq!(created(1).eval(&file), Truth::Unknown);
         assert!(!Filter::Not(Box::new(created(1))).matches(&file));
