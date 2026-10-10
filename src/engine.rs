@@ -120,12 +120,13 @@ impl Engine {
             git_global_excludes: self.options.git_global_excludes,
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
         };
-        let files = search::search(&self.options.start_dir, &query, &search_options);
+        let result = search::search(&self.options.start_dir, &query, &search_options);
         let result_id = format!("r{}", self.last_result.fetch_add(1, Ordering::SeqCst) + 1);
         Ok(Response {
             result_id: &result_id,
             legend: &query.legend,
-            files: &files,
+            files: &result.files,
+            warnings: &result.warnings,
         }
         .to_text())
     }

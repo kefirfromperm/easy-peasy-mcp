@@ -44,10 +44,19 @@ pub struct Query {
     pub filter: Option<Filter>,
     /// Whether the query has a `type` condition; without one only regular files are returned.
     pub has_type: bool,
-    /// Whether the query has an `empty` condition, so the search must find out whether entries are empty.
-    pub needs_empty: bool,
-    /// Whether the query looks at the metadata of entries: `size`, `modified`.
-    pub needs_metadata: bool,
+    /// What the search must read for every entry.
+    pub needs: Needs,
+}
+
+/// What the search must find out about every entry for the query.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Needs {
+    /// An `empty` condition: whether entries are empty.
+    pub empty: bool,
+    /// `size` or a date condition: the metadata of entries.
+    pub metadata: bool,
+    /// A `created` condition: entries without a creation date get a warning.
+    pub created: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -77,13 +86,16 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
     {
         return Err(first);
     }
-    let (mut has_type, mut needs_empty, mut needs_metadata) = (false, false, false);
+    let mut has_type = false;
+    let mut needs = Needs::default();
     if let Some(expr) = &expr {
         expr.visit_nodes(&mut |node| {
             if let NodeKind::Condition(c) = &node.kind {
                 has_type |= c.target == Target::Type;
-                needs_empty |= c.target == Target::Empty;
-                needs_metadata |= matches!(c.target, Target::Size | Target::Modified);
+                needs.empty |= c.target == Target::Empty;
+                needs.metadata |=
+                    matches!(c.target, Target::Size | Target::Modified | Target::Created);
+                needs.created |= c.target == Target::Created;
             }
         });
     }
@@ -92,8 +104,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         legend,
         filter,
         has_type,
-        needs_empty,
-        needs_metadata,
+        needs,
     })
 }
 
@@ -190,7 +201,7 @@ fn validate_condition(
     if c.target == Target::Size {
         validate_sizes(text, &c.value, errors);
     }
-    if c.target == Target::Modified {
+    if matches!(c.target, Target::Modified | Target::Created) {
         validate_dates(text, &c.value, options, errors);
     }
     for modifier in &c.modifiers {
@@ -388,7 +399,11 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
             bounds,
         };
     }
-    if c.target == Target::Modified {
+    if let Some(target) = match c.target {
+        Target::Modified => Some(NumberTarget::Modified),
+        Target::Created => Some(NumberTarget::Created),
+        _ => None,
+    } {
         let date = |s: &Spanned| {
             value::parse_date(&s.text, options.now, &options.time_zone)
                 .expect("dates are validated before compiling")
@@ -401,7 +416,7 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
         return Filter::Number {
             id: node.id.clone(),
             order: node.tokens.start,
-            target: NumberTarget::Modified,
+            target,
             bounds,
         };
     }
@@ -671,9 +686,10 @@ mod tests {
             entry_type,
             empty: name.is_empty(),
             size: name.len() as u64,
-            modified: 0.0,
+            modified: Some(0.0),
+            created: Some(0.0),
         };
-        query.filter.unwrap().eval(&file)
+        query.filter.unwrap().matches(&file)
     }
 
     #[test]
@@ -695,9 +711,10 @@ mod tests {
         assert!(
             parse("name = 'a' or empty", &SENSITIVE)
                 .unwrap()
-                .needs_empty
+                .needs
+                .empty
         );
-        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().needs_empty);
+        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().needs.empty);
     }
 
     #[test]
@@ -709,8 +726,8 @@ mod tests {
             EntryType::File
         ));
         assert!(!matches("size > 3", "abc", EntryType::File));
-        assert!(parse("size > 1", &SENSITIVE).unwrap().needs_metadata);
-        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().needs_metadata);
+        assert!(parse("size > 1", &SENSITIVE).unwrap().needs.metadata);
+        assert!(!parse("name = 'a'", &SENSITIVE).unwrap().needs.metadata);
     }
 
     #[test]
@@ -736,6 +753,17 @@ mod tests {
                 8..15,
                 Some("the start must not be greater than the end")
             )
+        );
+    }
+
+    #[test]
+    fn created_conditions() {
+        assert!(matches("created >= 1970-01-01", "a", EntryType::File));
+        assert!(parse("created > -1d", &SENSITIVE).unwrap().needs.created);
+        assert!(parse("created > -1d", &SENSITIVE).unwrap().needs.metadata);
+        assert_eq!(
+            parse("created > -1y", &SENSITIVE).unwrap_err().code,
+            ErrorCode::InvalidDate
         );
     }
 

@@ -730,7 +730,11 @@ Problems which don't make the request fail: the response is returned and lists t
 | `results_changed`      | the totals differ from the ones in the cursor, files changed between pages |
 | `not_a_git_repo`       | the query has `git` conditions, but a file is outside of a repository      |
 
-Warnings of the same code are grouped, with a few example paths:
+Warnings of the same code are grouped, with the number of entries and at most 3 example paths in path order, in the
+order of the table above. In the text format every group is one line at the end of the response, after an empty
+line: `warning: <code> (<count>): <path>, <path>, <path>`, and `, … N more` when more entries have the warning;
+directories end with the separator. A response without files has the empty line and the warnings after its header
+and legend.
 
 ```json
 {

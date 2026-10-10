@@ -1,6 +1,6 @@
 # Task 13: `created` target
 
-Status: not implemented
+Status: implemented, see [13__SUMMARY__CREATED_TARGET.md](13__SUMMARY__CREATED_TARGET.md)
 
 Depends on: task 12
 

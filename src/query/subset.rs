@@ -1,6 +1,6 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: the empty query; `type`, `empty`, `size` and `modified` conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! Implemented: the empty query; `type`, `empty`, `size`, `modified` and `created` conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
@@ -38,6 +38,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
                     | Target::Empty
                     | Target::Size
                     | Target::Modified
+                    | Target::Created
             ) {
                 let span = c.target_span.clone();
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
