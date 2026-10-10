@@ -35,6 +35,8 @@ pub struct SearchOptions {
     pub languages: std::sync::Arc<LanguageTable>,
     /// When the search must stop; `None` — no limit.
     pub deadline: Option<Instant>,
+    /// The threads of the walk and the file search; `0` — the number of CPU cores.
+    pub threads: usize,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
     pub read_delay: Option<Duration>,
 }
@@ -179,7 +181,8 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .git_global(options.git_global_excludes)
         .git_exclude(true)
         .require_git(false)
-        .follow_links(false);
+        .follow_links(false)
+        .threads(options.threads);
     for name in IGNORE_FILES {
         builder.add_custom_ignore_filename(name);
     }

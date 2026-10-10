@@ -28,6 +28,7 @@ Fixture: `get-config`
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
+threads = 0
 ```
 
 ## E35.2 One section
@@ -59,6 +60,7 @@ Fixture: `get-config`
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "30s"    # default
+threads = 0    # default
 ```
 
 ## E35.4 An unknown section

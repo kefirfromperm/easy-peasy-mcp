@@ -244,7 +244,8 @@ by every request, not at start.
 Durations are a whole number and a unit, `ms`, `s` or `m`: `"500ms"`, `"30s"`, `"2m"`; zero (`"0s"`) is no limit.
 An invalid `server.timeout` is `invalid value for 'server.timeout': a duration like "30s" is expected (units ms, s,
 m)` at start and the same hint for `invalid_value` of `update_config`; an invalid `--timeout` prints the usage.
-`get_config` shows the duration as written.
+`get_config` shows the duration as written. An invalid `server.threads` is `invalid value for 'server.threads': a whole
+number is expected (0: the number of CPU cores)`.
 
 A root which doesn't exist stops the server with `the allowed root '<root>' doesn't exist` — after `<path>:<line>: `
 when it comes from the config file, see [Config file](#config-file).
