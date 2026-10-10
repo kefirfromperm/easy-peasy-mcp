@@ -20,8 +20,8 @@ use ast::{
 use lexer::Token;
 
 pub use eval::{
-    ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget,
-    Truth, content_matches, find_all,
+    ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, Report, TextMatcher,
+    TextTarget, Truth, content_matches, find_all,
 };
 pub(crate) use suggest::did_you_mean;
 
@@ -92,10 +92,10 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
     }
     let mut errors: Vec<QueryError> = Vec::new();
     if let Some(expr) = &expr {
-        validate(text, expr, false, options, &mut errors);
+        validate(text, expr, Scope::File, options, &mut errors);
         duplicate_labels(expr, &mut errors);
     }
-    errors.extend(subset::check(text, &lexed, expr.as_ref()));
+    errors.extend(subset::check(text, expr.as_ref()));
     // on the same position a real error wins over not_implemented
     if let Some(first) = errors
         .into_iter()
@@ -161,41 +161,76 @@ fn legend_text(query: &str, tokens: &[Token], range: Range<usize>) -> String {
     out
 }
 
+/// Where a condition is: in file scope, inside `line( ... )` or inside `near( ... )`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scope {
+    File,
+    Line,
+    Near,
+}
+
+impl Scope {
+    /// The group as written in messages.
+    fn group(self) -> &'static str {
+        if self == Scope::Near {
+            "near( ... )"
+        } else {
+            "line( ... )"
+        }
+    }
+}
+
 /// Checks the values and modifiers of all conditions, also of those outside of the implemented subset.
 fn validate(
     text: &str,
     expr: &Expr,
-    in_line: bool,
+    scope: Scope,
     options: &ParseOptions,
     errors: &mut Vec<QueryError>,
 ) {
     match expr {
         Expr::Or(items) | Expr::Xor(items) | Expr::And(items) => {
             for item in items {
-                validate(text, item, in_line, options, errors);
+                validate(text, item, scope, options, errors);
             }
         }
-        Expr::Not(inner) | Expr::Group(inner) => validate(text, inner, in_line, options, errors),
+        Expr::Not(inner) | Expr::Group(inner) => validate(text, inner, scope, options, errors),
         Expr::Node(node) => match &node.kind {
-            NodeKind::Condition(c) => validate_condition(text, c, in_line, options, errors),
-            NodeKind::Line(_) | NodeKind::Near(_) if in_line => {
-                let (message, hint) = if matches!(node.kind, NodeKind::Line(_)) {
-                    ("nested line( ... )", "line( ... ) can't be nested")
+            NodeKind::Condition(c) => validate_condition(text, c, scope, options, errors),
+            NodeKind::Line(_) | NodeKind::Near(_) if scope != Scope::File => {
+                let inner = if matches!(node.kind, NodeKind::Line(_)) {
+                    Scope::Line
                 } else {
-                    (
-                        "near( ... ) inside line( ... )",
+                    Scope::Near
+                };
+                let (message, hint) = match (scope, inner) {
+                    (Scope::Line, Scope::Line) => (
+                        "nested line( ... )".to_string(),
+                        "line( ... ) can't be nested",
+                    ),
+                    (Scope::Line, _) => (
+                        "near( ... ) inside line( ... )".to_string(),
                         "line( ... ) can't contain near( ... )",
-                    )
+                    ),
+                    (_, Scope::Near) => (
+                        "nested near( ... )".to_string(),
+                        "near( ... ) can't contain line( ... ) or near( ... )",
+                    ),
+                    _ => (
+                        "line( ... ) inside near( ... )".to_string(),
+                        "near( ... ) can't contain line( ... ) or near( ... )",
+                    ),
                 };
                 errors.push(
                     QueryError::new(ErrorCode::NestedLine, message, node.keyword.clone())
                         .hint(hint),
                 );
             }
-            NodeKind::Line(inner) => validate(text, inner, true, options, errors),
+            NodeKind::Line(inner) => validate(text, inner, Scope::Line, options, errors),
             NodeKind::Near(near) => {
-                validate(text, &near.a, true, options, errors);
-                validate(text, &near.b, true, options, errors);
+                validate(text, &near.a, Scope::Near, options, errors);
+                validate(text, &near.b, Scope::Near, options, errors);
+                validate_near_options(&near.options, errors);
             }
         },
     }
@@ -204,11 +239,11 @@ fn validate(
 fn validate_condition(
     text: &str,
     c: &Condition,
-    in_line: bool,
+    scope: Scope,
     options: &ParseOptions,
     errors: &mut Vec<QueryError>,
 ) {
-    if !in_line && c.target == Target::Len {
+    if scope == Scope::File && c.target == Target::Len {
         errors.push(
             QueryError::new(
                 ErrorCode::LineTargetOutside,
@@ -221,15 +256,16 @@ fn validate_condition(
     if c.target == Target::Len {
         validate_lens(text, &c.value, errors);
     }
-    if in_line && !matches!(c.target, Target::Text | Target::Len) {
+    if scope != Scope::File && !matches!(c.target, Target::Text | Target::Len) {
         let target = &text[c.target_span.clone()];
+        let group = scope.group();
         errors.push(
             QueryError::new(
                 ErrorCode::FileTargetInside,
-                format!("'{target}' inside line( ... )"),
+                format!("'{target}' inside {group}"),
                 c.target_span.clone(),
             )
-            .hint(format!("move '{target}' out of line( ... )")),
+            .hint(format!("move '{target}' out of {group}")),
         );
     }
     if let (Some((Op::Wildcard, _)), Value::Str(s), Target::Name | Target::Path) =
@@ -264,7 +300,7 @@ fn validate_condition(
         );
     }
     for modifier in &c.modifiers {
-        if let Some(hint) = modifier_not_allowed(c, modifier, in_line) {
+        if let Some(hint) = modifier_not_allowed(c, modifier, scope != Scope::File) {
             errors.push(
                 QueryError::new(
                     ErrorCode::ModifierNotAllowed,
@@ -298,6 +334,43 @@ fn user_regex(pattern: &str, case_insensitive: bool) -> Result<Regex, String> {
                     .to_string()
             }
         })
+}
+
+/// The order options and the report options of `near( ... )`.
+const NEAR_OPTIONS: [&[&str]; 2] = [&["any", "ordered"], &["all", "closest", "first"]];
+
+/// `invalid_near_option` for an unknown option, `conflicting_options` for a second option of the same kind.
+fn validate_near_options(options: &[Spanned], errors: &mut Vec<QueryError>) {
+    let mut chosen: [Option<&Spanned>; 2] = [None, None];
+    for option in options {
+        let lower = option.text.to_lowercase();
+        let Some(kind) = NEAR_OPTIONS
+            .iter()
+            .position(|group| group.contains(&lower.as_str()))
+        else {
+            errors.push(
+                QueryError::new(
+                    ErrorCode::InvalidNearOption,
+                    format!("unknown option '{}'", option.text),
+                    option.span.clone(),
+                )
+                .hint("options: any, ordered, all, closest, first"),
+            );
+            continue;
+        };
+        match chosen[kind] {
+            Some(first) if !first.text.eq_ignore_ascii_case(&option.text) => errors.push(
+                QueryError::new(
+                    ErrorCode::ConflictingOptions,
+                    format!("conflicting options '{}' and '{}'", first.text, option.text),
+                    option.span.clone(),
+                )
+                .hint(format!("choose one of: {}", NEAR_OPTIONS[kind].join(", "))),
+            ),
+            Some(_) => {}
+            None => chosen[kind] = Some(option),
+        }
+    }
 }
 
 /// `unknown_value` for the words of `type`, `git`, `kind` and `lang` conditions.
@@ -541,7 +614,29 @@ fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
                 order: node.tokens.start,
                 inner: Box::new(compile(inner, options)),
             },
-            _ => compile_node(node, options),
+            NodeKind::Near(near) => {
+                let has = |name: &str| {
+                    near.options
+                        .iter()
+                        .any(|o| o.text.eq_ignore_ascii_case(name))
+                };
+                Filter::Near {
+                    id: node.id.clone(),
+                    order: node.tokens.start,
+                    a: Box::new(compile(&near.a, options)),
+                    b: Box::new(compile(&near.b, options)),
+                    distance: near.distance.text.parse().unwrap_or(usize::MAX),
+                    ordered: has("ordered"),
+                    report: if has("closest") {
+                        Report::Closest
+                    } else if has("first") {
+                        Report::First
+                    } else {
+                        Report::All
+                    },
+                }
+            }
+            NodeKind::Condition(_) => compile_node(node, options),
         },
     }
 }
@@ -869,7 +964,7 @@ mod tests {
         let lexed = lexer::lex(q);
         let expr = parser::parse(q, &lexed).unwrap().unwrap();
         let mut errors = Vec::new();
-        validate(q, &expr, false, &SENSITIVE, &mut errors);
+        validate(q, &expr, Scope::File, &SENSITIVE, &mut errors);
         assert_eq!(errors[0].code, ErrorCode::ModifierNotAllowed, "{q}");
         errors[0].hint.clone().unwrap()
     }
@@ -1219,6 +1314,65 @@ mod tests {
     }
 
     #[test]
+    fn near_matches() {
+        assert!(content_matches(
+            "near(text has 'a', text has 'b', 1)",
+            "a\nb"
+        ));
+        assert!(content_matches(
+            "near(text has 'a', text has 'b', 1)",
+            "b\na"
+        ));
+        assert!(!content_matches(
+            "near(text has 'a', text has 'b', 1, ordered)",
+            "b\na"
+        ));
+        assert!(!content_matches(
+            "near(text has 'a', text has 'b', 1)",
+            "a\nx\nb"
+        ));
+        assert!(content_matches("near(text has 'a', text has 'b', 0)", "ba"));
+        assert!(!content_matches(
+            "near(text has 'a', text has 'b', 0, ordered)",
+            "ba"
+        ));
+        assert!(content_matches(
+            "near(text has 'a', text has 'b', 0, ordered)",
+            "ab"
+        ));
+        assert!(content_matches(
+            "near(text has 'a', len = 0, 1, first)",
+            "a\n\nb"
+        ));
+    }
+
+    #[test]
+    fn near_option_errors() {
+        assert_eq!(
+            error("near(text has 'a', text has 'b', 3, nearest)"),
+            (
+                ErrorCode::InvalidNearOption,
+                "unknown option 'nearest'".into(),
+                36..43,
+                "options: any, ordered, all, closest, first".into()
+            )
+        );
+        assert_eq!(
+            error("near(text has 'a', text has 'b', 3, closest, all)"),
+            (
+                ErrorCode::ConflictingOptions,
+                "conflicting options 'closest' and 'all'".into(),
+                45..48,
+                "choose one of: all, closest, first".into()
+            )
+        );
+        assert_eq!(
+            error("near(name = 'a', text has 'b', 1)").1,
+            "'name' inside near( ... )"
+        );
+    }
+
+    #[test]
     fn line_group_errors() {
         assert_eq!(
             error("line(name ~ '*.rs')"),
@@ -1370,11 +1524,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse(
-            "near(text has 'a', text has 'b', 1) and name ~ '[a-'",
-            &SENSITIVE,
-        )
-        .unwrap_err();
+        let e = parse("name ~~ 'x' and name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }

@@ -1,0 +1,7 @@
+f = open('a')
+data = f.read()
+close(f)
+g = open('b')
+h = open('c')
+close(h)
+close(g)

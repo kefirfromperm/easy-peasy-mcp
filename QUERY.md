@@ -563,14 +563,18 @@ Options, keywords in any order after `N`:
 
 | Option     | Values                  | Default | Meaning                                                              |
 |------------|-------------------------|---------|----------------------------------------------------------------------|
-| order      | `any`, `ordered`        | `any`   | `ordered`: the `B` line must be after the `A` line; on the same line the `B` match must start after the `A` match |
+| order      | `any`, `ordered`        | `any`   | `ordered`: the `B` line must be after the `A` line; on the same line the `B` match must start at or after the end of the `A` match |
 | report     | `all`, `closest`, `first` | `all` | which lines are reported in the output, see below                    |
 
 `report` doesn't change whether the file matches, only which lines and fragments are returned and counted:
 
 - `all` — every `A` line which has a `B` line within `N`, and every such `B` line
 - `closest` — for every `A` line only the nearest `B` line; on a tie the earlier one
-- `first` — only the first pair in the file; the fastest, enough to know that the file matches
+- `first` — only the first pair in the file: the first `A` line which has a `B` line within `N`, with its nearest
+  `B` line; the fastest, enough to know that the file matches
+
+The match of `A` or `B` on a line is the matches of its text conditions; without them (e.g. `len > 100`) it is the
+whole line.
 
 ```
 near(text has 'open(', text has 'close(', 20, ordered, closest)

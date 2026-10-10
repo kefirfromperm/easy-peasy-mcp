@@ -3,19 +3,19 @@
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
 //! `kind` and `git` conditions, `text` with `=`, `has`, `starts`,
 //! `ends`, `=~` in file scope; `=~` on `name` and `path`; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
-//! modifiers `/i`, `/w` and `/m`, with labels, `line( ... )` groups, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
+//! modifiers `/i`, `/w` and `/m`, with labels, `line( ... )` groups, `near( ... )`,
+//! combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
 
 use super::ast::{Expr, Node, NodeKind, Op, Target};
-use super::lexer::Lexed;
 use crate::error::{ErrorCode, QueryError};
 
 /// The first construct of a syntactically valid query, by position, which is outside of the implemented subset.
-pub fn check(query: &str, lexed: &Lexed, expr: Option<&Expr>) -> Option<QueryError> {
+pub fn check(query: &str, expr: Option<&Expr>) -> Option<QueryError> {
     let mut found: Vec<(Range<usize>, String)> = Vec::new();
     if let Some(expr) = expr {
-        expr.visit_nodes(&mut |node| unsupported(query, lexed, node, &mut found));
+        expr.visit_nodes(&mut |node| unsupported(query, node, &mut found));
     }
     let (span, feature) = found.into_iter().min_by_key(|(span, _)| span.start)?;
     Some(QueryError::new(
@@ -26,11 +26,9 @@ pub fn check(query: &str, lexed: &Lexed, expr: Option<&Expr>) -> Option<QueryErr
 }
 
 /// Adds the unsupported parts of one node.
-fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<usize>, String)>) {
-    let keyword = lexed.tokens[node.tokens.start].span.clone();
+fn unsupported(query: &str, node: &Node, found: &mut Vec<(Range<usize>, String)>) {
     match &node.kind {
-        NodeKind::Line(_) => {}
-        NodeKind::Near(_) => found.push((keyword, "the group near( ... )".into())),
+        NodeKind::Line(_) | NodeKind::Near(_) => {}
         NodeKind::Condition(c) => {
             if !matches!(
                 c.target,
@@ -100,7 +98,7 @@ mod tests {
     fn check_str(q: &str) -> Option<(String, Range<usize>)> {
         let lexed = lex(q);
         let expr = parse(q, &lexed).unwrap();
-        check(q, &lexed, expr.as_ref()).map(|e| (e.message, e.span))
+        check(q, expr.as_ref()).map(|e| (e.message, e.span))
     }
 
     #[test]
@@ -140,10 +138,7 @@ mod tests {
     #[test]
     fn groups_modifiers_labels_comments() {
         assert_eq!(check_str("name = 'a' and line(text has 'a')"), None);
-        assert_eq!(
-            check_str("near(text has 'a', text has 'b', 1)").unwrap().0,
-            "the group near( ... ) is not implemented yet"
-        );
+        assert_eq!(check_str("near(text has 'a', text has 'b', 1)"), None);
         assert_eq!(check_str("text has 'a' /i/w"), None);
         assert_eq!(
             check_str("name = 'a' /e(xml, 1)"),

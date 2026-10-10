@@ -17,6 +17,14 @@ impl TextMatcher {
     }
 }
 
+/// Which pairs of lines `near( ... )` reports (QUERY.md#proximity).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Report {
+    All,
+    Closest,
+    First,
+}
+
 /// The file values a text condition can look at.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TextTarget {
@@ -245,6 +253,16 @@ pub enum Filter {
         order: usize,
         inner: Box<Filter>,
     },
+    /// `near(A, B, N, order, report)`: a line of `a` and a line of `b` at most `distance` lines apart.
+    Near {
+        id: CondId,
+        order: usize,
+        a: Box<Filter>,
+        b: Box<Filter>,
+        distance: usize,
+        ordered: bool,
+        report: Report,
+    },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
         id: CondId,
@@ -420,6 +438,11 @@ impl Filter {
                     Truth::from((0..content.line_count()).any(|i| inner.eval_line(content.line(i))))
                 }
             },
+            Self::Near { .. } => match file.content {
+                ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
+                ContentState::Absent => Truth::False,
+                ContentState::Text(content) => Truth::from(!self.near_pairs(content).is_empty()),
+            },
             Self::Git {
                 values, negated, ..
             } => Truth::from(
@@ -477,6 +500,7 @@ impl Filter {
             | Self::Content { id, order, .. }
             | Self::Line { id, order, .. }
             | Self::Len { id, order, .. }
+            | Self::Near { id, order, .. }
             | Self::Number { id, order, .. } => Some((*order, id)),
         }
     }
@@ -494,6 +518,92 @@ impl Filter {
             #[allow(clippy::cast_precision_loss)] // line lengths are far below 2^53
             Self::Len { bounds, .. } => bounds.contains(line.chars().count() as f64),
             _ => false,
+        }
+    }
+
+    /// The pairs of lines `(a, b)` which a `near( ... )` reports, by its `report` option; empty for other filters or
+    /// when the file doesn't match.
+    pub fn near_pairs(&self, content: &Content) -> Vec<(usize, usize)> {
+        let Self::Near {
+            a,
+            b,
+            distance,
+            ordered,
+            report,
+            ..
+        } = self
+        else {
+            return Vec::new();
+        };
+        let lines = |f: &Filter| -> Vec<usize> {
+            (0..content.line_count())
+                .filter(|&i| f.eval_line(content.line(i)))
+                .collect()
+        };
+        let (a_lines, b_lines) = (lines(a), lines(b));
+        let mut pairs = Vec::new();
+        for &al in &a_lines {
+            let low = if *ordered {
+                al
+            } else {
+                al.saturating_sub(*distance)
+            };
+            let high = al + distance;
+            let from = b_lines.partition_point(|&bl| bl < low);
+            for &bl in b_lines[from..].iter().take_while(|&&bl| bl <= high) {
+                let same_line_ok = bl != al || !*ordered || {
+                    let line = content.line(al);
+                    let a_end = a.match_spans(line).iter().map(|r| r.end).min();
+                    b.match_spans(line)
+                        .iter()
+                        .any(|r| a_end.is_some_and(|end| r.start >= end))
+                };
+                if same_line_ok {
+                    pairs.push((al, bl));
+                }
+            }
+        }
+        match report {
+            Report::All => pairs,
+            Report::Closest | Report::First => {
+                let mut closest: Vec<(usize, usize)> = Vec::new();
+                for (al, bl) in pairs {
+                    let better =
+                        |old: &(usize, usize)| (al.abs_diff(bl), bl) < (al.abs_diff(old.1), old.1);
+                    match closest.last_mut() {
+                        Some(last) if last.0 == al => {
+                            if better(last) {
+                                *last = (al, bl);
+                            }
+                        }
+                        _ => closest.push((al, bl)),
+                    }
+                }
+                if *report == Report::First {
+                    closest.truncate(1);
+                }
+                closest
+            }
+        }
+    }
+
+    /// The byte ranges in the line of the matches of a line scope expression: of its contributing text conditions,
+    /// or the whole line.
+    pub fn match_spans(&self, line: &str) -> Vec<std::ops::Range<usize>> {
+        let spans: Vec<_> = self
+            .contributing_in_line(line)
+            .into_iter()
+            .flat_map(|leaf| match leaf {
+                Self::Content {
+                    regex, whole_word, ..
+                } => find_all(regex, line, *whole_word),
+                _ => Vec::new(),
+            })
+            .collect();
+        if spans.is_empty() {
+            std::iter::once(0..line.len()).collect()
+        } else {
+            spans
         }
     }
 
