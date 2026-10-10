@@ -672,15 +672,22 @@ format = "text"         # was "json", reset
 exclude = ["**/target/**"]    # was []
 ```
 
-Errors:
+A call which changes nothing (no `set`, an empty `reset`) returns `# nothing changed`.
 
-| Code             | Example `set`                                       | Hint                                    |
-|------------------|-----------------------------------------------------|-----------------------------------------|
-| `invalid_toml`   | `output.context = `                                 | line 1, col 18: a value is expected     |
-| `read_only`      | `server.allowed_roots = ["/"]`                      | allowed roots are set only at start     |
-| `update_disabled`| any call with `allow_update = false`                |                                         |
-| `unknown_key`    | `output.max_file = 10`                              | did you mean `max_files`?               |
-| `invalid_value`  | `output.detail = "all"`                             | expected one of: exists, count, facets, files, lines |
+Errors — the first one in the order `reset`, then `set` in the order of the TOML:
+
+| Code             | Example                                             | Message                                    | Hint                                    |
+|------------------|-----------------------------------------------------|--------------------------------------------|-----------------------------------------|
+| `invalid_toml`   | `set`: `output.context = `                          | invalid TOML in 'set'                      | line 1, col 18: string values must be quoted, expected literal string |
+| `read_only`      | `set`: `server.allowed_roots = ["/"]`               | 'server.allowed_roots' is read-only        | allowed roots are set only at start     |
+| `read_only`      | `reset`: `["server.allow_update"]`                  | 'server.allow_update' is read-only         | allow_update is set only at start       |
+| `update_disabled`| any call with `allow_update = false`                | update_config is disabled                  | the configuration has server.allow_update = false |
+| `unknown_key`    | `set`: `output.max_file = 10`                       | unknown key 'output.max_file'              | did you mean 'output.max_files'?        |
+| `unknown_key`    | `set`: `[colors]`                                   | unknown key 'colors'                       | expected one of: server, traversal, output, escape, query, kinds, git, languages |
+| `invalid_value`  | `set`: `output.detail = "all"`                      | invalid value for 'output.detail'          | expected one of: exists, count, facets, files, lines |
+
+The hint of `invalid_toml` is the line and the column (1-based, in characters) and the message of the TOML parser.
+Arguments which don't match the input schema are `invalid_option`, like in `find`.
 
 ## Security
 
