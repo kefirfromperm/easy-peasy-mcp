@@ -30,6 +30,7 @@ pub struct Traversal {
     pub max_depth: Option<usize>,
     pub follow_symlinks: Option<bool>,
     pub hidden: Option<bool>,
+    pub ignore_files: Option<Vec<String>>,
 }
 
 /// A validated `find` request.
@@ -149,6 +150,24 @@ fn boolean(key: &str, value: &Value) -> Result<bool, Report> {
     })
 }
 
+/// A list of strings of the `traversal` object.
+fn strings(key: &str, value: &Value) -> Result<Vec<String>, Report> {
+    value
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .map(|v| v.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| {
+            Report::new(
+                ErrorCode::InvalidOption,
+                format!("'traversal.{key}' must be a list of strings"),
+            )
+        })
+}
+
 /// The `traversal` object: the implemented keys of the section, `not_implemented` for the others of the spec.
 fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal, Report> {
     let keys = crate::config::section_keys("traversal");
@@ -159,6 +178,7 @@ fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal,
             "max_depth" => traversal.max_depth = Some(whole_number(key, value)?),
             "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
             "hidden" => traversal.hidden = Some(boolean(key, value)?),
+            "ignore_files" => traversal.ignore_files = Some(strings(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"
@@ -288,6 +308,17 @@ mod tests {
                 .traversal
                 .hidden,
             Some(true)
+        );
+        assert_eq!(
+            parse(&json!({ "traversal": { "ignore_files": [".aiignore"] } }))
+                .unwrap()
+                .traversal
+                .ignore_files,
+            Some(vec![".aiignore".to_string()])
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "ignore_files": [1] } })),
+            "error[invalid_option]: 'traversal.ignore_files' must be a list of strings\n"
         );
         assert_eq!(
             text(&json!({ "traversal": { "exclude": [] } })),

@@ -87,7 +87,8 @@ pub fn find_schema() -> Value {
                     "min_depth": { "type": "integer", "minimum": 0, "description": "Skip entries closer to the working directory; its children are depth 1." },
                     "max_depth": { "type": "integer", "minimum": 0, "description": "Don't descend deeper. Default: unlimited." },
                     "follow_symlinks": { "type": "boolean", "description": "Descend into symlinked directories, read symlinked files." },
-                    "hidden": { "type": "boolean", "description": "Include hidden entries (names starting with '.')." }
+                    "hidden": { "type": "boolean", "description": "Include hidden entries (names starting with '.')." },
+                    "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." }
                 }
             }
         }

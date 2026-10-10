@@ -37,6 +37,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 ## E35.2 One section
@@ -56,6 +57,7 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 ```
 
 ## E35.3 With the sources
@@ -83,6 +85,7 @@ min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 ```
 
 ## E35.4 An unknown section
