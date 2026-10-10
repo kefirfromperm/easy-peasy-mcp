@@ -1,6 +1,6 @@
 # Task 72: `languages.<name>.shebangs`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 70
 
