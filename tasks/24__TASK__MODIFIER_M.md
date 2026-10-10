@@ -1,6 +1,6 @@
 # Task 24: `/m` multiline regex
 
-Status: not implemented
+Status: implemented, see [24__SUMMARY__MODIFIER_M.md](24__SUMMARY__MODIFIER_M.md)
 
 Depends on: task 22
 

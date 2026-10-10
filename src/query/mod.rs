@@ -581,13 +581,17 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         let whole_word = c.modifiers.iter().any(|m| m.name == "w");
         if c.op.as_ref().map(|(op, _)| *op) == Some(Op::Regex) {
             let insensitive = c.modifiers.iter().any(|m| m.name == "i");
-            let regex =
-                user_regex(&s.value, insensitive).expect("regexes are validated before compiling");
+            let multiline = c.modifiers.iter().any(|m| m.name == "m");
+            let regex = regex::RegexBuilder::new(&s.value)
+                .case_insensitive(insensitive)
+                .multi_line(multiline)
+                .build()
+                .expect("regexes are validated before compiling");
             return Filter::Content {
                 id,
                 order,
                 regex,
-                per_line: true,
+                per_line: !multiline,
                 whole_word,
             };
         }
@@ -1049,6 +1053,14 @@ mod tests {
         assert!(content_matches("text =~ `a+` /w", "ba aa"));
         assert!(content_matches("text starts 'id' /w", "id\nx"));
         assert!(!content_matches("text starts 'id' /w", "idx"));
+    }
+
+    #[test]
+    fn multiline_regex() {
+        assert!(content_matches("text =~ `a\\nb` /m", "a\nb"));
+        assert!(content_matches("text =~ `^b$` /m", "a\nb\nc"));
+        assert!(!content_matches("text =~ `a.b` /m", "a\nb"));
+        assert!(content_matches("text =~ `(?s)a.b` /m", "a\nb"));
     }
 
     #[test]
