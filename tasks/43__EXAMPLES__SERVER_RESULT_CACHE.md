@@ -151,6 +151,7 @@ result_cache = 0    # file: conf/c.toml
 min_depth = 0    # default
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
+hidden = false    # default
 ```
 
 2. `find`

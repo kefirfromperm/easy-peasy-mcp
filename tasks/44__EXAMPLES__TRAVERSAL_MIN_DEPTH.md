@@ -46,6 +46,7 @@ top.txt  [#1]
 min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
+hidden = false
 ```
 
 ## E44.2 A minimum depth in the request
@@ -113,6 +114,7 @@ y.txt  [#1]
 min_depth = 2    # update
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
+hidden = false    # default
 ```
 
 ## E44.4 Invalid values in a request
@@ -190,6 +192,7 @@ easy-peasy-mcp --config conf/d.toml
 min_depth = 2    # file: conf/d.toml
 # max_depth =  (not set)    # default
 follow_symlinks = false    # default
+hidden = false    # default
 ```
 
 2. `find`
