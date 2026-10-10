@@ -184,7 +184,7 @@ b.rs  [#1]  lines: 1  matches: 1
 
 ## E93.9 The score with `meta`
 
-The score is rounded to two decimals.
+The score is rounded to two decimals. The word `todo` of the query is in no file name, which lowers both scores.
 
 Fixture: `relevance`
 
@@ -197,8 +197,8 @@ files: 2  lines: 2  matches: 2  result: r1
 #1 text has 'TODO'
 
 recency/
-b.rs  [#1]  lines: 1  matches: 1  file 8B 2026-10-08 10:00 rust source 1.00
-a.rs  [#1]  lines: 1  matches: 1  file 8B 2026-09-24 10:00 rust source 0.95
+b.rs  [#1]  lines: 1  matches: 1  file 8B 2026-10-08 10:00 rust source 0.62
+a.rs  [#1]  lines: 1  matches: 1  file 8B 2026-09-24 10:00 rust source 0.58
 ```
 
 ```json request
@@ -214,9 +214,9 @@ a.rs  [#1]  lines: 1  matches: 1  file 8B 2026-09-24 10:00 rust source 0.95
   "legend": { "#1": "text has 'TODO'" },
   "files": [
     { "path": "recency/b.rs", "type": "file", "size": 8, "lang": "rust", "kind": "source",
-      "modified": "2026-10-08T10:00:00+00:00", "score": 1.0, "lines": 1, "matches": 1, "conditions": ["#1"] },
+      "modified": "2026-10-08T10:00:00+00:00", "score": 0.62, "lines": 1, "matches": 1, "conditions": ["#1"] },
     { "path": "recency/a.rs", "type": "file", "size": 8, "lang": "rust", "kind": "source",
-      "modified": "2026-09-24T10:00:00+00:00", "score": 0.95, "lines": 1, "matches": 1, "conditions": ["#1"] }
+      "modified": "2026-09-24T10:00:00+00:00", "score": 0.58, "lines": 1, "matches": 1, "conditions": ["#1"] }
   ]
 }
 ```
