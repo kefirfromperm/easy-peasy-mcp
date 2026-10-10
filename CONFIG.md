@@ -428,7 +428,9 @@ strings are expected`, in a request `'output.markers' must be two non-empty stri
 
 `max_output` and `max_output_per_file` are in characters; a token is about 3–4 characters of code, so the default
 `max_output` is about 10–13 thousand tokens. `budget` is in tokens, converted with `chars_per_token`; tune it for the
-tokenizer of your model.
+tokenizer of your model. `chars_per_token` is a positive number, also with a fraction (`3.5`); otherwise
+`invalid value for 'output.chars_per_token': a positive number is expected`, in a request `'output.chars_per_token'
+must be a positive number`.
 
 ### escape
 
