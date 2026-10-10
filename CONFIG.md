@@ -287,7 +287,10 @@ a request `'traversal.exclude' must be a list of strings`, with an invalid wildc
 for 'traversal.path_case': expected one of: native, sensitive, insensitive`, in a request `'traversal.path_case' must
 be one of: native, sensitive, insensitive`. A size (`max_file_size`, `max_archive_size`) is a string like the values of the `size` target
 (QUERY.md#sizes): `invalid value for 'traversal.max_file_size': a size like "10M" is expected (units B, K, M, G)`, in
-a request `'traversal.max_file_size' must be a size like "10M" (units B, K, M, G)`.
+a request `'traversal.max_file_size' must be a size like "10M" (units B, K, M, G)`. An encoding which is neither `auto` nor a
+[WHATWG label](#encoding) is `invalid value for 'traversal.encoding': "auto" or an encoding name like
+"windows-1252" is expected`, in a request `'traversal.encoding' must be "auto" or an encoding name like
+"windows-1252"`.
 
 Notes
 
@@ -340,7 +343,10 @@ Text conditions, columns and the output always work on decoded text; the output 
 | an encoding name    | every file without a BOM is decoded with it, e.g. `utf-16le`, `windows-1252`  |
 
 - encoding names are the [WHATWG labels](https://encoding.spec.whatwg.org/#names-and-labels): `utf-8`, `utf-16le`,
-  `utf-16be`, `windows-1251`, `windows-1252`, `koi8-r`, `iso-8859-2`, `shift_jis`, `gb18030`, ...
+  `utf-16be`, `windows-1251`, `windows-1252`, `koi8-r`, `iso-8859-2`, `shift_jis`, `gb18030`, ... in any case;
+  the output names an encoding by its WHATWG name in lower case (`latin1` → `windows-1252`)
+- with an encoding name a file without a BOM is not checked for the UTF-16 pattern of zero bytes; it is binary by a
+  zero byte in its first 8K unless the encoding is `utf-16le` or `utf-16be`
 - `fallback_encoding` is used only by `auto`, only for files which are not valid UTF-8. Without it the invalid bytes
   are replaced with `�` and the response has a `decode_errors` warning.
 - binary detection runs after the BOM check: a UTF-16 file with a BOM is text even though it contains zero bytes.
