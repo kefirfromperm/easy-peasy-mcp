@@ -948,6 +948,36 @@ mod tests {
         );
     }
 
+    fn content_matches(q: &str, text: &str) -> bool {
+        let content = crate::content::Content::from_bytes(text.as_bytes());
+        let file = FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind: Kind::Other,
+            git: None,
+            content: ContentState::Text(&content),
+        };
+        parse(q, &SENSITIVE).unwrap().filter.unwrap().matches(&file)
+    }
+
+    #[test]
+    fn whole_content_operators() {
+        assert!(content_matches("text = 'a\nb\n'", "a\nb\n"));
+        assert!(!content_matches("text = 'a\nb'", "a\nb\n"));
+        assert!(content_matches("text starts '#!/bin'", "#!/bin/sh\n"));
+        assert!(!content_matches("text starts 'bin'", "#!/bin/sh\n"));
+        assert!(content_matches("text ends '\n'", "a\r\n"));
+        assert!(!content_matches("text ends '\n'", "a"));
+        assert!(content_matches("text ends 'A' /i", "xa"));
+    }
+
     #[test]
     fn unknown_content() {
         let q = parse("text has 'x'", &SENSITIVE).unwrap();
