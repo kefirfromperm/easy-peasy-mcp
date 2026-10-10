@@ -1,6 +1,6 @@
 # Task 96: `output.max_matches`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 94
 
