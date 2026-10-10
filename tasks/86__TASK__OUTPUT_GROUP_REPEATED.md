@@ -1,6 +1,6 @@
 # Task 86: `output.group_repeated`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80
 
