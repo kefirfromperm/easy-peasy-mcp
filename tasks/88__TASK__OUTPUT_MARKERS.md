@@ -1,6 +1,6 @@
 # Task 88: `output.markers`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 87
 
