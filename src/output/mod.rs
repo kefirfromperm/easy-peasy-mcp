@@ -12,6 +12,7 @@ use crate::warning::{WarningCode, Warnings};
 mod blocks;
 mod json;
 mod lines;
+mod listing;
 mod meta;
 mod repeated;
 mod sort;
