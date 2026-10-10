@@ -67,7 +67,9 @@ pub struct FileValues<'a> {
     /// The size in bytes; only read when the query has `size`.
     pub size: u64,
     /// The modification time in seconds since the Unix epoch; only read when the query has `modified`.
-    pub modified: f64,
+    pub modified: Option<f64>,
+    /// The creation time in seconds since the Unix epoch; `None` when the file system doesn't provide it.
+    pub created: Option<f64>,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -100,6 +102,8 @@ pub enum NumberTarget {
     Size,
     /// The modification time in seconds since the Unix epoch.
     Modified,
+    /// The creation time in seconds since the Unix epoch, if the file system provides it.
+    Created,
 }
 
 /// The compiled query, evaluated for every file; brackets are gone, the precedence is in the tree.
@@ -138,30 +142,110 @@ pub enum Filter {
     },
 }
 
-impl Filter {
-    /// Whether the file matches.
-    pub fn eval(&self, file: &FileValues<'_>) -> bool {
+/// A truth value of three-valued logic (QUERY.md#files-whose-content-is-not-searched).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Truth {
+    False,
+    Unknown,
+    True,
+}
+
+impl From<bool> for Truth {
+    fn from(b: bool) -> Self {
+        if b { Self::True } else { Self::False }
+    }
+}
+
+impl Truth {
+    /// `not`: unknown stays unknown.
+    #[must_use]
+    pub fn not(self) -> Self {
         match self {
-            Self::And(items) => items.iter().all(|f| f.eval(file)),
-            Self::Or(items) => items.iter().any(|f| f.eval(file)),
-            Self::Xor(items) => items.iter().filter(|f| f.eval(file)).count() % 2 == 1,
-            Self::Not(inner) => !inner.eval(file),
+            Self::False => Self::True,
+            Self::Unknown => Self::Unknown,
+            Self::True => Self::False,
+        }
+    }
+
+    /// `and`: false wins, then unknown.
+    #[must_use]
+    pub fn and(self, other: Self) -> Self {
+        self.min(other)
+    }
+
+    /// `or`: true wins, then unknown.
+    #[must_use]
+    pub fn or(self, other: Self) -> Self {
+        self.max(other)
+    }
+
+    /// `xor`: unknown with anything is unknown.
+    #[must_use]
+    pub fn xor(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Unknown, _) | (_, Self::Unknown) => Self::Unknown,
+            (a, b) => Self::from(a != b),
+        }
+    }
+
+    fn rank(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::Unknown => 1,
+            Self::True => 2,
+        }
+    }
+
+    fn min(self, other: Self) -> Self {
+        if self.rank() <= other.rank() {
+            self
+        } else {
+            other
+        }
+    }
+
+    fn max(self, other: Self) -> Self {
+        if self.rank() >= other.rank() {
+            self
+        } else {
+            other
+        }
+    }
+}
+
+impl Filter {
+    /// The truth value of the query for the file.
+    pub fn eval(&self, file: &FileValues<'_>) -> Truth {
+        match self {
+            Self::And(items) => items.iter().fold(Truth::True, |t, f| t.and(f.eval(file))),
+            Self::Or(items) => items.iter().fold(Truth::False, |t, f| t.or(f.eval(file))),
+            Self::Xor(items) => items.iter().fold(Truth::False, |t, f| t.xor(f.eval(file))),
+            Self::Not(inner) => inner.eval(file).not(),
             Self::Text {
                 target, matcher, ..
-            } => matcher.is_match(match target {
+            } => Truth::from(matcher.is_match(match target {
                 TextTarget::Name => file.name,
                 TextTarget::Path => file.path,
-            }),
+            })),
             Self::Type {
                 values, negated, ..
-            } => values.contains(&file.entry_type) != *negated,
-            Self::Empty { .. } => file.empty,
+            } => Truth::from(values.contains(&file.entry_type) != *negated),
+            Self::Empty { .. } => Truth::from(file.empty),
             #[allow(clippy::cast_precision_loss)] // sizes up to 2^53 bytes are exact
-            Self::Number { target, bounds, .. } => bounds.contains(match target {
-                NumberTarget::Size => file.size as f64,
-                NumberTarget::Modified => file.modified,
-            }),
+            Self::Number { target, bounds, .. } => {
+                let value = match target {
+                    NumberTarget::Size => Some(file.size as f64),
+                    NumberTarget::Modified => file.modified,
+                    NumberTarget::Created => file.created,
+                };
+                value.map_or(Truth::Unknown, |v| Truth::from(bounds.contains(v)))
+            }
         }
+    }
+
+    /// Whether the whole query is true for the file: only then the file is returned.
+    pub fn matches(&self, file: &FileValues<'_>) -> bool {
+        self.eval(file) == Truth::True
     }
 
     /// The ids of the conditions which made a matching file match, in the order of appearance.
@@ -179,7 +263,7 @@ impl Filter {
         match self {
             Self::And(items) => items.iter().for_each(|f| f.collect(file, found)),
             Self::Or(items) | Self::Xor(items) => {
-                for f in items.iter().filter(|f| f.eval(file)) {
+                for f in items.iter().filter(|f| f.eval(file) == Truth::True) {
                     f.collect(file, found);
                 }
             }
@@ -217,7 +301,7 @@ mod tests {
             modified: Some(0.0),
             created: None,
         };
-        filter.eval(&file).then(|| {
+        filter.matches(&file).then(|| {
             filter
                 .contributors(&file)
                 .iter()

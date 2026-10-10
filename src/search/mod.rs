@@ -10,6 +10,7 @@ use ignore::{WalkBuilder, WalkState};
 pub use generated::GeneratedRules;
 
 use crate::query::{EntryType, FileValues, Query, ast::CondId, nfc};
+use crate::warning::{WarningCode, Warnings};
 
 /// The ignore files respected in every directory, a later one wins at the same level.
 pub const IGNORE_FILES: [&str; 3] = [".gitignore", ".ignore", ".aiignore"];
@@ -34,12 +35,19 @@ pub struct Found {
     pub conditions: Vec<CondId>,
 }
 
+/// The result of a search: the matched entries and the warnings.
+#[derive(Debug, Clone, Default)]
+pub struct SearchResult {
+    pub files: Vec<Found>,
+    pub warnings: Warnings,
+}
+
 /// A device and inode pair which identifies a file reachable by several hard links.
 type FileId = (u64, u64);
 
 /// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
 /// regular files.
-pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found> {
+pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
     let generated = GeneratedRules::builtin(options.case_insensitive_paths);
     let mut builder = WalkBuilder::new(root);
     builder
@@ -55,12 +63,14 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
         builder.add_custom_ignore_filename(name);
     }
     let found: Mutex<Vec<(Found, Option<FileId>)>> = Mutex::new(Vec::new());
+    let warnings = Mutex::new(Warnings::default());
     builder.build_parallel().run(|| {
         let found = &found;
+        let warnings = &warnings;
         let generated = &generated;
         Box::new(move |entry| {
             if let Ok(entry) = entry
-                && let Some(item) = visit(&entry, root, query, generated)
+                && let Some(item) = visit(&entry, root, query, generated, warnings)
             {
                 found
                     .lock()
@@ -73,11 +83,15 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
     let mut found = found.into_inner().expect("the walk is finished");
     found.sort_by(|a, b| a.0.rel.cmp(&b.0.rel));
     let mut seen = std::collections::HashSet::new();
-    found
+    let files = found
         .into_iter()
         .filter(|(_, id)| id.is_none_or(|id| seen.insert(id)))
         .map(|(f, _)| f)
-        .collect()
+        .collect();
+    SearchResult {
+        files,
+        warnings: warnings.into_inner().expect("the walk is finished"),
+    }
 }
 
 /// A regular file of size 0 or a directory without any entry on disk; a symlink is never empty.
@@ -95,6 +109,7 @@ fn visit(
     root: &Path,
     query: &Query,
     generated: &GeneratedRules,
+    warnings: &Mutex<Warnings>,
 ) -> Option<(Found, Option<FileId>)> {
     if entry.depth() == 0 {
         return None;
@@ -119,10 +134,10 @@ fn visit(
     let path = slash_path(rel);
     let name = nfc(&entry.file_name().to_string_lossy());
     let nfc_path = nfc(&path);
-    let metadata = (query.needs_empty || query.needs_metadata)
+    let metadata = (query.needs.empty || query.needs.metadata)
         .then(|| entry.metadata().ok())
         .flatten();
-    let empty = query.needs_empty
+    let empty = query.needs.empty
         && metadata
             .as_ref()
             .is_some_and(|m| is_empty(entry.path(), entry_type, m));
@@ -130,7 +145,21 @@ fn visit(
     let modified = metadata
         .as_ref()
         .and_then(|m| m.modified().ok())
-        .map_or(0.0, system_seconds);
+        .map(system_seconds);
+    let created = metadata
+        .as_ref()
+        .and_then(|m| m.created().ok())
+        .map(system_seconds);
+    if query.needs.created && created.is_none() {
+        warnings
+            .lock()
+            .expect("no thread panics while holding the lock")
+            .add(
+                WarningCode::DateUnsupported,
+                rel.to_path_buf(),
+                entry_type == EntryType::Dir,
+            );
+    }
     let file = FileValues {
         name: &name,
         path: &nfc_path,
@@ -138,10 +167,11 @@ fn visit(
         empty,
         size,
         modified,
+        created,
     };
     let conditions = match &query.filter {
         None => Vec::new(),
-        Some(filter) if filter.eval(&file) => filter.contributors(&file),
+        Some(filter) if filter.matches(&file) => filter.contributors(&file),
         Some(_) => return None,
     };
     if entry_type == EntryType::File && generated.is_generated(&path, entry.path()) {
