@@ -1,6 +1,6 @@
 # Task 47: `traversal.hidden`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 44
 
