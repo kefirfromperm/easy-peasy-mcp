@@ -397,8 +397,16 @@ mod tests {
             [(Key::MaxOutput, KeyValue::Whole(100))]
         );
         assert_eq!(
-            text(&json!({ "output": { "budget": 1000 } })),
-            "error[not_implemented]: the field 'output.budget' is not implemented yet\n"
+            config(&json!({ "output": { "budget": 1000 } })),
+            [(Key::Budget, KeyValue::Whole(1000))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "budget": 99 } })),
+            "error[invalid_option]: 'output.budget' must be a whole number of at least 100\n"
+        );
+        assert_eq!(
+            text(&json!({ "output": { "chars_per_token": 3.5 } })),
+            "error[not_implemented]: the field 'output.chars_per_token' is not implemented yet\n"
         );
         assert_eq!(
             config(&json!({ "output": { "funnel": "never" } })),
