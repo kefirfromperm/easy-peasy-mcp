@@ -3,6 +3,7 @@
 use std::fmt::Write as _;
 use std::ops::Range;
 
+use super::blocks::{Block, BlockLine};
 use crate::content::Content;
 use crate::query::ast::CondId;
 
@@ -71,45 +72,52 @@ pub(super) fn lines_of(content: &Content, fragments: &[Fragment]) -> Vec<usize> 
     lines
 }
 
-/// The matched lines as `N:text` with the merged parts marked, blocks of adjacent lines, `--` between blocks.
-pub fn render(content: &Content, fragments: &[Fragment]) -> String {
+/// The blocks as `N:text` for a matched line with the merged parts marked and `N-text` for a context line, `--`
+/// between blocks.
+pub fn render(content: &Content, fragments: &[Fragment], blocks: &[Block]) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
-    let mut previous: Option<usize> = None;
-    for line in lines_of(content, fragments) {
-        if previous.is_some_and(|p| p + 1 != line) {
+    for (i, block) in blocks.iter().enumerate() {
+        if i > 0 {
             out.push_str("--\n");
         }
-        previous = Some(line);
-        let (start, end) = content.line_range(line);
-        let _ = write!(out, "{}:", line + 1);
-        let mut pos = start;
-        for part in parts.iter().filter(|p| {
-            (p.range.start >= start && p.range.start <= end)
-                || (p.range.start < start && p.range.end > start)
-        }) {
-            if part.range.start >= start {
-                out.push_str(&content.text()[pos..part.range.start]);
-                let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
-                let _ = write!(out, "{OPEN}{}", ids.join(","));
-                for level in &part.escapes {
-                    let _ = write!(out, "/e{level}");
-                }
-                out.push(':');
-                pos = part.range.start;
-            }
-            // a part which ends with the line break closes at the end of the line
-            if part.range.end <= end + 1 {
-                let close = part.range.end.min(end);
-                out.push_str(&content.text()[pos..close]);
-                out.push_str(CLOSE);
-                pos = close;
-            }
+        for line in &block.lines {
+            render_line(&mut out, content, &parts, line);
         }
-        out.push_str(&content.text()[pos..end]);
-        out.push('\n');
     }
     out
+}
+
+/// One line of a block with its marked parts.
+fn render_line(out: &mut String, content: &Content, parts: &[Part], line: &BlockLine) {
+    let (start, end) = content.line_range(line.index);
+    let separator = if line.matched { ':' } else { '-' };
+    let _ = write!(out, "{}{separator}", line.index + 1);
+    let mut pos = start;
+    for part in parts.iter().filter(|p| {
+        (p.range.start >= start && p.range.start <= end)
+            || (p.range.start < start && p.range.end > start)
+    }) {
+        if part.range.start >= start {
+            out.push_str(&content.text()[pos..part.range.start]);
+            let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
+            let _ = write!(out, "{OPEN}{}", ids.join(","));
+            for level in &part.escapes {
+                let _ = write!(out, "/e{level}");
+            }
+            out.push(':');
+            pos = part.range.start;
+        }
+        // a part which ends with the line break closes at the end of the line
+        if part.range.end <= end + 1 {
+            let close = part.range.end.min(end);
+            out.push_str(&content.text()[pos..close]);
+            out.push_str(CLOSE);
+            pos = close;
+        }
+    }
+    out.push_str(&content.text()[pos..end]);
+    out.push('\n');
 }
 
 /// Overlapping fragments as one part with the union of their ranges, ids and escape levels.
@@ -149,6 +157,13 @@ mod tests {
     use crate::content::Content;
     use crate::query::ast::CondId;
 
+    /// The matched lines without context.
+    fn render_plain(c: &Content, fragments: &[Fragment]) -> String {
+        let blocks =
+            super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
+        render(c, fragments, &blocks)
+    }
+
     fn frag(range: std::ops::Range<usize>, ids: &[u32]) -> Fragment {
         Fragment {
             range,
@@ -171,12 +186,12 @@ mod tests {
     fn escape_levels_after_the_ids() {
         let c = Content::from_bytes(b"abcdef\n");
         assert_eq!(
-            render(&c, &[escaped(1..3, 1, 0)]),
+            render_plain(&c, &[escaped(1..3, 1, 0)]),
             "1:a\u{27e6}#1/e0:bc\u{27e7}def\n"
         );
         let fragments = vec![escaped(1..3, 2, 1), frag(2..4, &[1]), escaped(3..5, 2, 0)];
         assert_eq!(
-            render(&c, &fragments),
+            render_plain(&c, &fragments),
             "1:a\u{27e6}#1,#2/e0/e1:bcde\u{27e7}f\n"
         );
         let merged = merge_identical(vec![
@@ -196,7 +211,7 @@ mod tests {
         let five = text.find("five").unwrap();
         let fragments = vec![frag(two..two + 3, &[1]), frag(five + 5..five + 8, &[1])];
         assert_eq!(
-            render(&c, &fragments),
+            render_plain(&c, &fragments),
             "1:one ⟦#1:two⟧\n--\n4:five ⟦#1:two⟧\n"
         );
     }
@@ -205,20 +220,20 @@ mod tests {
     fn overlapping_parts_merge_with_all_ids() {
         let c = Content::from_bytes(b"abcdef\n");
         let fragments = vec![frag(1..4, &[2]), frag(2..5, &[1])];
-        assert_eq!(render(&c, &fragments), "1:a⟦#1,#2:bcde⟧f\n");
+        assert_eq!(render_plain(&c, &fragments), "1:a⟦#1,#2:bcde⟧f\n");
     }
 
     #[test]
     fn multiline_fragments_open_and_close_on_their_lines() {
         let c = Content::from_bytes(b"ab\ncd\nef\n");
         let fragments = vec![frag(1..7, &[1])];
-        assert_eq!(render(&c, &fragments), "1:a⟦#1:b\n2:cd\n3:e⟧f\n");
+        assert_eq!(render_plain(&c, &fragments), "1:a⟦#1:b\n2:cd\n3:e⟧f\n");
     }
 
     #[test]
     fn empty_fragments_of_empty_lines() {
         let c = Content::from_bytes(b"a\n\nb\n");
-        assert_eq!(render(&c, &[frag(2..2, &[1])]), "2:⟦#1:⟧\n");
+        assert_eq!(render_plain(&c, &[frag(2..2, &[1])]), "2:⟦#1:⟧\n");
     }
 
     #[test]

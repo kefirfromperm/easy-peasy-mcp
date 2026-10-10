@@ -31,6 +31,7 @@ pub enum Key {
     SkipGenerated,
     Format,
     Detail,
+    Context,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -44,7 +45,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 31] = [
+    pub const ALL: [Key; 32] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -67,6 +68,7 @@ impl Key {
         Self::SkipGenerated,
         Self::Format,
         Self::Detail,
+        Self::Context,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -123,6 +125,7 @@ impl Key {
                 "detail",
                 Type::Choice(&["exists", "count", "facets", "files", "lines"]),
             ),
+            Self::Context => ("output", "context", Type::Whole(None)),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -142,7 +145,7 @@ impl Key {
         match self {
             Self::DefaultDirs => list(&["."]),
             Self::Timeout => Value::Text("30s".to_string()),
-            Self::Threads | Self::MinDepth => Value::Whole(0),
+            Self::Threads | Self::MinDepth | Self::Context => Value::Whole(0),
             Self::ResultCache => Value::Whole(50),
             Self::MaxLevel => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),

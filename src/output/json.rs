@@ -4,7 +4,7 @@
 use serde::Serialize;
 use serde::ser::SerializeMap;
 
-use super::{Detail, Response, display_found, lines::lines_of};
+use super::{BlockOptions, Detail, Response, display_found};
 use crate::content::Content;
 use crate::query::ast::CondId;
 use crate::search::Found;
@@ -154,10 +154,8 @@ impl Response<'_> {
                 .map(|(code, count, paths)| Warning { code, count, paths })
                 .collect(),
             files: if listed {
-                self.files
-                    .iter()
-                    .map(|f| file(f, self.detail == Detail::Lines))
-                    .collect()
+                let lines = (self.detail == Detail::Lines).then_some(&self.blocks);
+                self.files.iter().map(|f| file(f, lines)).collect()
             } else {
                 Vec::new()
             },
@@ -166,70 +164,72 @@ impl Response<'_> {
     }
 }
 
-/// A matched file, with its matched lines or without.
-fn file(found: &Found, with_lines: bool) -> File {
+/// A matched file, with its blocks of lines made with the options or without lines.
+fn file(found: &Found, lines: Option<&BlockOptions>) -> File {
     File {
         path: display_found(found),
         encoding: found.encoding.map(|e| e.name().into_owned()),
         lines: found.matches.as_ref().map_or(0, |m| m.lines),
         matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
         conditions: found.conditions.iter().map(ToString::to_string).collect(),
-        blocks: found
-            .matches
-            .as_ref()
-            .filter(|_| with_lines)
-            .map(|m| blocks(&m.content, &m.fragments))
-            .unwrap_or_default(),
+        blocks: match (&found.matches, lines) {
+            (Some(m), Some(options)) => blocks(&m.content, &m.fragments, options),
+            _ => Vec::new(),
+        },
     }
 }
 
-/// The matched lines in blocks of consecutive lines, every fragment in the line where it starts.
-fn blocks(content: &Content, fragments: &[super::Fragment]) -> Vec<Block> {
-    let mut blocks: Vec<Block> = Vec::new();
-    let mut previous: Option<usize> = None;
-    for i in lines_of(content, fragments) {
-        let (start, end) = content.line_range(i);
-        let text = content.line(i);
-        let column = |offset: usize| content.text()[start..offset].chars().count() + 1;
-        let line = Line {
-            n: i + 1,
-            text: text.to_string(),
-            fragments: fragments
-                .iter()
-                .filter(|f| content.line_of(f.range.start) == i && f.range.start <= end)
-                .map(|f| {
-                    let last = content.line_of(f.range.end.saturating_sub(1).max(f.range.start));
-                    let multiline = last > i;
-                    Fragment {
-                        col: [
-                            column(f.range.start),
-                            if multiline {
-                                text.chars().count() + 1
-                            } else {
-                                column(f.range.end)
-                            },
-                        ],
-                        text: content.text()[f.range.clone()].to_string(),
-                        ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
-                        escape: f.escape,
-                        to: multiline.then(|| {
-                            let (last_start, _) = content.line_range(last);
-                            To {
-                                n: last + 1,
-                                col: content.text()[last_start..f.range.end].chars().count() + 1,
-                            }
-                        }),
-                    }
-                })
+/// The blocks of the matched lines with their context, every fragment in the line where it starts.
+fn blocks(content: &Content, fragments: &[super::Fragment], options: &BlockOptions) -> Vec<Block> {
+    super::blocks::blocks(content, fragments, options)
+        .into_iter()
+        .map(|block| Block {
+            lines: block
+                .lines
+                .into_iter()
+                .map(|line| json_line(content, fragments, line.index))
                 .collect(),
-        };
-        match blocks.last_mut() {
-            Some(block) if previous.is_some_and(|p| p + 1 == i) => block.lines.push(line),
-            _ => blocks.push(Block { lines: vec![line] }),
-        }
-        previous = Some(i);
+        })
+        .collect()
+}
+
+/// A line of a block with the fragments which start in it.
+fn json_line(content: &Content, fragments: &[super::Fragment], i: usize) -> Line {
+    let (start, end) = content.line_range(i);
+    let text = content.line(i);
+    let column = |offset: usize| content.text()[start..offset].chars().count() + 1;
+    Line {
+        n: i + 1,
+        text: text.to_string(),
+        fragments: fragments
+            .iter()
+            .filter(|f| content.line_of(f.range.start) == i && f.range.start <= end)
+            .map(|f| {
+                let last = content.line_of(f.range.end.saturating_sub(1).max(f.range.start));
+                let multiline = last > i;
+                Fragment {
+                    col: [
+                        column(f.range.start),
+                        if multiline {
+                            text.chars().count() + 1
+                        } else {
+                            column(f.range.end)
+                        },
+                    ],
+                    text: content.text()[f.range.clone()].to_string(),
+                    ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
+                    escape: f.escape,
+                    to: multiline.then(|| {
+                        let (last_start, _) = content.line_range(last);
+                        To {
+                            n: last + 1,
+                            col: content.text()[last_start..f.range.end].chars().count() + 1,
+                        }
+                    }),
+                }
+            })
+            .collect(),
     }
-    blocks
 }
 
 #[cfg(test)]
@@ -250,7 +250,12 @@ mod tests {
     fn fragments_in_columns_of_characters() {
         let c = Content::from_bytes("é = x\nab\ncd\n".as_bytes());
         let x = c.text().find('x').unwrap();
-        let json = serde_json::to_value(blocks(&c, &[frag(x..x + 1, 1, Some(0))])).unwrap();
+        let json = serde_json::to_value(blocks(
+            &c,
+            &[frag(x..x + 1, 1, Some(0))],
+            &BlockOptions::default(),
+        ))
+        .unwrap();
         assert_eq!(
             json,
             serde_json::json!([{ "lines": [ { "n": 1, "text": "é = x",
@@ -258,7 +263,12 @@ mod tests {
         );
         let a = c.text().find('a').unwrap();
         let d = c.text().find('d').unwrap();
-        let json = serde_json::to_value(blocks(&c, &[frag(a..d + 1, 2, None)])).unwrap();
+        let json = serde_json::to_value(blocks(
+            &c,
+            &[frag(a..d + 1, 2, None)],
+            &BlockOptions::default(),
+        ))
+        .unwrap();
         assert_eq!(
             json,
             serde_json::json!([{ "lines": [
@@ -277,7 +287,7 @@ mod tests {
             .match_indices('a')
             .map(|(i, _)| frag(i..i + 1, 1, None))
             .collect();
-        let blocks = blocks(&c, &fragments);
+        let blocks = blocks(&c, &fragments, &BlockOptions::default());
         assert_eq!(blocks.len(), 2);
         assert_eq!(blocks[1].lines[0].n, 4);
     }
@@ -297,6 +307,7 @@ mod tests {
         }];
         let text = Response {
             detail: Detail::Lines,
+            blocks: BlockOptions::default(),
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
