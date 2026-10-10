@@ -182,8 +182,13 @@ impl Engine {
             .iter()
             .map(|dir| self.working_dir(dir, &settings))
             .collect::<Result<Vec<_>, _>>()?;
+        let case_insensitive_paths = match settings.text(Key::PathCase) {
+            "sensitive" => false,
+            "insensitive" => true,
+            _ => NATIVE_CASE_INSENSITIVE,
+        };
         let options = ParseOptions {
-            case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
+            case_insensitive_paths,
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),
             languages: Arc::clone(&self.languages),
@@ -192,7 +197,7 @@ impl Engine {
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
         let search_options = SearchOptions {
             git_global_excludes: self.options.git_global_excludes,
-            case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
+            case_insensitive_paths,
             languages: Arc::clone(&self.languages),
             deadline,
             threads: settings.whole(Key::Threads),
@@ -216,7 +221,7 @@ impl Engine {
                 .list(Key::Exclude)
                 .iter()
                 .map(|w| {
-                    query::wildcard::compile(&query::nfc(w), NATIVE_CASE_INSENSITIVE)
+                    query::wildcard::compile(&query::nfc(w), case_insensitive_paths)
                         .expect("the wildcards of exclude are checked with their key")
                 })
                 .collect(),

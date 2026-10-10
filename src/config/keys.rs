@@ -21,11 +21,12 @@ pub enum Key {
     GitExcludes,
     IgnorePaths,
     Exclude,
+    PathCase,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 12] = [
+    pub const ALL: [Key; 13] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -38,6 +39,7 @@ impl Key {
         Self::GitExcludes,
         Self::IgnorePaths,
         Self::Exclude,
+        Self::PathCase,
     ];
 
     /// The section, the name and the type.
@@ -59,6 +61,11 @@ impl Key {
             Self::GitExcludes => ("traversal", "git_excludes", Type::Bool),
             Self::IgnorePaths => ("traversal", "ignore_paths", Type::List("paths")),
             Self::Exclude => ("traversal", "exclude", Type::Wildcards),
+            Self::PathCase => (
+                "traversal",
+                "path_case",
+                Type::Choice(&["native", "sensitive", "insensitive"]),
+            ),
         }
     }
 
@@ -76,6 +83,7 @@ impl Key {
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
             Self::GitExcludes => Value::Bool(true),
             Self::IgnorePaths | Self::Exclude => list(&[]),
+            Self::PathCase => Value::Text("native".to_string()),
         }
     }
 
@@ -123,6 +131,8 @@ pub enum Type {
     NonEmptyList(&'static str),
     /// A list of wildcards, matched like `path ~`.
     Wildcards,
+    /// One of a fixed set of strings.
+    Choice(&'static [&'static str]),
 }
 
 impl Type {
@@ -138,18 +148,20 @@ impl Type {
             Self::List(what) => format!("a list of {what} is expected"),
             Self::NonEmptyList(what) => format!("a non-empty list of {what} is expected"),
             Self::Wildcards => "a list of wildcards is expected".to_string(),
+            Self::Choice(values) => format!("expected one of: {}", values.join(", ")),
         }
     }
 
     /// What a value of a request must be: the end of `'<field>.<key>' must be ...`.
     #[must_use]
-    pub fn must_be(self) -> &'static str {
+    pub fn must_be(self) -> String {
         match self {
-            Self::Bool => "true or false",
-            Self::Whole(_) | Self::OptWhole => "a whole number",
-            Self::Duration => "a duration like \"10s\" (units ms, s, m)",
-            Self::List(_) | Self::Wildcards => "a list of strings",
-            Self::NonEmptyList(_) => "a non-empty list of strings",
+            Self::Bool => "true or false".to_string(),
+            Self::Whole(_) | Self::OptWhole => "a whole number".to_string(),
+            Self::Duration => "a duration like \"10s\" (units ms, s, m)".to_string(),
+            Self::List(_) | Self::Wildcards => "a list of strings".to_string(),
+            Self::NonEmptyList(_) => "a non-empty list of strings".to_string(),
+            Self::Choice(values) => format!("one of: {}", values.join(", ")),
         }
     }
 
@@ -215,6 +227,10 @@ impl Type {
             Self::NonEmptyList(_) => toml_strings(item)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
+            Self::Choice(values) => item
+                .as_str()
+                .filter(|v| values.contains(v))
+                .map(|v| Value::Text(v.to_string())),
         }
     }
 
@@ -234,6 +250,10 @@ impl Type {
             Self::NonEmptyList(_) => json_strings(value)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
+            Self::Choice(values) => value
+                .as_str()
+                .filter(|v| values.contains(v))
+                .map(|v| Value::Text(v.to_string())),
         }
     }
 }
@@ -412,6 +432,16 @@ mod tests {
             "a whole number is expected (0: off)"
         );
         assert_eq!(Type::List("paths").must_be(), "a list of strings");
+        let case = Type::Choice(&["native", "sensitive"]);
+        assert_eq!(
+            case.check_toml(&item("'sensitive'")),
+            Ok(Value::Text("sensitive".into()))
+        );
+        assert_eq!(
+            case.check_toml(&item("'Native'")),
+            Err("expected one of: native, sensitive".into())
+        );
+        assert_eq!(case.must_be(), "one of: native, sensitive");
         assert_eq!(
             Type::Wildcards.check_toml(&item("['**/a/**', '[a-']")),
             Err("invalid wildcard '[a-': unclosed '['".into())

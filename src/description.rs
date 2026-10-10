@@ -15,7 +15,8 @@ them, with the directory first when it is not \".\". \"timeout\": \"10s\" limits
 the files found so far are returned with \"truncated: yes (timeout)\". \"traversal\": {\"min_depth\": 2, \"max_depth\": 3} skips the
 entries directly in the working directory and doesn't descend deeper than 3 (defaults traversal.min_depth, max_depth);
 \"follow_symlinks\": true follows symlinks (a symlinked file is then type file and link); \"hidden\": true includes hidden
-entries; \"exclude\": [\"**/target/**\"] never walks these paths (wildcards like path ~), much faster than not path ~.
+entries; \"exclude\": [\"**/target/**\"] never walks these paths (wildcards like path ~), much faster than not path ~;
+\"path_case\": \"insensitive\" compares paths and names case-insensitively (default native: sensitive on Linux only).
 
 QUERY: conditions on the name, path, type, size, dates, language, kind, git status and content joined with not, and, xor, or (this precedence) and brackets.
 Empty query = all files.
@@ -92,7 +93,8 @@ pub fn find_schema() -> Value {
                     "ignore_files": { "type": "array", "items": { "type": "string" }, "description": "Ignore files looked up in every directory, a later one wins. Default: .gitignore, .ignore, .aiignore; [] none." },
                     "git_excludes": { "type": "boolean", "description": "Respect .git/info/exclude and the global git excludes file. Default: true." },
                     "ignore_paths": { "type": "array", "items": { "type": "string" }, "description": "Extra ignore files (gitignore format) applied as if they were in every working directory, with the lowest priority; ~ is the home directory. Default: []." },
-                    "exclude": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of paths which are never walked, relative to the working directory, matched like path ~: ['**/target/**'] prunes every target directory. Default: []." }
+                    "exclude": { "type": "array", "items": { "type": "string" }, "description": "Wildcards of paths which are never walked, relative to the working directory, matched like path ~: ['**/target/**'] prunes every target directory. Default: []." },
+                    "path_case": { "enum": ["native", "sensitive", "insensitive"], "description": "Case sensitivity of path and name conditions and of exclude; native: sensitive on Linux, insensitive on macOS and Windows. /i, ~~ and /n are always case-insensitive. Default: native." }
                 }
             }
         }
