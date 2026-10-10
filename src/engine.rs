@@ -175,6 +175,7 @@ impl Engine {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             languages: Arc::clone(&self.languages),
             deadline,
+            threads: settings.threads,
             read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();

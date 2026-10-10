@@ -62,14 +62,20 @@ fn results_dont_depend_on_the_threads() {
         let dir = tmp.path().join(format!("d{d}"));
         fs::create_dir(&dir).unwrap();
         for f in 0..25 {
-            fs::write(dir.join(format!("f{f}.txt")), format!("line {f}\nneedle {d}\n")).unwrap();
+            fs::write(
+                dir.join(format!("f{f}.txt")),
+                format!("line {f}\nneedle {d}\n"),
+            )
+            .unwrap();
         }
     }
     let engine = engine(tmp.path());
     let query = json!({ "query": "text has 'needle' or name ~ 'f1*'" });
     let one = |threads: u32| {
         let set = format!("server.threads = {threads}");
-        let update = engine.call("update_config", &json!({ "set": set })).unwrap();
+        let update = engine
+            .call("update_config", &json!({ "set": set }))
+            .unwrap();
         assert!(!update.is_error, "{}", update.text);
         let out = engine.find(&query);
         assert!(!out.is_error, "{}", out.text);

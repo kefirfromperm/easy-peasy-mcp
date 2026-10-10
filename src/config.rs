@@ -171,10 +171,11 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 3] = [
+const IMPLEMENTED: [(&str, &str); 4] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
+    ("server", "threads"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -208,6 +209,8 @@ pub struct FileValues {
     pub default_dirs: Option<Vec<String>>,
     /// `server.timeout` as written, a valid duration.
     pub timeout: Option<String>,
+    /// `server.threads`.
+    pub threads: Option<usize>,
 }
 
 /// A checked config file.
@@ -229,6 +232,9 @@ pub struct Settings {
     /// `server.timeout` as written, a valid duration.
     pub timeout: String,
     pub timeout_source: Source,
+    /// `server.threads`: `0` — the number of CPU cores.
+    pub threads: usize,
+    pub threads_source: Source,
 }
 
 impl Settings {
@@ -242,6 +248,8 @@ impl Settings {
             default_dirs_source: Source::Default,
             timeout: "30s".to_string(),
             timeout_source: Source::Default,
+            threads: 0,
+            threads_source: Source::Default,
         }
     }
 
@@ -264,6 +272,12 @@ impl Settings {
         {
             settings.timeout.clone_from(timeout);
             settings.timeout_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(threads) = file.values.threads
+        {
+            settings.threads = threads;
+            settings.threads_source = Source::File(file.path.clone());
         }
         if let Some(timeout) = &cli.timeout {
             settings.timeout.clone_from(timeout);
@@ -319,6 +333,7 @@ impl Settings {
         match key {
             Mutable::DefaultDirs => toml_list(self.default_dirs.iter().map(String::as_str)),
             Mutable::Timeout => format!("\"{}\"", self.timeout),
+            Mutable::Threads => self.threads.to_string(),
         }
     }
 
@@ -333,6 +348,10 @@ impl Settings {
                 self.timeout.clone_from(&base.timeout);
                 self.timeout_source = base.timeout_source.clone();
             }
+            Mutable::Threads => {
+                self.threads = base.threads;
+                self.threads_source = base.threads_source.clone();
+            }
         }
     }
 
@@ -346,6 +365,10 @@ impl Settings {
             MutableValue::Timeout(timeout) => {
                 self.timeout = timeout;
                 self.timeout_source = Source::Update;
+            }
+            MutableValue::Threads(threads) => {
+                self.threads = threads;
+                self.threads_source = Source::Update;
             }
         }
     }
@@ -367,16 +390,18 @@ fn canonical_or_same(path: &Path) -> PathBuf {
 enum Mutable {
     DefaultDirs,
     Timeout,
+    Threads,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 2] = [Self::DefaultDirs, Self::Timeout];
+    const ALL: [Mutable; 3] = [Self::DefaultDirs, Self::Timeout, Self::Threads];
 
     /// The section and the key.
     fn name(self) -> (&'static str, &'static str) {
         match self {
             Self::DefaultDirs => ("server", "default_dirs"),
             Self::Timeout => ("server", "timeout"),
+            Self::Threads => ("server", "threads"),
         }
     }
 
@@ -396,6 +421,11 @@ impl Mutable {
                 .filter(|t| parse_duration(t).is_some())
                 .map(|t| MutableValue::Timeout(t.to_string()))
                 .ok_or(DURATION),
+            Self::Threads => item
+                .as_integer()
+                .and_then(|n| usize::try_from(n).ok())
+                .map(MutableValue::Threads)
+                .ok_or(THREADS),
         }
     }
 }
@@ -405,10 +435,14 @@ impl Mutable {
 enum MutableValue {
     DefaultDirs(Vec<String>),
     Timeout(String),
+    Threads(usize),
 }
 
 /// What `default_dirs` must be.
 const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
+
+/// What `threads` must be.
+const THREADS: &str = "a whole number is expected (0: the number of CPU cores)";
 
 /// What `timeout` must be.
 const DURATION: &str = "a duration like \"30s\" is expected (units ms, s, m)";
@@ -557,7 +591,7 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
             },
             Entry::Key {
                 section: "server",
-                key: key @ ("default_dirs" | "timeout"),
+                key: key @ ("default_dirs" | "timeout" | "threads"),
                 item,
             } => match Mutable::find("server", key).map(|m| m.parse(item)) {
                 Some(Ok(MutableValue::DefaultDirs(dirs))) => {
@@ -568,8 +602,12 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     values.timeout = Some(timeout);
                     continue;
                 }
+                Some(Ok(MutableValue::Threads(threads))) => {
+                    values.threads = Some(threads);
+                    continue;
+                }
                 Some(Err(expected)) => format!("invalid value for 'server.{key}': {expected}"),
-                None => unreachable!("default_dirs and timeout are mutable keys"),
+                None => unreachable!("default_dirs, timeout and threads are mutable keys"),
             },
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
                 format!("the key '{section}.{key}' is not implemented yet")
@@ -656,6 +694,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             (
                 format!("timeout = {}", settings.value(Mutable::Timeout)),
                 &settings.timeout_source,
+            ),
+            (
+                format!("threads = {}", settings.value(Mutable::Threads)),
+                &settings.threads_source,
             ),
         ];
         out.push_str("\n[server]\n");
@@ -1081,7 +1123,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\n"
             )
         );
         assert_eq!(
@@ -1091,7 +1133,7 @@ mod tests {
             )
             .unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\n"
             )
         );
         assert_eq!(
@@ -1266,6 +1308,7 @@ mod tests {
                 allowed_roots: Some((Vec::new(), 1)),
                 default_dirs: Some(vec!["src".into()]),
                 timeout: Some("1m".into()),
+                threads: Some(2),
             },
         };
         let cli = CommandLine {
@@ -1275,6 +1318,7 @@ mod tests {
         let settings = Settings::resolve(Some(&empty), &cli, &start, None).unwrap();
         assert_eq!(settings.timeout, "5s");
         assert_eq!(settings.timeout_source, Source::Cli);
+        assert_eq!(settings.threads, 2);
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
         assert_eq!(settings.allowed_roots_source, Source::File("c.toml".into()));
