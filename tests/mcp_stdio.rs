@@ -37,7 +37,16 @@ fn initialize_list_and_find() {
     let list = server.request(2, "tools/list", &json!({}));
     let tools = list["result"]["tools"].as_array().expect("tools");
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["find", "get_config"]);
+    assert_eq!(names, ["find", "get_config", "update_config"]);
+    let update = &tools[2];
+    assert_eq!(update["annotations"]["readOnlyHint"], false);
+    assert_eq!(update["annotations"]["destructiveHint"], false);
+    assert_eq!(update["annotations"]["idempotentHint"], true);
+    assert_eq!(update["annotations"]["openWorldHint"], false);
+    assert_eq!(
+        update["inputSchema"]["properties"]["reset"]["type"],
+        "array"
+    );
     let get_config = &tools[1];
     assert_eq!(get_config["annotations"]["readOnlyHint"], true);
     assert_eq!(get_config["annotations"]["openWorldHint"], false);
@@ -114,4 +123,30 @@ fn unknown_argument() {
     assert!(out.stdout.is_empty());
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(stderr.contains("usage: easy-peasy-mcp"), "{stderr}");
+}
+
+#[test]
+fn options_and_keys_not_implemented_yet() {
+    let out = Command::new(BIN).args(["--root", "."]).output().unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8(out.stderr).unwrap(),
+        "easy-peasy-mcp: the option '--root' is not implemented yet\n"
+    );
+    let dir = fixture();
+    let config = dir.temp().join("config.toml");
+    std::fs::write(&config, "[output]\nmax_files = 10\n").unwrap();
+    let out = server_command(&dir.root, dir.temp())
+        .arg("--config")
+        .arg(&config)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8(out.stderr).unwrap(),
+        format!(
+            "easy-peasy-mcp: {}:2: the key 'output.max_files' is not implemented yet\n",
+            config.display()
+        )
+    );
 }

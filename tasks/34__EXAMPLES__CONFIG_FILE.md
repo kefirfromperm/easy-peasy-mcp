@@ -131,32 +131,13 @@ easy-peasy-mcp --config conf/bad.toml
 easy-peasy-mcp: conf/bad.toml:2: unknown key 'output.max_file', did you mean 'output.max_files'?
 ```
 
-## E34.7 A key which is not implemented yet
-
-Every key comes with its own task; until then it stops the server instead of being ignored.
-
-Fixture: `config`
-
-```toml conf/bad.toml
-[output]
-max_files = 10
-```
-
-```text command
-easy-peasy-mcp --config conf/bad.toml
-```
-
-```text stderr exit 1
-easy-peasy-mcp: conf/bad.toml:2: the key 'output.max_files' is not implemented yet
-```
-
 ## E34.8 A dotted key at the top level
 
 Fixture: `config`
 
 ```toml conf/bad.toml
 
-output.max_files = 10
+output.max_file = 10
 ```
 
 ```text command
@@ -164,7 +145,7 @@ easy-peasy-mcp --config conf/bad.toml
 ```
 
 ```text stderr exit 1
-easy-peasy-mcp: conf/bad.toml:2: the key 'output.max_files' is not implemented yet
+easy-peasy-mcp: conf/bad.toml:2: unknown key 'output.max_file', did you mean 'output.max_files'?
 ```
 
 ## E34.9 A section written as a value
@@ -183,30 +164,13 @@ easy-peasy-mcp --config conf/bad.toml
 easy-peasy-mcp: conf/bad.toml:1: 'output' must be a section
 ```
 
-## E34.10 A language
-
-Fixture: `config`
-
-```toml conf/bad.toml
-[languages.terraform]
-extensions = ["tf"]
-```
-
-```text command
-easy-peasy-mcp --config conf/bad.toml
-```
-
-```text stderr exit 1
-easy-peasy-mcp: conf/bad.toml:1: the key 'languages.terraform' is not implemented yet
-```
-
 ## E34.11 `$EASY_PEASY_CONFIG`
 
 Fixture: `config`
 
 ```toml env.toml
 [git]
-base = "main"
+basse = "main"
 ```
 
 ```text env
@@ -218,7 +182,7 @@ easy-peasy-mcp
 ```
 
 ```text stderr exit 1
-easy-peasy-mcp: env.toml:2: the key 'git.base' is not implemented yet
+easy-peasy-mcp: env.toml:2: unknown key 'git.basse', did you mean 'git.base'?
 ```
 
 ## E34.12 `--config` comes before `$EASY_PEASY_CONFIG`
@@ -262,7 +226,7 @@ Platform: `linux`
 
 ```toml xdg/easy-peasy-mcp/config.toml
 [server]
-timeout = "10s"
+timeut = "10s"
 ```
 
 ```text env
@@ -274,19 +238,7 @@ easy-peasy-mcp
 ```
 
 ```text stderr exit 1
-easy-peasy-mcp: <fixture>/xdg/easy-peasy-mcp/config.toml:2: the key 'server.timeout' is not implemented yet
-```
-
-## E34.14 An option which is not implemented yet
-
-Fixture: `config`
-
-```text command
-easy-peasy-mcp --root src
-```
-
-```text stderr exit 2
-easy-peasy-mcp: the option '--root' is not implemented yet
+easy-peasy-mcp: <fixture>/xdg/easy-peasy-mcp/config.toml:2: unknown key 'server.timeut', did you mean 'server.timeout'?
 ```
 
 ## E34.15 `--config` without a path

@@ -40,7 +40,8 @@ with the first key; there is nothing to merge yet.
 
 ## Tests
 
-- startup examples E34.1–E34.15 (fixture `config`; E34.13 on Linux only)
+- startup examples E34.1–E34.6, E34.8, E34.9, E34.11–E34.13, E34.15 (fixture `config`; E34.13 on Linux only);
+  the not-implemented option and key are tested in `tests/mcp_stdio.rs`
 - unit: `config::tests` — the lookup order, the platform directories, valid files, every error with its line, a
   missing file
 
