@@ -117,6 +117,7 @@ min_depth = 0    # default
 follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
+git_excludes = true    # default
 ```
 
 3. `find`
@@ -191,6 +192,7 @@ min_depth = 0    # default
 follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
+git_excludes = true    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -228,6 +230,7 @@ min_depth = 0    # default
 follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
+git_excludes = true    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -265,6 +268,7 @@ min_depth = 0    # default
 follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
+git_excludes = true    # default
 ```
 
 ## E40.10 An invalid timeout in the config file
