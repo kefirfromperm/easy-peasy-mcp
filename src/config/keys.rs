@@ -37,11 +37,12 @@ pub enum Key {
     KindsTest,
     KindsDoc,
     KindsConfig,
+    Base,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 28] = [
+    pub const ALL: [Key; 29] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -70,6 +71,7 @@ impl Key {
         Self::KindsTest,
         Self::KindsDoc,
         Self::KindsConfig,
+        Self::Base,
     ];
 
     /// The section, the name and the type.
@@ -116,6 +118,7 @@ impl Key {
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
             Self::GeneratedMarkerLines => ("kinds", "generated_marker_lines", Type::AtLeast(1)),
             Self::KindsConfig => ("kinds", "config", Type::Wildcards),
+            Self::Base => ("git", "base", Type::GitBase),
             Self::KindsDoc => ("kinds", "doc", Type::Wildcards),
             Self::KindsTest => ("kinds", "test", Type::Wildcards),
             Self::KindsGenerated => ("kinds", "generated", Type::Wildcards),
@@ -147,7 +150,7 @@ impl Key {
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
-            Self::Encoding => Value::Text("auto".to_string()),
+            Self::Encoding | Self::Base => Value::Text("auto".to_string()),
             Self::Archives => Value::Text("none".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
@@ -221,6 +224,8 @@ pub enum Type {
     Score,
     /// A whole number of at least the given one.
     AtLeast(usize),
+    /// `auto` or a branch, tag or commit: a non-empty name which doesn't start with `-`.
+    GitBase,
 }
 
 impl Type {
@@ -244,6 +249,7 @@ impl Type {
             Self::OptEncoding => "an encoding name like \"windows-1251\" is expected".to_string(),
             Self::Score => "a number from 0 to 1 is expected".to_string(),
             Self::AtLeast(min) => format!("a whole number of at least {min} is expected"),
+            Self::GitBase => "\"auto\" or a branch, tag or commit is expected".to_string(),
         }
     }
 
@@ -262,6 +268,7 @@ impl Type {
             Self::OptEncoding => "an encoding name like \"windows-1251\"".to_string(),
             Self::Score => "a number from 0 to 1".to_string(),
             Self::AtLeast(min) => format!("a whole number of at least {min}"),
+            Self::GitBase => "\"auto\" or a branch, tag or commit".to_string(),
         }
     }
 
@@ -348,6 +355,10 @@ impl Type {
                 .as_str()
                 .filter(|v| encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
+            Self::GitBase => item
+                .as_str()
+                .filter(|v| is_git_base(v))
+                .map(|v| Value::Text(v.to_string())),
             #[allow(clippy::cast_precision_loss)] // only 0 and 1 are whole numbers in the range
             Self::Score => item
                 .as_float()
@@ -394,6 +405,10 @@ impl Type {
                 .as_str()
                 .filter(|v| encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
+            Self::GitBase => value
+                .as_str()
+                .filter(|v| is_git_base(v))
+                .map(|v| Value::Text(v.to_string())),
             Self::Score => value
                 .as_f64()
                 .filter(|n| (0.0..=1.0).contains(n))
@@ -432,6 +447,11 @@ impl Problem {
 #[must_use]
 pub fn encoding(label: &str) -> Option<&'static encoding_rs::Encoding> {
     encoding_rs::Encoding::for_label(label.as_bytes()).filter(|e| *e != encoding_rs::REPLACEMENT)
+}
+
+/// Whether a name can be a git base: not empty and not an option of `git`.
+fn is_git_base(name: &str) -> bool {
+    !name.is_empty() && !name.starts_with('-')
 }
 
 /// A TOML array of strings.

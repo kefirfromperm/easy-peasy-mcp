@@ -72,6 +72,8 @@ pub struct SearchOptions {
     pub skip_generated: bool,
     /// The rules of the kinds.
     pub kinds: KindOptions,
+    /// The base of `git = branch`; `None` — `auto`.
+    pub git_base: Option<String>,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -297,7 +299,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         query,
         options,
         kinds: KindRules::new(&options.kinds, options.case_insensitive_paths),
-        git: GitIndex::new(!options.git_global_excludes),
+        git: GitIndex::new(!options.git_global_excludes, options.git_base.clone()),
         found: Mutex::default(),
         warnings: Mutex::default(),
         timed_out: AtomicBool::new(false),
@@ -826,6 +828,9 @@ impl Walk<'_> {
         let status = self.git.status(path);
         if status.is_none() && !self.git.in_repo(path) {
             self.warn(WarningCode::NotAGitRepo, rel, false);
+        }
+        if self.git.base_missing(path) {
+            self.warn(WarningCode::GitBaseNotFound, rel, false);
         }
         status
     }

@@ -124,6 +124,12 @@ pub fn find_schema() -> Value {
                     "fuzzy_min_score": { "type": "number", "minimum": 0, "maximum": 1, "description": "~~ matches with a lower score (0-1) are dropped. Default: 0.5." }
                 }
             },
+            "git": {
+                "type": "object",
+                "properties": {
+                    "base": { "type": "string", "description": "The base of git = branch: a branch, tag or commit; auto: origin/HEAD, main or master, the first which exists. Default: auto." }
+                }
+            },
             "kinds": {
                 "type": "object",
                 "description": "The rules of the kind target; a list replaces the configured one.",

@@ -18,6 +18,7 @@ pub enum WarningCode {
     DateUnsupported,
     Timeout,
     NotAGitRepo,
+    GitBaseNotFound,
 }
 
 impl WarningCode {
@@ -33,6 +34,7 @@ impl WarningCode {
             Self::DateUnsupported => "date_unsupported",
             Self::Timeout => "timeout",
             Self::NotAGitRepo => "not_a_git_repo",
+            Self::GitBaseNotFound => "git_base_not_found",
         }
     }
 }

@@ -1098,8 +1098,8 @@ mod tests {
             (2, "unknown key 'output.zzz'".into())
         );
         assert_eq!(
-            error("[git]\nbase = 'main'\n"),
-            (2, "the key 'git.base' is not implemented yet".into())
+            error("[output]\nformat = 'json'\n"),
+            (2, "the key 'output.format' is not implemented yet".into())
         );
         assert_eq!(
             error("x = 1\n[output]\nmax_files = 1\n"),
@@ -1170,7 +1170,7 @@ mod tests {
             )
         );
         assert_eq!(
-            get_config(&settings, &serde_json::json!({ "section": "git" })).unwrap(),
+            get_config(&settings, &serde_json::json!({ "section": "output" })).unwrap(),
             first
         );
         let error = |v: Value| get_config(&settings, &v).unwrap_err().to_text();
