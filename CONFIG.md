@@ -193,7 +193,7 @@ easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-
 | `--root`         | `server.allowed_roots`, repeatable; replaces the list from the file | `--root ~/projects --root /srv/logs` |
 | `--timeout`      | `server.timeout`               | `--timeout 10s`                          |
 | `--no-update`    | `server.allow_update = false`  |                                          |
-| `--log-level`    | log level to stderr: `error`, `warn`, `info`, `debug` | `--log-level debug` |
+| `--log-level`    | log level to stderr: `error`, `warn` (default), `info`, `debug` | `--log-level debug` |
 | `--version`      | prints the server and the spec version and exits |                         |
 
 Registration in an MCP client, e.g. `.mcp.json` of Claude Code, see also [TOOLS.md](TOOLS.md#transport):
