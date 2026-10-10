@@ -171,7 +171,7 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 11] = [
+const IMPLEMENTED: [(&str, &str); 12] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
@@ -183,6 +183,7 @@ const IMPLEMENTED: [(&str, &str); 11] = [
     ("traversal", "follow_symlinks"),
     ("traversal", "hidden"),
     ("traversal", "ignore_files"),
+    ("traversal", "git_excludes"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -227,6 +228,7 @@ pub struct ConfigFile {
 
 /// The effective configuration of the server: an immutable value, resolved at start.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // one field per configuration key
 pub struct Settings {
     /// `server.allowed_roots`: canonical, never empty.
     pub allowed_roots: Vec<PathBuf>,
@@ -261,6 +263,9 @@ pub struct Settings {
     /// `traversal.ignore_files`: the ignore files looked up in every directory, in order.
     pub ignore_files: Vec<String>,
     pub ignore_files_source: Source,
+    /// `traversal.git_excludes`: respect `.git/info/exclude` and the global git excludes file.
+    pub git_excludes: bool,
+    pub git_excludes_source: Source,
 }
 
 impl Settings {
@@ -290,6 +295,8 @@ impl Settings {
             hidden_source: Source::Default,
             ignore_files: IGNORE_FILES.iter().map(ToString::to_string).collect(),
             ignore_files_source: Source::Default,
+            git_excludes: true,
+            git_excludes_source: Source::Default,
         }
     }
 
@@ -377,6 +384,7 @@ impl Settings {
             Mutable::FollowSymlinks => self.follow_symlinks.to_string(),
             Mutable::Hidden => self.hidden.to_string(),
             Mutable::IgnoreFiles => toml_list(self.ignore_files.iter().map(String::as_str)),
+            Mutable::GitExcludes => self.git_excludes.to_string(),
         })
     }
 
@@ -424,6 +432,10 @@ impl Settings {
                 self.ignore_files.clone_from(&base.ignore_files);
                 self.ignore_files_source = base.ignore_files_source.clone();
             }
+            Mutable::GitExcludes => {
+                self.git_excludes = base.git_excludes;
+                self.git_excludes_source = base.git_excludes_source.clone();
+            }
         }
     }
 
@@ -466,6 +478,10 @@ impl Settings {
                 self.ignore_files = value;
                 self.ignore_files_source = source;
             }
+            MutableValue::GitExcludes(value) => {
+                self.git_excludes = value;
+                self.git_excludes_source = source;
+            }
         }
     }
 
@@ -493,10 +509,11 @@ enum Mutable {
     FollowSymlinks,
     Hidden,
     IgnoreFiles,
+    GitExcludes,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 9] = [
+    const ALL: [Mutable; 10] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -506,6 +523,7 @@ impl Mutable {
         Self::FollowSymlinks,
         Self::Hidden,
         Self::IgnoreFiles,
+        Self::GitExcludes,
     ];
 
     /// The section and the key.
@@ -520,6 +538,7 @@ impl Mutable {
             Self::FollowSymlinks => ("traversal", "follow_symlinks"),
             Self::Hidden => ("traversal", "hidden"),
             Self::IgnoreFiles => ("traversal", "ignore_files"),
+            Self::GitExcludes => ("traversal", "git_excludes"),
         }
     }
 
@@ -534,6 +553,7 @@ impl Mutable {
                 .filter(|dirs| !dirs.is_empty())
                 .map(MutableValue::DefaultDirs)
                 .ok_or(NON_EMPTY_PATHS),
+            Self::GitExcludes => item.as_bool().map(MutableValue::GitExcludes).ok_or(BOOLEAN),
             Self::Timeout => item
                 .as_str()
                 .filter(|t| parse_duration(t).is_some())
@@ -583,6 +603,7 @@ pub(crate) enum MutableValue {
     FollowSymlinks(bool),
     Hidden(bool),
     IgnoreFiles(Vec<String>),
+    GitExcludes(bool),
 }
 
 /// What `default_dirs` must be.
@@ -893,6 +914,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             (
                 settings.line(Mutable::IgnoreFiles),
                 &settings.ignore_files_source,
+            ),
+            (
+                settings.line(Mutable::GitExcludes),
+                &settings.git_excludes_source,
             ),
         ];
         out.push_str("\n[traversal]\n");
@@ -1328,7 +1353,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\nignore_files = ['.gitignore', '.ignore', '.aiignore']\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\nfollow_symlinks = false\nhidden = false\nignore_files = ['.gitignore', '.ignore', '.aiignore']\ngit_excludes = true\n"
             )
         );
         assert_eq!(
@@ -1538,6 +1563,7 @@ mod tests {
                     MutableValue::FollowSymlinks(true),
                     MutableValue::Hidden(true),
                     MutableValue::IgnoreFiles(Vec::new()),
+                    MutableValue::GitExcludes(false),
                 ],
             },
         };
@@ -1557,6 +1583,7 @@ mod tests {
         assert!(settings.follow_symlinks);
         assert!(settings.hidden);
         assert!(settings.ignore_files.is_empty());
+        assert!(!settings.git_excludes);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));

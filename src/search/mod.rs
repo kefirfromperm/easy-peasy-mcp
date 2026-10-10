@@ -45,6 +45,8 @@ pub struct SearchOptions {
     pub hidden: bool,
     /// The ignore files looked up in every directory; a later name wins at the same level.
     pub ignore_files: Vec<String>,
+    /// Respect `.git/info/exclude` and the global git excludes file.
+    pub git_excludes: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -188,8 +190,8 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .parents(true)
         .ignore(false)
         .git_ignore(false)
-        .git_global(options.git_global_excludes)
-        .git_exclude(true)
+        .git_global(options.git_excludes && options.git_global_excludes)
+        .git_exclude(options.git_excludes)
         .require_git(false)
         .follow_links(options.follow_symlinks)
         .threads(options.threads)

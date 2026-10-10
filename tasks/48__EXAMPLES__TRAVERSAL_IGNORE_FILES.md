@@ -55,6 +55,7 @@ min_depth = 0
 follow_symlinks = false
 hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
+git_excludes = true
 ```
 
 ## E48.2 No ignore files
@@ -154,6 +155,7 @@ min_depth = 0    # default
 follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore']    # update
+git_excludes = true    # default
 ```
 
 ## E48.6 An invalid value in a request
@@ -210,6 +212,7 @@ min_depth = 0    # default
 follow_symlinks = false    # default
 hidden = false    # default
 ignore_files = ['.gitignore']    # file: conf/i.toml
+git_excludes = true    # default
 ```
 
 2. `find`

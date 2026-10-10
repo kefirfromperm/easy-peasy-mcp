@@ -31,6 +31,7 @@ pub struct Traversal {
     pub follow_symlinks: Option<bool>,
     pub hidden: Option<bool>,
     pub ignore_files: Option<Vec<String>>,
+    pub git_excludes: Option<bool>,
 }
 
 /// A validated `find` request.
@@ -179,6 +180,7 @@ fn parse_traversal(fields: &serde_json::Map<String, Value>) -> Result<Traversal,
             "follow_symlinks" => traversal.follow_symlinks = Some(boolean(key, value)?),
             "hidden" => traversal.hidden = Some(boolean(key, value)?),
             "ignore_files" => traversal.ignore_files = Some(strings(key, value)?),
+            "git_excludes" => traversal.git_excludes = Some(boolean(key, value)?),
             other if keys.contains(&other) => {
                 return Err(Report::not_implemented(&format!(
                     "the field 'traversal.{other}'"
@@ -319,6 +321,13 @@ mod tests {
         assert_eq!(
             text(&json!({ "traversal": { "ignore_files": [1] } })),
             "error[invalid_option]: 'traversal.ignore_files' must be a list of strings\n"
+        );
+        assert_eq!(
+            parse(&json!({ "traversal": { "git_excludes": false } }))
+                .unwrap()
+                .traversal
+                .git_excludes,
+            Some(false)
         );
         assert_eq!(
             text(&json!({ "traversal": { "exclude": [] } })),
