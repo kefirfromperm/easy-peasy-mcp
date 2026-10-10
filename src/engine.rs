@@ -14,7 +14,7 @@ use crate::output::Response;
 use crate::query::{self, ParseOptions};
 use crate::request;
 use crate::search::{self, SearchOptions};
-use crate::warning::Warnings;
+use crate::warning::{WarningCode, Warnings};
 
 /// Settings of an [`Engine`] which don't come from a request.
 #[derive(Debug, Clone)]
@@ -29,6 +29,9 @@ pub struct EngineOptions {
     pub time_zone: jiff::tz::TimeZone,
     /// The effective configuration.
     pub settings: config::Settings,
+    /// A test hook: every read of a file's content takes this long, cut short at the deadline of the request.
+    #[doc(hidden)]
+    pub read_delay: Option<std::time::Duration>,
 }
 
 impl EngineOptions {
@@ -37,6 +40,7 @@ impl EngineOptions {
     pub fn new(start_dir: PathBuf) -> Self {
         Self {
             settings: config::Settings::defaults(&start_dir),
+            read_delay: None,
             start_dir,
             git_global_excludes: true,
             now: None,
@@ -148,8 +152,11 @@ impl Engine {
     }
 
     fn try_find(&self, arguments: &Value) -> Result<String, Report> {
+        let arrival = std::time::Instant::now();
         let request = request::parse(arguments)?;
         let settings = self.settings();
+        let limit = request.timeout.or_else(|| settings.timeout());
+        let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
         let dirs = request.dirs.as_ref().unwrap_or(&settings.default_dirs);
         let working_dirs = dirs
             .iter()
@@ -167,12 +174,16 @@ impl Engine {
             git_global_excludes: self.options.git_global_excludes,
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             languages: Arc::clone(&self.languages),
+            deadline,
+            read_delay: self.options.read_delay,
         };
         let mut files = Vec::new();
         let mut warnings = Warnings::default();
         let mut seen = HashSet::new();
+        let mut timed_out = false;
         for (path, prefix) in &working_dirs {
             let result = search::search(path, &query, &search_options);
+            timed_out |= result.timed_out;
             files.extend(
                 result
                     .files
@@ -184,6 +195,10 @@ impl Engine {
                     }),
             );
             warnings.extend(result.warnings, prefix);
+            if timed_out {
+                warnings.add_global(WarningCode::Timeout);
+                break;
+            }
         }
         files.sort_by(|a, b| a.rel.cmp(&b.rel));
         let result_id = format!("r{}", self.last_result.fetch_add(1, Ordering::SeqCst) + 1);
@@ -192,6 +207,7 @@ impl Engine {
             legend: &query.legend,
             files: &files,
             warnings: &warnings,
+            timed_out,
         }
         .to_text())
     }

@@ -37,6 +37,7 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
     options.now = fixture
         .now
         .map(|secs| jiff::Timestamp::from_second(secs).expect("a valid now"));
+    options.read_delay = example.slow_reads;
     let engine = Engine::new(options);
 
     let mut blocks = example.blocks.iter().peekable();

@@ -1,0 +1,255 @@
+# Examples for task 40
+
+Examples with a command line are startup examples (AGENTS.md); `Slow reads` is the test hook of AGENTS.md.
+
+## Fixtures
+
+### timeout
+
+```text tree
+sub/                       2026-10-01 10:00
+sub/b.txt                  2026-10-01 10:00
+```
+
+File contents are in `tests/fixtures/timeout/`: `sub/b.txt` has `x marks the spot`. Times are UTC.
+
+## E40.1 The search stops at the timeout
+
+The directory `sub/` matches by its type and has no content to read; reading `sub/b.txt` takes longer than the timeout, so the search stops and returns what it found.
+
+Fixture: `timeout`
+
+Slow reads: `2s`
+
+```json request
+{"timeout": "200ms", "query": "type = dir or text has 'x'"}
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
+#1 type = dir
+#2 text has 'x'
+
+./
+sub/  [#1]
+
+warning: timeout
+```
+
+## E40.2 No limit
+
+Fixture: `timeout`
+
+Slow reads: `100ms`
+
+```json request
+{"timeout": "0s", "query": "text has 'x'"}
+```
+
+```text response
+files: 1  lines: 1  matches: 1  result: r1
+#1 text has 'x'
+
+sub/
+b.txt  [#1]  lines: 1  matches: 1
+1:⟦#1:x⟧ marks the spot
+```
+
+## E40.3 The default
+
+Fixture: `timeout`
+
+```json request get_config
+{ "section": "server" }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']
+default_dirs = ['.']
+timeout = "30s"
+```
+
+## E40.4 A timeout for the session
+
+Fixture: `timeout`
+
+Slow reads: `2s`
+
+1. `update_config`
+
+```json request update_config
+{"set": "server.timeout = \"200ms\""}
+```
+
+```text response
+[server]
+timeout = "200ms"    # was "30s"
+```
+
+2. `get_config`
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
+timeout = "200ms"    # update
+```
+
+3. `find`
+
+```json request
+{"query": "type = dir or text has 'x'"}
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
+#1 type = dir
+#2 text has 'x'
+
+./
+sub/  [#1]
+
+warning: timeout
+```
+
+## E40.5 An invalid timeout in a request
+
+Fixture: `timeout`
+
+```json request
+{ "timeout": "10", "query": "" }
+```
+
+```text error
+error[invalid_option]: 'timeout' must be a duration like "10s" (units ms, s, m)
+```
+
+## E40.6 An invalid timeout for `update_config`
+
+Fixture: `timeout`
+
+```json request update_config
+{"set": "server.timeout = \"1h\""}
+```
+
+```text error
+error[invalid_value]: invalid value for 'server.timeout'
+  hint: a duration like "30s" is expected (units ms, s, m)
+```
+
+## E40.7 A timeout from the command line
+
+Fixture: `timeout`
+
+```text command
+easy-peasy-mcp --timeout 5s
+```
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
+timeout = "5s"    # cli
+```
+
+## E40.8 A timeout from the config file
+
+Fixture: `timeout`
+
+```toml conf/t.toml
+[server]
+timeout = "1m"
+```
+
+```text command
+easy-peasy-mcp --config conf/t.toml
+```
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
+timeout = "1m"    # file: conf/t.toml
+```
+
+## E40.9 `--timeout` comes before the config file
+
+Fixture: `timeout`
+
+```toml conf/t.toml
+[server]
+timeout = "1m"
+```
+
+```text command
+easy-peasy-mcp --config conf/t.toml --timeout 5s
+```
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
+timeout = "5s"    # cli
+```
+
+## E40.10 An invalid timeout in the config file
+
+Fixture: `timeout`
+
+```toml conf/t.toml
+[server]
+timeout = 30
+```
+
+```text command
+easy-peasy-mcp --config conf/t.toml
+```
+
+```text stderr exit 1
+easy-peasy-mcp: conf/t.toml:2: invalid value for 'server.timeout': a duration like "30s" is expected (units ms, s, m)
+```
+
+## E40.11 An invalid `--timeout`
+
+Fixture: `timeout`
+
+```text command
+easy-peasy-mcp --timeout soon
+```
+
+```text stderr exit 2
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--log-level <level>]
+               [--version]
+```

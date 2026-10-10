@@ -4,6 +4,8 @@ mod kinds;
 
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+use std::time::{Duration, Instant};
 
 use ignore::{WalkBuilder, WalkState};
 
@@ -31,6 +33,10 @@ pub struct SearchOptions {
     pub case_insensitive_paths: bool,
     /// The language table.
     pub languages: std::sync::Arc<LanguageTable>,
+    /// When the search must stop; `None` — no limit.
+    pub deadline: Option<Instant>,
+    /// A test hook: every read of a file's content takes this long, cut short at the deadline.
+    pub read_delay: Option<Duration>,
 }
 
 /// A matched file.
@@ -154,6 +160,8 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
 pub struct SearchResult {
     pub files: Vec<Found>,
     pub warnings: Warnings,
+    /// Whether the search was stopped at the deadline: the files are those found so far.
+    pub timed_out: bool,
 }
 
 /// A device and inode pair which identifies a file reachable by several hard links.
@@ -183,10 +191,14 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         git: GitIndex::new(!options.git_global_excludes),
         found: Mutex::default(),
         warnings: Mutex::default(),
+        timed_out: AtomicBool::new(false),
     };
     builder.build_parallel().run(|| {
         let walk = &walk;
         Box::new(move |entry| {
+            if walk.past_deadline() {
+                return WalkState::Quit;
+            }
             match entry {
                 Ok(entry) => {
                     if let Some(item) = walk.visit(&entry) {
@@ -211,6 +223,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     SearchResult {
         files,
         warnings: walk.warnings.into_inner().expect("the walk is finished"),
+        timed_out: walk.timed_out.into_inner(),
     }
 }
 
@@ -223,6 +236,8 @@ struct Walk<'a> {
     git: GitIndex,
     found: Mutex<Vec<Found>>,
     warnings: Mutex<Warnings>,
+    /// Set when the deadline passed.
+    timed_out: AtomicBool,
 }
 
 /// The dates of an entry in seconds since the Unix epoch.
@@ -329,7 +344,12 @@ impl Walk<'_> {
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
         if matches!(file.content, ContentState::NotRead) {
-            let bytes = match std::fs::read(path) {
+            self.slow_read();
+            let bytes = std::fs::read(path);
+            if self.past_deadline() {
+                return None;
+            }
+            let bytes = match bytes {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     if e.kind() == std::io::ErrorKind::PermissionDenied {
@@ -445,6 +465,30 @@ impl Walk<'_> {
             && let Ok(rel) = path.strip_prefix(self.root)
         {
             self.warn(WarningCode::PermissionDenied, rel, path.is_dir());
+        }
+    }
+
+    /// Whether the deadline passed; it is remembered for the result.
+    fn past_deadline(&self) -> bool {
+        let past = self
+            .options
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline);
+        if past {
+            self.timed_out.store(true, AtomicOrdering::Relaxed);
+        }
+        past
+    }
+
+    /// The test hook `read_delay`: sleeps before a read, at most until the deadline.
+    fn slow_read(&self) {
+        let Some(delay) = self.options.read_delay else {
+            return;
+        };
+        let until = Instant::now() + delay;
+        let until = self.options.deadline.map_or(until, |d| until.min(d));
+        if let Some(rest) = until.checked_duration_since(Instant::now()) {
+            std::thread::sleep(rest);
         }
     }
 

@@ -1,6 +1,6 @@
 # Task 40: `server.timeout`
 
-Status: not implemented
+Status: implemented, see [40__SUMMARY__SERVER_TIMEOUT.md](40__SUMMARY__SERVER_TIMEOUT.md)
 
 Depends on: task 39
 

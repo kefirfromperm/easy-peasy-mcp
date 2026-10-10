@@ -366,7 +366,8 @@ The error format is in [OUTPUT.md](OUTPUT.md#errors), the query error codes in [
 ## Timeout
 
 - the request field `timeout` (e.g. `"10s"`), otherwise `server.timeout` from the configuration (default `30s`)
-- `"0s"` — no limit
+- `"0s"` — no limit; durations are a whole number and `ms`, `s` or `m`, see [CONFIG.md](CONFIG.md#server); an invalid
+  one is `error[invalid_option]: 'timeout' must be a duration like "10s" (units ms, s, m)`
 - the time counts from the moment the request arrives, query parsing included
 - when it expires the search stops and the results found so far are returned with `counts_exact: false`,
   `truncated: true`, `truncated_by: ["timeout"]` and a `timeout` warning; there is no `next_cursor`, because the

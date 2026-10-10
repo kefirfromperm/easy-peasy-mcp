@@ -30,6 +30,8 @@ pub struct Request {
     pub query: String,
     /// The working directories as given; `None` — `server.default_dirs`.
     pub dirs: Option<Vec<String>>,
+    /// The time limit; `None` — `server.timeout`; zero — no limit.
+    pub timeout: Option<std::time::Duration>,
 }
 
 /// Checks the arguments of `find`.
@@ -59,7 +61,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
     }
     if let Some(field) = FIELDS
         .iter()
-        .find(|f| !["query", "dirs"].contains(*f) && object.contains_key(**f))
+        .find(|f| !["query", "dirs", "timeout"].contains(*f) && object.contains_key(**f))
     {
         return Err(Report::not_implemented(&format!("the field '{field}'")));
     }
@@ -83,7 +85,25 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
             ));
         }
     };
-    Ok(Request { query, dirs })
+    let timeout = match object.get("timeout") {
+        None => None,
+        Some(timeout) => Some(
+            timeout
+                .as_str()
+                .and_then(crate::config::parse_duration)
+                .ok_or_else(|| {
+                    Report::new(
+                        ErrorCode::InvalidOption,
+                        "'timeout' must be a duration like \"10s\" (units ms, s, m)",
+                    )
+                })?,
+        ),
+    };
+    Ok(Request {
+        query,
+        dirs,
+        timeout,
+    })
 }
 
 /// The error of a `dirs` field which doesn't match the schema.
