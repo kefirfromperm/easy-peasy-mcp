@@ -11,6 +11,8 @@ use easy_peasy_mcp::{Engine, EngineOptions};
 enum Skipped {
     No,
     Yes,
+    /// A startup example, run by `tests/startup.rs`.
+    Startup,
 }
 
 fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, String> {
@@ -22,6 +24,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
         .iter()
         .find(|f| f.name == name)
         .ok_or_else(|| format!("unknown fixture {name}"))?;
+    if example.is_startup() {
+        return Ok(Skipped::Startup);
+    }
     let dir = setup_fixture(fixture);
     if !dir.permissions_removed {
         return Ok(Skipped::Yes);
@@ -82,6 +87,7 @@ fn all_examples() {
         match run_example(example, &fixtures) {
             Ok(Skipped::No) => count += 1,
             Ok(Skipped::Yes) => skipped.push(example.id.as_str()),
+            Ok(Skipped::Startup) => {}
             Err(e) => {
                 let _ = writeln!(failures, "=== {} ({}) ===\n{e}", example.id, example.file);
             }

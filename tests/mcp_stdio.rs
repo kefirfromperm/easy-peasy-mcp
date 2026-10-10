@@ -2,79 +2,10 @@
 
 mod common;
 
-use std::io::{BufRead, BufReader, Write};
-use std::path::Path;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::Command;
 
-use serde_json::{Value, json};
-
-const BIN: &str = env!("CARGO_BIN_EXE_easy-peasy-mcp");
-
-/// A running server and the pipes to it.
-struct Server {
-    child: Child,
-    stdin: ChildStdin,
-    stdout: BufReader<ChildStdout>,
-}
-
-impl Server {
-    fn start(dir: &Path, home: &Path) -> Self {
-        let mut child = Command::new(BIN)
-            .current_dir(dir)
-            .env("HOME", home)
-            .env("XDG_CONFIG_HOME", home)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("the server starts");
-        let stdin = child.stdin.take().unwrap();
-        let stdout = BufReader::new(child.stdout.take().unwrap());
-        Self {
-            child,
-            stdin,
-            stdout,
-        }
-    }
-
-    fn send(&mut self, message: &Value) {
-        writeln!(self.stdin, "{message}").unwrap();
-        self.stdin.flush().unwrap();
-    }
-
-    /// Reads messages until the response with `id`.
-    fn response(&mut self, id: i64) -> Value {
-        loop {
-            let mut line = String::new();
-            let n = self.stdout.read_line(&mut line).unwrap();
-            assert!(n > 0, "the server closed stdout before responding to {id}");
-            let message: Value =
-                serde_json::from_str(&line).expect("stdout carries only JSON-RPC messages");
-            if message["id"] == json!(id) {
-                return message;
-            }
-        }
-    }
-
-    fn request(&mut self, id: i64, method: &str, params: &Value) -> Value {
-        self.send(&json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params }));
-        self.response(id)
-    }
-
-    fn initialize(&mut self) -> Value {
-        let response = self.request(
-            1,
-            "initialize",
-            &json!({
-                "protocolVersion": "2025-06-18",
-                "capabilities": {},
-                "clientInfo": { "name": "test", "version": "0" }
-            }),
-        );
-        self.send(&json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }));
-        response
-    }
-}
+use common::{BIN, McpServer, server_command};
+use serde_json::json;
 
 fn fixture() -> common::FixtureDir {
     let (_, fixtures) = common::load_examples();
@@ -88,7 +19,7 @@ fn fixture() -> common::FixtureDir {
 #[test]
 fn initialize_list_and_find() {
     let dir = fixture();
-    let mut server = Server::start(&dir.root, dir.temp());
+    let mut server = McpServer::spawn(&mut server_command(&dir.root, dir.temp()));
 
     let init = server.initialize();
     let result = &init["result"];
