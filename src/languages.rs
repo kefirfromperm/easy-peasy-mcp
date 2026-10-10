@@ -42,14 +42,13 @@ const JS_STRINGS: &[&str] = &["\"", "'", "`"];
 /// The comment syntax of a built-in language (CONFIG.md#built-in-languages).
 fn comment_syntax(name: &str) -> CommentSyntax {
     match name {
-        "c" | "cpp" | "csharp" | "java" | "groovy" => (&["//"], C_BLOCK, false, QUOTES),
+        "c" | "cpp" | "csharp" | "java" | "groovy" | "scss" => (&["//"], C_BLOCK, false, QUOTES),
         "kotlin" | "scala" | "swift" | "dart" => (&["//"], C_BLOCK, true, QUOTES),
         "go" => (&["//"], C_BLOCK, false, &["\"", "`"]),
         "javascript" | "typescript" => (&["//"], C_BLOCK, false, JS_STRINGS),
         "rust" => (&["//"], C_BLOCK, true, DOUBLE),
         "php" => (&["//", "#"], C_BLOCK, false, QUOTES),
         "css" => (&[], C_BLOCK, false, QUOTES),
-        "scss" => (&["//"], C_BLOCK, false, QUOTES),
         "python" | "shell" | "perl" | "r" => (&["#"], &[], false, QUOTES),
         "ruby" => (&["#"], &[("=begin", "=end")], false, QUOTES),
         "powershell" => (&["#"], &[("<#", "#>")], false, QUOTES),

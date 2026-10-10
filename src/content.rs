@@ -1,5 +1,10 @@
 //! The content of a file: decoded, line breaks normalized, positions of lines (QUERY.md#targets).
 
+use std::ops::Range;
+
+use crate::comments::comment_ranges;
+use crate::languages::Language;
+
 /// The number of first bytes in which a zero byte makes a file binary (CONFIG.md#traversal).
 const BINARY_CHECK_BYTES: usize = 8 * 1024;
 
@@ -141,6 +146,25 @@ fn decode_utf32(bytes: &[u8], little_endian: bool) -> (String, bool) {
 pub struct Content {
     text: String,
     line_starts: Vec<usize>,
+    /// The sorted byte ranges of the comments; empty unless computed with `with_comments`.
+    comments: Vec<Range<usize>>,
+}
+
+/// A line of a content: its text and where it starts, for the line scope conditions.
+#[derive(Debug, Clone, Copy)]
+pub struct LineRef<'a> {
+    /// The line without its line break.
+    pub text: &'a str,
+    /// The byte offset of the line in the content.
+    pub start: usize,
+    content: &'a Content,
+}
+
+impl LineRef<'_> {
+    /// Whether the byte `offset` of the line is inside a comment.
+    pub fn in_comment(&self, offset: usize) -> bool {
+        self.content.in_comment(self.start + offset)
+    }
 }
 
 impl Content {
@@ -166,7 +190,33 @@ impl Content {
                     .filter(|&start| start < text.len()),
             );
         }
-        Self { text, line_starts }
+        Self {
+            text,
+            line_starts,
+            comments: Vec::new(),
+        }
+    }
+
+    /// The content with the comments of `language` known (CONFIG.md#comment-syntax).
+    #[must_use]
+    pub fn with_comments(mut self, language: &Language) -> Self {
+        self.comments = comment_ranges(&self.text, language);
+        self
+    }
+
+    /// Whether the byte `offset` is inside a comment.
+    pub fn in_comment(&self, offset: usize) -> bool {
+        let i = self.comments.partition_point(|r| r.end <= offset);
+        self.comments.get(i).is_some_and(|r| r.start <= offset)
+    }
+
+    /// The line with the 0-based index `i` and its position.
+    pub fn line_ref(&self, i: usize) -> LineRef<'_> {
+        LineRef {
+            text: self.line(i),
+            start: self.line_starts[i],
+            content: self,
+        }
     }
 
     /// The whole normalized text.
@@ -216,6 +266,23 @@ impl Content {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn offsets_in_comments() {
+        let table = crate::languages::LanguageTable::builtin();
+        let rust = table.detect("a.rs", || None).unwrap();
+        let c = Content::from_bytes(b"a // b\nc /* d */ e").with_comments(rust);
+        let at = |s: &str| c.text().find(s).unwrap();
+        assert!(!c.in_comment(at("a")));
+        assert!(c.in_comment(at("//")));
+        assert!(c.in_comment(at("b")));
+        assert!(!c.in_comment(at("c")));
+        assert!(c.in_comment(at("*/") + 1));
+        assert!(!c.in_comment(at(" e")));
+        assert!(c.line_ref(0).in_comment(2));
+        assert!(!c.line_ref(1).in_comment(0));
+        assert!(c.line_ref(1).in_comment(3));
+    }
 
     #[test]
     fn crlf_is_normalized() {

@@ -11,12 +11,11 @@ pub use kinds::KindRules;
 
 use crate::content::{Content, Decoded, Encoding, decode};
 use crate::git::{GitIndex, GitStatus};
-use crate::languages::LanguageTable;
+use crate::languages::{Language, LanguageTable};
 use crate::output::{Fragment, matched_lines, merge_identical};
 use crate::query::UNKNOWN_LANG;
 use crate::query::{
-    ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, content_matches,
-    find_all, nfc,
+    ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, nfc,
 };
 use crate::warning::{WarningCode, Warnings};
 
@@ -72,23 +71,14 @@ fn line_fragments(
     let group = (group.0, group.1.clone());
     let mut fragments = Vec::new();
     for &i in lines {
-        let line = content.line(i);
+        let line = content.line_ref(i);
         let (start, end) = content.line_range(i);
         let before = fragments.len();
         for leaf in inner.contributing_in_line(line) {
-            if let Filter::Content {
-                id,
-                order,
-                regex,
-                whole_word,
-                ..
-            } = leaf
-            {
-                fragments.extend(find_all(regex, line, *whole_word).into_iter().map(|r| {
-                    Fragment {
-                        range: start + r.start..start + r.end,
-                        ids: vec![group.clone(), (*order, id.clone())],
-                    }
+            if let Filter::Content { id, order, pattern } = leaf {
+                fragments.extend(pattern.line_matches(line).into_iter().map(|r| Fragment {
+                    range: start + r.start..start + r.end,
+                    ids: vec![group.clone(), (*order, id.clone())],
                 }));
             }
         }
@@ -106,16 +96,10 @@ fn line_fragments(
 fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
     let mut fragments = Vec::new();
     for leaf in leaves {
-        if let Filter::Content {
-            id,
-            order,
-            regex,
-            per_line,
-            whole_word,
-        } = leaf
-        {
+        if let Filter::Content { id, order, pattern } = leaf {
             fragments.extend(
-                content_matches(regex, *per_line, *whole_word, content)
+                pattern
+                    .content_matches(content)
                     .into_iter()
                     .map(|range| Fragment {
                         range,
@@ -128,7 +112,7 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
         match leaf {
             Filter::Line { id, order, inner } => {
                 let lines: Vec<usize> = (0..content.line_count())
-                    .filter(|&i| inner.eval_line(content.line(i)))
+                    .filter(|&i| inner.eval_line(content.line_ref(i)))
                     .collect();
                 fragments.extend(line_fragments(content, (*order, id), inner, &lines));
             }
@@ -264,7 +248,7 @@ impl Walk<'_> {
                 .as_ref()
                 .is_some_and(|m| is_empty(entry.path(), entry_type, m));
         let dates = self.dates(metadata.as_ref(), rel, entry_type);
-        let language = (query.needs.lang && entry_type != EntryType::Dir)
+        let language = ((query.needs.lang || query.needs.comments) && entry_type != EntryType::Dir)
             .then(|| {
                 self.options
                     .languages
@@ -301,7 +285,7 @@ impl Walk<'_> {
         };
         let (conditions, matches, encoding) = match &query.filter {
             None => (Vec::new(), None, None),
-            Some(filter) => self.evaluate(filter, file, entry.path(), rel)?,
+            Some(filter) => self.evaluate(filter, file, language, entry.path(), rel)?,
         };
         let is_file = entry_type == EntryType::File;
         if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
@@ -326,6 +310,7 @@ impl Walk<'_> {
         &self,
         filter: &Filter,
         file: FileValues<'_>,
+        language: Option<&Language>,
         path: &Path,
         rel: &Path,
     ) -> Option<(Vec<CondId>, Option<FileMatches>, Option<Encoding>)> {
@@ -351,7 +336,12 @@ impl Walk<'_> {
                         self.warn(WarningCode::DecodeErrors, rel, false);
                     }
                     encoding = (used != Encoding::Utf8).then_some(used);
-                    content = decoded;
+                    content = match language {
+                        Some(language) if self.query.needs.comments => {
+                            decoded.with_comments(language)
+                        }
+                        _ => decoded,
+                    };
                     file.content = ContentState::Text(&content);
                 }
             }

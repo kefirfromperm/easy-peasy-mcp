@@ -39,12 +39,21 @@ pub fn comment_ranges(text: &str, language: &Language) -> Vec<Range<usize>> {
 
 /// The longest marker at the start of `rest` and its length.
 fn marker_at<'l>(rest: &str, language: &'l Language) -> Option<(Marker<'l>, usize)> {
-    let strings = language.strings.iter().map(|d| (Marker::String(d.as_str()), d.len(), d.as_str()));
-    let lines = language.line_comments.iter().map(|m| (Marker::Line, m.len(), m.as_str()));
-    let blocks = language
-        .block_comments
+    let strings = language
+        .strings
         .iter()
-        .map(|(open, close)| (Marker::Block(open.as_str(), close.as_str()), open.len(), open.as_str()));
+        .map(|d| (Marker::String(d.as_str()), d.len(), d.as_str()));
+    let lines = language
+        .line_comments
+        .iter()
+        .map(|m| (Marker::Line, m.len(), m.as_str()));
+    let blocks = language.block_comments.iter().map(|(open, close)| {
+        (
+            Marker::Block(open.as_str(), close.as_str()),
+            open.len(),
+            open.as_str(),
+        )
+    });
     strings
         .chain(lines)
         .chain(blocks)
@@ -59,8 +68,8 @@ fn string_end(text: &str, mut pos: usize, delimiter: &str) -> usize {
     let single_line = delimiter == "\"" || delimiter == "'";
     while pos < text.len() {
         let rest = &text[pos..];
-        if rest.starts_with('\\') {
-            pos += 1 + rest[1..].chars().next().map_or(0, char::len_utf8);
+        if let Some(escaped) = rest.strip_prefix('\\') {
+            pos += 1 + escaped.chars().next().map_or(0, char::len_utf8);
         } else if rest.starts_with(delimiter) {
             return pos + delimiter.len();
         } else if single_line && rest.starts_with('\n') {
