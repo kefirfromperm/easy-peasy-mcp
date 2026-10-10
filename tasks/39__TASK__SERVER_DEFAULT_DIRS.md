@@ -1,6 +1,6 @@
 # Task 39: `server.default_dirs`
 
-Status: not implemented
+Status: implemented, see [39__SUMMARY__SERVER_DEFAULT_DIRS.md](39__SUMMARY__SERVER_DEFAULT_DIRS.md)
 
 Depends on: task 38
 

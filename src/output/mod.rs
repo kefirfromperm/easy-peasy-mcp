@@ -88,15 +88,23 @@ impl Response<'_> {
     }
 }
 
-/// A relative path in the native form, a directory with a trailing separator.
-pub fn display_path(rel: &Path, is_dir: bool) -> String {
-    let parts: Vec<String> = rel
-        .components()
+/// The parts of a path to join with the separator: `..` kept, `.` dropped, an empty first part for the root of an
+/// absolute path.
+fn path_parts(path: &Path) -> Vec<String> {
+    path.components()
         .filter_map(|c| match c {
             Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
-            _ => None,
+            Component::ParentDir => Some("..".to_string()),
+            Component::CurDir => None,
+            Component::RootDir => Some(String::new()),
+            Component::Prefix(p) => Some(p.as_os_str().to_string_lossy().into_owned()),
         })
-        .collect();
+        .collect()
+}
+
+/// A path in the native form, a directory with a trailing separator.
+pub fn display_path(rel: &Path, is_dir: bool) -> String {
+    let parts = path_parts(rel);
     let mut out = parts.join(&SEP.to_string());
     if is_dir {
         out.push(SEP);
@@ -106,13 +114,7 @@ pub fn display_path(rel: &Path, is_dir: bool) -> String {
 
 /// The directory header (ending with the separator; `./` for the working directory) and the file name.
 fn split(rel: &Path) -> (String, String) {
-    let parts: Vec<String> = rel
-        .components()
-        .filter_map(|c| match c {
-            Component::Normal(s) => Some(s.to_string_lossy().into_owned()),
-            _ => None,
-        })
-        .collect();
+    let parts = path_parts(rel);
     let (name, dirs) = parts
         .split_last()
         .map_or((String::new(), &[][..]), |(n, d)| (n.clone(), d));
@@ -138,6 +140,7 @@ mod tests {
             conditions: vec![CondId::Number(1)],
             matches: None,
             encoding: None,
+            id: None,
         }
     }
 
@@ -174,6 +177,7 @@ mod tests {
             conditions: vec![],
             matches: None,
             encoding: None,
+            id: None,
         }];
         let text = Response {
             result_id: "r1",

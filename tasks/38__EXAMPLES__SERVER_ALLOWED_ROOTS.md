@@ -27,6 +27,7 @@ Fixture: `roots`
 
 [server]
 allowed_roots = ['<fixture>']
+default_dirs = ['.']
 ```
 
 ## E38.2 With the source
@@ -43,6 +44,7 @@ Fixture: `roots`
 
 [server]
 allowed_roots = ['<fixture>']    # default
+default_dirs = ['.']    # default
 ```
 
 ## E38.3 Another section
@@ -78,6 +80,7 @@ easy-peasy-mcp --root .
 
 [server]
 allowed_roots = ['<fixture>']    # cli
+default_dirs = ['.']    # default
 ```
 
 ```json request
@@ -136,6 +139,7 @@ easy-peasy-mcp --config conf/roots.toml
 
 [server]
 allowed_roots = ['<fixture>/src', '<fixture>']    # file: conf/roots.toml
+default_dirs = ['.']    # default
 ```
 
 ```json request
@@ -173,6 +177,7 @@ easy-peasy-mcp --config conf/roots.toml --root .
 
 [server]
 allowed_roots = ['<fixture>']
+default_dirs = ['.']
 ```
 
 ```json request
@@ -211,6 +216,7 @@ easy-peasy-mcp --root ~
 
 [server]
 allowed_roots = ['<fixture>']
+default_dirs = ['.']
 ```
 
 ## E38.9 An invalid value

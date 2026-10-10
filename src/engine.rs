@@ -1,18 +1,20 @@
 //! The search server state of one session and the tool entry points.
 
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, PoisonError, RwLock};
 
 use serde_json::Value;
 
-use crate::config;
+use crate::config::{self, Settings};
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
 use crate::output::Response;
 use crate::query::{self, ParseOptions};
 use crate::request;
 use crate::search::{self, SearchOptions};
+use crate::warning::Warnings;
 
 /// Settings of an [`Engine`] which don't come from a request.
 #[derive(Debug, Clone)]
@@ -85,6 +87,8 @@ const NATIVE_CASE_INSENSITIVE: bool = cfg!(any(target_os = "macos", target_os = 
 #[derive(Debug)]
 pub struct Engine {
     options: EngineOptions,
+    /// The session settings: the settings of the options changed by `update_config`.
+    settings: RwLock<Settings>,
     languages: Arc<LanguageTable>,
     last_result: AtomicU64,
 }
@@ -97,6 +101,7 @@ impl Engine {
     #[must_use]
     pub fn new(options: EngineOptions) -> Self {
         Self {
+            settings: RwLock::new(options.settings.clone()),
             options,
             languages: Arc::new(LanguageTable::builtin()),
             last_result: AtomicU64::new(0),
@@ -112,10 +117,20 @@ impl Engine {
         match tool {
             "find" => Ok(self.find(arguments)),
             "get_config" => Ok(ToolOutput::from(config::get_config(
-                &self.options.settings,
+                &self.settings(),
                 arguments,
             ))),
-            "update_config" => Ok(ToolOutput::from(config::update_config(arguments))),
+            "update_config" => {
+                let mut settings = self
+                    .settings
+                    .write()
+                    .unwrap_or_else(PoisonError::into_inner);
+                Ok(ToolOutput::from(config::update_config(
+                    &self.options.settings,
+                    &mut settings,
+                    arguments,
+                )))
+            }
             other => Err(UnknownTool(other.to_string())),
         }
     }
@@ -134,15 +149,12 @@ impl Engine {
 
     fn try_find(&self, arguments: &Value) -> Result<String, Report> {
         let request = request::parse(arguments)?;
-        let working_dir = std::fs::canonicalize(&self.options.start_dir)
-            .unwrap_or_else(|_| self.options.start_dir.clone());
-        if !self.options.settings.is_allowed(&working_dir) {
-            return Err(Report::new(
-                ErrorCode::DirNotAllowed,
-                "the working directory '.' is outside of the allowed roots",
-            )
-            .hint("get_config shows the allowed roots"));
-        }
+        let settings = self.settings();
+        let dirs = request.dirs.as_ref().unwrap_or(&settings.default_dirs);
+        let working_dirs = dirs
+            .iter()
+            .map(|dir| self.working_dir(dir, &settings))
+            .collect::<Result<Vec<_>, _>>()?;
         let options = ParseOptions {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
@@ -156,14 +168,69 @@ impl Engine {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             languages: Arc::clone(&self.languages),
         };
-        let result = search::search(&self.options.start_dir, &query, &search_options);
+        let mut files = Vec::new();
+        let mut warnings = Warnings::default();
+        let mut seen = HashSet::new();
+        for (path, prefix) in &working_dirs {
+            let result = search::search(path, &query, &search_options);
+            files.extend(
+                result
+                    .files
+                    .into_iter()
+                    .filter(|f| f.id.is_none_or(|id| seen.insert(id)))
+                    .map(|mut f| {
+                        f.rel = prefix.join(&f.rel);
+                        f
+                    }),
+            );
+            warnings.extend(result.warnings, prefix);
+        }
+        files.sort_by(|a, b| a.rel.cmp(&b.rel));
         let result_id = format!("r{}", self.last_result.fetch_add(1, Ordering::SeqCst) + 1);
         Ok(Response {
             result_id: &result_id,
             legend: &query.legend,
-            files: &result.files,
-            warnings: &result.warnings,
+            files: &files,
+            warnings: &warnings,
         }
         .to_text())
+    }
+
+    /// A working directory as given: resolved against the start directory, checked and canonicalized; the path to
+    /// search and the prefix of the output paths (the directory as given, `.` omitted).
+    fn working_dir(&self, dir: &str, settings: &Settings) -> Result<(PathBuf, PathBuf), Report> {
+        let path = self.options.start_dir.join(dir);
+        if !path.exists() {
+            return Err(Report::new(
+                ErrorCode::DirNotFound,
+                format!("the working directory '{dir}' doesn't exist"),
+            ));
+        }
+        if !path.is_dir() {
+            return Err(Report::new(
+                ErrorCode::DirNotFound,
+                format!("the working directory '{dir}' is not a directory"),
+            ));
+        }
+        let canonical = std::fs::canonicalize(&path).unwrap_or(path);
+        if !settings.is_allowed(&canonical) {
+            return Err(Report::new(
+                ErrorCode::DirNotAllowed,
+                format!("the working directory '{dir}' is outside of the allowed roots"),
+            )
+            .hint("get_config shows the allowed roots"));
+        }
+        let prefix: PathBuf = Path::new(dir.trim_end_matches(['/', std::path::MAIN_SEPARATOR]))
+            .components()
+            .collect();
+        Ok((canonical, prefix))
+    }
+
+    /// A snapshot of the session settings.
+    fn settings(&self) -> Settings {
+        self.settings
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 }

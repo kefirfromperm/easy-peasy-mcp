@@ -46,6 +46,8 @@ pub struct Found {
     pub matches: Option<FileMatches>,
     /// The encoding of a file whose content was read, if it is not UTF-8.
     pub encoding: Option<Encoding>,
+    /// The identity in the file system, to return an entry reachable several times once.
+    pub id: Option<FileId>,
 }
 
 /// The content fragments of a matched file and its counts (OUTPUT.md#counts).
@@ -155,7 +157,7 @@ pub struct SearchResult {
 }
 
 /// A device and inode pair which identifies a file reachable by several hard links.
-type FileId = (u64, u64);
+pub type FileId = (u64, u64);
 
 /// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
 /// regular files.
@@ -200,12 +202,11 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         })
     });
     let mut found = walk.found.into_inner().expect("the walk is finished");
-    found.sort_by(|a, b| a.0.rel.cmp(&b.0.rel));
+    found.sort_by(|a, b| a.rel.cmp(&b.rel));
     let mut seen = std::collections::HashSet::new();
     let files = found
         .into_iter()
-        .filter(|(_, id)| id.is_none_or(|id| seen.insert(id)))
-        .map(|(f, _)| f)
+        .filter(|f| f.id.is_none_or(|id| seen.insert(id)))
         .collect();
     SearchResult {
         files,
@@ -220,7 +221,7 @@ struct Walk<'a> {
     options: &'a SearchOptions,
     kinds: KindRules,
     git: GitIndex,
-    found: Mutex<Vec<(Found, Option<FileId>)>>,
+    found: Mutex<Vec<Found>>,
     warnings: Mutex<Warnings>,
 }
 
@@ -233,7 +234,7 @@ struct Dates {
 
 impl Walk<'_> {
     /// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
-    fn visit(&self, entry: &ignore::DirEntry) -> Option<(Found, Option<FileId>)> {
+    fn visit(&self, entry: &ignore::DirEntry) -> Option<Found> {
         let query = self.query;
         if entry.depth() == 0 {
             return None;
@@ -300,17 +301,14 @@ impl Walk<'_> {
         if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
             return None;
         }
-        let id = is_file
-            .then(|| entry.metadata().ok().and_then(|m| file_id(&m)))
-            .flatten();
-        let found = Found {
+        Some(Found {
             rel: rel.to_path_buf(),
             is_dir: entry_type == EntryType::Dir,
             conditions,
             matches,
             encoding,
-        };
-        Some((found, id))
+            id: entry.metadata().ok().and_then(|m| file_id(&m)),
+        })
     }
 
     /// The conditions which made the file match and its content fragments, or `None` if it doesn't match. The file
@@ -525,9 +523,10 @@ pub fn slash_path(rel: &Path) -> String {
 }
 
 #[cfg(unix)]
+#[allow(clippy::unnecessary_wraps)] // the signature of every platform: `None` where there is no identity
 fn file_id(metadata: &std::fs::Metadata) -> Option<FileId> {
     use std::os::unix::fs::MetadataExt;
-    (metadata.nlink() > 1).then(|| (metadata.dev(), metadata.ino()))
+    Some((metadata.dev(), metadata.ino()))
 }
 
 #[cfg(not(unix))]

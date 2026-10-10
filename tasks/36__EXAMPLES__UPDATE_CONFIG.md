@@ -198,6 +198,7 @@ error[unknown_key]: unknown key 'output.max_file'
 
 [server]
 allowed_roots = ['<fixture>']
+default_dirs = ['.']
 ```
 
 3. `find`
