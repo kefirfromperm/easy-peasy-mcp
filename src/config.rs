@@ -171,12 +171,13 @@ pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
 }
 
 /// The keys this server version implements.
-const IMPLEMENTED: [(&str, &str); 5] = [
+const IMPLEMENTED: [(&str, &str); 6] = [
     ("server", "allowed_roots"),
     ("server", "default_dirs"),
     ("server", "timeout"),
     ("server", "threads"),
     ("server", "allow_update"),
+    ("server", "result_cache"),
 ];
 
 /// Where a value comes from (`CONFIG.md#get_config`).
@@ -214,6 +215,8 @@ pub struct FileValues {
     pub threads: Option<usize>,
     /// `server.allow_update`.
     pub allow_update: Option<bool>,
+    /// `server.result_cache`.
+    pub result_cache: Option<usize>,
 }
 
 /// A checked config file.
@@ -241,6 +244,9 @@ pub struct Settings {
     /// `server.allow_update`: whether `update_config` is available.
     pub allow_update: bool,
     pub allow_update_source: Source,
+    /// `server.result_cache`: the results kept for `within` and `since`; `0` — off.
+    pub result_cache: usize,
+    pub result_cache_source: Source,
 }
 
 impl Settings {
@@ -258,6 +264,8 @@ impl Settings {
             threads_source: Source::Default,
             allow_update: true,
             allow_update_source: Source::Default,
+            result_cache: 50,
+            result_cache_source: Source::Default,
         }
     }
 
@@ -286,6 +294,12 @@ impl Settings {
         {
             settings.threads = threads;
             settings.threads_source = Source::File(file.path.clone());
+        }
+        if let Some(file) = file
+            && let Some(result_cache) = file.values.result_cache
+        {
+            settings.result_cache = result_cache;
+            settings.result_cache_source = Source::File(file.path.clone());
         }
         if let Some(file) = file
             && let Some(allow_update) = file.values.allow_update
@@ -352,6 +366,7 @@ impl Settings {
             Mutable::DefaultDirs => toml_list(self.default_dirs.iter().map(String::as_str)),
             Mutable::Timeout => format!("\"{}\"", self.timeout),
             Mutable::Threads => self.threads.to_string(),
+            Mutable::ResultCache => self.result_cache.to_string(),
         }
     }
 
@@ -370,6 +385,10 @@ impl Settings {
                 self.threads = base.threads;
                 self.threads_source = base.threads_source.clone();
             }
+            Mutable::ResultCache => {
+                self.result_cache = base.result_cache;
+                self.result_cache_source = base.result_cache_source.clone();
+            }
         }
     }
 
@@ -387,6 +406,10 @@ impl Settings {
             MutableValue::Threads(threads) => {
                 self.threads = threads;
                 self.threads_source = Source::Update;
+            }
+            MutableValue::ResultCache(results) => {
+                self.result_cache = results;
+                self.result_cache_source = Source::Update;
             }
         }
     }
@@ -409,10 +432,16 @@ enum Mutable {
     DefaultDirs,
     Timeout,
     Threads,
+    ResultCache,
 }
 
 impl Mutable {
-    const ALL: [Mutable; 3] = [Self::DefaultDirs, Self::Timeout, Self::Threads];
+    const ALL: [Mutable; 4] = [
+        Self::DefaultDirs,
+        Self::Timeout,
+        Self::Threads,
+        Self::ResultCache,
+    ];
 
     /// The section and the key.
     fn name(self) -> (&'static str, &'static str) {
@@ -420,6 +449,7 @@ impl Mutable {
             Self::DefaultDirs => ("server", "default_dirs"),
             Self::Timeout => ("server", "timeout"),
             Self::Threads => ("server", "threads"),
+            Self::ResultCache => ("server", "result_cache"),
         }
     }
 
@@ -444,6 +474,11 @@ impl Mutable {
                 .and_then(|n| usize::try_from(n).ok())
                 .map(MutableValue::Threads)
                 .ok_or(THREADS),
+            Self::ResultCache => item
+                .as_integer()
+                .and_then(|n| usize::try_from(n).ok())
+                .map(MutableValue::ResultCache)
+                .ok_or(RESULT_CACHE),
         }
     }
 }
@@ -454,6 +489,7 @@ enum MutableValue {
     DefaultDirs(Vec<String>),
     Timeout(String),
     Threads(usize),
+    ResultCache(usize),
 }
 
 /// What `default_dirs` must be.
@@ -461,6 +497,9 @@ const NON_EMPTY_PATHS: &str = "a non-empty list of paths is expected";
 
 /// What `threads` must be.
 const THREADS: &str = "a whole number is expected (0: the number of CPU cores)";
+
+/// What `result_cache` must be.
+const RESULT_CACHE: &str = "a whole number is expected (0: off)";
 
 /// What `timeout` must be.
 const DURATION: &str = "a duration like \"30s\" is expected (units ms, s, m)";
@@ -624,7 +663,7 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
             },
             Entry::Key {
                 section: "server",
-                key: key @ ("default_dirs" | "timeout" | "threads"),
+                key: key @ ("default_dirs" | "timeout" | "threads" | "result_cache"),
                 item,
             } => match Mutable::find("server", key).map(|m| m.parse(item)) {
                 Some(Ok(MutableValue::DefaultDirs(dirs))) => {
@@ -639,8 +678,12 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     values.threads = Some(threads);
                     continue;
                 }
+                Some(Ok(MutableValue::ResultCache(results))) => {
+                    values.result_cache = Some(results);
+                    continue;
+                }
                 Some(Err(expected)) => format!("invalid value for 'server.{key}': {expected}"),
-                None => unreachable!("default_dirs, timeout and threads are mutable keys"),
+                None => unreachable!("these are mutable keys"),
             },
             Entry::Key { section, key, .. } if is_spec_key(section, key) => {
                 format!("the key '{section}.{key}' is not implemented yet")
@@ -735,6 +778,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             (
                 format!("allow_update = {}", settings.allow_update),
                 &settings.allow_update_source,
+            ),
+            (
+                format!("result_cache = {}", settings.value(Mutable::ResultCache)),
+                &settings.result_cache_source,
             ),
         ];
         out.push_str("\n[server]\n");
@@ -1160,7 +1207,7 @@ mod tests {
         assert_eq!(
             get_config(&settings, &Value::Null).unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n"
             )
         );
         assert_eq!(
@@ -1170,7 +1217,7 @@ mod tests {
             )
             .unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\nresult_cache = 50    # default\n"
             )
         );
         assert_eq!(
@@ -1347,6 +1394,7 @@ mod tests {
                 timeout: Some("1m".into()),
                 threads: Some(2),
                 allow_update: Some(false),
+                result_cache: Some(0),
             },
         };
         let cli = CommandLine {
@@ -1359,6 +1407,7 @@ mod tests {
         assert_eq!(settings.timeout_source, Source::Cli);
         assert_eq!(settings.threads, 2);
         assert!(!settings.allow_update);
+        assert_eq!(settings.result_cache, 0);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));
         assert_eq!(settings.timeout(), Some(std::time::Duration::from_secs(5)));
         assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));

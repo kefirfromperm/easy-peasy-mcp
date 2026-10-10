@@ -2,11 +2,11 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, PoisonError, RwLock};
+use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use serde_json::Value;
 
+use crate::cache::{CachedFile, ResultCache};
 use crate::config::{self, Settings};
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
@@ -94,7 +94,8 @@ pub struct Engine {
     /// The session settings: the settings of the options changed by `update_config`.
     settings: RwLock<Settings>,
     languages: Arc<LanguageTable>,
-    last_result: AtomicU64,
+    /// The results kept for `within` and `since`.
+    results: Mutex<ResultCache>,
 }
 
 impl Engine {
@@ -108,7 +109,7 @@ impl Engine {
             settings: RwLock::new(options.settings.clone()),
             options,
             languages: Arc::new(LanguageTable::builtin()),
-            last_result: AtomicU64::new(0),
+            results: Mutex::default(),
         }
     }
 
@@ -215,9 +216,21 @@ impl Engine {
             }
         }
         files.sort_by(|a, b| a.rel.cmp(&b.rel));
-        let result_id = format!("r{}", self.last_result.fetch_add(1, Ordering::SeqCst) + 1);
+        let cached = files
+            .iter()
+            .map(|f| CachedFile {
+                path: f.rel.clone(),
+                fingerprint: fingerprint(f),
+            })
+            .collect();
+        let result_id = self
+            .results
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .keep(settings.result_cache, arguments.clone(), cached)
+            .map(|n| format!("r{n}"));
         Ok(Response {
-            result_id: &result_id,
+            result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,
             warnings: &warnings,
@@ -263,4 +276,22 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
+}
+
+/// A hash of the matched lines of a file, to tell a changed file from an unchanged one.
+fn fingerprint(file: &search::Found) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    if let Some(m) = &file.matches {
+        for fragment in &m.fragments {
+            let first = m.content.line_of(fragment.range.start);
+            let last = m
+                .content
+                .line_of(fragment.range.end.max(fragment.range.start + 1) - 1);
+            for line in first..=last {
+                m.content.line(line).hash(&mut hasher);
+            }
+        }
+    }
+    hasher.finish()
 }

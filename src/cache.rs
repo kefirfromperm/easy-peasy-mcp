@@ -37,11 +37,24 @@ impl ResultCache {
     /// Keeps a result among the last `capacity` ones and returns its id; `None` when the cache is off.
     pub fn keep(
         &mut self,
-        _capacity: usize,
-        _arguments: Value,
-        _files: Vec<CachedFile>,
+        capacity: usize,
+        arguments: Value,
+        files: Vec<CachedFile>,
     ) -> Option<u64> {
-        None
+        if capacity == 0 {
+            self.results.clear();
+            return None;
+        }
+        self.last_id += 1;
+        self.results.push_back(CachedResult {
+            id: self.last_id,
+            arguments,
+            files,
+        });
+        while self.results.len() > capacity {
+            self.results.pop_front();
+        }
+        Some(self.last_id)
     }
 
     /// A kept result by its id.
