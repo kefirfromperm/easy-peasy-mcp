@@ -386,6 +386,22 @@ mod tests {
     }
 
     #[test]
+    fn query_options() {
+        assert_eq!(
+            config(&json!({ "query_options": { "fuzzy_min_score": 0.3 } })),
+            [(Key::FuzzyMinScore, KeyValue::Number(0.3))]
+        );
+        assert_eq!(
+            config(&json!({ "query_options": { "fuzzy_min_score": 1 } })),
+            [(Key::FuzzyMinScore, KeyValue::Number(1.0))]
+        );
+        assert_eq!(
+            text(&json!({ "query_options": { "fuzzy_min_score": 1.5 } })),
+            "error[invalid_option]: 'query_options.fuzzy_min_score' must be a number from 0 to 1\n"
+        );
+    }
+
+    #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
             assert_eq!(parse(&args).unwrap().query.trim(), "");
