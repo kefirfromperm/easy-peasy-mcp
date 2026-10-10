@@ -377,6 +377,28 @@ mod tests {
     }
 
     #[test]
+    fn binary_files_searched_as_text() {
+        match decode(b"\0\0\0\0\nlogo\n", true) {
+            Decoded::Text {
+                content, encoding, ..
+            } => {
+                assert_eq!(content.line(1), "logo");
+                assert_eq!(encoding, Encoding::Utf8);
+            }
+            Decoded::Binary => panic!("searched as text"),
+        }
+        assert!(matches!(decode(b"\0\0\0\0\nlogo\n", false), Decoded::Binary));
+    }
+
+    #[test]
+    fn binary_content_after_the_bom_and_utf16_checks() {
+        assert!(is_binary_content(b"\0\0\0\0\nlogo\n"));
+        assert!(!is_binary_content(b"\xff\xfeh\0i\0"));
+        assert!(!is_binary_content(b"h\0i\0\n\0"));
+        assert!(!is_binary_content(b"plain text\n"));
+    }
+
+    #[test]
     fn invalid_utf8_is_replaced() {
         let c = Content::from_bytes(b"a\xffb\n");
         assert_eq!(c.line(0), "a\u{fffd}b");
