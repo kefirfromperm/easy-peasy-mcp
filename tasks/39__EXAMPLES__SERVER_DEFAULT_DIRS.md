@@ -268,6 +268,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"    # default
+
+[languages.c]
+extensions = ['c', 'h']    # default
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+
+[languages.csharp]
+extensions = ['cs']    # default
+
+[languages.java]
+extensions = ['java']    # default
+
+[languages.kotlin]
+extensions = ['kt', 'kts']    # default
+
+[languages.scala]
+extensions = ['scala', 'sc']    # default
+
+[languages.go]
+extensions = ['go']    # default
+
+[languages.swift]
+extensions = ['swift']    # default
+
+[languages.dart]
+extensions = ['dart']    # default
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']    # default
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+
+[languages.rust]
+extensions = ['rs']    # default
+
+[languages.php]
+extensions = ['php']    # default
+
+[languages.css]
+extensions = ['css']    # default
+
+[languages.scss]
+extensions = ['scss', 'less']    # default
+
+[languages.python]
+extensions = ['py', 'pyi']    # default
+
+[languages.ruby]
+extensions = ['rb']    # default
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']    # default
+
+[languages.perl]
+extensions = ['pl', 'pm']    # default
+
+[languages.r]
+extensions = ['r']    # default
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']    # default
+
+[languages.batch]
+extensions = ['bat', 'cmd']    # default
+
+[languages.sql]
+extensions = ['sql']    # default
+
+[languages.lua]
+extensions = ['lua']    # default
+
+[languages.haskell]
+extensions = ['hs']    # default
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']    # default
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']    # default
+
+[languages.html]
+extensions = ['html', 'htm']    # default
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+
+[languages.vue]
+extensions = ['vue']    # default
+
+[languages.markdown]
+extensions = ['md', 'markdown']    # default
+
+[languages.yaml]
+extensions = ['yml', 'yaml']    # default
+
+[languages.toml]
+extensions = ['toml']    # default
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']    # default
+
+[languages.properties]
+extensions = ['properties']    # default
+
+[languages.dotenv]
+extensions = ['env']    # default
+
+[languages.json]
+extensions = ['json']    # default
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']    # default
+
+[languages.dockerfile]
+extensions = ['dockerfile']    # default
+
+[languages.makefile]
+extensions = ['mk']    # default
 ```
 
 3. `find`
@@ -406,6 +529,129 @@ config = ['**/*.toml', '**/*.yaml', '**/*.yml', '**/*.ini', '**/*.cfg', '**/*.co
 
 [git]
 base = "auto"    # default
+
+[languages.c]
+extensions = ['c', 'h']    # default
+
+[languages.cpp]
+extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
+
+[languages.csharp]
+extensions = ['cs']    # default
+
+[languages.java]
+extensions = ['java']    # default
+
+[languages.kotlin]
+extensions = ['kt', 'kts']    # default
+
+[languages.scala]
+extensions = ['scala', 'sc']    # default
+
+[languages.go]
+extensions = ['go']    # default
+
+[languages.swift]
+extensions = ['swift']    # default
+
+[languages.dart]
+extensions = ['dart']    # default
+
+[languages.groovy]
+extensions = ['groovy', 'gradle']    # default
+
+[languages.javascript]
+extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
+
+[languages.typescript]
+extensions = ['ts', 'tsx', 'mts', 'cts']    # default
+
+[languages.rust]
+extensions = ['rs']    # default
+
+[languages.php]
+extensions = ['php']    # default
+
+[languages.css]
+extensions = ['css']    # default
+
+[languages.scss]
+extensions = ['scss', 'less']    # default
+
+[languages.python]
+extensions = ['py', 'pyi']    # default
+
+[languages.ruby]
+extensions = ['rb']    # default
+
+[languages.shell]
+extensions = ['sh', 'bash', 'zsh']    # default
+
+[languages.perl]
+extensions = ['pl', 'pm']    # default
+
+[languages.r]
+extensions = ['r']    # default
+
+[languages.powershell]
+extensions = ['ps1', 'psm1']    # default
+
+[languages.batch]
+extensions = ['bat', 'cmd']    # default
+
+[languages.sql]
+extensions = ['sql']    # default
+
+[languages.lua]
+extensions = ['lua']    # default
+
+[languages.haskell]
+extensions = ['hs']    # default
+
+[languages.clojure]
+extensions = ['clj', 'cljs', 'cljc']    # default
+
+[languages.lisp]
+extensions = ['lisp', 'el', 'scm']    # default
+
+[languages.html]
+extensions = ['html', 'htm']    # default
+
+[languages.xml]
+extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
+
+[languages.vue]
+extensions = ['vue']    # default
+
+[languages.markdown]
+extensions = ['md', 'markdown']    # default
+
+[languages.yaml]
+extensions = ['yml', 'yaml']    # default
+
+[languages.toml]
+extensions = ['toml']    # default
+
+[languages.ini]
+extensions = ['ini', 'cfg', 'conf']    # default
+
+[languages.properties]
+extensions = ['properties']    # default
+
+[languages.dotenv]
+extensions = ['env']    # default
+
+[languages.json]
+extensions = ['json']    # default
+
+[languages.jsonc]
+extensions = ['jsonc', 'json5']    # default
+
+[languages.dockerfile]
+extensions = ['dockerfile']    # default
+
+[languages.makefile]
+extensions = ['mk']    # default
 ```
 
 2. `find`
