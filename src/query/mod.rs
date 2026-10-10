@@ -57,7 +57,8 @@ pub enum Filter {
 pub struct Query {
     /// Condition id → the condition as written, in the order of appearance (OUTPUT.md#condition-ids).
     pub legend: Vec<(CondId, String)>,
-    pub filter: Filter,
+    /// `None` for the empty query, which matches every file.
+    pub filter: Option<Filter>,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -82,8 +83,9 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     if let Some(first) = errors.into_iter().min_by_key(|e| e.span.start) {
         return Err(first);
     }
-    let expr = expr.expect("the subset check rejects the empty query");
-    let filter = compile(&expr, options).expect("the subset check allows only one name condition");
+    let filter = expr.map(|expr| {
+        compile(&expr, options).expect("the subset check allows only one name condition")
+    });
     Ok(Query { legend, filter })
 }
 
@@ -220,18 +222,27 @@ mod tests {
     fn compiles_name_conditions() {
         let q = parse("name ~ '*.rs'", SENSITIVE).unwrap();
         assert_eq!(q.legend, [(CondId::Number(1), "name ~ '*.rs'".to_string())]);
-        let Filter::Name { matcher, .. } = q.filter;
+        let Some(Filter::Name { matcher, .. }) = q.filter else {
+            panic!()
+        };
         assert!(matcher.is_match("a.rs"));
-        let Filter::Name { matcher, .. } = parse(
+        let Some(Filter::Name { matcher, .. }) = parse(
             "name = 'A.rs'",
             ParseOptions {
                 case_insensitive_paths: true,
             },
         )
         .unwrap()
-        .filter;
+        .filter
+        else {
+            panic!()
+        };
         assert!(matcher.is_match("a.RS"));
-        let Filter::Name { matcher, .. } = parse("name = 'caf\u{e9}'", SENSITIVE).unwrap().filter;
+        let Some(Filter::Name { matcher, .. }) =
+            parse("name = 'caf\u{e9}'", SENSITIVE).unwrap().filter
+        else {
+            panic!()
+        };
         assert!(matcher.is_match("caf\u{e9}"));
     }
 

@@ -40,8 +40,12 @@ impl Response<'_> {
                 out.push('\n');
                 current = Some(dir);
             }
-            let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
-            let _ = writeln!(out, "{name}  [{}]", ids.join(" "));
+            out.push_str(&name);
+            if !file.conditions.is_empty() {
+                let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
+                let _ = write!(out, "  [{}]", ids.join(" "));
+            }
+            out.push('\n');
         }
         out
     }
