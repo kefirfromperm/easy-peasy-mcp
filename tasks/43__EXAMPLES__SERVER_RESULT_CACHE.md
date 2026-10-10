@@ -171,6 +171,7 @@ detail = "lines"    # default
 funnel = "auto"    # default
 facets = ['dir', 'lang', 'kind', 'condition']    # default
 facet_depth = 2    # default
+facet_limit = 8    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default

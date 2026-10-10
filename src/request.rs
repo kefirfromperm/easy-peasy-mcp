@@ -408,6 +408,10 @@ mod tests {
             config(&json!({ "output": { "facet_depth": 1 } })),
             [(Key::FacetDepth, KeyValue::Whole(1))]
         );
+        assert_eq!(
+            config(&json!({ "output": { "facet_limit": 1 } })),
+            [(Key::FacetLimit, KeyValue::Whole(1))]
+        );
     }
 
     #[test]

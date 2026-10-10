@@ -1,6 +1,6 @@
 # Task 107: `output.facet_limit`
 
-Status: not implemented
+Status: implemented, see [107__SUMMARY__OUTPUT_FACET_LIMIT.md](107__SUMMARY__OUTPUT_FACET_LIMIT.md)
 
 Depends on: task 105
 
