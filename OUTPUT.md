@@ -474,6 +474,14 @@ To get the next page, repeat the same request and add `output.cursor` from `next
 - a cursor with a different request is rejected with `cursor_mismatch`
 - if files change between pages, results can shift; the response has a `results_changed` warning when the totals
   differ from the ones in the cursor
+- `next_cursor` is given when `max_files`, `max_lines`, `max_matches` or `max_output` cut the response and the search
+  wasn't stopped by the timeout; the header has `next cursor: ...` after `truncated: yes (...)`
+- the next page starts at the first file which was not listed, or inside the file whose lines were cut, at its first
+  fragment which was not listed; its header has the totals of the whole result, its result id is a new one
+- `output.cursor` must be a string (`'output.cursor' must be a string`); it is not a configuration key
+- `cursor_invalid`: `the cursor can't be decoded`, hint `pass next_cursor of the previous response unchanged`;
+  `cursor_mismatch`: `the cursor belongs to another request`, hint `repeat the request of the cursor with only
+  output.cursor added`
 
 ## Relevance
 
