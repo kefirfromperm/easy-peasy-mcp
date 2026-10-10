@@ -1,6 +1,6 @@
 # Task 114: Progress notifications
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 40
 
