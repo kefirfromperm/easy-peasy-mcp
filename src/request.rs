@@ -248,8 +248,16 @@ mod tests {
             "error[invalid_option]: 'output.format' must be one of: text, json\n"
         );
         assert_eq!(
-            text(&json!({ "output": { "detail": "files" } })),
-            "error[not_implemented]: the field 'output.detail' is not implemented yet\n"
+            config(&json!({ "output": { "detail": "files" } })),
+            [(Key::Detail, KeyValue::Text("files".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "detail": "facets" } })),
+            "error[not_implemented]: the value 'facets' of 'output.detail' is not implemented yet\n"
+        );
+        assert_eq!(
+            text(&json!({ "output": { "context": 1 } })),
+            "error[not_implemented]: the field 'output.context' is not implemented yet\n"
         );
     }
 
