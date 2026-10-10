@@ -1,6 +1,6 @@
 # Task 80: `output.context`
 
-Status: not implemented
+Status: implemented, see [80__SUMMARY__OUTPUT_CONTEXT.md](80__SUMMARY__OUTPUT_CONTEXT.md)
 
 Depends on: task 79
 

@@ -78,7 +78,8 @@ OUTPUT: output.detail = exists | count | files | lines (default); output.format 
 (default text). Text: the header
 \"files: N  lines: L  matches: M  result: r1\", the legend \"#1 <condition>\", then the files
 under their directory headers (\"src/\", \"./\" for the working directory), each with the matched conditions [#1]
-and its counts, then its matched lines: \"42:\" a matched line, \"--\" a gap, ⟦ids:text⟧ a match.
+and its counts, then its matched lines: \"42:\" a matched line, \"41-\" a context line (output.context = N lines around),
+\"--\" a gap, ⟦ids:text⟧ a match.
 Spec version 1.";
 
 /// The input schema of the `find` tool.
@@ -137,7 +138,8 @@ pub fn find_schema() -> Value {
                 "type": "object",
                 "properties": {
                     "format": { "enum": ["text", "json"], "description": "text: compact, like grep; json: the same data as a JSON document. Default: text." },
-                    "detail": { "enum": ["exists", "count", "files", "lines"], "description": "exists: only whether anything matches (stops at the first match); count: the totals; files: the totals and the files; lines: also the matched lines. Default: lines." }
+                    "detail": { "enum": ["exists", "count", "files", "lines"], "description": "exists: only whether anything matches (stops at the first match); count: the totals; files: the totals and the files; lines: also the matched lines. Default: lines." },
+                    "context": { "type": "integer", "minimum": 0, "description": "Lines before and after every matched line (grep -C). Default: 0." }
                 }
             },
             "kinds": {

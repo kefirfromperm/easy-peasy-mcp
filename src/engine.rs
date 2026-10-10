@@ -11,7 +11,7 @@ use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
-use crate::output::{Detail, Response};
+use crate::output::{BlockOptions, Detail, Response};
 use crate::query::{self, ParseOptions};
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
@@ -228,8 +228,13 @@ impl Engine {
         } else {
             self.keep_result(&settings, arguments, &files)
         };
+        let context = settings.whole(Key::Context);
         let response = Response {
             detail,
+            blocks: BlockOptions {
+                before: context,
+                after: context,
+            },
             result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,

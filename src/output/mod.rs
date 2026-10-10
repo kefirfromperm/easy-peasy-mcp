@@ -7,8 +7,11 @@ use crate::query::ast::CondId;
 use crate::search::Found;
 use crate::warning::Warnings;
 
+mod blocks;
 mod json;
 mod lines;
+
+pub use blocks::BlockOptions;
 
 pub use lines::{Fragment, matched_lines, merge_identical};
 
@@ -29,6 +32,8 @@ pub enum Detail {
 pub struct Response<'a> {
     /// How much it returns.
     pub detail: Detail,
+    /// How the matched lines of a file are put into blocks.
+    pub blocks: BlockOptions,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -113,7 +118,8 @@ impl Response<'_> {
                 .as_ref()
                 .filter(|_| self.detail == Detail::Lines)
             {
-                out.push_str(&lines::render(&m.content, &m.fragments));
+                let blocks = blocks::blocks(&m.content, &m.fragments, &self.blocks);
+                out.push_str(&lines::render(&m.content, &m.fragments, &blocks));
             }
         }
         self.push_warnings(&mut out);
@@ -217,6 +223,7 @@ mod tests {
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
         let text = Response {
             detail: Detail::Lines,
+            blocks: BlockOptions::default(),
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -246,6 +253,7 @@ mod tests {
         }];
         let text = Response {
             detail: Detail::Lines,
+            blocks: BlockOptions::default(),
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -268,6 +276,7 @@ mod tests {
         let legend = [(CondId::Number(1), "type = dir".to_string())];
         let text = Response {
             detail: Detail::Lines,
+            blocks: BlockOptions::default(),
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -286,6 +295,7 @@ mod tests {
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,
+            blocks: BlockOptions::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],
