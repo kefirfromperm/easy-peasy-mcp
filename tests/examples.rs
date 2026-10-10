@@ -63,10 +63,13 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
             "text error" => (true, "error"),
             other => return Err(format!("step {step}: unknown block `{other}`")),
         };
-        if output.is_error != want_error || output.text != expected.text {
+        let expected_text = expected
+            .text
+            .replace("<version>", env!("CARGO_PKG_VERSION"));
+        if output.is_error != want_error || output.text != expected_text {
             return Err(format!(
-                "step {step}: expected {kind} (isError: {want_error}):\n{}\nactual (isError: {}):\n{}",
-                expected.text, output.is_error, output.text
+                "step {step}: expected {kind} (isError: {want_error}):\n{expected_text}\nactual (isError: {}):\n{}",
+                output.is_error, output.text
             ));
         }
     }

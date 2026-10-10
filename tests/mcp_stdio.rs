@@ -31,13 +31,21 @@ fn initialize_list_and_find() {
     );
     assert_eq!(
         result["instructions"],
-        "File search: find + grep in one query. Spec version 1."
+        "File search: find + grep in one query. Call get_config first to learn allowed roots and defaults. Spec version 1."
     );
 
     let list = server.request(2, "tools/list", &json!({}));
     let tools = list["result"]["tools"].as_array().expect("tools");
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["find"]);
+    assert_eq!(names, ["find", "get_config"]);
+    let get_config = &tools[1];
+    assert_eq!(get_config["annotations"]["readOnlyHint"], true);
+    assert_eq!(get_config["annotations"]["openWorldHint"], false);
+    assert_eq!(get_config["inputSchema"]["additionalProperties"], false);
+    assert_eq!(
+        get_config["description"],
+        "Returns the effective configuration of the search server as TOML: allowed roots, default directories, traversal and\noutput defaults, limits, supported spec versions. Read-only. Call it once before the first find."
+    );
     let find = &tools[0];
     assert_eq!(find["annotations"]["readOnlyHint"], true);
     assert_eq!(find["annotations"]["openWorldHint"], false);

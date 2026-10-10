@@ -156,6 +156,8 @@ Fixture: `small-rust`
   fixture directory. A `text stderr exit <code>` block is what the binary prints to stderr before it exits with that
   code; without it the server must start, and the `json request` blocks that follow are sent to it over MCP. A line
   `` Platform: `linux` `` (or `macos`, `windows`) runs the example only there
+- `<version>` in a response stands for the server version (`CARGO_PKG_VERSION`), e.g. in the first line of
+  `get_config`
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
   pagination) is written as a numbered sequence of requests and responses in one example
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates

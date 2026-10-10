@@ -3,6 +3,12 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use serde_json::Value;
+
+use crate::SPEC_VERSION;
+use crate::error::{ErrorCode, Report};
+use crate::query::did_you_mean;
+
 /// An error which stops the server at start: `<path>:<line>: <message>`, or `<path>: <message>` without a line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StartError {
@@ -192,7 +198,7 @@ fn check(text: &str) -> Result<(), (usize, String)> {
             let message = if name == "languages" || keys.contains(&key) {
                 format!("the key '{full}' is not implemented yet")
             } else {
-                match crate::query::did_you_mean(key, keys) {
+                match did_you_mean(key, keys) {
                     Some(close) => format!("unknown key '{full}', did you mean '{name}.{close}'?"),
                     None => format!("unknown key '{full}'"),
                 }
@@ -204,6 +210,67 @@ fn check(text: &str) -> Result<(), (usize, String)> {
         Some((at, message)) => Err((line(at), message)),
         None => Ok(()),
     }
+}
+
+/// The fields of `get_config`, in the order of its input schema.
+const GET_CONFIG_FIELDS: [&str; 2] = ["section", "sources"];
+
+/// The `get_config` tool (`CONFIG.md#get_config`): the effective configuration as TOML. The first line names the server
+/// and the spec versions; the read-only keys and the sections with their keys follow, as far as they are
+/// implemented — no key is implemented yet, so `section` and `sources` don't change the result.
+pub(crate) fn get_config(arguments: &Value) -> Result<String, Report> {
+    let empty = serde_json::Map::new();
+    let object = match arguments {
+        Value::Null => &empty,
+        Value::Object(object) => object,
+        _ => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "the arguments must be an object",
+            ));
+        }
+    };
+    if let Some(unknown) = object
+        .keys()
+        .find(|k| !GET_CONFIG_FIELDS.contains(&k.as_str()))
+    {
+        return Err(unknown_name("field", unknown, &GET_CONFIG_FIELDS));
+    }
+    match object.get("section") {
+        None => {}
+        Some(Value::String(section)) => {
+            let names: Vec<&str> = SECTIONS.iter().map(|(name, _)| *name).collect();
+            if !names.contains(&section.as_str()) {
+                return Err(unknown_name("section", section, &names));
+            }
+        }
+        Some(_) => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "'section' must be a string",
+            ));
+        }
+    }
+    if object.get("sources").is_some_and(|v| !v.is_boolean()) {
+        return Err(Report::new(
+            ErrorCode::InvalidOption,
+            "'sources' must be a boolean",
+        ));
+    }
+    Ok(format!(
+        "# easy-peasy-mcp {}, spec {SPEC_VERSION}, supported specs: {SPEC_VERSION}\n",
+        env!("CARGO_PKG_VERSION")
+    ))
+}
+
+/// `invalid_option` for a name which is not one of `names`, with `did you mean` and the expected names.
+fn unknown_name(what: &str, name: &str, names: &[&str]) -> Report {
+    let expected = format!("expected one of: {}", names.join(", "));
+    let hint = match did_you_mean(name, names) {
+        Some(close) => format!("did you mean '{close}'? {expected}"),
+        None => expected,
+    };
+    Report::new(ErrorCode::InvalidOption, format!("unknown {what} '{name}'")).hint(hint)
 }
 
 #[cfg(test)]
@@ -369,6 +436,28 @@ mod tests {
         assert_eq!(
             error("[server]\n[output]\nzzz = 1\n[server2]\n"),
             (3, "unknown key 'output.zzz'".into())
+        );
+    }
+
+    #[test]
+    fn get_config_arguments() {
+        let first = format!(
+            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n",
+            env!("CARGO_PKG_VERSION")
+        );
+        assert_eq!(get_config(&Value::Null).unwrap(), first);
+        let error = |v: Value| get_config(&v).unwrap_err().to_text();
+        assert_eq!(
+            error(serde_json::json!({ "section": 1 })),
+            "error[invalid_option]: 'section' must be a string\n"
+        );
+        assert_eq!(
+            error(serde_json::json!({ "section": "zzz" })),
+            "error[invalid_option]: unknown section 'zzz'\n  hint: expected one of: server, traversal, output, escape, query, kinds, git, languages\n"
+        );
+        assert_eq!(
+            error(serde_json::json!([])),
+            "error[invalid_option]: the arguments must be an object\n"
         );
     }
 
