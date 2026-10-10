@@ -311,6 +311,7 @@ impl Engine {
             time_zone: self.options.time_zone.clone(),
             max_file_size: settings.size(Key::MaxFileSize),
             max_archive_size: settings.size(Key::MaxArchiveSize),
+            skip_generated: settings.bool(Key::SkipGenerated),
             read_delay: self.options.read_delay,
         }
     }

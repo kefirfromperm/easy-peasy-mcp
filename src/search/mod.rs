@@ -65,6 +65,8 @@ pub struct SearchOptions {
     pub max_file_size: f64,
     /// The total uncompressed size of the members of one archive, in bytes.
     pub max_archive_size: f64,
+    /// Skip generated files unless the query has a `kind` condition.
+    pub skip_generated: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -455,7 +457,7 @@ impl Walk<'_> {
         if !self.readable(entry.path(), rel, entry_type) {
             return None;
         }
-        if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
+        if self.skips_generated() && is_file && self.kinds.is_generated(&path, entry.path()) {
             return None;
         }
         if self.options.binary == Binary::Exclude
@@ -682,7 +684,7 @@ impl Walk<'_> {
             None => Evaluated::default(),
             Some(filter) => self.evaluate(filter, file, language, &mut read, &warn)?,
         };
-        if !query.needs.kind && self.kinds.is_generated_path(&path) {
+        if self.skips_generated() && self.kinds.is_generated_path(&path) {
             return None;
         }
         if self.options.binary == Binary::Exclude && !evaluated.text {
@@ -875,6 +877,11 @@ impl Walk<'_> {
         if let Some(rest) = until.checked_duration_since(Instant::now()) {
             std::thread::sleep(rest);
         }
+    }
+
+    /// Whether generated files are skipped: `skip_generated` and no `kind` condition in the query.
+    fn skips_generated(&self) -> bool {
+        self.options.skip_generated && !self.query.needs.kind
     }
 
     fn warn_member(&self, code: WarningCode, rel: &Path, member: &str) {
