@@ -5,6 +5,7 @@
 mod description;
 mod engine;
 mod error;
+mod git;
 mod languages;
 pub mod mcp;
 mod output;
