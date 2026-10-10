@@ -30,6 +30,7 @@ Empty query = all files.
                                  git = branch: changed, or changed by the commits since the base (main/master);
                                  false outside of a repository
   text has 'TODO'                content contains, /i ignore case; a value with '\n' matches across lines;
+                                 also = starts ends on the whole content: text starts '#!/bin/bash';
                                  binary files are not searched: content conditions are unknown for them
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type

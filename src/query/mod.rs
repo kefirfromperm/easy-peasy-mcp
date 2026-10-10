@@ -543,8 +543,15 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         } else {
             ""
         };
-        let regex = Regex::new(&format!("{flags}{}", regex::escape(&s.value)))
-            .expect("an escaped string is a valid regex");
+        let escaped = regex::escape(&s.value);
+        let pattern = match c.op.as_ref().map(|(op, _)| *op) {
+            Some(Op::Eq) => format!(r"\A{escaped}\z"),
+            Some(Op::Starts) => format!(r"\A{escaped}"),
+            Some(Op::Ends) => format!(r"{escaped}\z"),
+            _ => escaped,
+        };
+        let regex =
+            Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex");
         return Filter::Content { id, order, regex };
     }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
@@ -946,6 +953,36 @@ mod tests {
                 "did you mean 'test'? expected one of: source, test, config, doc, generated, other"
             )
         );
+    }
+
+    fn content_matches(q: &str, text: &str) -> bool {
+        let content = crate::content::Content::from_bytes(text.as_bytes());
+        let file = FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind: Kind::Other,
+            git: None,
+            content: ContentState::Text(&content),
+        };
+        parse(q, &SENSITIVE).unwrap().filter.unwrap().matches(&file)
+    }
+
+    #[test]
+    fn whole_content_operators() {
+        assert!(content_matches("text = 'a\nb\n'", "a\nb\n"));
+        assert!(!content_matches("text = 'a\nb'", "a\nb\n"));
+        assert!(content_matches("text starts '#!/bin'", "#!/bin/sh\n"));
+        assert!(!content_matches("text starts 'bin'", "#!/bin/sh\n"));
+        assert!(content_matches("text ends '\n'", "a\r\n"));
+        assert!(!content_matches("text ends '\n'", "a"));
+        assert!(content_matches("text ends 'A' /i", "xa"));
     }
 
     #[test]

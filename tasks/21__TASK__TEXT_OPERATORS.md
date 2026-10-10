@@ -1,6 +1,6 @@
 # Task 21: `text` with `=`, `starts`, `ends`
 
-Status: not implemented
+Status: implemented, see [21__SUMMARY__TEXT_OPERATORS.md](21__SUMMARY__TEXT_OPERATORS.md)
 
 Depends on: task 19
 
