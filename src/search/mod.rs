@@ -87,15 +87,20 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
             let path = slash_path(rel);
             let name = nfc(&entry.file_name().to_string_lossy());
             let nfc_path = nfc(&path);
+            let metadata = (query.needs_empty || query.needs_metadata)
+                .then(|| entry.metadata().ok())
+                .flatten();
             let empty = query.needs_empty
-                && entry
-                    .metadata()
-                    .is_ok_and(|m| is_empty(entry.path(), entry_type, &m));
+                && metadata
+                    .as_ref()
+                    .is_some_and(|m| is_empty(entry.path(), entry_type, m));
+            let size = metadata.as_ref().map_or(0, std::fs::Metadata::len);
             let file = FileValues {
                 name: &name,
                 path: &nfc_path,
                 entry_type,
                 empty,
+                size,
             };
             let conditions = match &query.filter {
                 None => Vec::new(),

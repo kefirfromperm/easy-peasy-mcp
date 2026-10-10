@@ -19,7 +19,7 @@ use ast::{
 };
 use lexer::Token;
 
-pub use eval::{EntryType, FileValues, Filter, TextMatcher, TextTarget};
+pub use eval::{EntryType, FileValues, Filter, NumberTarget, TextMatcher, TextTarget};
 pub(crate) use suggest::did_you_mean;
 
 use crate::error::{ErrorCode, QueryError};
@@ -42,6 +42,8 @@ pub struct Query {
     pub has_type: bool,
     /// Whether the query has an `empty` condition, so the search must find out whether entries are empty.
     pub needs_empty: bool,
+    /// Whether the query looks at the metadata of entries: `size`.
+    pub needs_metadata: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -71,12 +73,13 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
     {
         return Err(first);
     }
-    let (mut has_type, mut needs_empty) = (false, false);
+    let (mut has_type, mut needs_empty, mut needs_metadata) = (false, false, false);
     if let Some(expr) = &expr {
         expr.visit_nodes(&mut |node| {
             if let NodeKind::Condition(c) = &node.kind {
                 has_type |= c.target == Target::Type;
                 needs_empty |= c.target == Target::Empty;
+                needs_metadata |= c.target == Target::Size;
             }
         });
     }
@@ -86,6 +89,7 @@ pub fn parse(text: &str, options: ParseOptions) -> Result<Query, QueryError> {
         filter,
         has_type,
         needs_empty,
+        needs_metadata,
     })
 }
 
@@ -179,6 +183,9 @@ fn validate_condition(
             errors.push(unknown_value(word, &names));
         }
     }
+    if c.target == Target::Size {
+        validate_sizes(text, &c.value, errors);
+    }
     for modifier in &c.modifiers {
         if let Some(hint) = modifier_not_allowed(c, modifier, in_line) {
             errors.push(
@@ -193,6 +200,46 @@ fn validate_condition(
                 .hint(hint),
             );
         }
+    }
+}
+
+/// `invalid_size` for every value which is not a size, `invalid_range` for a range whose start is greater than its
+/// end.
+fn validate_sizes(text: &str, value: &Value, errors: &mut Vec<QueryError>) {
+    let size = |s: &Spanned, errors: &mut Vec<QueryError>| {
+        let parsed = value::parse_size(&s.text);
+        if parsed.is_none() {
+            errors.push(
+                QueryError::new(
+                    ErrorCode::InvalidSize,
+                    format!("invalid size '{}'", s.text),
+                    s.span.clone(),
+                )
+                .hint("units: B, K, M, G"),
+            );
+        }
+        parsed
+    };
+    match value {
+        Value::Scalar(s) => {
+            size(s, errors);
+        }
+        Value::Range(from, to) => {
+            if let (Some(a), Some(b)) = (size(from, errors), size(to, errors))
+                && a > b
+            {
+                let span = from.span.start..to.span.end;
+                errors.push(
+                    QueryError::new(
+                        ErrorCode::InvalidRange,
+                        format!("invalid range '{}'", &text[span.clone()]),
+                        span,
+                    )
+                    .hint("the start must not be greater than the end"),
+                );
+            }
+        }
+        _ => {}
     }
 }
 
@@ -280,6 +327,21 @@ fn compile_node(node: &Node, options: ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
         unreachable!("the subset check allows only conditions")
     };
+    if c.target == Target::Size {
+        let size =
+            |s: &Spanned| value::parse_size(&s.text).expect("sizes are validated before compiling");
+        let bounds = match (&c.op, &c.value) {
+            (Some((op, _)), Value::Scalar(v)) => value::bounds(*op, size(v), None),
+            (Some((op, _)), Value::Range(a, b)) => value::bounds(*op, size(a), Some(size(b))),
+            _ => unreachable!("size conditions have an operator and a value"),
+        };
+        return Filter::Number {
+            id: node.id.clone(),
+            order: node.tokens.start,
+            target: NumberTarget::Size,
+            bounds,
+        };
+    }
     if c.target == Target::Empty {
         return Filter::Empty {
             id: node.id.clone(),
@@ -683,7 +745,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("size > 1 and name ~ '[a-'", SENSITIVE).unwrap_err();
+        let e = parse("lang = rust and name ~ '[a-'", SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }

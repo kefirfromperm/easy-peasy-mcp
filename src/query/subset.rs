@@ -1,6 +1,6 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: the empty query; `type` and `empty` conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
+//! Implemented: the empty query; `type`, `empty` and `size` conditions; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
 //! modifier `/i`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
@@ -32,14 +32,24 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
         NodeKind::Condition(c) => {
             if !matches!(
                 c.target,
-                Target::Name | Target::Path | Target::Type | Target::Empty
+                Target::Name | Target::Path | Target::Type | Target::Empty | Target::Size
             ) {
                 let span = c.target_span.clone();
                 found.push((span.clone(), format!("the target '{}'", &query[span])));
             } else if let Some((op, span)) = &c.op
                 && !matches!(
                     op,
-                    Op::Eq | Op::Ne | Op::In | Op::Has | Op::Starts | Op::Ends | Op::Wildcard
+                    Op::Eq
+                        | Op::Ne
+                        | Op::Lt
+                        | Op::Le
+                        | Op::Gt
+                        | Op::Ge
+                        | Op::In
+                        | Op::Has
+                        | Op::Starts
+                        | Op::Ends
+                        | Op::Wildcard
                 )
             {
                 found.push((
@@ -82,9 +92,10 @@ mod tests {
 
     #[test]
     fn other_targets_and_operators() {
+        assert_eq!(check_str("size > 1 and size in 1..2"), None);
         assert_eq!(
-            check_str("size > 1"),
-            Some(("the target 'size' is not implemented yet".into(), 0..4))
+            check_str("lang = rust"),
+            Some(("the target 'lang' is not implemented yet".into(), 0..4))
         );
         assert_eq!(
             check_str("name = 'a' or (path ~ 'b' and text has 'c')"),
