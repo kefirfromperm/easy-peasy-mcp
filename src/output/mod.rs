@@ -57,6 +57,8 @@ pub struct Limits {
     pub max_lines: usize,
     /// The fragments listed under the files.
     pub max_matches: usize,
+    /// The fragments listed of one file.
+    pub max_matches_per_file: usize,
 }
 
 impl Default for Limits {
@@ -66,6 +68,7 @@ impl Default for Limits {
             max_files: usize::MAX,
             max_lines: usize::MAX,
             max_matches: usize::MAX,
+            max_matches_per_file: usize::MAX,
         }
     }
 }
@@ -150,22 +153,23 @@ impl Response<'_> {
         out.push('\n');
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
-        for (file, listed) in self.listed().iter().zip(&listing.files) {
+        for ((file, listed), cut) in self.listed().iter().zip(&listing.files).zip(&listing.cut) {
             if *listed != Listed::LeftOut {
-                self.push_file(&mut out, file, listed, &mut current);
+                self.push_file(&mut out, file, listed, *cut, &mut current);
             }
         }
         self.push_warnings(&mut out);
         out
     }
 
-    /// A listed file: its line (under its directory header when it differs from `current`), its path fragments and
-    /// its listed lines.
+    /// A listed file: its line (under its directory header when it differs from `current`; `(cut)` when a per file
+    /// limit cut it), its path fragments and its listed lines.
     fn push_file(
         &self,
         out: &mut String,
         file: &Found,
         listed: &Listed,
+        cut: bool,
         current: &mut Option<String>,
     ) {
         if self.group_dirs {
@@ -188,6 +192,9 @@ impl Response<'_> {
         }
         if let Some(m) = &file.matches {
             let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
+        }
+        if cut {
+            out.push_str("  (cut)");
         }
         if let Some(encoding) = file.encoding {
             let _ = write!(out, "  {}", encoding.name());

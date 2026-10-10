@@ -21,6 +21,8 @@ pub enum Listed {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Listing {
     pub files: Vec<Listed>,
+    /// Per file whether a per file limit cut it.
+    pub cut: Vec<bool>,
     pub truncated_by: Vec<&'static str>,
 }
 
@@ -29,26 +31,33 @@ impl Listing {
     pub fn without_lines(files: &[Found]) -> Self {
         Self {
             files: vec![Listed::NoLines; files.len()],
+            cut: vec![false; files.len()],
             truncated_by: Vec::new(),
         }
     }
 
-    /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, those of the first
-    /// `max_lines` matched lines and the first `max_matches` fragments in the order of the files.
+    /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, the first
+    /// `max_matches_per_file` of every file, then of those the ones of the first `max_lines` matched lines and the
+    /// first `max_matches` fragments in the order of the files.
     pub fn new(files: &[Found], repeated: &Repeated, limits: &Limits) -> Self {
         let mut lines_left = limits.max_lines;
         let mut matches_left = limits.max_matches;
         let (mut cut_lines, mut cut_matches) = (false, false);
         let mut listed = Vec::with_capacity(files.len());
+        let mut cut = vec![false; files.len()];
         for (index, file) in files.iter().enumerate() {
             let Some(m) = file.matches.as_ref().filter(|m| !m.fragments.is_empty()) else {
                 listed.push(Listed::NoLines);
                 continue;
             };
-            let rest = repeated.rest(index, &m.content, &m.fragments);
+            let mut rest = repeated.rest(index, &m.content, &m.fragments);
             if rest.is_empty() {
                 listed.push(Listed::LeftOut);
                 continue;
+            }
+            if rest.len() > limits.max_matches_per_file {
+                cut[index] = true;
+                rest.truncate(limits.max_matches_per_file);
             }
             let lines = lines_of(&m.content, &rest);
             let rest = if lines.len() > lines_left {
@@ -73,8 +82,12 @@ impl Listing {
         if cut_matches {
             truncated_by.push("max_matches");
         }
+        if cut.contains(&true) {
+            truncated_by.push("max_matches_per_file");
+        }
         Self {
             files: listed,
+            cut,
             truncated_by,
         }
     }
@@ -238,7 +251,10 @@ mod tests {
         let listing = Listing::new(&files, &Repeated::default(), &limits);
         assert_eq!(listing.cut, [true, false, false]);
         assert_eq!(listed_lines(&listing, &files), [vec![0], vec![0], vec![]]);
-        assert_eq!(listing.truncated_by, ["max_matches", "max_matches_per_file"]);
+        assert_eq!(
+            listing.truncated_by,
+            ["max_matches", "max_matches_per_file"]
+        );
         let per_file = Listing::new(
             &files,
             &Repeated::default(),

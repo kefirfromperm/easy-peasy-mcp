@@ -102,6 +102,8 @@ struct File {
     encoding: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     score: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    truncated: Option<bool>,
     #[serde(skip_serializing_if = "is_zero")]
     lines: usize,
     #[serde(skip_serializing_if = "is_zero")]
@@ -213,10 +215,11 @@ impl Response<'_> {
                 self.listed()
                     .iter()
                     .zip(&listing.files)
-                    .filter_map(|(file, listed)| match listed {
+                    .zip(&listing.cut)
+                    .filter_map(|((file, listed), cut)| match listed {
                         Listed::LeftOut => None,
-                        Listed::NoLines => Some(self.file(file, None)),
-                        Listed::Lines(fragments) => Some(self.file(file, Some(fragments))),
+                        Listed::NoLines => Some(self.file(file, None, *cut)),
+                        Listed::Lines(fragments) => Some(self.file(file, Some(fragments), *cut)),
                     })
                     .collect()
             } else {
@@ -228,8 +231,8 @@ impl Response<'_> {
 }
 
 impl Response<'_> {
-    /// A matched file, with the blocks of the fragments `lines` or without lines.
-    fn file(&self, found: &Found, lines: Option<&[super::Fragment]>) -> File {
+    /// A matched file, with the blocks of the fragments `lines` or without lines; `cut` by a per file limit.
+    fn file(&self, found: &Found, lines: Option<&[super::Fragment]>, cut: bool) -> File {
         let meta = found.meta.as_ref();
         File {
             path: display_found(found),
@@ -245,6 +248,7 @@ impl Response<'_> {
             score: meta
                 .and(found.score)
                 .map(crate::relevance::shown_score),
+            truncated: cut.then_some(true),
             lines: found.matches.as_ref().map_or(0, |m| m.lines),
             matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
             conditions: found.conditions.iter().map(ToString::to_string).collect(),

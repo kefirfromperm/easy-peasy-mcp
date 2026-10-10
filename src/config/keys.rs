@@ -41,6 +41,7 @@ pub enum Key {
     MaxFiles,
     MaxLines,
     MaxMatches,
+    MaxMatchesPerFile,
     Dedent,
     BlankContext,
     GroupDirs,
@@ -60,7 +61,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 47] = [
+    pub const ALL: [Key; 48] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -93,6 +94,7 @@ impl Key {
         Self::MaxFiles,
         Self::MaxLines,
         Self::MaxMatches,
+        Self::MaxMatchesPerFile,
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
@@ -171,6 +173,7 @@ impl Key {
             Self::MaxFiles => ("output", "max_files", Type::AtLeast(1)),
             Self::MaxLines => ("output", "max_lines", Type::AtLeast(1)),
             Self::MaxMatches => ("output", "max_matches", Type::AtLeast(1)),
+            Self::MaxMatchesPerFile => ("output", "max_matches_per_file", Type::AtLeast(1)),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::Sort => (
@@ -213,7 +216,7 @@ impl Key {
             Self::DefaultDirs => list(&["."]),
             Self::Timeout => Value::Text("30s".to_string()),
             Self::Threads | Self::MinDepth | Self::Context => Value::Whole(0),
-            Self::ResultCache => Value::Whole(50),
+            Self::ResultCache | Self::MaxMatchesPerFile => Value::Whole(50),
             Self::MaxFiles => Value::Whole(100),
             Self::MaxLines => Value::Whole(500),
             Self::MaxMatches => Value::Whole(1000),
