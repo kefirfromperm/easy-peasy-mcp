@@ -18,6 +18,7 @@ mod repeated;
 mod sort;
 
 pub use blocks::BlockOptions;
+use listing::{Listed, Listing};
 pub use sort::{Sort, sort_files};
 
 pub use lines::{Fragment, matched_lines, merge_identical};
@@ -51,6 +52,8 @@ pub enum Highlight<'a> {
 pub struct Limits {
     /// The files listed in `files` and `lines` detail.
     pub max_files: usize,
+    /// The matched lines listed under the files.
+    pub max_lines: usize,
 }
 
 impl Default for Limits {
@@ -58,6 +61,7 @@ impl Default for Limits {
     fn default() -> Self {
         Self {
             max_files: usize::MAX,
+            max_lines: usize::MAX,
         }
     }
 }
@@ -108,7 +112,9 @@ impl Response<'_> {
     /// The text format.
     #[must_use]
     pub fn to_text(&self) -> String {
-        let truncated_by = self.truncated_by();
+        let repeated = self.repeated();
+        let listing = self.listing(&repeated);
+        let truncated_by = self.truncated_by(&listing);
         let timeout = if truncated_by.is_empty() {
             String::new()
         } else {
@@ -138,60 +144,69 @@ impl Response<'_> {
             let _ = writeln!(out, "{id} {text}");
         }
         out.push('\n');
-        let repeated = self.repeated();
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
-        for (index, file) in self.listed().iter().enumerate() {
-            let rest = self.rest(&repeated, index);
-            if rest.as_ref().is_some_and(Vec::is_empty) {
-                continue;
-            }
-            if self.group_dirs {
-                let (dir, name) = split_found(file);
-                if current.as_deref() != Some(dir.as_str()) {
-                    out.push_str(&dir);
-                    out.push('\n');
-                    current = Some(dir);
-                }
-                out.push_str(&name);
-                if file.is_dir {
-                    out.push(SEP);
-                }
-            } else {
-                out.push_str(&display_found(file));
-            }
-            if !file.conditions.is_empty() {
-                let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
-                let _ = write!(out, "  [{}]", ids.join(" "));
-            }
-            if let Some(m) = &file.matches {
-                let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
-            }
-            if let Some(encoding) = file.encoding {
-                let _ = write!(out, "  {}", encoding.name());
-            }
-            if let Some(meta) = &file.meta {
-                let _ = write!(out, "  {}", meta::text(meta, &self.time_zone));
-                if let Some(score) = file.score {
-                    let _ = write!(out, " {:.2}", crate::relevance::shown_score(score));
-                }
-            }
-            out.push('\n');
-            if let Some(path) = &file.path_fragments {
-                self.push_path_fragments(&mut out, path, file.is_dir);
-            }
-            if let (Some(m), Some(fragments)) = (&file.matches, rest) {
-                let blocks = blocks::blocks(&m.content, &fragments, &self.blocks);
-                out.push_str(&lines::render(
-                    &m.content,
-                    &fragments,
-                    &blocks,
-                    self.highlight,
-                ));
+        for (file, listed) in self.listed().iter().zip(&listing.files) {
+            if *listed != Listed::LeftOut {
+                self.push_file(&mut out, file, listed, &mut current);
             }
         }
         self.push_warnings(&mut out);
         out
+    }
+
+    /// A listed file: its line (under its directory header when it differs from `current`), its path fragments and
+    /// its listed lines.
+    fn push_file(
+        &self,
+        out: &mut String,
+        file: &Found,
+        listed: &Listed,
+        current: &mut Option<String>,
+    ) {
+        if self.group_dirs {
+            let (dir, name) = split_found(file);
+            if current.as_deref() != Some(dir.as_str()) {
+                out.push_str(&dir);
+                out.push('\n');
+                *current = Some(dir);
+            }
+            out.push_str(&name);
+            if file.is_dir {
+                out.push(SEP);
+            }
+        } else {
+            out.push_str(&display_found(file));
+        }
+        if !file.conditions.is_empty() {
+            let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
+            let _ = write!(out, "  [{}]", ids.join(" "));
+        }
+        if let Some(m) = &file.matches {
+            let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
+        }
+        if let Some(encoding) = file.encoding {
+            let _ = write!(out, "  {}", encoding.name());
+        }
+        if let Some(meta) = &file.meta {
+            let _ = write!(out, "  {}", meta::text(meta, &self.time_zone));
+            if let Some(score) = file.score {
+                let _ = write!(out, " {:.2}", crate::relevance::shown_score(score));
+            }
+        }
+        out.push('\n');
+        if let Some(path) = &file.path_fragments {
+            self.push_path_fragments(out, path, file.is_dir);
+        }
+        if let (Some(m), Listed::Lines(fragments)) = (&file.matches, listed) {
+            let blocks = blocks::blocks(&m.content, fragments, &self.blocks);
+            out.push_str(&lines::render(
+                &m.content,
+                fragments,
+                &blocks,
+                self.highlight,
+            ));
+        }
     }
 
     /// The line of the path fragments in the highlight style: `  path: <path with markers>`, `  path @ …`, none
@@ -229,15 +244,25 @@ impl Response<'_> {
     }
 
     /// The limits which were hit, in the order of the limits table.
-    fn truncated_by(&self) -> Vec<&'static str> {
+    fn truncated_by(&self, listing: &Listing) -> Vec<&'static str> {
         let mut by = Vec::new();
         if self.detail >= Detail::Files && self.files.len() > self.limits.max_files {
             by.push("max_files");
         }
+        by.extend(&listing.truncated_by);
         if self.timed_out {
             by.push("timeout");
         }
         by
+    }
+
+    /// What is listed of the listed files: in `lines` detail their lines after the repeated lines and the limits.
+    fn listing(&self, repeated: &repeated::Repeated) -> Listing {
+        if self.detail == Detail::Lines {
+            Listing::new(self.listed(), repeated, &self.limits)
+        } else {
+            Listing::without_lines(self.listed())
+        }
     }
 
     /// The repeated lines of the files, only in `lines` detail.
@@ -247,16 +272,6 @@ impl Response<'_> {
         } else {
             repeated::Repeated::default()
         }
-    }
-
-    /// In `lines` detail the fragments of the file `index` to print, those which are not on its repeated lines: empty
-    /// if it has fragments only there and is left out; `None` for a file without fragments and in other detail levels.
-    fn rest(&self, repeated: &repeated::Repeated, index: usize) -> Option<Vec<Fragment>> {
-        let m = self.files[index]
-            .matches
-            .as_ref()
-            .filter(|m| !m.fragments.is_empty())?;
-        (self.detail == Detail::Lines).then(|| repeated.rest(index, &m.content, &m.fragments))
     }
 
     /// The `repeated:` section: `  ×N <line>    <locations>` (OUTPUT.md#repeated-lines).
@@ -661,7 +676,10 @@ mod tests {
                 group_repeated: 3,
                 highlight: Highlight::Markers("⟦", "⟧"),
                 time_zone: jiff::tz::TimeZone::UTC,
-                limits: Limits { max_files },
+                limits: Limits {
+                    max_files,
+                    ..Limits::default()
+                },
                 result_id: None,
                 legend: &legend,
                 files: &files,

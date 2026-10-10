@@ -1,5 +1,91 @@
 //! What is listed of the matched files after the repeated lines and the limits (OUTPUT.md#limits-and-truncation).
 
+use super::lines::lines_of;
+use super::repeated::Repeated;
+use super::{Fragment, Limits};
+use crate::content::Content;
+use crate::search::Found;
+
+/// What is listed of one file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Listed {
+    /// No lines: the file has no fragments, or the detail lists no lines.
+    NoLines,
+    /// All its fragments are on repeated lines: the file is not listed.
+    LeftOut,
+    /// The fragments whose lines are listed, none when a limit cut them all.
+    Lines(Vec<Fragment>),
+}
+
+/// What is listed of the listed files, and the limits which cut it, in the order of the limits table.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Listing {
+    pub files: Vec<Listed>,
+    pub truncated_by: Vec<&'static str>,
+}
+
+impl Listing {
+    /// The files without lines.
+    pub fn without_lines(files: &[Found]) -> Self {
+        Self {
+            files: vec![Listed::NoLines; files.len()],
+            truncated_by: Vec::new(),
+        }
+    }
+
+    /// The lines of the files in `lines` detail: the fragments which are not on repeated lines, those of the first
+    /// `max_lines` matched lines in the order of the files.
+    pub fn new(files: &[Found], repeated: &Repeated, limits: &Limits) -> Self {
+        let mut lines_left = limits.max_lines;
+        let mut cut_lines = false;
+        let mut listed = Vec::with_capacity(files.len());
+        for (index, file) in files.iter().enumerate() {
+            let Some(m) = file.matches.as_ref().filter(|m| !m.fragments.is_empty()) else {
+                listed.push(Listed::NoLines);
+                continue;
+            };
+            let rest = repeated.rest(index, &m.content, &m.fragments);
+            if rest.is_empty() {
+                listed.push(Listed::LeftOut);
+                continue;
+            }
+            let lines = lines_of(&m.content, &rest);
+            let rest = if lines.len() > lines_left {
+                cut_lines = true;
+                first_lines(&m.content, rest, &lines, lines_left)
+            } else {
+                rest
+            };
+            lines_left = lines_left.saturating_sub(lines_of(&m.content, &rest).len());
+            listed.push(Listed::Lines(rest));
+        }
+        let mut truncated_by = Vec::new();
+        if cut_lines {
+            truncated_by.push("max_lines");
+        }
+        Self {
+            files: listed,
+            truncated_by,
+        }
+    }
+}
+
+/// The fragments of the first `count` of the matched `lines`: a multiline fragment only with all its lines.
+fn first_lines(
+    content: &Content,
+    fragments: Vec<Fragment>,
+    lines: &[usize],
+    count: usize,
+) -> Vec<Fragment> {
+    let Some(&last) = count.checked_sub(1).and_then(|i| lines.get(i)) else {
+        return Vec::new();
+    };
+    fragments
+        .into_iter()
+        .filter(|f| content.line_of(f.range.end.saturating_sub(1).max(f.range.start)) <= last)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -74,7 +160,10 @@ mod tests {
         let listing = Listing::new(&files, &Repeated::default(), &limits);
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
         let all = Listing::new(&files, &Repeated::default(), &Limits::default());
-        assert_eq!(listed_lines(&all, &files), [vec![0, 1, 3], vec![0, 1, 2, 3]]);
+        assert_eq!(
+            listed_lines(&all, &files),
+            [vec![0, 1, 3], vec![0, 1, 2, 3]]
+        );
         assert!(all.truncated_by.is_empty());
         let one = Listing::new(
             &files,

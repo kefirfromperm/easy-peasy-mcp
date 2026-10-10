@@ -257,6 +257,7 @@ impl Engine {
             time_zone: self.options.time_zone.clone(),
             limits: Limits {
                 max_files: settings.whole(Key::MaxFiles),
+                max_lines: settings.whole(Key::MaxLines),
             },
             blocks: block_options(&settings),
             result_id: result_id.as_deref(),
