@@ -304,8 +304,12 @@ mod tests {
             [(Key::PathStyle, KeyValue::Text("absolute".into()))]
         );
         assert_eq!(
-            text(&json!({ "output": { "meta": true } })),
-            "error[not_implemented]: the field 'output.meta' is not implemented yet\n"
+            config(&json!({ "output": { "meta": true } })),
+            [(Key::Meta, KeyValue::Bool(true))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "sort": "path asc" } })),
+            "error[not_implemented]: the field 'output.sort' is not implemented yet\n"
         );
     }
 
