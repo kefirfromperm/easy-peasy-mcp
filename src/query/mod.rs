@@ -21,7 +21,7 @@ use lexer::Token;
 
 pub use eval::{
     ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, Report, TextMatcher,
-    TextTarget, Truth, content_matches, find_all,
+    TextPattern, TextTarget, Truth,
 };
 pub(crate) use suggest::did_you_mean;
 
@@ -74,6 +74,8 @@ pub struct Needs {
     pub git: bool,
     /// A `text` condition: the content of files.
     pub content: bool,
+    /// A condition with `/c`: the comments of files, by their language.
+    pub comments: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -120,6 +122,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
                 needs.kind |= c.target == Target::Kind;
                 needs.git |= c.target == Target::Git;
                 needs.content |= matches!(c.target, Target::Text | Target::Len);
+                needs.comments |= c.modifiers.iter().any(|m| m.name == "c");
             }
         });
     }
@@ -769,6 +772,7 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
             _ => escaped,
         };
         let whole_word = c.modifiers.iter().any(|m| m.name == "w");
+        let skip_comments = c.modifiers.iter().any(|m| m.name == "c");
         if c.op.as_ref().map(|(op, _)| *op) == Some(Op::Regex) {
             let insensitive = c.modifiers.iter().any(|m| m.name == "i");
             let multiline = c.modifiers.iter().any(|m| m.name == "m");
@@ -780,9 +784,12 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
             return Filter::Content {
                 id,
                 order,
-                regex,
-                per_line: !multiline,
-                whole_word,
+                pattern: TextPattern {
+                    regex,
+                    per_line: !multiline,
+                    whole_word,
+                    skip_comments,
+                },
             };
         }
         let regex =
@@ -790,9 +797,12 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         return Filter::Content {
             id,
             order,
-            regex,
-            per_line: false,
-            whole_word,
+            pattern: TextPattern {
+                regex,
+                per_line: false,
+                whole_word,
+                skip_comments,
+            },
         };
     }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
@@ -1009,8 +1019,8 @@ mod tests {
 
     #[test]
     fn allowed_modifiers_pass_validation() {
+        assert!(parse("text =~ 'a' /m /w /i /c", &SENSITIVE).is_ok());
         for q in [
-            "text =~ 'a' /m /w /i /c",
             "text has 'a' /e(xml, 1) /w",
             "name has 'a b' /n",
             "line(text has 'a' /n /i)",
@@ -1226,6 +1236,53 @@ mod tests {
         assert!(content_matches("text ends '\n'", "a\r\n"));
         assert!(!content_matches("text ends '\n'", "a"));
         assert!(content_matches("text ends 'A' /i", "xa"));
+    }
+
+    fn rust_matches(q: &str, text: &str) -> bool {
+        let table = crate::languages::LanguageTable::builtin();
+        let rust = table.detect("a.rs", || None).unwrap();
+        let content = crate::content::Content::from_bytes(text.as_bytes()).with_comments(rust);
+        let file = FileValues {
+            name: "a.rs",
+            path: "a.rs",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "rust",
+            kind: Kind::Other,
+            git: None,
+            content: ContentState::Text(&content),
+        };
+        parse(q, &SENSITIVE).unwrap().filter.unwrap().matches(&file)
+    }
+
+    #[test]
+    fn skip_comments() {
+        assert!(!rust_matches("text has 'x' /c", "// x\n/* x */"));
+        assert!(rust_matches("text has 'x' /c", "x // x"));
+        assert!(rust_matches("text has 'x' /c", "\"// x\""));
+        assert!(rust_matches("text has 'x' /c /w", "// x\nx"));
+        assert!(!rust_matches("text =~ `^ *x` /c", "  // x"));
+        assert!(rust_matches("text =~ `x$` /c /m", "// x\nx"));
+        assert!(!rust_matches("line(text has 'x' /c)", "/* a\nx */"));
+        assert!(rust_matches("line(text has 'x')", "/* a\nx */"));
+        // a match which starts before a comment counts
+        assert!(rust_matches("text has 'a //' /c", "a // b"));
+        assert!(rust_matches(
+            "near(text has 'a' /c, text has 'b' /c, 2)",
+            "a\n// b\nb"
+        ));
+        assert!(!rust_matches(
+            "near(text has 'a' /c, text has 'b' /c, 1)",
+            "a\n// b\nb"
+        ));
+        assert!(!rust_matches(
+            "near(text has 'a' /c, text has 'b' /c, 0)",
+            "a // b"
+        ));
     }
 
     #[test]

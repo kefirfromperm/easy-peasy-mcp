@@ -3,7 +3,7 @@
 use regex::Regex;
 
 use super::ast::CondId;
-use crate::content::Content;
+use crate::content::{Content, LineRef};
 use crate::git::{GitStatus, GitValue};
 
 /// How a text value is matched: a regex over the NFC form of the value.
@@ -232,14 +232,11 @@ pub enum Filter {
         values: Vec<GitValue>,
         negated: bool,
     },
-    /// A `text` condition in file scope: the regex runs over the whole normalized content, or over every line
-    /// separately (`=~` without `/m`); `whole_word` for `/w`.
+    /// A `text` condition.
     Content {
         id: CondId,
         order: usize,
-        regex: Regex,
-        per_line: bool,
-        whole_word: bool,
+        pattern: TextPattern,
     },
     /// `len` inside `line( ... )`: the number of characters of the line.
     Len {
@@ -272,25 +269,55 @@ pub enum Filter {
     },
 }
 
-/// The byte ranges of the matches of `regex` in the normalized content: over the whole text, or per line; with
-/// `whole_word` only matches without a letter, digit or `_` right before and after them.
-pub fn content_matches(
-    regex: &Regex,
-    per_line: bool,
-    whole_word: bool,
-    content: &Content,
-) -> Vec<std::ops::Range<usize>> {
-    if per_line {
-        (0..content.line_count())
-            .flat_map(|i| {
-                let (start, end) = content.line_range(i);
-                find_all(regex, &content.text()[start..end], whole_word)
-                    .into_iter()
-                    .map(move |r| start + r.start..start + r.end)
-            })
-            .collect()
-    } else {
-        find_all(regex, content.text(), whole_word)
+/// How a `text` condition matches: a regex over the whole normalized content, or over every line separately (`=~`
+/// without `/m`); in line scope over the line.
+#[derive(Debug, Clone)]
+pub struct TextPattern {
+    pub regex: Regex,
+    pub per_line: bool,
+    /// `/w`: only matches without a letter, digit or `_` right before and after them.
+    pub whole_word: bool,
+    /// `/c`: only matches which don't start inside a comment.
+    pub skip_comments: bool,
+}
+
+impl TextPattern {
+    /// The byte ranges of the matches in the normalized content.
+    pub fn content_matches(&self, content: &Content) -> Vec<std::ops::Range<usize>> {
+        if self.per_line {
+            (0..content.line_count())
+                .flat_map(|i| {
+                    let line = content.line_ref(i);
+                    self.line_matches(line)
+                        .into_iter()
+                        .map(move |r| line.start + r.start..line.start + r.end)
+                })
+                .collect()
+        } else {
+            let in_comment = |offset| content.in_comment(offset);
+            find_all(
+                &self.regex,
+                content.text(),
+                self.whole_word,
+                self.skip(&in_comment),
+            )
+        }
+    }
+
+    /// The byte ranges of the matches in the line, relative to its start.
+    pub fn line_matches(&self, line: LineRef<'_>) -> Vec<std::ops::Range<usize>> {
+        let in_comment = |offset| line.in_comment(offset);
+        find_all(
+            &self.regex,
+            line.text,
+            self.whole_word,
+            self.skip(&in_comment),
+        )
+    }
+
+    /// `in_comment` with `/c`.
+    fn skip<'f>(&self, in_comment: &'f dyn Fn(usize) -> bool) -> Option<&'f dyn Fn(usize) -> bool> {
+        self.skip_comments.then_some(in_comment)
     }
 }
 
@@ -299,24 +326,38 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '_'
 }
 
-/// All matches in `hay`; with `whole_word` a rejected match lets the search go on one character after its start.
-pub fn find_all(regex: &Regex, hay: &str, whole_word: bool) -> Vec<std::ops::Range<usize>> {
-    if !whole_word {
+/// All matches in `hay`, except, with `whole_word`, those next to a word character and those `skip` rejects by
+/// their start; a rejected match lets the search go on one character after its start.
+fn find_all(
+    regex: &Regex,
+    hay: &str,
+    whole_word: bool,
+    skip: Option<&dyn Fn(usize) -> bool>,
+) -> Vec<std::ops::Range<usize>> {
+    if !whole_word && skip.is_none() {
         return regex.find_iter(hay).map(|m| m.range()).collect();
     }
+    let next_char = |pos: usize| pos + hay[pos..].chars().next().map_or(1, char::len_utf8);
     let mut out = Vec::new();
     let mut pos = 0;
     while pos <= hay.len() {
         let Some(m) = regex.find_at(hay, pos) else {
             break;
         };
-        let before = hay[..m.start()].chars().next_back();
-        let after = hay[m.end()..].chars().next();
-        if !m.is_empty() && !before.is_some_and(is_word_char) && !after.is_some_and(is_word_char) {
+        let word_ok = !whole_word || {
+            let before = hay[..m.start()].chars().next_back();
+            let after = hay[m.end()..].chars().next();
+            !m.is_empty() && !before.is_some_and(is_word_char) && !after.is_some_and(is_word_char)
+        };
+        if word_ok && !skip.is_some_and(|skip| skip(m.start())) {
             out.push(m.range());
-            pos = m.end();
+            pos = if m.is_empty() {
+                next_char(m.end())
+            } else {
+                m.end()
+            };
         } else {
-            pos = m.start() + hay[m.start()..].chars().next().map_or(1, char::len_utf8);
+            pos = next_char(m.start());
         }
     }
     out
@@ -419,24 +460,19 @@ impl Filter {
             Self::Kind {
                 values, negated, ..
             } => Truth::from(values.contains(&file.kind) != *negated),
-            Self::Content {
-                regex,
-                per_line,
-                whole_word,
-                ..
-            } => match file.content {
+            Self::Content { pattern, .. } => match file.content {
                 ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
                 ContentState::Absent => Truth::False,
                 ContentState::Text(content) => {
-                    Truth::from(!content_matches(regex, *per_line, *whole_word, content).is_empty())
+                    Truth::from(!pattern.content_matches(content).is_empty())
                 }
             },
             Self::Line { inner, .. } => match file.content {
                 ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
                 ContentState::Absent => Truth::False,
-                ContentState::Text(content) => {
-                    Truth::from((0..content.line_count()).any(|i| inner.eval_line(content.line(i))))
-                }
+                ContentState::Text(content) => Truth::from(
+                    (0..content.line_count()).any(|i| inner.eval_line(content.line_ref(i))),
+                ),
             },
             Self::Near { .. } => match file.content {
                 ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
@@ -506,17 +542,15 @@ impl Filter {
     }
 
     /// Whether a line scope expression is true for the line.
-    pub fn eval_line(&self, line: &str) -> bool {
+    pub fn eval_line(&self, line: LineRef<'_>) -> bool {
         match self {
             Self::And(items) => items.iter().all(|f| f.eval_line(line)),
             Self::Or(items) => items.iter().any(|f| f.eval_line(line)),
             Self::Xor(items) => items.iter().filter(|f| f.eval_line(line)).count() % 2 == 1,
             Self::Not(inner) => !inner.eval_line(line),
-            Self::Content {
-                regex, whole_word, ..
-            } => !find_all(regex, line, *whole_word).is_empty(),
+            Self::Content { pattern, .. } => !pattern.line_matches(line).is_empty(),
             #[allow(clippy::cast_precision_loss)] // line lengths are far below 2^53
-            Self::Len { bounds, .. } => bounds.contains(line.chars().count() as f64),
+            Self::Len { bounds, .. } => bounds.contains(line.text.chars().count() as f64),
             _ => false,
         }
     }
@@ -537,7 +571,7 @@ impl Filter {
         };
         let lines = |f: &Filter| -> Vec<usize> {
             (0..content.line_count())
-                .filter(|&i| f.eval_line(content.line(i)))
+                .filter(|&i| f.eval_line(content.line_ref(i)))
                 .collect()
         };
         let (a_lines, b_lines) = (lines(a), lines(b));
@@ -552,7 +586,7 @@ impl Filter {
             let from = b_lines.partition_point(|&bl| bl < low);
             for &bl in b_lines[from..].iter().take_while(|&&bl| bl <= high) {
                 let same_line_ok = bl != al || !*ordered || {
-                    let line = content.line(al);
+                    let line = content.line_ref(al);
                     let a_end = a.match_spans(line).iter().map(|r| r.end).min();
                     b.match_spans(line)
                         .iter()
@@ -589,26 +623,24 @@ impl Filter {
 
     /// The byte ranges in the line of the matches of a line scope expression: of its contributing text conditions,
     /// or the whole line.
-    pub fn match_spans(&self, line: &str) -> Vec<std::ops::Range<usize>> {
+    pub fn match_spans(&self, line: LineRef<'_>) -> Vec<std::ops::Range<usize>> {
         let spans: Vec<_> = self
             .contributing_in_line(line)
             .into_iter()
             .flat_map(|leaf| match leaf {
-                Self::Content {
-                    regex, whole_word, ..
-                } => find_all(regex, line, *whole_word),
+                Self::Content { pattern, .. } => pattern.line_matches(line),
                 _ => Vec::new(),
             })
             .collect();
         if spans.is_empty() {
-            std::iter::once(0..line.len()).collect()
+            std::iter::once(0..line.text.len()).collect()
         } else {
             spans
         }
     }
 
     /// The conditions which made a line scope expression true for the line, in the order of appearance.
-    pub fn contributing_in_line(&self, line: &str) -> Vec<&Filter> {
+    pub fn contributing_in_line(&self, line: LineRef<'_>) -> Vec<&Filter> {
         let mut found = Vec::new();
         self.collect_line(line, &mut found);
         found.sort_by_key(|f| f.id().map(|(order, _)| order));
@@ -616,7 +648,7 @@ impl Filter {
         found
     }
 
-    fn collect_line<'f>(&'f self, line: &str, found: &mut Vec<&'f Filter>) {
+    fn collect_line<'f>(&'f self, line: LineRef<'_>, found: &mut Vec<&'f Filter>) {
         match self {
             Self::And(items) => items.iter().for_each(|f| f.collect_line(line, found)),
             Self::Or(items) | Self::Xor(items) => {

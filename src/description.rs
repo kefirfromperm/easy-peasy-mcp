@@ -41,7 +41,8 @@ Empty query = all files.
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'
 Modifiers after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i; /w whole word on text
-(no letter, digit or _ right before and after the match).
+(no letter, digit or _ right before and after the match); /c ignore matches in comments of the file's language
+(markers in strings are text; files of an unknown language are searched as is): text has 'unsafe' /c.
 Labels: name ~ '*.rs' @rust or name ~ '*.go' @go — the output shows which condition matched.
 # starts a comment until the end of the line (outside of strings).
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.

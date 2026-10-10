@@ -444,49 +444,49 @@ Names and extensions are compared case-insensitively. Directories and other file
 
 #### Built-in languages
 
-| Language     | Extensions, names, shebangs                                      | Line comment  | Block comment      |
-|--------------|------------------------------------------------------------------|---------------|--------------------|
-| `c`          | `c`, `h`                                                         | `//`          | `/* */`            |
-| `cpp`        | `cpp`, `cc`, `cxx`, `hpp`, `hh`, `hxx`                           | `//`          | `/* */`            |
-| `csharp`     | `cs`                                                             | `//`          | `/* */`            |
-| `java`       | `java`                                                           | `//`          | `/* */`            |
-| `kotlin`     | `kt`, `kts`                                                      | `//`          | `/* */`, nested    |
-| `scala`      | `scala`, `sc`                                                    | `//`          | `/* */`, nested    |
-| `go`         | `go`                                                             | `//`          | `/* */`            |
-| `swift`      | `swift`                                                          | `//`          | `/* */`, nested    |
-| `dart`       | `dart`                                                           | `//`          | `/* */`, nested    |
-| `groovy`     | `groovy`, `gradle`                                               | `//`          | `/* */`            |
-| `javascript` | `js`, `jsx`, `mjs`, `cjs`; shebang `node`                        | `//`          | `/* */`            |
-| `typescript` | `ts`, `tsx`, `mts`, `cts`                                        | `//`          | `/* */`            |
-| `rust`       | `rs`                                                             | `//`          | `/* */`, nested    |
-| `php`        | `php`                                                            | `//`, `#`     | `/* */`            |
-| `css`        | `css`                                                            | —             | `/* */`            |
-| `scss`       | `scss`, `less`                                                   | `//`          | `/* */`            |
-| `python`     | `py`, `pyi`; shebang `python`, `python3`                         | `#`           | —                  |
-| `ruby`       | `rb`; `Gemfile`, `Rakefile`; shebang `ruby`                      | `#`           | `=begin =end`      |
-| `shell`      | `sh`, `bash`, `zsh`; shebang `sh`, `bash`, `zsh`                 | `#`           | —                  |
-| `perl`       | `pl`, `pm`; shebang `perl`                                       | `#`           | —                  |
-| `r`          | `r`                                                              | `#`           | —                  |
-| `powershell` | `ps1`, `psm1`                                                    | `#`           | `<# #>`            |
-| `batch`      | `bat`, `cmd`                                                     | `REM`, `::`   | —                  |
-| `sql`        | `sql`                                                            | `--`          | `/* */`            |
-| `lua`        | `lua`                                                            | `--`          | `--[[ ]]`          |
-| `haskell`    | `hs`                                                             | `--`          | `{- -}`, nested    |
-| `clojure`    | `clj`, `cljs`, `cljc`                                            | `;`           | —                  |
-| `lisp`       | `lisp`, `el`, `scm`                                              | `;`           | —                  |
-| `html`       | `html`, `htm`                                                    | —             | `<!-- -->`         |
-| `xml`        | `xml`, `svg`, `xsd`, `xsl`                                       | —             | `<!-- -->`         |
-| `vue`        | `vue`                                                            | `//`          | `<!-- -->`, `/* */` |
-| `markdown`   | `md`, `markdown`                                                 | —             | `<!-- -->`         |
-| `yaml`       | `yml`, `yaml`                                                    | `#`           | —                  |
-| `toml`       | `toml`                                                           | `#`           | —                  |
-| `ini`        | `ini`, `cfg`, `conf`                                             | `#`, `;`      | —                  |
-| `properties` | `properties`                                                     | `#`, `!`      | —                  |
-| `dotenv`     | `env`; `.env`                                                    | `#`           | —                  |
-| `json`       | `json`                                                           | —             | —                  |
-| `jsonc`      | `jsonc`, `json5`                                                 | `//`          | `/* */`            |
-| `dockerfile` | `dockerfile`; `Dockerfile`                                       | `#`           | —                  |
-| `makefile`   | `mk`; `Makefile`, `GNUmakefile`                                  | `#`           | —                  |
+| Language     | Extensions, names, shebangs                                      | Line comment  | Block comment | Strings         |
+|--------------|------------------------------------------------------------------|---------------|--------------------|-----------------|
+| `c`          | `c`, `h`                                                         | `//`          | `/* */` | `"`, `'`        |
+| `cpp`        | `cpp`, `cc`, `cxx`, `hpp`, `hh`, `hxx`                           | `//`          | `/* */` | `"`, `'`        |
+| `csharp`     | `cs`                                                             | `//`          | `/* */` | `"`, `'`        |
+| `java`       | `java`                                                           | `//`          | `/* */` | `"`, `'`        |
+| `kotlin`     | `kt`, `kts`                                                      | `//`          | `/* */`, nested | `"`, `'`        |
+| `scala`      | `scala`, `sc`                                                    | `//`          | `/* */`, nested | `"`, `'`        |
+| `go`         | `go`                                                             | `//`          | `/* */` | `"`, `` ` ``    |
+| `swift`      | `swift`                                                          | `//`          | `/* */`, nested | `"`, `'`        |
+| `dart`       | `dart`                                                           | `//`          | `/* */`, nested | `"`, `'`        |
+| `groovy`     | `groovy`, `gradle`                                               | `//`          | `/* */` | `"`, `'`        |
+| `javascript` | `js`, `jsx`, `mjs`, `cjs`; shebang `node`                        | `//`          | `/* */` | `"`, `'`, `` ` `` |
+| `typescript` | `ts`, `tsx`, `mts`, `cts`                                        | `//`          | `/* */` | `"`, `'`, `` ` `` |
+| `rust`       | `rs`                                                             | `//`          | `/* */`, nested | `"`             |
+| `php`        | `php`                                                            | `//`, `#`     | `/* */` | `"`, `'`        |
+| `css`        | `css`                                                            | —             | `/* */` | `"`, `'`        |
+| `scss`       | `scss`, `less`                                                   | `//`          | `/* */` | `"`, `'`        |
+| `python`     | `py`, `pyi`; shebang `python`, `python3`                         | `#`           | — | `"`, `'`        |
+| `ruby`       | `rb`; `Gemfile`, `Rakefile`; shebang `ruby`                      | `#`           | `=begin =end` | `"`, `'`        |
+| `shell`      | `sh`, `bash`, `zsh`; shebang `sh`, `bash`, `zsh`                 | `#`           | — | `"`, `'`        |
+| `perl`       | `pl`, `pm`; shebang `perl`                                       | `#`           | — | `"`, `'`        |
+| `r`          | `r`                                                              | `#`           | — | `"`, `'`        |
+| `powershell` | `ps1`, `psm1`                                                    | `#`           | `<# #>` | `"`, `'`        |
+| `batch`      | `bat`, `cmd`                                                     | `REM`, `::`   | — | `"`             |
+| `sql`        | `sql`                                                            | `--`          | `/* */` | `"`, `'`        |
+| `lua`        | `lua`                                                            | `--`          | `--[[ ]]` | `"`, `'`        |
+| `haskell`    | `hs`                                                             | `--`          | `{- -}`, nested | `"`             |
+| `clojure`    | `clj`, `cljs`, `cljc`                                            | `;`           | — | `"`             |
+| `lisp`       | `lisp`, `el`, `scm`                                              | `;`           | — | `"`             |
+| `html`       | `html`, `htm`                                                    | —             | `<!-- -->` | `"`             |
+| `xml`        | `xml`, `svg`, `xsd`, `xsl`                                       | —             | `<!-- -->` | `"`             |
+| `vue`        | `vue`                                                            | `//`          | `<!-- -->`, `/* */` | `"`, `'`, `` ` `` |
+| `markdown`   | `md`, `markdown`                                                 | —             | `<!-- -->` | —               |
+| `yaml`       | `yml`, `yaml`                                                    | `#`           | — | `"`             |
+| `toml`       | `toml`                                                           | `#`           | — | `"`             |
+| `ini`        | `ini`, `cfg`, `conf`                                             | `#`, `;`      | — | `"`             |
+| `properties` | `properties`                                                     | `#`, `!`      | — | `"`             |
+| `dotenv`     | `env`; `.env`                                                    | `#`           | — | `"`             |
+| `json`       | `json`                                                           | —             | — | `"`             |
+| `jsonc`      | `jsonc`, `json5`                                                 | `//`          | `/* */` | `"`             |
+| `dockerfile` | `dockerfile`; `Dockerfile`                                       | `#`           | — | `"`             |
+| `makefile`   | `mk`; `Makefile`, `GNUmakefile`                                  | `#`           | — | `"`             |
 
 Data and document formats have `source = false`: `json`, `jsonc`, `yaml`, `toml`, `ini`, `properties`, `dotenv`, `xml`,
 `markdown`. They are found by `lang`, but their files are not `kind = source`; without a matching `config` or `doc`
@@ -496,6 +496,13 @@ rule they are `other`.
 
 The `/c` modifier (see [QUERY.md](QUERY.md#comments)) uses the comment keys of the language of the file. Files of an
 unknown language are searched as is.
+
+- the file is read from the start: outside of strings and comments, the longest marker at a position starts a string,
+  a line comment or a block comment; a line comment ends at the end of the line, a block comment at its end marker
+  (with `nested_block_comments` after as many end markers as start markers), the markers belong to the comment
+- a string ends at the same delimiter which is not escaped with `\`; a string of `"` or `'` also ends at the end of
+  the line, other delimiters (`` ` ``) may span lines; comment markers inside a string are text
+- a match is inside a comment when its first character is
 
 Override or add a language:
 
