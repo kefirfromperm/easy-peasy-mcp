@@ -296,7 +296,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "easy-peasy-mcp"
-version = "0.109.0"
+version = "0.110.0"
 dependencies = [
  "anyhow",
  "bzip2",

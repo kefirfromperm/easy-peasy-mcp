@@ -36,6 +36,7 @@ pub enum ErrorCode {
     UpdateDisabled,
     CursorMismatch,
     CursorInvalid,
+    UnsupportedVersion,
     NotImplemented,
 }
 
@@ -74,6 +75,7 @@ impl ErrorCode {
             Self::UpdateDisabled => "update_disabled",
             Self::CursorMismatch => "cursor_mismatch",
             Self::CursorInvalid => "cursor_invalid",
+            Self::UnsupportedVersion => "unsupported_version",
             Self::NotImplemented => "not_implemented",
         }
     }
