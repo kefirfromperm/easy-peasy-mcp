@@ -474,7 +474,10 @@ generated = ["**/*.lock", "**/src/gen/**", "**/*.pb.go"]
 ```
 
 Errors: `invalid value for 'kinds.generated_markers': a list of strings is expected`; in a request (the object
-`kinds`) `'kinds.generated_markers' must be a list of strings`.
+`kinds`) `'kinds.generated_markers' must be a list of strings`. `generated_marker_lines` is a whole number of at least 1: `invalid
+value for 'kinds.generated_marker_lines': a whole number of at least 1 is expected`, in a request
+`'kinds.generated_marker_lines' must be a whole number of at least 1`; every key with a minimum (see the input schema
+in [TOOLS.md](TOOLS.md#input-schema)) says it the same way.
 
 ### git
 
