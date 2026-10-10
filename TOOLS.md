@@ -60,7 +60,9 @@ The spec version is an integer, it grows only on a breaking change.
 - A request can pin the spec version with `"version": 1`. Without it the current version is used.
 - The server supports the current spec version and may keep older ones; `get_config` lists them in the first comment
   line of its result: `# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1`.
-- An unsupported version fails with `unsupported_version` and the list of supported ones.
+- An unsupported version fails with `unsupported_version` and the list of supported ones:
+  `error[unsupported_version]: the spec version 2 is not supported`, hint `supported spec versions: 1`; a value which
+  is not a whole number of at least 1 is `invalid_option`: `'version' must be a whole number of at least 1`.
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
