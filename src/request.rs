@@ -27,6 +27,7 @@ pub const FIELDS: [&str; 14] = [
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Traversal {
     pub min_depth: Option<usize>,
+    pub max_depth: Option<usize>,
 }
 
 /// A validated `find` request.
@@ -230,6 +231,17 @@ mod tests {
             Some(2)
         );
         assert_eq!(parse(&json!({})).unwrap().traversal, Traversal::default());
+        assert_eq!(
+            parse(&json!({ "traversal": { "max_depth": 1 } }))
+                .unwrap()
+                .traversal
+                .max_depth,
+            Some(1)
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "max_depth": 1.5 } })),
+            "error[invalid_option]: 'traversal.max_depth' must be a whole number\n"
+        );
         assert_eq!(
             text(&json!({ "traversal": { "min_depth": "2" } })),
             "error[invalid_option]: 'traversal.min_depth' must be a whole number\n"

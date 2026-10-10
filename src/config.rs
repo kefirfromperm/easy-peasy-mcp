@@ -1364,6 +1364,22 @@ mod tests {
     }
 
     #[test]
+    fn values_which_are_not_set() {
+        use serde_json::json;
+        let base = Settings::defaults(Path::new("/"));
+        let mut session = base.clone();
+        let mut call = |arguments: Value| update_config(&base, &mut session, &arguments).unwrap();
+        assert_eq!(
+            call(json!({ "set": "traversal.max_depth = 4" })),
+            "[traversal]\nmax_depth = 4    # was (not set)\n"
+        );
+        assert_eq!(
+            call(json!({ "reset": ["all"] })),
+            "[traversal]\n# max_depth =  (not set)    # was 4, reset\n"
+        );
+    }
+
+    #[test]
     fn update_config_errors() {
         use serde_json::json;
         assert_eq!(
