@@ -141,9 +141,7 @@ mod tests {
             check_str("# only").unwrap().0,
             "the comment '#' is not implemented yet"
         );
-        assert_eq!(
-            check_str("").unwrap().0,
-            "the empty query is not implemented yet"
-        );
+        assert_eq!(check_str(""), None);
+        assert_eq!(check_str(" \n\t"), None);
     }
 }

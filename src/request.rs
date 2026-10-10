@@ -111,10 +111,7 @@ mod tests {
     #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
-            assert_eq!(
-                text(&args),
-                "error[not_implemented]: the empty query is not implemented yet\n"
-            );
+            assert_eq!(parse(&args).unwrap().query.trim(), "");
         }
     }
 

@@ -106,6 +106,25 @@ mod tests {
     }
 
     #[test]
+    fn files_without_conditions_have_no_brackets() {
+        let files = [Found {
+            rel: PathBuf::from("a.md"),
+            conditions: vec![],
+        }];
+        let text = Response {
+            result_id: "r1",
+            legend: &[],
+            files: &files,
+        }
+        .to_text();
+        let s = SEP;
+        assert_eq!(
+            text,
+            format!("files: 1  lines: 0  matches: 0  result: r1\n\n.{s}\na.md\n")
+        );
+    }
+
+    #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             result_id: "r1",
