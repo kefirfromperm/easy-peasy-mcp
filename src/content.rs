@@ -125,6 +125,59 @@ mod tests {
         assert!(!is_binary(b"text\n"));
     }
 
+    fn text(bytes: &[u8]) -> (String, Encoding, bool) {
+        match decode(bytes) {
+            Decoded::Text {
+                content,
+                encoding,
+                errors,
+            } => (content.text().to_string(), encoding, errors),
+            Decoded::Binary => panic!("binary"),
+        }
+    }
+
+    #[test]
+    fn byte_order_marks() {
+        assert_eq!(
+            text(b"\xef\xbb\xbfhi\n"),
+            ("hi\n".into(), Encoding::Utf8, false)
+        );
+        assert_eq!(
+            text(b"\xff\xfeh\0i\0"),
+            ("hi".into(), Encoding::Utf16Le, false)
+        );
+        assert_eq!(
+            text(b"\xfe\xff\0h\0i"),
+            ("hi".into(), Encoding::Utf16Be, false)
+        );
+        assert_eq!(
+            text(b"\xff\xfe\0\0h\0\0\0"),
+            ("h".into(), Encoding::Utf32Le, false)
+        );
+        assert_eq!(
+            text(b"\0\0\xfe\xff\0\0\0h"),
+            ("h".into(), Encoding::Utf32Be, false)
+        );
+    }
+
+    #[test]
+    fn utf16_without_a_bom() {
+        assert_eq!(
+            text(b"h\0i\0\n\0"),
+            ("hi\n".into(), Encoding::Utf16Le, false)
+        );
+        assert_eq!(text(b"\0h\0i"), ("hi".into(), Encoding::Utf16Be, false));
+        assert!(matches!(decode(b"a\0\0b"), Decoded::Binary));
+    }
+
+    #[test]
+    fn invalid_bytes_are_reported() {
+        assert_eq!(text(b"a\xffb"), ("a\u{fffd}b".into(), Encoding::Utf8, true));
+        let (t, _, errors) = text(b"\xff\xfe\0\0\0\0\x11\0");
+        assert_eq!((t.as_str(), errors), ("\u{fffd}", true));
+        assert_eq!(Encoding::Utf16Le.name(), "utf-16le");
+    }
+
     #[test]
     fn invalid_utf8_is_replaced() {
         let c = Content::from_bytes(b"a\xffb\n");
