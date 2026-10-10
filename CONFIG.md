@@ -491,6 +491,12 @@ wildcard '[a-' in 'kinds.test'`.
 `git = branch` is the files changed by the commits between the merge base of the base and `HEAD`, plus the
 uncommitted changes. On the base branch itself it is the same as `changed`.
 
+The base is looked up in every repository of a search. In a repository where a base set by name doesn't exist (and
+where `auto` finds none of its branches) `git = branch` is the same as `changed`; with a base set by name the files of
+such a repository get a `git_base_not_found` warning. A base is `auto` or a non-empty branch, tag or commit which
+doesn't start with `-`: `invalid value for 'git.base': "auto" or a branch, tag or commit is expected`, in a request
+(the object `git`) `'git.base' must be "auto" or a branch, tag or commit`.
+
 The git status is read only if the query has a `git` condition or the `git` facet is requested, so searches without
 it don't pay for it. It is read by the `git` program (`git status` and `git ls-files` once per repository), which
 must be installed; without it every file is outside of a repository. The server runs it with `core.fsmonitor`
