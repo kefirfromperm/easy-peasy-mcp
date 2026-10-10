@@ -301,10 +301,24 @@ mod tests {
     }
 
     #[test]
+    fn within() {
+        assert_eq!(
+            parse(&json!({ "query": "x", "within": "r12" })).unwrap().within,
+            Some(12)
+        );
+        for bad in [json!("12"), json!("r"), json!("rx"), json!(12)] {
+            assert_eq!(
+                text(&json!({ "within": bad })),
+                "error[invalid_option]: 'within' must be a result id like 'r12'\n"
+            );
+        }
+    }
+
+    #[test]
     fn spec_fields_are_not_implemented() {
         assert_eq!(
-            text(&json!({ "query": "x", "within": "r1" })),
-            "error[not_implemented]: the field 'within' is not implemented yet\n"
+            text(&json!({ "query": "x", "since": "r1" })),
+            "error[not_implemented]: the field 'since' is not implemented yet\n"
         );
     }
 
