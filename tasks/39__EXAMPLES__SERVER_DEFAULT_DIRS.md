@@ -1,0 +1,354 @@
+# Examples for task 39
+
+Examples with a command line are startup examples (AGENTS.md).
+
+## Fixtures
+
+### dirs
+
+```text tree
+api/src/main.rs            2026-10-01 10:00
+notes.txt                  2026-10-01 10:00
+web/README.md              2026-10-01 10:00
+web/src/app.ts             2026-10-01 10:00
+```
+
+File contents are in `tests/fixtures/dirs/`; every file has one line. Times are UTC.
+
+## E39.1 The default working directory: the start directory
+
+Fixture: `dirs`
+
+```json request
+{ "query": "name ~ '*.{rs,ts}'" }
+```
+
+```text response
+files: 2  lines: 0  matches: 0  result: r1
+#1 name ~ '*.{rs,ts}'
+
+api/src/
+main.rs  [#1]
+web/src/
+app.ts  [#1]
+```
+
+## E39.2 Several working directories
+
+Paths start with the directory as given; the files are in the order of their full paths.
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["web", "api"], "query": "name ~ '*.{rs,ts}'" }
+```
+
+```text response
+files: 2  lines: 0  matches: 0  result: r1
+#1 name ~ '*.{rs,ts}'
+
+api/src/
+main.rs  [#1]
+web/src/
+app.ts  [#1]
+```
+
+## E39.3 `path` is relative to the working directory
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["api"], "query": "path = 'src/main.rs'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 path = 'src/main.rs'
+
+api/src/
+main.rs  [#1]
+```
+
+## E39.4 Overlapping working directories
+
+A file is returned once, under the first working directory which reaches it.
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": [".", "api"], "query": "name = 'main.rs'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 name = 'main.rs'
+
+api/src/
+main.rs  [#1]
+```
+
+## E39.5 Files directly in a working directory
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["web"], "query": "name = 'README.md'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 name = 'README.md'
+
+web/
+README.md  [#1]
+```
+
+## E39.6 `..` inside an allowed root
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["api/../web"], "query": "name = 'app.ts'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 name = 'app.ts'
+
+api/../web/src/
+app.ts  [#1]
+```
+
+## E39.7 A working directory outside of the allowed roots
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["api", ".."] }
+```
+
+```text error
+error[dir_not_allowed]: the working directory '..' is outside of the allowed roots
+  hint: get_config shows the allowed roots
+```
+
+## E39.8 A working directory which doesn't exist
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["missing"] }
+```
+
+```text error
+error[dir_not_found]: the working directory 'missing' doesn't exist
+```
+
+## E39.9 A file as a working directory
+
+Fixture: `dirs`
+
+```json request
+{ "dirs": ["notes.txt"] }
+```
+
+```text error
+error[dir_not_found]: the working directory 'notes.txt' is not a directory
+```
+
+## E39.10 Invalid `dirs`
+
+Fixture: `dirs`
+
+1. `find`
+
+```json request
+{ "dirs": [] }
+```
+
+```text error
+error[invalid_option]: 'dirs' must be a non-empty list of strings
+```
+
+2. `find`
+
+```json request
+{ "dirs": "api" }
+```
+
+```text error
+error[invalid_option]: 'dirs' must be a non-empty list of strings
+```
+
+## E39.11 `get_config` shows the default
+
+Fixture: `dirs`
+
+```json request get_config
+{ "section": "server" }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']
+default_dirs = ['.']
+```
+
+## E39.12 Changing the default working directories in a session
+
+Fixture: `dirs`
+
+1. `update_config`
+
+```json request update_config
+{ "set": "server.default_dirs = [\"api\"]" }
+```
+
+```text response
+[server]
+default_dirs = ['api']    # was ['.']
+```
+
+2. `get_config`
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['api']    # update
+```
+
+3. `find`
+
+```json request
+{ "query": "name ~ '*.{rs,ts}'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 name ~ '*.{rs,ts}'
+
+api/src/
+main.rs  [#1]
+```
+
+4. `update_config`
+
+```json request update_config
+{ "reset": ["server.default_dirs"] }
+```
+
+```text response
+[server]
+default_dirs = ['.']    # was ['api'], reset
+```
+
+5. `update_config`
+
+```json request update_config
+{ "reset": ["all"] }
+```
+
+```text response
+# nothing changed
+```
+
+## E39.13 An invalid value for `update_config`
+
+Nothing is changed.
+
+Fixture: `dirs`
+
+1. `update_config`
+
+```json request update_config
+{ "set": "server.default_dirs = []" }
+```
+
+```text error
+error[invalid_value]: invalid value for 'server.default_dirs'
+  hint: a non-empty list of paths is expected
+```
+
+2. `get_config`
+
+```json request get_config
+{ "section": "server" }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']
+default_dirs = ['.']
+```
+
+## E39.14 The default working directories from the config file
+
+Fixture: `dirs`
+
+```toml conf/dirs.toml
+[server]
+default_dirs = ["web"]
+```
+
+```text command
+easy-peasy-mcp --config conf/dirs.toml
+```
+
+1. `get_config`
+
+```json request get_config
+{ "sources": true }
+```
+
+```text response
+# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
+default_dirs = ['web']    # file: conf/dirs.toml
+```
+
+2. `find`
+
+```json request
+{ "query": "name ~ '*.{rs,ts}'" }
+```
+
+```text response
+files: 1  lines: 0  matches: 0  result: r1
+#1 name ~ '*.{rs,ts}'
+
+web/src/
+app.ts  [#1]
+```
+
+## E39.15 An invalid value in the config file
+
+Fixture: `dirs`
+
+```toml conf/bad.toml
+[server]
+default_dirs = []
+```
+
+```text command
+easy-peasy-mcp --config conf/bad.toml
+```
+
+```text stderr exit 1
+easy-peasy-mcp: conf/bad.toml:2: invalid value for 'server.default_dirs': a non-empty list of paths is expected
+```
