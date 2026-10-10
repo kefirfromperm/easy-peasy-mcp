@@ -1,6 +1,6 @@
 # Task 117: Final tool descriptions and instructions
 
-Status: in progress
+Status: implemented, see [117__SUMMARY__TOOL_DESCRIPTIONS.md](117__SUMMARY__TOOL_DESCRIPTIONS.md)
 
 Depends on: task 113, task 115, task 116
 
