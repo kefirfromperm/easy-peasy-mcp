@@ -1,6 +1,6 @@
 # Task 98: `output.max_line_length`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80
 
