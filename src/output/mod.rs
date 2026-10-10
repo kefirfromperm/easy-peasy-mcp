@@ -10,6 +10,7 @@ use crate::warning::Warnings;
 mod blocks;
 mod json;
 mod lines;
+mod repeated;
 
 pub use blocks::BlockOptions;
 
@@ -36,6 +37,8 @@ pub struct Response<'a> {
     pub blocks: BlockOptions,
     /// Text: files under directory headers, with paths relative to them.
     pub group_dirs: bool,
+    /// A matched line in this many files is printed once (`lines` detail); `0`: off.
+    pub group_repeated: usize,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -48,6 +51,9 @@ pub struct Response<'a> {
 
 /// The separator of output paths on this platform.
 const SEP: char = std::path::MAIN_SEPARATOR;
+
+/// The locations printed for a repeated line.
+const LOCATIONS: usize = 3;
 
 impl Response<'_> {
     /// The matched lines and the fragments of all files.
@@ -92,8 +98,14 @@ impl Response<'_> {
             let _ = writeln!(out, "{id} {text}");
         }
         out.push('\n');
+        let repeated = self.repeated();
+        self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
-        for file in self.files {
+        for (index, file) in self.files.iter().enumerate() {
+            let rest = self.rest(&repeated, index);
+            if rest.as_ref().is_some_and(Vec::is_empty) {
+                continue;
+            }
             if self.group_dirs {
                 let (dir, name) = split_found(file);
                 if current.as_deref() != Some(dir.as_str()) {
@@ -119,16 +131,62 @@ impl Response<'_> {
                 let _ = write!(out, "  {}", encoding.name());
             }
             out.push('\n');
-            if let Some(m) = file
-                .matches
-                .as_ref()
-                .filter(|_| self.detail == Detail::Lines)
-            {
-                let blocks = blocks::blocks(&m.content, &m.fragments, &self.blocks);
-                out.push_str(&lines::render(&m.content, &m.fragments, &blocks));
+            if let (Some(m), Some(fragments)) = (&file.matches, rest) {
+                let blocks = blocks::blocks(&m.content, &fragments, &self.blocks);
+                out.push_str(&lines::render(&m.content, &fragments, &blocks));
             }
         }
         self.push_warnings(&mut out);
+        out
+    }
+
+    /// The repeated lines of the files, only in `lines` detail.
+    fn repeated(&self) -> repeated::Repeated {
+        if self.detail == Detail::Lines {
+            repeated::repeated(self.files, self.group_repeated)
+        } else {
+            repeated::Repeated::default()
+        }
+    }
+
+    /// In `lines` detail the fragments of the file `index` to print, those which are not on its repeated lines: empty
+    /// if it has fragments only there and is left out; `None` for a file without fragments and in other detail levels.
+    fn rest(&self, repeated: &repeated::Repeated, index: usize) -> Option<Vec<Fragment>> {
+        let m = self.files[index]
+            .matches
+            .as_ref()
+            .filter(|m| !m.fragments.is_empty())?;
+        (self.detail == Detail::Lines).then(|| repeated.rest(index, &m.content, &m.fragments))
+    }
+
+    /// The `repeated:` section: `  ×N <line>    <locations>` (OUTPUT.md#repeated-lines).
+    fn push_repeated(&self, out: &mut String, repeated: &repeated::Repeated) {
+        if repeated.lines.is_empty() {
+            return;
+        }
+        out.push_str("repeated:\n");
+        for line in &repeated.lines {
+            let _ = writeln!(
+                out,
+                "  ×{} {}    {}",
+                line.files.len(),
+                lines::marked_line(&line.content, &line.fragments, 0, 0),
+                self.locations(line).join(", ")
+            );
+        }
+    }
+
+    /// The first three locations of a repeated line, `path:line`, and `… M more`.
+    fn locations(&self, line: &repeated::RepeatedLine) -> Vec<String> {
+        let mut out: Vec<String> = line
+            .files
+            .iter()
+            .take(LOCATIONS)
+            .map(|&(file, i)| format!("{}:{}", display_found(&self.files[file]), i + 1))
+            .collect();
+        if line.files.len() > LOCATIONS {
+            out.push(format!("… {} more", line.files.len() - LOCATIONS));
+        }
         out
     }
 
@@ -231,6 +289,7 @@ mod tests {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: true,
+            group_repeated: 3,
             result_id: Some("r3"),
             legend: &legend,
             files: &files,
@@ -255,6 +314,7 @@ mod tests {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: false,
+            group_repeated: 3,
             result_id: None,
             legend: &legend,
             files: &files,
@@ -286,6 +346,7 @@ mod tests {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: true,
+            group_repeated: 3,
             result_id: Some("r1"),
             legend: &[],
             files: &files,
@@ -310,6 +371,7 @@ mod tests {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: true,
+            group_repeated: 3,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
@@ -325,11 +387,52 @@ mod tests {
     }
 
     #[test]
+    fn repeated_lines_show_three_locations() {
+        let files: Vec<Found> = ["a", "b", "c", "d"]
+            .iter()
+            .map(|name| {
+                let content = crate::content::Content::from_bytes(b"use x;\n");
+                let fragments = vec![Fragment {
+                    range: 4..5,
+                    ids: vec![(1, CondId::Number(1))],
+                    escape: None,
+                }];
+                Found {
+                    matches: Some(crate::search::FileMatches {
+                        content,
+                        fragments,
+                        lines: 1,
+                    }),
+                    ..found(name)
+                }
+            })
+            .collect();
+        let legend = [(CondId::Number(1), "text has 'x'".to_string())];
+        let text = Response {
+            detail: Detail::Lines,
+            blocks: BlockOptions::default(),
+            group_dirs: true,
+            group_repeated: 3,
+            result_id: None,
+            legend: &legend,
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+        }
+        .to_text();
+        assert_eq!(
+            text,
+            "files: 4  lines: 4  matches: 4\n#1 text has 'x'\n\nrepeated:\n  ×4 use ⟦#1:x⟧;    a:1, b:1, c:1, … 1 more\n"
+        );
+    }
+
+    #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: true,
+            group_repeated: 3,
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],
             files: &[],

@@ -37,6 +37,7 @@ pub enum Key {
     Dedent,
     BlankContext,
     GroupDirs,
+    GroupRepeated,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -50,7 +51,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 37] = [
+    pub const ALL: [Key; 38] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -79,6 +80,7 @@ impl Key {
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
+        Self::GroupRepeated,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -141,6 +143,7 @@ impl Key {
             Self::Dedent => ("output", "dedent", Type::Bool),
             Self::BlankContext => ("output", "blank_context", Type::Bool),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
+            Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -162,7 +165,7 @@ impl Key {
             Self::Timeout => Value::Text("30s".to_string()),
             Self::Threads | Self::MinDepth | Self::Context => Value::Whole(0),
             Self::ResultCache => Value::Whole(50),
-            Self::MaxLevel => Value::Whole(3),
+            Self::MaxLevel | Self::GroupRepeated => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),
             Self::KindsConfig => list(&crate::search::DEFAULT_CONFIG),

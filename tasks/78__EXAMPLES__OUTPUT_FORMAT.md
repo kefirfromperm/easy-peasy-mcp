@@ -63,6 +63,7 @@ context = 0
 dedent = true
 blank_context = false
 group_dirs = true
+group_repeated = 3
 ```
 
 ## E78.2 JSON in a request
@@ -389,6 +390,7 @@ context = 0    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
+group_repeated = 3    # default
 ```
 
 ## E78.10 Text in a request when the session is JSON
@@ -479,6 +481,7 @@ context = 0    # default
 dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
+group_repeated = 3    # default
 ```
 
 2. `find`

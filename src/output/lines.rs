@@ -99,10 +99,23 @@ fn render_line(
     line: &BlockLine,
     indent: usize,
 ) {
-    let (start, end) = content.line_range(line.index);
     let separator = if line.matched { ':' } else { '-' };
     let _ = write!(out, "{}{separator}", line.index + 1);
-    let mut pos = (start + indent).min(end);
+    write_marked(out, content, parts, line.index, indent);
+    out.push('\n');
+}
+
+/// The line with the 0-based index `i` and the markers of the fragments, without its first `skip` bytes.
+pub fn marked_line(content: &Content, fragments: &[Fragment], i: usize, skip: usize) -> String {
+    let mut out = String::new();
+    write_marked(&mut out, content, &merge_overlapping(fragments), i, skip);
+    out
+}
+
+/// Writes the line `i` with its marked parts, from its byte `skip`.
+fn write_marked(out: &mut String, content: &Content, parts: &[Part], i: usize, skip: usize) {
+    let (start, end) = content.line_range(i);
+    let mut pos = (start + skip).min(end);
     for part in parts.iter().filter(|p| {
         (p.range.start >= start && p.range.start <= end)
             || (p.range.start < start && p.range.end > start)
@@ -126,7 +139,6 @@ fn render_line(
         }
     }
     out.push_str(&content.text()[pos..end]);
-    out.push('\n');
 }
 
 /// Overlapping fragments as one part with the union of their ranges, ids and escape levels.

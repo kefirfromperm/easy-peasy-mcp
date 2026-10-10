@@ -280,8 +280,12 @@ mod tests {
             [(Key::GroupDirs, KeyValue::Bool(false))]
         );
         assert_eq!(
-            text(&json!({ "output": { "group_repeated": 0 } })),
-            "error[not_implemented]: the field 'output.group_repeated' is not implemented yet\n"
+            config(&json!({ "output": { "group_repeated": 0 } })),
+            [(Key::GroupRepeated, KeyValue::Whole(0))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "highlight": "none" } })),
+            "error[not_implemented]: the field 'output.highlight' is not implemented yet\n"
         );
     }
 

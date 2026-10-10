@@ -4,7 +4,7 @@
 use serde::Serialize;
 use serde::ser::SerializeMap;
 
-use super::{BlockOptions, Detail, Response, display_found};
+use super::{BlockOptions, Detail, LOCATIONS, Response, display_found};
 use crate::content::Content;
 use crate::query::ast::CondId;
 use crate::search::Found;
@@ -18,6 +18,8 @@ struct Document<'a> {
     exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<&'a str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    repeated: Vec<Repeated>,
     #[serde(skip_serializing_if = "Option::is_none")]
     counts: Option<Counts>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,6 +34,16 @@ struct Document<'a> {
     warnings: Vec<Warning>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     files: Vec<File>,
+}
+
+/// A matched line repeated in many files (OUTPUT.md#repeated-lines).
+#[derive(Serialize)]
+struct Repeated {
+    count: usize,
+    text: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    fragments: Vec<Fragment>,
+    locations: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -128,10 +140,24 @@ impl Response<'_> {
         let (lines, matches) = self.totals();
         let counted = self.detail >= Detail::Count;
         let listed = self.detail >= Detail::Files;
+        let repeated = self.repeated();
         let document = Document {
             version: VERSION,
             exists: !self.files.is_empty(),
             result: self.result_id,
+            repeated: repeated
+                .lines
+                .iter()
+                .map(|line| {
+                    let shown = json_line(&line.content, &line.fragments, 0, 0);
+                    Repeated {
+                        count: line.files.len(),
+                        text: shown.text,
+                        fragments: shown.fragments,
+                        locations: self.locations(line).into_iter().take(LOCATIONS).collect(),
+                    }
+                })
+                .collect(),
             counts: counted.then_some(Counts {
                 files: self.files.len(),
                 lines,
@@ -156,8 +182,12 @@ impl Response<'_> {
                 .map(|(code, count, paths)| Warning { code, count, paths })
                 .collect(),
             files: if listed {
-                let lines = (self.detail == Detail::Lines).then_some(&self.blocks);
-                self.files.iter().map(|f| file(f, lines)).collect()
+                (0..self.files.len())
+                    .filter_map(|index| match self.rest(&repeated, index) {
+                        Some(rest) if rest.is_empty() => None,
+                        rest => Some(file(&self.files[index], rest.as_deref(), &self.blocks)),
+                    })
+                    .collect()
             } else {
                 Vec::new()
             },
@@ -166,8 +196,8 @@ impl Response<'_> {
     }
 }
 
-/// A matched file, with its blocks of lines made with the options or without lines.
-fn file(found: &Found, lines: Option<&BlockOptions>) -> File {
+/// A matched file, with the blocks of the fragments `lines` made with the options or without lines.
+fn file(found: &Found, lines: Option<&[super::Fragment]>, options: &BlockOptions) -> File {
     File {
         path: display_found(found),
         encoding: found.encoding.map(|e| e.name().into_owned()),
@@ -175,7 +205,7 @@ fn file(found: &Found, lines: Option<&BlockOptions>) -> File {
         matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
         conditions: found.conditions.iter().map(ToString::to_string).collect(),
         blocks: match (&found.matches, lines) {
-            (Some(m), Some(options)) => blocks(&m.content, &m.fragments, options),
+            (Some(m), Some(fragments)) => blocks(&m.content, fragments, options),
             _ => Vec::new(),
         },
     }
@@ -314,6 +344,7 @@ mod tests {
             detail: Detail::Lines,
             blocks: BlockOptions::default(),
             group_dirs: true,
+            group_repeated: 3,
             result_id: Some("r1"),
             legend: &legend,
             files: &files,
