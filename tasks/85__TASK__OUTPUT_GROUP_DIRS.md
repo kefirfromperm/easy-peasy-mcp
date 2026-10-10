@@ -1,6 +1,6 @@
 # Task 85: `output.group_dirs`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 78
 
