@@ -197,16 +197,19 @@ generated_markers = ['AUTOGEN']    # file: conf/k.toml
 
 2. `find`
 
+The config file itself has the marker in its first lines, so the query looks at Rust files only.
+
 ```json request
-{"query": "kind = generated"}
+{"query": "kind = generated and name ~ '*.rs'"}
 ```
 
 ```text response
 files: 1  lines: 0  matches: 0  result: r1
 #1 kind = generated
+#2 name ~ '*.rs'
 
 ./
-b.rs  [#1]
+b.rs  [#1 #2]
 ```
 
 ## E63.9 An invalid value in the config file
