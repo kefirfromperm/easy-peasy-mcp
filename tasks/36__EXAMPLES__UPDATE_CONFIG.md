@@ -212,6 +212,7 @@ hidden = false
 ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
+exclude = []
 ```
 
 3. `find`
