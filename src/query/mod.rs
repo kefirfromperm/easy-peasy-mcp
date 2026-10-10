@@ -1122,6 +1122,40 @@ mod tests {
     }
 
     #[test]
+    fn len_in_lines() {
+        assert!(content_matches("line(len = 2)", "\tx\nabc"));
+        assert!(content_matches(
+            "line(len = 3 and text has '\u{e4}')",
+            "\u{e4}\u{f6}\u{fc}"
+        ));
+        assert!(content_matches("line(len in 0..0)", "a\n\nb"));
+        assert!(!content_matches("line(len > 3)", "abc\nab"));
+    }
+
+    #[test]
+    fn len_errors() {
+        assert_eq!(
+            error("len > 100"),
+            (
+                ErrorCode::LineTargetOutside,
+                "'len' outside of line( ... )".into(),
+                0..3,
+                "'len' works only inside line( ... ) or near( ... )".into()
+            )
+        );
+        assert_eq!(
+            error("line(len > 1K)"),
+            (
+                ErrorCode::UnexpectedToken,
+                "unexpected '1K'".into(),
+                11..13,
+                "len takes a number of characters, e.g. len > 120".into()
+            )
+        );
+        assert_eq!(error("line(len in 10..1)").0, ErrorCode::InvalidRange);
+    }
+
+    #[test]
     fn line_group_errors() {
         assert_eq!(
             error("line(name ~ '*.rs')"),
