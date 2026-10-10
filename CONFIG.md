@@ -276,7 +276,9 @@ when it comes from the config file, see [Config file](#config-file).
 An invalid `traversal.min_depth` or `traversal.max_depth` is `invalid value for 'traversal.min_depth': a whole number
 is expected`. In a request (`"traversal": { "min_depth": 2 }`) a wrong value is `error[invalid_option]:
 'traversal.min_depth' must be a whole number`, a key which isn't one of the section `unknown field 'traversal.<key>'`
-with the keys of the section in the hint.
+with the keys of the section in the hint. A boolean key (`follow_symlinks`, `hidden`, ...) is `invalid value for
+'traversal.follow_symlinks': true or false is expected`, in a request `'traversal.follow_symlinks' must be true or
+false`.
 
 Notes
 
