@@ -160,8 +160,8 @@ Fixture: `small-rust`
 - a startup example can also be a JSON-RPC exchange after `initialize`: a `json send` block is a message sent as it
   is; a `json receive` block waits (at most 10 seconds) for the next message which matches it — the block is a
   subset of the message, a string `*` matches any value and a `*` inside a string any characters — skipping the
-  messages before it; a `json never` block fails when a message which matches it arrives within one second (or has
-  arrived since the last `json receive`)
+  messages before it; a `json never` block fails when a message which matches it has arrived in the exchange or
+  arrives within one second
 - `<version>` in a response stands for the server version (`CARGO_PKG_VERSION`), e.g. in the first line of
   `get_config`; `<fixture>` in any example stands for the canonical absolute path of the fixture directory
 - a line `` Slow reads: `2s` `` in an example makes every read of a file's content take that long (a test hook of the
