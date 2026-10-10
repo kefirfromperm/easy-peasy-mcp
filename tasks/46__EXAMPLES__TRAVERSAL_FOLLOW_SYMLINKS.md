@@ -61,6 +61,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
 exclude = []
+path_case = "native"
 ```
 
 ## E46.2 Following symlinks
@@ -154,6 +155,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 ## E46.5 An invalid value in a request
@@ -213,6 +215,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 2. `find`
