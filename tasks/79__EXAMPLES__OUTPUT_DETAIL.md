@@ -49,6 +49,7 @@ b.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+context = 0
 ```
 
 ## E79.2 Does anything match?
@@ -186,6 +187,7 @@ files: 2  lines: 4  matches: 4  result: r1
 [output]
 format = "text"    # default
 detail = "count"    # update
+context = 0    # default
 ```
 
 ## E79.7 An invalid value in a request
@@ -239,6 +241,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "files"    # file: conf/o.toml
+context = 0    # default
 ```
 
 2. `find`

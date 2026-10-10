@@ -57,6 +57,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 [output]
 format = "text"
 detail = "lines"
+context = 0
 ```
 
 ## E78.2 JSON in a request
@@ -377,6 +378,7 @@ format = "json"    # was "text"
 [output]
 format = "json"    # update
 detail = "lines"    # default
+context = 0    # default
 ```
 
 ## E78.10 Text in a request when the session is JSON
@@ -461,6 +463,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "json"    # file: conf/o.toml
 detail = "lines"    # default
+context = 0    # default
 ```
 
 2. `find`

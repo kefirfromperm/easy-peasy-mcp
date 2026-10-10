@@ -168,6 +168,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+context = 0    # default
 
 [escape]
 max_level = 3    # default
