@@ -11,22 +11,31 @@ const OPEN: &str = "⟦";
 /// The closing marker of `highlight = markers`.
 const CLOSE: &str = "⟧";
 
-/// A matched part of the content: a byte range of the normalized text and the conditions which produced it with
-/// their order of appearance in the query.
+/// A matched part of the content: a byte range of the normalized text, the conditions which produced it with
+/// their order of appearance in the query and, for a condition with `/e`, the escape level it was found on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fragment {
     pub range: Range<usize>,
     pub ids: Vec<(usize, CondId)>,
+    pub escape: Option<u8>,
 }
 
-/// Sorts the fragments by position and merges identical ranges into one fragment with all ids in the order of
-/// appearance.
+/// A marked part of a line: overlapping fragments with the union of their ranges, ids and escape levels.
+#[derive(Debug, Clone)]
+struct Part {
+    range: Range<usize>,
+    ids: Vec<(usize, CondId)>,
+    escapes: Vec<u8>,
+}
+
+/// Sorts the fragments by position and merges identical ones (the same range and escape level) into one fragment
+/// with all ids in the order of appearance.
 pub fn merge_identical(mut fragments: Vec<Fragment>) -> Vec<Fragment> {
-    fragments.sort_by_key(|f| (f.range.start, f.range.end));
+    fragments.sort_by_key(|f| (f.range.start, f.range.end, f.escape));
     let mut out: Vec<Fragment> = Vec::new();
     for f in fragments {
         match out.last_mut() {
-            Some(last) if last.range == f.range => {
+            Some(last) if last.range == f.range && last.escape == f.escape => {
                 for id in f.ids {
                     if !last.ids.contains(&id) {
                         last.ids.push(id);
@@ -82,7 +91,11 @@ pub fn render(content: &Content, fragments: &[Fragment]) -> String {
             if part.range.start >= start {
                 out.push_str(&content.text()[pos..part.range.start]);
                 let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
-                let _ = write!(out, "{OPEN}{}:", ids.join(","));
+                let _ = write!(out, "{OPEN}{}", ids.join(","));
+                for level in &part.escapes {
+                    let _ = write!(out, "/e{level}");
+                }
+                out.push(':');
                 pos = part.range.start;
             }
             // a part which ends with the line break closes at the end of the line
@@ -99,11 +112,11 @@ pub fn render(content: &Content, fragments: &[Fragment]) -> String {
     out
 }
 
-/// Overlapping fragments as one part with the union of their ranges and ids.
-fn merge_overlapping(fragments: &[Fragment]) -> Vec<Fragment> {
+/// Overlapping fragments as one part with the union of their ranges, ids and escape levels.
+fn merge_overlapping(fragments: &[Fragment]) -> Vec<Part> {
     let mut sorted: Vec<&Fragment> = fragments.iter().collect();
     sorted.sort_by_key(|f| (f.range.start, f.range.end));
-    let mut parts: Vec<Fragment> = Vec::new();
+    let mut parts: Vec<Part> = Vec::new();
     for f in sorted {
         match parts.last_mut() {
             Some(last) if f.range.start < last.range.end => {
@@ -113,12 +126,19 @@ fn merge_overlapping(fragments: &[Fragment]) -> Vec<Fragment> {
                         last.ids.push(id.clone());
                     }
                 }
+                last.escapes.extend(f.escape);
             }
-            _ => parts.push(f.clone()),
+            _ => parts.push(Part {
+                range: f.range.clone(),
+                ids: f.ids.clone(),
+                escapes: f.escape.into_iter().collect(),
+            }),
         }
     }
     for p in &mut parts {
         p.ids.sort_by_key(|(order, _)| *order);
+        p.escapes.sort_unstable();
+        p.escapes.dedup();
     }
     parts
 }
@@ -136,7 +156,36 @@ mod tests {
                 .iter()
                 .map(|n| (*n as usize, CondId::Number(*n)))
                 .collect(),
+            escape: None,
         }
+    }
+
+    fn escaped(range: std::ops::Range<usize>, id: u32, level: u8) -> Fragment {
+        Fragment {
+            escape: Some(level),
+            ..frag(range, &[id])
+        }
+    }
+
+    #[test]
+    fn escape_levels_after_the_ids() {
+        let c = Content::from_bytes(b"abcdef\n");
+        assert_eq!(
+            render(&c, &[escaped(1..3, 1, 0)]),
+            "1:a\u{27e6}#1/e0:bc\u{27e7}def\n"
+        );
+        let fragments = vec![escaped(1..3, 2, 1), frag(2..4, &[1]), escaped(3..5, 2, 0)];
+        assert_eq!(
+            render(&c, &fragments),
+            "1:a\u{27e6}#1,#2/e0/e1:bcde\u{27e7}f\n"
+        );
+        let merged = merge_identical(vec![
+            escaped(1..3, 1, 1),
+            escaped(1..3, 2, 0),
+            escaped(1..3, 2, 1),
+        ]);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[1].ids.len(), 2);
     }
 
     #[test]

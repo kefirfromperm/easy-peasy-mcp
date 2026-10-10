@@ -1,0 +1,3 @@
+https://example.com/search?q%3Dhello%20world
+https://example.com/search?q%3Dhello+world
+https://example.com/search?q=hello world

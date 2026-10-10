@@ -1,0 +1,7 @@
+{"users": [{ "name": "root", "role": "admin" }],
+  "audit": {
+    "level1": "{\"role\": \"admin\"}",
+    "level2": "{\"inner\": \"{\\\"role\\\": \\\"admin\\\"}\"}",
+    "other": "{\"role\": \"viewer\"}"
+  }
+}
