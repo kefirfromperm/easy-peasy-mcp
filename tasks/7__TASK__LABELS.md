@@ -1,6 +1,6 @@
 # Task 7: Condition labels `@name`
 
-Status: in progress
+Status: implemented, see [7__SUMMARY__LABELS.md](7__SUMMARY__LABELS.md)
 
 Depends on: task 6
 
