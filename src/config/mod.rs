@@ -1026,6 +1026,20 @@ mod tests {
         );
         assert!(check("[traversal]\nignore_paths = ['~/ignore', 'a']\n").is_ok());
         assert_eq!(
+            error("[traversal]\nexclude = ['a', '[a-']\n"),
+            (
+                2,
+                "invalid value for 'traversal.exclude': invalid wildcard '[a-': unclosed '['".into()
+            )
+        );
+        assert_eq!(
+            error("[traversal]\nexclude = 'a'\n"),
+            (
+                2,
+                "invalid value for 'traversal.exclude': a list of wildcards is expected".into()
+            )
+        );
+        assert_eq!(
             error("[traversal]\nignore_paths = 'a'\n"),
             (
                 2,
