@@ -1,6 +1,6 @@
 # Task 11: `size` target
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 6
 
