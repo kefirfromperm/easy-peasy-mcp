@@ -1,6 +1,6 @@
 # Task 88: `output.markers`
 
-Status: in progress
+Status: implemented, see [88__SUMMARY__OUTPUT_MARKERS.md](88__SUMMARY__OUTPUT_MARKERS.md)
 
 Depends on: task 87
 
