@@ -132,6 +132,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
@@ -659,6 +660,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
@@ -1149,6 +1151,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
@@ -1639,6 +1642,7 @@ skip_generated = true    # default
 [output]
 format = "text"    # default
 detail = "lines"    # default
+meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
