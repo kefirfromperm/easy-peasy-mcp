@@ -58,6 +58,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
 exclude = []
+path_case = "native"
 ```
 
 ## E50.2 An extra ignore file in the request
@@ -162,6 +163,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = ['conf/personal.ignore']    # update
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 ## E50.6 An invalid value in a request
@@ -221,6 +223,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = ['conf/personal.ignore']    # file: conf/p.toml
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 2. `find`

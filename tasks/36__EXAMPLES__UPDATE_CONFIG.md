@@ -213,6 +213,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
 exclude = []
+path_case = "native"
 ```
 
 3. `find`

@@ -57,6 +57,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
 exclude = []
+path_case = "native"
 ```
 
 ## E49.2 Without the git excludes in the request
@@ -123,6 +124,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = false    # update
 ignore_paths = []    # default
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 ## E49.4 An invalid value in a request
@@ -182,6 +184,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = false    # file: conf/g.toml
 ignore_paths = []    # default
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 2. `find`

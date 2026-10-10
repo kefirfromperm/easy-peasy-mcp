@@ -1,6 +1,6 @@
 # Task 52: `traversal.path_case`
 
-Status: not implemented
+Status: implemented, see [52__SUMMARY__TRAVERSAL_PATH_CASE.md](52__SUMMARY__TRAVERSAL_PATH_CASE.md)
 
 Depends on: task 44
 

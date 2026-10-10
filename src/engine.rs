@@ -182,46 +182,20 @@ impl Engine {
             .iter()
             .map(|dir| self.working_dir(dir, &settings))
             .collect::<Result<Vec<_>, _>>()?;
+        let case_insensitive_paths = match settings.text(Key::PathCase) {
+            "sensitive" => false,
+            "insensitive" => true,
+            _ => NATIVE_CASE_INSENSITIVE,
+        };
         let options = ParseOptions {
-            case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
+            case_insensitive_paths,
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),
             time_zone: self.options.time_zone.clone(),
             languages: Arc::clone(&self.languages),
         };
         let query =
             query::parse(&request.query, &options).map_err(|e| e.into_report(&request.query))?;
-        let search_options = SearchOptions {
-            git_global_excludes: self.options.git_global_excludes,
-            case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
-            languages: Arc::clone(&self.languages),
-            deadline,
-            threads: settings.whole(Key::Threads),
-            min_depth: settings.whole(Key::MinDepth),
-            max_depth: settings.opt_whole(Key::MaxDepth),
-            follow_symlinks: settings.bool(Key::FollowSymlinks),
-            allowed_roots: Arc::new(settings.allowed_roots.clone()),
-            hidden: settings.bool(Key::Hidden),
-            git_excludes: settings.bool(Key::GitExcludes),
-            ignore_files: settings.list(Key::IgnoreFiles).to_vec(),
-            ignore_paths: settings
-                .list(Key::IgnorePaths)
-                .iter()
-                .map(|p| {
-                    self.options
-                        .start_dir
-                        .join(config::expand_home(p, self.options.home.as_deref()))
-                })
-                .collect(),
-            exclude: settings
-                .list(Key::Exclude)
-                .iter()
-                .map(|w| {
-                    query::wildcard::compile(&query::nfc(w), NATIVE_CASE_INSENSITIVE)
-                        .expect("the wildcards of exclude are checked with their key")
-                })
-                .collect(),
-            read_delay: self.options.read_delay,
-        };
+        let search_options = self.search_options(&settings, deadline, case_insensitive_paths);
         let mut files = Vec::new();
         let mut warnings = Warnings::default();
         let mut seen = HashSet::new();
@@ -267,6 +241,47 @@ impl Engine {
             timed_out,
         }
         .to_text())
+    }
+
+    /// The options of the walk and the search of one request.
+    fn search_options(
+        &self,
+        settings: &Settings,
+        deadline: Option<std::time::Instant>,
+        case_insensitive_paths: bool,
+    ) -> SearchOptions {
+        SearchOptions {
+            git_global_excludes: self.options.git_global_excludes,
+            case_insensitive_paths,
+            languages: Arc::clone(&self.languages),
+            deadline,
+            threads: settings.whole(Key::Threads),
+            min_depth: settings.whole(Key::MinDepth),
+            max_depth: settings.opt_whole(Key::MaxDepth),
+            follow_symlinks: settings.bool(Key::FollowSymlinks),
+            allowed_roots: Arc::new(settings.allowed_roots.clone()),
+            hidden: settings.bool(Key::Hidden),
+            git_excludes: settings.bool(Key::GitExcludes),
+            ignore_files: settings.list(Key::IgnoreFiles).to_vec(),
+            ignore_paths: settings
+                .list(Key::IgnorePaths)
+                .iter()
+                .map(|p| {
+                    self.options
+                        .start_dir
+                        .join(config::expand_home(p, self.options.home.as_deref()))
+                })
+                .collect(),
+            exclude: settings
+                .list(Key::Exclude)
+                .iter()
+                .map(|w| {
+                    query::wildcard::compile(&query::nfc(w), case_insensitive_paths)
+                        .expect("the wildcards of exclude are checked with their key")
+                })
+                .collect(),
+            read_delay: self.options.read_delay,
+        }
     }
 
     /// A working directory as given: resolved against the start directory, checked and canonicalized; the path to

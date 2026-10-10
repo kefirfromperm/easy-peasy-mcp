@@ -156,6 +156,7 @@ ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
 git_excludes = true    # default
 ignore_paths = []    # default
 exclude = []    # default
+path_case = "native"    # default
 ```
 
 2. `find`

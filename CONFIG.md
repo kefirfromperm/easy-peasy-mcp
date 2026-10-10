@@ -283,7 +283,9 @@ list of file names is expected` (`a list of paths` for `ignore_paths`), in a req
 a list of strings`. A list of wildcards (`exclude`) is `invalid value for 'traversal.exclude': a list of wildcards is
 expected`, with an invalid wildcard `invalid value for 'traversal.exclude': invalid wildcard '[a-': unclosed '['`; in
 a request `'traversal.exclude' must be a list of strings`, with an invalid wildcard `invalid wildcard '[a-' in
-'traversal.exclude'` and the hint `unclosed '['`.
+'traversal.exclude'` and the hint `unclosed '['`. A key with a fixed set of values (`path_case`, `binary`, `archives`) is `invalid value
+for 'traversal.path_case': expected one of: native, sensitive, insensitive`, in a request `'traversal.path_case' must
+be one of: native, sensitive, insensitive`.
 
 Notes
 
