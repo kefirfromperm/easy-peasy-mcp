@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use serde_json::Value;
 
 use crate::config;
-use crate::error::Report;
+use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
 use crate::output::Response;
 use crate::query::{self, ParseOptions};
@@ -25,6 +25,8 @@ pub struct EngineOptions {
     pub now: Option<jiff::Timestamp>,
     /// The local time zone of dates without an offset.
     pub time_zone: jiff::tz::TimeZone,
+    /// The effective configuration.
+    pub settings: config::Settings,
 }
 
 impl EngineOptions {
@@ -32,6 +34,7 @@ impl EngineOptions {
     #[must_use]
     pub fn new(start_dir: PathBuf) -> Self {
         Self {
+            settings: config::Settings::defaults(&start_dir),
             start_dir,
             git_global_excludes: true,
             now: None,
@@ -108,7 +111,10 @@ impl Engine {
     pub fn call(&self, tool: &str, arguments: &Value) -> Result<ToolOutput, UnknownTool> {
         match tool {
             "find" => Ok(self.find(arguments)),
-            "get_config" => Ok(ToolOutput::from(config::get_config(arguments))),
+            "get_config" => Ok(ToolOutput::from(config::get_config(
+                &self.options.settings,
+                arguments,
+            ))),
             "update_config" => Ok(ToolOutput::from(config::update_config(arguments))),
             other => Err(UnknownTool(other.to_string())),
         }
@@ -128,6 +134,15 @@ impl Engine {
 
     fn try_find(&self, arguments: &Value) -> Result<String, Report> {
         let request = request::parse(arguments)?;
+        let working_dir = std::fs::canonicalize(&self.options.start_dir)
+            .unwrap_or_else(|_| self.options.start_dir.clone());
+        if !self.options.settings.is_allowed(&working_dir) {
+            return Err(Report::new(
+                ErrorCode::DirNotAllowed,
+                "the working directory '.' is outside of the allowed roots",
+            )
+            .hint("get_config shows the allowed roots"));
+        }
         let options = ParseOptions {
             case_insensitive_paths: NATIVE_CASE_INSENSITIVE,
             now: self.options.now.unwrap_or_else(jiff::Timestamp::now),

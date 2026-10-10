@@ -1,6 +1,6 @@
 # Task 38: `server.allowed_roots`
 
-Status: not implemented
+Status: implemented, see [38__SUMMARY__SERVER_ALLOWED_ROOTS.md](38__SUMMARY__SERVER_ALLOWED_ROOTS.md)
 
 Depends on: task 34
 

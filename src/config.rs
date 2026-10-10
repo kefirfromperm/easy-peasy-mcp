@@ -1,6 +1,7 @@
 //! The config file: where it is, and its checks at start (CONFIG.md#config-file).
 
 use std::fmt;
+use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -12,7 +13,8 @@ use crate::query::did_you_mean;
 /// An error which stops the server at start: `<path>:<line>: <message>`, or `<path>: <message>` without a line.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StartError {
-    pub path: PathBuf,
+    /// The config file; `None` for an error of the command line.
+    pub path: Option<PathBuf>,
     /// 1-based.
     pub line: Option<usize>,
     pub message: String,
@@ -20,12 +22,15 @@ pub struct StartError {
 
 impl fmt::Display for StartError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.line {
-            Some(line) => write!(f, "{}:{line}: {}", self.path.display(), self.message),
-            None => write!(f, "{}: {}", self.path.display(), self.message),
+        match (&self.path, self.line) {
+            (Some(path), Some(line)) => write!(f, "{}:{line}: {}", path.display(), self.message),
+            (Some(path), None) => write!(f, "{}: {}", path.display(), self.message),
+            (None, _) => f.write_str(&self.message),
         }
     }
 }
+
+impl std::error::Error for StartError {}
 
 /// The sections of the config file and their keys (CONFIG.md#full-example); `languages` takes any language name.
 const SECTIONS: [(&str, &[&str]); 8] = [
@@ -144,9 +149,9 @@ pub fn locate(
 ///
 /// The file doesn't exist or can't be read, isn't TOML, or has a section or key which doesn't exist or isn't
 /// implemented yet.
-pub fn load(path: &Path) -> Result<(), StartError> {
+pub fn load(path: &Path) -> Result<ConfigFile, StartError> {
     let error = |line, message: String| StartError {
-        path: path.to_path_buf(),
+        path: Some(path.to_path_buf()),
         line,
         message,
     };
@@ -158,7 +163,134 @@ pub fn load(path: &Path) -> Result<(), StartError> {
         };
         error(None, message.to_string())
     })?;
-    check(&text).map_err(|(line, message)| error(Some(line), message))
+    let values = check(&text).map_err(|(line, message)| error(Some(line), message))?;
+    Ok(ConfigFile {
+        path: path.to_path_buf(),
+        values,
+    })
+}
+
+/// The keys this server version implements.
+const IMPLEMENTED: [(&str, &str); 1] = [("server", "allowed_roots")];
+
+/// Where a value comes from (`CONFIG.md#get_config`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Source {
+    Default,
+    /// The config file, as given or found.
+    File(PathBuf),
+    Cli,
+}
+
+impl fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Default => f.write_str("default"),
+            Self::File(path) => write!(f, "file: {}", path.display()),
+            Self::Cli => f.write_str("cli"),
+        }
+    }
+}
+
+/// The values of the implemented keys of a config file, with the lines of their keys.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FileValues {
+    /// `server.allowed_roots` as written.
+    pub allowed_roots: Option<(Vec<String>, usize)>,
+}
+
+/// A checked config file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigFile {
+    pub path: PathBuf,
+    pub values: FileValues,
+}
+
+/// The effective configuration of the server: an immutable value, resolved at start.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Settings {
+    /// `server.allowed_roots`: canonical, never empty.
+    pub allowed_roots: Vec<PathBuf>,
+    pub allowed_roots_source: Source,
+}
+
+impl Settings {
+    /// The built-in defaults of a server started in `start_dir`.
+    #[must_use]
+    pub fn defaults(start_dir: &Path) -> Self {
+        Self {
+            allowed_roots: vec![canonical_or_same(start_dir)],
+            allowed_roots_source: Source::Default,
+        }
+    }
+
+    /// The settings from the defaults, the config file and the command line (`--root`): the command line list
+    /// replaces the file list; roots are expanded (`~` to `home`), resolved against `start_dir` and canonicalized.
+    ///
+    /// # Errors
+    ///
+    /// A root which doesn't exist.
+    pub fn resolve(
+        file: Option<&ConfigFile>,
+        cli_roots: &[String],
+        start_dir: &Path,
+        home: Option<&Path>,
+    ) -> Result<Self, StartError> {
+        let (roots, source, line) = if !cli_roots.is_empty() {
+            (cli_roots.to_vec(), Source::Cli, None)
+        } else if let Some(file) = file
+            && let Some((roots, line)) = &file.values.allowed_roots
+        {
+            (roots.clone(), Source::File(file.path.clone()), Some(*line))
+        } else {
+            return Ok(Self::defaults(start_dir));
+        };
+        let mut allowed_roots = Vec::new();
+        for root in &roots {
+            let expanded = match (root.strip_prefix('~'), home) {
+                (Some(rest), Some(home)) if rest.is_empty() || rest.starts_with(['/', '\\']) => {
+                    home.join(rest.trim_start_matches(['/', '\\']))
+                }
+                _ => PathBuf::from(root),
+            };
+            let canonical =
+                std::fs::canonicalize(start_dir.join(expanded)).map_err(|_| StartError {
+                    path: file.filter(|_| line.is_some()).map(|f| f.path.clone()),
+                    line,
+                    message: format!("the allowed root '{root}' doesn't exist"),
+                })?;
+            allowed_roots.push(canonical);
+        }
+        if allowed_roots.is_empty() {
+            allowed_roots.push(canonical_or_same(start_dir));
+        }
+        Ok(Self {
+            allowed_roots,
+            allowed_roots_source: source,
+        })
+    }
+
+    /// Whether the canonical `dir` is inside an allowed root.
+    #[must_use]
+    pub fn is_allowed(&self, dir: &Path) -> bool {
+        self.allowed_roots.iter().any(|root| dir.starts_with(root))
+    }
+}
+
+/// The canonical form of `path`, or `path` itself when it can't be resolved.
+fn canonical_or_same(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// A path as a TOML string: literal (`'...'`) unless it contains a `'`; without the `\\?\` prefix of Windows.
+fn toml_path(path: &Path) -> String {
+    let text = path.to_string_lossy();
+    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+    if text.contains('\'') {
+        format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+    } else {
+        format!("'{text}'")
+    }
 }
 
 /// What a TOML document holds, by the sections of the spec.
@@ -167,8 +299,12 @@ enum Entry<'d> {
     UnknownSection(&'d str),
     /// A section of the spec written as a value.
     NotASection(&'d str),
-    /// A key of a section; for `languages` a language.
-    Key { section: &'static str, key: &'d str },
+    /// A key of a section and its value; for `languages` a language.
+    Key {
+        section: &'static str,
+        key: &'d str,
+        item: &'d toml_edit::Item,
+    },
 }
 
 /// The entries of a TOML document with their byte offsets, in the order of the text.
@@ -192,7 +328,14 @@ fn entries<S>(doc: &toml_edit::Document<S>) -> Vec<(usize, Entry<'_>)> {
         };
         for (key, value) in table.iter() {
             let at = offset(table.get_key_value(key).map(|(k, _)| k), value);
-            entries.push((at, Entry::Key { section, key }));
+            entries.push((
+                at,
+                Entry::Key {
+                    section,
+                    key,
+                    item: value,
+                },
+            ));
         }
     }
     entries.sort_by_key(|(at, _)| *at);
@@ -218,33 +361,55 @@ fn close_key(section: &str, key: &str) -> Option<&'static str> {
     did_you_mean(key, keys)
 }
 
-/// Checks the text of a config file: the 1-based line and the message of the first error.
-fn check(text: &str) -> Result<(), (usize, String)> {
+/// Checks the text of a config file and returns the values of the implemented keys; the error: the 1-based line and
+/// the message of the first problem.
+fn check(text: &str) -> Result<FileValues, (usize, String)> {
     let line = |offset: usize| text[..offset.min(text.len())].matches('\n').count() + 1;
     let doc = toml_edit::Document::parse(text).map_err(|e| {
         let offset = e.span().map_or(0, |s| s.start);
         (line(offset), format!("invalid TOML: {}", e.message()))
     })?;
-    let Some((at, entry)) = entries(&doc).into_iter().next() else {
-        return Ok(());
-    };
-    let message = match entry {
-        Entry::UnknownSection(name) => format!(
-            "unknown section '{name}', expected one of: {}",
-            section_names().join(", ")
-        ),
-        Entry::NotASection(name) => format!("'{name}' must be a section"),
-        Entry::Key { section, key } if is_spec_key(section, key) => {
-            format!("the key '{section}.{key}' is not implemented yet")
-        }
-        Entry::Key { section, key } => match close_key(section, key) {
-            Some(close) => {
-                format!("unknown key '{section}.{key}', did you mean '{section}.{close}'?")
+    let mut values = FileValues::default();
+    for (at, entry) in entries(&doc) {
+        let message = match entry {
+            Entry::UnknownSection(name) => format!(
+                "unknown section '{name}', expected one of: {}",
+                section_names().join(", ")
+            ),
+            Entry::NotASection(name) => format!("'{name}' must be a section"),
+            Entry::Key {
+                section: "server",
+                key: "allowed_roots",
+                item,
+            } => match string_list(item) {
+                Some(roots) => {
+                    values.allowed_roots = Some((roots, line(at)));
+                    continue;
+                }
+                None => "invalid value for 'server.allowed_roots': a list of paths is expected"
+                    .to_string(),
+            },
+            Entry::Key { section, key, .. } if is_spec_key(section, key) => {
+                format!("the key '{section}.{key}' is not implemented yet")
             }
-            None => format!("unknown key '{section}.{key}'"),
-        },
-    };
-    Err((line(at), message))
+            Entry::Key { section, key, .. } => match close_key(section, key) {
+                Some(close) => {
+                    format!("unknown key '{section}.{key}', did you mean '{section}.{close}'?")
+                }
+                None => format!("unknown key '{section}.{key}'"),
+            },
+        };
+        return Err((line(at), message));
+    }
+    Ok(values)
+}
+
+/// A TOML array of strings.
+fn string_list(item: &toml_edit::Item) -> Option<Vec<String>> {
+    item.as_array()?
+        .iter()
+        .map(|v| v.as_str().map(str::to_string))
+        .collect()
 }
 
 /// The fields of `get_config`, in the order of its input schema.
@@ -253,15 +418,16 @@ const GET_CONFIG_FIELDS: [&str; 2] = ["section", "sources"];
 /// The `get_config` tool (`CONFIG.md#get_config`): the effective configuration as TOML. The first line names the server
 /// and the spec versions; the read-only keys and the sections with their keys follow, as far as they are
 /// implemented — no key is implemented yet, so `section` and `sources` don't change the result.
-pub(crate) fn get_config(arguments: &Value) -> Result<String, Report> {
+pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<String, Report> {
     let object = arguments_object(arguments, &GET_CONFIG_FIELDS)?;
-    match object.get("section") {
-        None => {}
+    let section = match object.get("section") {
+        None => None,
         Some(Value::String(section)) => {
-            let names: Vec<&str> = SECTIONS.iter().map(|(name, _)| *name).collect();
+            let names = section_names();
             if !names.contains(&section.as_str()) {
                 return Err(unknown_name("section", section, &names));
             }
+            Some(section.as_str())
         }
         Some(_) => {
             return Err(Report::new(
@@ -269,17 +435,59 @@ pub(crate) fn get_config(arguments: &Value) -> Result<String, Report> {
                 "'section' must be a string",
             ));
         }
+    };
+    let sources = match object.get("sources") {
+        None => false,
+        Some(Value::Bool(sources)) => *sources,
+        Some(_) => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "'sources' must be a boolean",
+            ));
+        }
+    };
+    let mut out = format!(
+        "# easy-peasy-mcp {}, spec {SPEC_VERSION}, supported specs: {SPEC_VERSION}\n# read-only: {}\n",
+        env!("CARGO_PKG_VERSION"),
+        IMPLEMENTED
+            .iter()
+            .filter(|(s, k)| READ_ONLY.iter().any(|(rs, rk, _)| rs == s && rk == k))
+            .map(|(s, k)| format!("{s}.{k}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    if section.is_none_or(|s| s == "server") {
+        let roots: Vec<String> = settings
+            .allowed_roots
+            .iter()
+            .map(|r| toml_path(r))
+            .collect();
+        let lines = [(
+            format!("allowed_roots = [{}]", roots.join(", ")),
+            &settings.allowed_roots_source,
+        )];
+        out.push_str("\n[server]\n");
+        push_lines(&mut out, &lines, sources);
     }
-    if object.get("sources").is_some_and(|v| !v.is_boolean()) {
-        return Err(Report::new(
-            ErrorCode::InvalidOption,
-            "'sources' must be a boolean",
-        ));
+    Ok(out)
+}
+
+/// The `key = value` lines of a section, with the source comments four spaces after the longest line.
+fn push_lines(out: &mut String, lines: &[(String, &Source)], sources: bool) {
+    let width = lines
+        .iter()
+        .map(|(line, _)| line.chars().count())
+        .max()
+        .unwrap_or(0)
+        + 4;
+    for (line, source) in lines {
+        if sources {
+            let _ = writeln!(out, "{line:<width$}# {source}");
+        } else {
+            out.push_str(line);
+            out.push('\n');
+        }
     }
-    Ok(format!(
-        "# easy-peasy-mcp {}, spec {SPEC_VERSION}, supported specs: {SPEC_VERSION}\n",
-        env!("CARGO_PKG_VERSION")
-    ))
 }
 
 /// `invalid_option` for a name which is not one of `names`, with `did you mean` and the expected names.
@@ -370,7 +578,7 @@ pub(crate) fn update_config(arguments: &Value) -> Result<String, Report> {
                     format!("'{name}' must be a section"),
                 ));
             }
-            Entry::Key { section, key } => check_update_key(section, key)?,
+            Entry::Key { section, key, .. } => check_update_key(section, key)?,
         }
     }
     Ok("# nothing changed\n".to_string())
@@ -516,8 +724,24 @@ mod tests {
 
     #[test]
     fn valid_files() {
-        assert_eq!(check(""), Ok(()));
-        assert_eq!(check("# only a comment\n\n[output]\n[server]\n"), Ok(()));
+        assert_eq!(check(""), Ok(FileValues::default()));
+        assert_eq!(
+            check("# only a comment\n\n[output]\n[server]\n"),
+            Ok(FileValues::default())
+        );
+        assert_eq!(
+            check("[server]\n# roots\nallowed_roots = ['a', \"b\"]\n"),
+            Ok(FileValues {
+                allowed_roots: Some((vec!["a".into(), "b".into()], 3))
+            })
+        );
+        assert_eq!(
+            error("server.allowed_roots = [1]\n"),
+            (
+                1,
+                "invalid value for 'server.allowed_roots': a list of paths is expected".into()
+            )
+        );
     }
 
     #[test]
@@ -589,12 +813,31 @@ mod tests {
 
     #[test]
     fn get_config_arguments() {
+        let settings = Settings {
+            allowed_roots: vec![PathBuf::from("/a"), PathBuf::from("/it's")],
+            allowed_roots_source: Source::Cli,
+        };
         let first = format!(
-            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n",
+            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots\n",
             env!("CARGO_PKG_VERSION")
         );
-        assert_eq!(get_config(&Value::Null).unwrap(), first);
-        let error = |v: Value| get_config(&v).unwrap_err().to_text();
+        assert_eq!(
+            get_config(&settings, &Value::Null).unwrap(),
+            format!("{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\n")
+        );
+        assert_eq!(
+            get_config(
+                &settings,
+                &serde_json::json!({ "sources": true, "section": "server" })
+            )
+            .unwrap(),
+            format!("{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\n")
+        );
+        assert_eq!(
+            get_config(&settings, &serde_json::json!({ "section": "git" })).unwrap(),
+            first
+        );
+        let error = |v: Value| get_config(&settings, &v).unwrap_err().to_text();
         assert_eq!(
             error(serde_json::json!({ "section": 1 })),
             "error[invalid_option]: 'section' must be a string\n"
@@ -666,6 +909,57 @@ mod tests {
             update(&json!({ "reset": [1] })),
             "error[invalid_option]: 'reset' must be a list of strings\n"
         );
+    }
+
+    #[test]
+    fn roots_are_resolved() {
+        let tmp = std::env::temp_dir().join(format!("ep-roots-{}", std::process::id()));
+        std::fs::create_dir_all(tmp.join("home/proj")).unwrap();
+        let start = std::fs::canonicalize(&tmp).unwrap();
+        let home = start.join("home");
+        let roots = |cli: &[&str]| {
+            let cli: Vec<String> = cli.iter().map(ToString::to_string).collect();
+            Settings::resolve(None, &cli, &start, Some(&home))
+        };
+        assert_eq!(roots(&[]).unwrap(), Settings::defaults(&start));
+        assert_eq!(
+            roots(&[]).unwrap().allowed_roots,
+            std::slice::from_ref(&start)
+        );
+        let settings = roots(&["~/proj", "home", "~"]).unwrap();
+        assert_eq!(
+            settings.allowed_roots,
+            [home.join("proj"), home.clone(), home.clone()]
+        );
+        assert_eq!(settings.allowed_roots_source, Source::Cli);
+        assert!(settings.is_allowed(&home.join("proj/x")));
+        assert!(!settings.is_allowed(&start));
+        assert_eq!(
+            roots(&["missing"]).unwrap_err().to_string(),
+            "the allowed root 'missing' doesn't exist"
+        );
+        let file = ConfigFile {
+            path: PathBuf::from("c.toml"),
+            values: FileValues {
+                allowed_roots: Some((vec!["missing".into()], 4)),
+            },
+        };
+        assert_eq!(
+            Settings::resolve(Some(&file), &[], &start, None)
+                .unwrap_err()
+                .to_string(),
+            "c.toml:4: the allowed root 'missing' doesn't exist"
+        );
+        let empty = ConfigFile {
+            path: PathBuf::from("c.toml"),
+            values: FileValues {
+                allowed_roots: Some((Vec::new(), 1)),
+            },
+        };
+        let settings = Settings::resolve(Some(&empty), &[], &start, None).unwrap();
+        assert_eq!(settings.allowed_roots, std::slice::from_ref(&start));
+        assert_eq!(settings.allowed_roots_source, Source::File("c.toml".into()));
+        std::fs::remove_dir_all(&tmp).unwrap();
     }
 
     #[test]

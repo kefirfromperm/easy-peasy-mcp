@@ -81,7 +81,7 @@ line 1-based), and the exit code `1`; the first error in the file is reported:
 | a section which doesn't exist              | `unknown section 'colors', expected one of: server, traversal, output, escape, query, kinds, git, languages` |
 | a section written as a value               | `'output' must be a section`                                       |
 | a key which doesn't exist                  | `unknown key 'output.colour'`, with `, did you mean 'output.color'?` for a close one |
-| a wrong value                              | `invalid value for 'output.max_files': <what is expected>`         |
+| a wrong value                              | `invalid value for 'output.max_files': <what is expected>`, e.g. `a list of paths is expected` |
 | a key this server version doesn't implement yet | `the key 'output.max_files' is not implemented yet`         |
 
 A file which can't be read is `easy-peasy-mcp: <path>: the config file doesn't exist` or `... can't be read`, without a
@@ -232,7 +232,11 @@ Paths
 - `allowed_roots` are canonicalized at start (symlinks resolved); a root which doesn't exist is an error
 
 A request working directory must be inside an allowed root after canonicalization, otherwise the request fails with
-`dir_not_allowed`.
+`dir_not_allowed`: `error[dir_not_allowed]: the working directory '<dir>' is outside of the allowed roots`, hint
+`get_config shows the allowed roots`.
+
+A root which doesn't exist stops the server with `the allowed root '<root>' doesn't exist` — after `<path>:<line>: `
+when it comes from the config file, see [Config file](#config-file).
 
 ### traversal
 
@@ -611,6 +615,11 @@ exclude = ["**/target/**", "**/node_modules/**"]    # file: /home/me/.config/eas
 hidden = false                                      # default
 max_file_size = "50M"                               # update
 ```
+
+The comments of a section start in one column, four spaces after its longest line.
+
+`server.allowed_roots` shows the canonical roots in effect, so an empty list shows the start directory. Paths are
+written as TOML literal strings (`'...'`), so Windows paths need no escaping; a path with a `'` is a basic string.
 
 Sources: `default`, `file: <path>`, `cli`, `update`. `cli` appears only for the values the command line can set:
 `server.allowed_roots`, `server.timeout`, `server.allow_update`. Values which are not set (e.g. `max_depth` without a

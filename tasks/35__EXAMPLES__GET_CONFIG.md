@@ -1,7 +1,6 @@
 # Examples for task 35
 
-No configuration key is implemented yet (they come with their own tasks), so the result has only its first line; the
-read-only line and the sections appear with the keys.
+The result shows the keys implemented so far; every key task adds its key.
 
 ## Fixtures
 
@@ -23,6 +22,10 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']
 ```
 
 ## E35.2 One section
@@ -35,6 +38,7 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
 ```
 
 ## E35.3 With the sources
@@ -47,6 +51,10 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']    # default
 ```
 
 ## E35.4 An unknown section

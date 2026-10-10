@@ -194,6 +194,10 @@ error[unknown_key]: unknown key 'output.max_file'
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
+# read-only: server.allowed_roots
+
+[server]
+allowed_roots = ['<fixture>']
 ```
 
 3. `find`

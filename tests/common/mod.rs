@@ -393,7 +393,7 @@ pub fn setup_fixture(fixture: &Fixture) -> FixtureDir {
         restricted.push(p);
     }
     FixtureDir {
-        root,
+        root: fs::canonicalize(&root).unwrap(),
         permissions_removed,
         restricted,
         tmp,
