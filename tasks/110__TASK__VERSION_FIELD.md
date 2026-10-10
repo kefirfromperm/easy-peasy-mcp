@@ -1,6 +1,6 @@
 # Task 110: Request field `version`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 78
 
