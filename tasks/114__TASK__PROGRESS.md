@@ -1,6 +1,6 @@
 # Task 114: Progress notifications
 
-Status: in progress
+Status: implemented, see [114__SUMMARY__PROGRESS.md](114__SUMMARY__PROGRESS.md)
 
 Depends on: task 40
 
