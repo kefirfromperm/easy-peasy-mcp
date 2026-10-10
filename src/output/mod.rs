@@ -603,6 +603,41 @@ mod tests {
     }
 
     #[test]
+    fn only_the_first_files_are_listed() {
+        let files = [found("a"), found("b"), found("c")];
+        let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
+        let response = |max_files: usize, timed_out: bool| {
+            Response {
+                detail: Detail::Files,
+                blocks: BlockOptions::default(),
+                group_dirs: false,
+                group_repeated: 3,
+                highlight: Highlight::Markers("⟦", "⟧"),
+                time_zone: jiff::tz::TimeZone::UTC,
+                limits: Limits {
+                    max_files,
+                    ..Limits::default()
+                },
+                result_id: None,
+                legend: &legend,
+                files: &files,
+                warnings: &Warnings::default(),
+                timed_out,
+            }
+            .to_text()
+        };
+        assert_eq!(
+            response(2, false),
+            "files: 3  lines: 0  matches: 0  truncated: yes (max_files)\n#1 name ~ '*'\n\na  [#1]\nb  [#1]\n"
+        );
+        assert!(response(3, false).starts_with("files: 3  lines: 0  matches: 0\n"));
+        assert!(
+            response(1, true)
+                .starts_with("files: 3  lines: 0  matches: 0  truncated: yes (max_files, timeout)\n")
+        );
+    }
+
+    #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,
