@@ -1,6 +1,6 @@
 # Task 112: Changes since a previous result: `since`
 
-Status: in progress
+Status: implemented, see [112__SUMMARY__SINCE.md](112__SUMMARY__SINCE.md)
 
 Depends on: task 111
 
