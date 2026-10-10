@@ -1,6 +1,6 @@
 # Task 36: `update_config` tool
 
-Status: in progress
+Status: implemented, see [36__SUMMARY__UPDATE_CONFIG.md](36__SUMMARY__UPDATE_CONFIG.md)
 
 Depends on: task 35
 
