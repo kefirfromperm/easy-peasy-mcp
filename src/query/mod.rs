@@ -23,6 +23,7 @@ pub use eval::{EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, T
 pub(crate) use suggest::did_you_mean;
 
 use crate::error::{ErrorCode, QueryError};
+use crate::git::GitValue;
 
 /// Settings which change how the query is compiled.
 #[derive(Debug, Clone)]
@@ -66,6 +67,8 @@ pub struct Needs {
     pub lang: bool,
     /// A `kind` condition: the kind of entries; nothing is skipped as generated.
     pub kind: bool,
+    /// A `git` condition: the git status of files; files outside of a repository get a warning.
+    pub git: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -110,6 +113,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
                 needs.accessed |= c.target == Target::Accessed;
                 needs.lang |= matches!(c.target, Target::Lang | Target::Kind);
                 needs.kind |= c.target == Target::Kind;
+                needs.git |= c.target == Target::Git;
             }
         });
     }
@@ -204,6 +208,15 @@ fn validate_condition(
         for word in words
             .iter()
             .filter(|w| EntryType::from_keyword(&w.text).is_none())
+        {
+            errors.push(unknown_value(word, &names));
+        }
+    }
+    if c.target == Target::Git {
+        let names: Vec<&str> = GitValue::ALL.iter().map(|v| v.keyword()).collect();
+        for word in words
+            .iter()
+            .filter(|w| GitValue::from_keyword(&w.text).is_none())
         {
             errors.push(unknown_value(word, &names));
         }
@@ -433,6 +446,15 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
             values: words(&c.value)
                 .iter()
                 .map(|w| w.text.to_lowercase())
+                .collect(),
+            negated: matches!(c.op, Some((Op::Ne, _))),
+        },
+        Target::Git => Filter::Git {
+            id,
+            order,
+            values: words(&c.value)
+                .iter()
+                .filter_map(|w| GitValue::from_keyword(&w.text))
                 .collect(),
             negated: matches!(c.op, Some((Op::Ne, _))),
         },
@@ -758,6 +780,7 @@ mod tests {
             accessed: Some(0.0),
             lang: "unknown",
             kind: Kind::Other,
+            git: None,
         };
         query.filter.unwrap().matches(&file)
     }
@@ -857,6 +880,7 @@ mod tests {
             accessed: None,
             lang,
             kind: Kind::Other,
+            git: None,
         };
         let q = parse("lang in (rust, Python)", &SENSITIVE).unwrap();
         assert!(q.needs.lang);
@@ -886,6 +910,7 @@ mod tests {
             accessed: None,
             lang: "unknown",
             kind,
+            git: None,
         };
         let q = parse("kind in (source, TEST)", &SENSITIVE).unwrap();
         assert!(q.needs.kind && q.needs.lang);
@@ -980,7 +1005,7 @@ mod tests {
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
-        let e = parse("git = changed and name ~ '[a-'", &SENSITIVE).unwrap_err();
+        let e = parse("text has 'x' and name ~ '[a-'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::NotImplemented);
     }
 }

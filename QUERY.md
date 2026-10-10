@@ -284,7 +284,9 @@ directories, nested repositories and monorepos work.
 | `branch`     | `changed`, or changed by the commits of the current branch since the [base](CONFIG.md#git) |
 | `clean`      | is tracked and has no changes                                                  |
 
-A file can have several statuses at once (`modified` and `staged`); `git = x` is true if the file has the status `x`.
+A file can have several statuses at once (`modified` and `staged`); `git = x` is true if the file has the status `x`,
+`git != x` if it is in a repository and doesn't have it. A directory has no git status: every `git` condition is false
+for it.
 Outside of a repository and inside archives every `git` condition is false. For files outside of a repository the
 response has a `not_a_git_repo` warning.
 
