@@ -1,6 +1,6 @@
 # Task 55: `traversal.encoding`
 
-Status: in progress
+Status: implemented, see [55__SUMMARY__TRAVERSAL_ENCODING.md](55__SUMMARY__TRAVERSAL_ENCODING.md)
 
 Depends on: task 25, task 44
 
