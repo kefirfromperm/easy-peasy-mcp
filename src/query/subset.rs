@@ -145,10 +145,7 @@ mod tests {
             check_str("near(text has 'a', text has 'b', 1)").unwrap().0,
             "the group near( ... ) is not implemented yet"
         );
-        assert_eq!(
-            check_str("name = 'a' /i/w"),
-            Some(("the modifier '/w' is not implemented yet".into(), 13..15))
-        );
+        assert_eq!(check_str("text has 'a' /i/w"), None);
         assert_eq!(
             check_str("name = 'a' /e(xml, 1)"),
             Some(("the modifier '/e' is not implemented yet".into(), 11..13))

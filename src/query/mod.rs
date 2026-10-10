@@ -1032,6 +1032,22 @@ mod tests {
     }
 
     #[test]
+    fn whole_words() {
+        assert!(content_matches("text has 'id' /w", "x id y"));
+        assert!(content_matches("text has 'id' /w", "id"));
+        assert!(!content_matches(
+            "text has 'id' /w",
+            "id_2 valid id2 \u{e4}id"
+        ));
+        assert!(content_matches("text has 'id' /w", "(id)"));
+        assert!(content_matches("text has '.unwrap(' /w", "x.unwrap()"));
+        assert!(content_matches("text has 'aa' /w", "aaa aa"));
+        assert!(content_matches("text =~ `a+` /w", "ba aa"));
+        assert!(content_matches("text starts 'id' /w", "id\nx"));
+        assert!(!content_matches("text starts 'id' /w", "idx"));
+    }
+
+    #[test]
     fn regex_per_line() {
         assert!(content_matches("text =~ `^b$`", "a\nb\nc"));
         assert!(!content_matches("text =~ `a\\s+b`", "a\nb"));
