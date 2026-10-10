@@ -1,6 +1,6 @@
 # Task 37: `--log-level`
 
-Status: not implemented
+Status: implemented, see [37__SUMMARY__LOG_LEVEL.md](37__SUMMARY__LOG_LEVEL.md)
 
 Depends on: task 34
 
