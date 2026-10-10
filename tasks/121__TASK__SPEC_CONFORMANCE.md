@@ -1,6 +1,6 @@
 # Task 121: Spec examples as tests
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 117, task 119, task 120
 
