@@ -412,6 +412,39 @@ mod tests {
         assert!(!is_binary_content(b"plain text\n"));
     }
 
+    fn forced(label: &str) -> DecodeOptions {
+        DecodeOptions {
+            binary_as_text: false,
+            encoding: encoding_rs::Encoding::for_label(label.as_bytes()),
+        }
+    }
+
+    #[test]
+    fn a_forced_encoding_for_files_without_a_bom() {
+        let latin = forced("windows-1252");
+        let Decoded::Text {
+            content, encoding, ..
+        } = decode(b"caf\xe9\n", &latin)
+        else {
+            panic!("text")
+        };
+        assert_eq!(content.line(0), "caf\u{e9}");
+        assert_eq!(encoding.name(), "windows-1252");
+        let Decoded::Text { encoding, .. } = decode(b"\xef\xbb\xbfcaf\xc3\xa9\n", &latin) else {
+            panic!("text")
+        };
+        assert_eq!(encoding, Encoding::Utf8);
+        // UTF-16 has zero bytes, other encodings are binary by them
+        assert!(matches!(
+            decode(b"h\0i\0", &forced("utf-16le")),
+            Decoded::Text { .. }
+        ));
+        assert!(matches!(decode(b"h\0i\0", &latin), Decoded::Binary));
+        assert!(!is_binary_content(b"h\0i\0", &forced("utf-16le")));
+        assert!(is_binary_content(b"h\0i\0", &latin));
+        assert_eq!(Encoding::Utf16Le.name(), "utf-16le");
+    }
+
     #[test]
     fn invalid_utf8_is_replaced() {
         let c = Content::from_bytes(b"a\xffb\n");
