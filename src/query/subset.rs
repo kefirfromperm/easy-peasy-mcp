@@ -133,9 +133,11 @@ mod tests {
             check_str("near(text has 'a', text has 'b', 1)").unwrap().0,
             "the group near( ... ) is not implemented yet"
         );
+        assert_eq!(check_str("name = 'a' /i"), None);
+        assert_eq!(check_str("name = 'a'/I /i"), None);
         assert_eq!(
-            check_str("name = 'a' /i").unwrap().0,
-            "the modifier '/i' is not implemented yet"
+            check_str("name = 'a' /i/w"),
+            Some(("the modifier '/w' is not implemented yet".into(), 13..15))
         );
         assert_eq!(
             check_str("name = 'a' @x").unwrap().0,

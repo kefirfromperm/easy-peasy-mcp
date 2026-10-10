@@ -300,6 +300,77 @@ mod tests {
     }
 
     #[test]
+    fn modifier_i() {
+        assert!(matcher("name = 'readme.md' /i", false).is_match("README.md"));
+        assert!(matcher("name has '\u{e4}pfel' /I", false).is_match("\u{c4}pfel.md"));
+        assert!(matcher("name ~ 'READ*'/i", false).is_match("Readme.md"));
+        assert!(matcher("path starts 'LIB/' /i", false).is_match("lib/a.rs"));
+        assert!(!matcher("name = 'readme.md'", false).is_match("README.md"));
+    }
+
+    fn not_allowed(q: &str) -> (String, Range<usize>, String) {
+        let e = parse(q, SENSITIVE).unwrap_err();
+        assert_eq!(e.code, ErrorCode::ModifierNotAllowed, "{q}: {e:?}");
+        (e.message, e.span, e.hint.unwrap())
+    }
+
+    #[test]
+    fn modifier_not_allowed() {
+        assert_eq!(
+            not_allowed("name = 'a' /m"),
+            (
+                "modifier '/m' is not allowed here".into(),
+                11..13,
+                "'/m' works with '=~' on 'text' in file scope".into()
+            )
+        );
+        assert_eq!(
+            not_allowed("size > 1M /i").2,
+            "'/i' works with the text operators on 'path', 'name' and 'text'"
+        );
+        assert_eq!(
+            not_allowed("name has 'a' /w").2,
+            "'/w' works with '=', 'has', 'starts', 'ends', '=~' on 'text'"
+        );
+        assert_eq!(
+            not_allowed("line(text =~ 'a' /m)").2,
+            "'/m' works with '=~' on 'text' in file scope"
+        );
+        assert_eq!(not_allowed("name = 'a' /c").2, "'/c' works with 'text'");
+        assert_eq!(
+            not_allowed("text ends 'a' /n /e(xml, 1)").2,
+            "'/e' can't be combined with '/n'"
+        );
+        assert_eq!(
+            not_allowed("name ~ 'a' /n").2,
+            "'/n' works with '=', 'has', 'starts', 'ends'"
+        );
+        assert_eq!(
+            not_allowed("name = 'a' /e(xml, 1)").2,
+            "'/e' works with '=', 'has', 'starts', 'ends' on 'text'"
+        );
+    }
+
+    #[test]
+    fn allowed_modifiers_pass_validation() {
+        for q in [
+            "text =~ 'a' /m /w /i /c",
+            "text has 'a' /e(xml, 1) /w",
+            "name has 'a b' /n",
+            "line(text has 'a' /n /i)",
+        ] {
+            let e = parse(q, SENSITIVE).unwrap_err();
+            assert_eq!(e.code, ErrorCode::NotImplemented, "{q}: {e:?}");
+        }
+    }
+
+    #[test]
+    fn legend_keeps_modifiers_as_written() {
+        assert_eq!(legend("name = 'a' /i/w"), ["name = 'a' /i/w"]);
+        assert_eq!(legend("name = 'a'/i /w"), ["name = 'a'/i /w"]);
+    }
+
+    #[test]
     fn the_empty_query_has_no_filter_and_no_legend() {
         let q = parse(" \n ", SENSITIVE).unwrap();
         assert!(q.filter.is_none());
