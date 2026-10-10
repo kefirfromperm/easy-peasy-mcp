@@ -83,9 +83,12 @@ mod tests {
             check_str("path ~ 'a'"),
             Some(("the target 'path' is not implemented yet".into(), 0..4))
         );
+        assert_eq!(check_str("name has 'a'"), None);
+        assert_eq!(check_str("name STARTS 'a'"), None);
+        assert_eq!(check_str("name ends 'a'"), None);
         assert_eq!(
-            check_str("name has 'a'"),
-            Some(("the operator 'has' is not implemented yet".into(), 5..8))
+            check_str("name =~ 'a'"),
+            Some(("the operator '=~' is not implemented yet".into(), 5..7))
         );
         assert_eq!(
             check_str("name ~~ 'a'").unwrap().0,

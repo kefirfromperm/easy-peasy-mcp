@@ -246,6 +246,32 @@ mod tests {
         assert!(matcher.is_match("caf\u{e9}"));
     }
 
+    fn matcher(q: &str, insensitive: bool) -> TextMatcher {
+        let options = ParseOptions {
+            case_insensitive_paths: insensitive,
+        };
+        let Some(Filter::Name { matcher, .. }) = parse(q, options).unwrap().filter else {
+            panic!("{q}")
+        };
+        matcher
+    }
+
+    #[test]
+    fn text_operators() {
+        let has = matcher("name has 'a.b'", false);
+        assert!(has.is_match("xa.by"));
+        assert!(!has.is_match("xaxby"));
+        let starts = matcher("name starts '(x'", false);
+        assert!(starts.is_match("(x).rs"));
+        assert!(!starts.is_match("a(x).rs"));
+        let ends = matcher("name ends '.test.ts'", false);
+        assert!(ends.is_match("a.test.ts"));
+        assert!(!ends.is_match("a.test.tsx"));
+        assert!(matcher("name ends '.TS'", true).is_match("a.ts"));
+        assert!(!matcher("name ends '.TS'", false).is_match("a.ts"));
+        assert!(matcher("name has '\u{e4}'", true).is_match("\u{c4}pfel"));
+    }
+
     #[test]
     fn the_empty_query_has_no_filter_and_no_legend() {
         let q = parse(" \n ", SENSITIVE).unwrap();
