@@ -1,6 +1,6 @@
 # Task 65: `kinds.generated`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 63
 
