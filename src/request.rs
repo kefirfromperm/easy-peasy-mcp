@@ -30,6 +30,7 @@ pub struct Traversal {
     pub max_depth: Option<usize>,
     pub follow_symlinks: Option<bool>,
     pub hidden: Option<bool>,
+    pub ignore_files: Option<Vec<String>>,
 }
 
 /// A validated `find` request.
@@ -288,6 +289,17 @@ mod tests {
                 .traversal
                 .hidden,
             Some(true)
+        );
+        assert_eq!(
+            parse(&json!({ "traversal": { "ignore_files": [".aiignore"] } }))
+                .unwrap()
+                .traversal
+                .ignore_files,
+            Some(vec![".aiignore".to_string()])
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "ignore_files": [1] } })),
+            "error[invalid_option]: 'traversal.ignore_files' must be a list of strings\n"
         );
         assert_eq!(
             text(&json!({ "traversal": { "exclude": [] } })),
