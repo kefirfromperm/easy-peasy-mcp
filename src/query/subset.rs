@@ -127,10 +127,7 @@ mod tests {
             check_str("name = 'a' /e(xml, 1)"),
             Some(("the modifier '/e' is not implemented yet".into(), 11..13))
         );
-        assert_eq!(
-            check_str("name = 'a' @x"),
-            Some(("the label '@x' is not implemented yet".into(), 11..13))
-        );
+        assert_eq!(check_str("name = 'a' @x or name = 'b' @y"), None);
         assert_eq!(
             check_str("name = 'a' # x"),
             Some(("the comment '#' is not implemented yet".into(), 11..14))

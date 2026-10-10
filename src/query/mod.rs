@@ -455,6 +455,31 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_labels() {
+        let e = parse(
+            "name = 'a' @x or (name = 'b' @y and name = 'c' @x)",
+            SENSITIVE,
+        )
+        .unwrap_err();
+        assert_eq!(
+            (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
+            (
+                ErrorCode::DuplicateLabel,
+                "duplicate label '@x'",
+                47..49,
+                Some("labels must be unique")
+            )
+        );
+    }
+
+    #[test]
+    fn labelled_ids_in_the_filter() {
+        let q = parse("name = 'a' @x or name = 'b'", SENSITIVE).unwrap();
+        let ids: Vec<String> = q.legend.iter().map(|(id, _)| id.to_string()).collect();
+        assert_eq!(ids, ["@x", "#1"]);
+    }
+
+    #[test]
     fn the_earliest_error_wins() {
         let e = parse("name ~ '[a-' and path ~ 'x'", SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
