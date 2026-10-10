@@ -3,10 +3,10 @@
 pub mod ast;
 mod escape;
 mod eval;
+mod fuzzy;
 mod lexer;
 mod naming;
 mod parser;
-mod subset;
 mod suggest;
 mod value;
 pub mod wildcard;
@@ -20,6 +20,7 @@ use ast::{
     CondId, Condition, Expr, Modifier, Node, NodeKind, Op, Spanned, Target, TargetClass, Value,
 };
 use escape::Style;
+use fuzzy::Fuzzy;
 use lexer::Token;
 
 pub use eval::{
@@ -100,12 +101,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         validate(text, expr, Scope::File, options, &mut errors);
         duplicate_labels(expr, &mut errors);
     }
-    errors.extend(subset::check(text, expr.as_ref()));
-    // on the same position a real error wins over not_implemented
-    if let Some(first) = errors
-        .into_iter()
-        .min_by_key(|e| (e.span.start, e.code == ErrorCode::NotImplemented))
-    {
+    if let Some(first) = errors.into_iter().min_by_key(|e| e.span.start) {
         return Err(first);
     }
     let mut has_type = false;
@@ -186,7 +182,7 @@ impl Scope {
     }
 }
 
-/// Checks the values and modifiers of all conditions, also of those outside of the implemented subset.
+/// Checks the values and modifiers of all conditions.
 fn validate(
     text: &str,
     expr: &Expr,
@@ -669,7 +665,7 @@ pub fn nfc(s: &str) -> String {
     }
 }
 
-/// Compiles a checked query: every condition is in the implemented subset and valid.
+/// Compiles a checked query: every condition is valid.
 fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
     let all = |items: &[Expr]| items.iter().map(|e| compile(e, options)).collect();
     match expr {
@@ -713,7 +709,7 @@ fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
 
 fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
     let NodeKind::Condition(c) = &node.kind else {
-        unreachable!("the subset check allows only conditions")
+        unreachable!("compile handles line( ... ) and near( ... )")
     };
     let id = node.id.clone();
     let order = node.tokens.start;
@@ -892,6 +888,17 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
     let identifier = c.modifiers.iter().any(|m| m.name == "n");
     let insensitive =
         options.case_insensitive_paths || identifier || c.modifiers.iter().any(|m| m.name == "i");
+    if *op == Op::Fuzzy {
+        return Filter::Text {
+            id,
+            order,
+            target: text_target(c.target),
+            matcher: TextMatcher::Fuzzy {
+                fuzzy: Fuzzy::new(&value, c.target == Target::Path),
+                min_score: fuzzy::MIN_SCORE,
+            },
+        };
+    }
     let regex = if *op == Op::Wildcard {
         wildcard::compile(&value, insensitive).expect("wildcards are validated before compiling")
     } else if *op == Op::Regex {
@@ -911,15 +918,20 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         let flags = if insensitive { "(?i)" } else { "" };
         Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex")
     };
-    let target = match c.target {
-        Target::Path => TextTarget::Path,
-        _ => TextTarget::Name,
-    };
     Filter::Text {
         id,
         order,
-        target,
-        matcher: TextMatcher(regex),
+        target: text_target(c.target),
+        matcher: TextMatcher::Regex(regex),
+    }
+}
+
+/// The value a `name` or `path` condition looks at.
+fn text_target(target: Target) -> TextTarget {
+    if target == Target::Path {
+        TextTarget::Path
+    } else {
+        TextTarget::Name
     }
 }
 
@@ -1055,7 +1067,7 @@ mod tests {
         (e.message, e.span, e.hint.unwrap())
     }
 
-    /// The hint of the first validation error, before the subset check.
+    /// The hint of the first validation error.
     fn validation_hint(q: &str) -> String {
         let lexed = lexer::lex(q);
         let expr = parser::parse(q, &lexed).unwrap().unwrap();
@@ -1485,6 +1497,15 @@ mod tests {
     }
 
     #[test]
+    fn fuzzy_names_and_paths() {
+        assert!(name_matches("name ~~ 'cfgldr'", "src/config_loader.rs"));
+        assert!(!name_matches("name ~~ 'cfgldr'", "src/scaffold_bigolder.ts"));
+        assert!(!name_matches("name ~~ 'cfgx'", "src/config_loader.rs"));
+        assert!(name_matches("path ~~ 'srv hndl'", "src/server/handlers.rs"));
+        assert!(!name_matches("name ~~ 'srv hndl'", "src/server/handlers.rs"));
+    }
+
+    #[test]
     fn whole_words() {
         assert!(content_matches("text has 'id' /w", "x id y"));
         assert!(content_matches("text has 'id' /w", "id"));
@@ -1781,6 +1802,6 @@ mod tests {
         let e = parse("name ~ '[a-' and path ~ 'x'", &SENSITIVE).unwrap_err();
         assert_eq!(e.code, ErrorCode::InvalidWildcard);
         let e = parse("name ~~ 'x' and name ~ '[a-'", &SENSITIVE).unwrap_err();
-        assert_eq!(e.code, ErrorCode::NotImplemented);
+        assert_eq!(e.code, ErrorCode::InvalidWildcard);
     }
 }

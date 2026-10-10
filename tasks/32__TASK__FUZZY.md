@@ -1,6 +1,6 @@
 # Task 32: Fuzzy `~~` on `name` and `path`
 
-Status: not implemented
+Status: implemented, see [32__SUMMARY__FUZZY.md](32__SUMMARY__FUZZY.md)
 
 Depends on: task 4
 
