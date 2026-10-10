@@ -194,10 +194,15 @@ impl Engine {
             .dirs
             .as_deref()
             .unwrap_or_else(|| settings.list(Key::DefaultDirs));
-        let working_dirs = dirs
+        let mut working_dirs = dirs
             .iter()
             .map(|dir| self.working_dir(dir, &settings))
             .collect::<Result<Vec<_>, _>>()?;
+        if settings.text(Key::PathStyle) == "absolute" {
+            for (path, prefix) in &mut working_dirs {
+                *prefix = without_verbatim(path);
+            }
+        }
         let case_insensitive_paths = match settings.text(Key::PathCase) {
             "sensitive" => false,
             "insensitive" => true,
@@ -406,6 +411,18 @@ impl Engine {
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
+    }
+}
+
+/// A canonical path as it is shown: without the verbatim prefix `\\?\` which Windows gives canonical paths.
+fn without_verbatim(path: &Path) -> PathBuf {
+    let text = path.to_string_lossy();
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{rest}"))
+    } else if let Some(rest) = text.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else {
+        path.to_path_buf()
     }
 }
 
