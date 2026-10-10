@@ -50,6 +50,7 @@ b.rs  [#1]  lines: 2  matches: 2
 format = "text"
 detail = "lines"
 funnel = "auto"
+facets = ['dir', 'lang', 'kind', 'condition']
 meta = false
 context = 0
 # before =  (not set)
@@ -208,6 +209,7 @@ files: 2  lines: 4  matches: 4  result: r1
 format = "text"    # default
 detail = "count"    # update
 funnel = "auto"    # default
+facets = ['dir', 'lang', 'kind', 'condition']    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default
@@ -282,6 +284,7 @@ easy-peasy-mcp --config conf/o.toml
 format = "text"    # default
 detail = "files"    # file: conf/o.toml
 funnel = "auto"    # default
+facets = ['dir', 'lang', 'kind', 'condition']    # default
 meta = false    # default
 context = 0    # default
 # before =  (not set)    # default

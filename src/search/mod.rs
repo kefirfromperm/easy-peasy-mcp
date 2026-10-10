@@ -85,6 +85,8 @@ pub struct SearchOptions {
     pub rank: bool,
     /// Count the files of the steps of the funnel (OUTPUT.md#funnel).
     pub funnel: bool,
+    /// Read the git status of every matched file, for the `git` facet.
+    pub git_status: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -138,6 +140,8 @@ pub struct Found {
     pub signals: Option<Signals>,
     /// The relevance score, once the files are ranked.
     pub score: Option<f64>,
+    /// The git status, with `git_status`; `None` outside of a repository.
+    pub git: Option<GitStatus>,
 }
 
 /// The metadata of a matched entry (OUTPUT.md#meta).
@@ -626,6 +630,11 @@ impl Walk<'_> {
             meta,
             signals: self.signals(evaluated.signals, &name, &nfc_path),
             score: None,
+            git: if self.options.git_status && entry_type == EntryType::File {
+                self.git.status(entry.path())
+            } else {
+                None
+            },
         })
     }
 
@@ -1048,6 +1057,7 @@ impl Walk<'_> {
             }),
             signals: self.signals(evaluated.signals, &name, &nfc_path),
             score: None,
+            git: None,
         })
     }
 

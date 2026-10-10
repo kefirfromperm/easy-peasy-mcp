@@ -160,6 +160,7 @@ mod tests {
             meta: None,
             signals: None,
             score: None,
+            git: None,
         }
     }
 

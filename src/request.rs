@@ -283,8 +283,14 @@ mod tests {
             [(Key::Detail, KeyValue::Text("files".into()))]
         );
         assert_eq!(
-            text(&json!({ "output": { "detail": "facets" } })),
-            "error[not_implemented]: the value 'facets' of 'output.detail' is not implemented yet\n"
+            config(&json!({ "output": { "detail": "facets", "facets": ["git", "ext"] } })),
+            [
+                (Key::Detail, KeyValue::Text("facets".into())),
+                (
+                    Key::Facets,
+                    KeyValue::List(vec!["git".into(), "ext".into()])
+                )
+            ]
         );
         assert_eq!(
             config(&json!({ "output": { "context": 1 } })),

@@ -670,6 +670,17 @@ condition:  #1 162 · @unwrap 120 · @expect 61
 Values are sorted by count, more than `facet_limit` values end with `… 5 more (21)`. In JSON:
 `"facets": { "dir": { "tests/integration/": 88, ... } }`.
 
+- the facets are the ones of `output.facets`, in its order; every facet is counted over all matched files, also
+  when the response lists only some of them
+- `ext`: the extension without the dot, `(none)` for a file without one; `git`: `modified`, `staged`, `untracked`,
+  `conflicted`, `clean` — a file can be counted in several, a file outside of a repository in none; `condition`:
+  the ids in the order of the legend for equal counts
+- equal counts are in the order of the values; a value with no files is not listed
+- the text format: the facet name and `:` in a column of 12 characters, `value count` joined with ` · `, the values
+  over the limit as ` · … N more (M)` — `N` values with `M` files; after the legend and the funnel, without files
+- JSON: `"facets"` after `hints`, an object per facet with the values in their order and the values over the limit as
+  `"… N more": M`
+
 ## Compact output
 
 Options which save tokens. `dedent`, `blank_context` and `group_dirs` lose no information; `group_repeated` shows

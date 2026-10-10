@@ -33,6 +33,8 @@ pub enum Detail {
     Exists,
     /// The totals.
     Count,
+    /// The totals, the legend and the files per value of the facets.
+    Facets,
     /// The totals, the legend and the files.
     Files,
     /// The totals, the legend, the files and their matched lines.
@@ -118,6 +120,8 @@ pub struct Response<'a> {
     pub funnel: Option<Vec<(String, usize)>>,
     /// The hints which come with the funnel.
     pub hints: Vec<Hint>,
+    /// `detail = facets`: the facets of all matched files.
+    pub facets: Vec<facets::Facet>,
     /// `None` when the result cache is off.
     pub result_id: Option<&'a str>,
     pub legend: &'a [(CondId, String)],
@@ -184,6 +188,13 @@ impl Response<'_> {
             let _ = writeln!(out, "{id} {text}");
         }
         self.push_funnel(&mut out);
+        if self.detail == Detail::Facets {
+            for facet in &self.facets {
+                let _ = writeln!(out, "{}", facet.line(facets::LIMIT));
+            }
+            self.push_warnings(&mut out);
+            return out;
+        }
         out.push('\n');
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
@@ -533,6 +544,7 @@ mod tests {
             meta: None,
             signals: None,
             score: None,
+            git: None,
         }
     }
 
@@ -555,6 +567,7 @@ mod tests {
             page: Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r3"),
             legend: &legend,
@@ -586,6 +599,7 @@ mod tests {
             page: Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -617,6 +631,7 @@ mod tests {
             meta: None,
             signals: None,
             score: None,
+            git: None,
         }];
         let text = Response {
             detail: Detail::Lines,
@@ -628,6 +643,7 @@ mod tests {
             page: Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[],
@@ -659,6 +675,7 @@ mod tests {
             page: Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
@@ -706,6 +723,7 @@ mod tests {
             page: Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: Limits::default(),
             result_id: None,
             legend: &legend,
@@ -748,6 +766,7 @@ mod tests {
                 page: Page::default(),
                 funnel: None,
                 hints: Vec::new(),
+                facets: Vec::new(),
                 limits: Limits::default(),
                 result_id: None,
                 legend: &legend,
@@ -794,6 +813,7 @@ mod tests {
                 page: Page::default(),
                 funnel: None,
                 hints: Vec::new(),
+                facets: Vec::new(),
                 limits: Limits {
                     max_files,
                     ..Limits::default()
@@ -830,6 +850,7 @@ mod tests {
             page: Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: Limits::default(),
             result_id: Some("r1"),
             legend: &[(CondId::Number(1), "x".into())],

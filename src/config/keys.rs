@@ -32,6 +32,7 @@ pub enum Key {
     Format,
     Detail,
     Funnel,
+    Facets,
     Meta,
     Context,
     Before,
@@ -65,7 +66,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 52] = [
+    pub const ALL: [Key; 53] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -89,6 +90,7 @@ impl Key {
         Self::Format,
         Self::Detail,
         Self::Funnel,
+        Self::Facets,
         Self::Meta,
         Self::Context,
         Self::Before,
@@ -121,6 +123,7 @@ impl Key {
     ];
 
     /// The section, the name and the type.
+    #[allow(clippy::too_many_lines)] // one arm per key
     fn spec(self) -> (&'static str, &'static str, Type) {
         match self {
             Self::DefaultDirs => ("server", "default_dirs", Type::NonEmptyList("paths")),
@@ -172,6 +175,7 @@ impl Key {
             Self::BlankContext => ("output", "blank_context", Type::Bool),
             Self::PathFragments => ("output", "path_fragments", Type::Bool),
             Self::Meta => ("output", "meta", Type::Bool),
+            Self::Facets => ("output", "facets", Type::Facets),
             Self::Funnel => (
                 "output",
                 "funnel",
@@ -259,6 +263,7 @@ impl Key {
             }
             Self::IgnorePaths | Self::Exclude => list(&[]),
             Self::Markers => list(&["⟦", "⟧"]),
+            Self::Facets => list(&["dir", "lang", "kind", "condition"]),
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
@@ -311,7 +316,7 @@ impl Key {
 }
 
 /// The values of the spec which this server version doesn't implement yet.
-const UNIMPLEMENTED: [(Key, &str); 1] = [(Key::Detail, "facets")];
+const UNIMPLEMENTED: [(Key, &str); 0] = [];
 
 /// The type of the values of a key: how a value is checked and what an invalid one is told.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -346,7 +351,12 @@ pub enum Type {
     GitBase,
     /// Two non-empty strings: the opening and the closing marker.
     Markers,
+    /// A list of the facets of `detail = facets`.
+    Facets,
 }
+
+/// The facets of `detail = facets` (OUTPUT.md#facets).
+pub const FACETS: [&str; 6] = ["dir", "ext", "lang", "kind", "git", "condition"];
 
 impl Type {
     /// What a value of the config file or of `update_config` must be: the end of `invalid value for '...': ...` and
@@ -371,6 +381,7 @@ impl Type {
             Self::AtLeast(min) => format!("a whole number of at least {min} is expected"),
             Self::GitBase => "\"auto\" or a branch, tag or commit is expected".to_string(),
             Self::Markers => "two non-empty strings are expected".to_string(),
+            Self::Facets => format!("a list of facets ({}) is expected", FACETS.join(", ")),
         }
     }
 
@@ -391,6 +402,7 @@ impl Type {
             Self::AtLeast(min) => format!("a whole number of at least {min}"),
             Self::GitBase => "\"auto\" or a branch, tag or commit".to_string(),
             Self::Markers => "two non-empty strings".to_string(),
+            Self::Facets => format!("a list of facets ({})", FACETS.join(", ")),
         }
     }
 
@@ -464,6 +476,9 @@ impl Type {
             Self::Markers => toml_strings(item)
                 .filter(|m| are_markers(m))
                 .map(Value::List),
+            Self::Facets => toml_strings(item)
+                .filter(|f| are_facets(f))
+                .map(Value::List),
             Self::Choice(values) => item
                 .as_str()
                 .filter(|v| values.contains(v))
@@ -517,6 +532,9 @@ impl Type {
             Self::Markers => json_strings(value)
                 .filter(|m| are_markers(m))
                 .map(Value::List),
+            Self::Facets => json_strings(value)
+                .filter(|f| are_facets(f))
+                .map(Value::List),
             Self::Choice(values) => value
                 .as_str()
                 .filter(|v| values.contains(v))
@@ -543,6 +561,11 @@ impl Type {
                 .map(Value::Number),
         }
     }
+}
+
+/// Whether the strings are facets.
+fn are_facets(items: &[String]) -> bool {
+    items.iter().all(|f| FACETS.contains(&f.as_str()))
 }
 
 /// Whether the strings are an opening and a closing marker: two non-empty strings.
@@ -787,6 +810,28 @@ mod tests {
         assert_eq!(
             Key::Markers.default_value(),
             Value::List(vec!["⟦".into(), "⟧".into()])
+        );
+    }
+
+    #[test]
+    fn facets_are_known_names() {
+        use serde_json::json;
+        assert_eq!(
+            Type::Facets.parse_json(&json!(["dir", "git"])),
+            Some(Value::List(vec!["dir".into(), "git".into()]))
+        );
+        assert_eq!(Type::Facets.parse_json(&json!(["size"])), None);
+        assert_eq!(
+            Type::Facets.parse_json(&json!([])),
+            Some(Value::List(vec![]))
+        );
+        assert_eq!(
+            Type::Facets.expected(),
+            "a list of facets (dir, ext, lang, kind, git, condition) is expected"
+        );
+        assert_eq!(
+            Key::Detail.unimplemented(&Value::Text("facets".into())),
+            None
         );
     }
 }

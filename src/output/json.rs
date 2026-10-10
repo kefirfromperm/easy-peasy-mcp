@@ -26,6 +26,8 @@ struct Document<'a> {
     funnel: Vec<FunnelStep<'a>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     hints: Vec<String>,
+    #[serde(skip_serializing_if = "Facets::is_empty")]
+    facets: Facets<'a>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     repeated: Vec<Repeated>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,6 +46,25 @@ struct Document<'a> {
     warnings: Vec<Warning>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     files: Vec<File>,
+}
+
+/// The facets: an object per facet in their order (OUTPUT.md#facets).
+struct Facets<'a>(&'a [super::facets::Facet]);
+
+impl Facets<'_> {
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl Serialize for Facets<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut map = serializer.serialize_map(Some(self.0.len()))?;
+        for facet in self.0 {
+            map.serialize_entry(&facet.name, &facet.json(super::facets::LIMIT))?;
+        }
+        map.end()
+    }
 }
 
 /// A step of the funnel (OUTPUT.md#funnel).
@@ -178,6 +199,7 @@ impl Response<'_> {
         let (lines, matches) = self.totals();
         let counted = self.detail >= Detail::Count;
         let listed = self.detail >= Detail::Files;
+        let legend = self.detail >= Detail::Facets;
         let repeated = self.repeated();
         let listing = self.listing(&repeated);
         let truncated_by = self.truncated_by(&listing);
@@ -195,6 +217,11 @@ impl Response<'_> {
                 })
                 .collect(),
             hints: self.hints.iter().map(super::Hint::json).collect(),
+            facets: Facets(if self.detail == Detail::Facets {
+                &self.facets
+            } else {
+                &[]
+            }),
             repeated: repeated
                 .lines
                 .iter()
@@ -227,7 +254,7 @@ impl Response<'_> {
             truncated: (!truncated_by.is_empty()).then_some(true),
             truncated_by,
             next_cursor: self.next_cursor(&listing),
-            legend: Legend(if listed && !self.files.is_empty() {
+            legend: Legend(if legend && !self.files.is_empty() {
                 self.legend
             } else {
                 &[]
@@ -468,6 +495,7 @@ mod tests {
             meta: None,
             signals: None,
             score: None,
+            git: None,
         }];
         let text = Response {
             detail: Detail::Lines,
@@ -479,6 +507,7 @@ mod tests {
             page: super::super::Page::default(),
             funnel: None,
             hints: Vec::new(),
+            facets: Vec::new(),
             limits: super::super::Limits::default(),
             result_id: Some("r1"),
             legend: &legend,
