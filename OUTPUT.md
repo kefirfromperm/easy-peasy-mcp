@@ -534,6 +534,16 @@ counted only in the first one. The steps are counted during the normal search, s
 for which a step is unknown (see [QUERY.md](QUERY.md#files-whose-content-is-not-searched)) doesn't pass the step; the
 hints count it as skipped.
 
+- a query which is neither joined with `and` nor with `or` at its top is one step; brackets around the whole query
+  don't count
+- every step is written as in the legend, after the first with `and ` or `or ` before it; the number of files is
+  right-aligned so that the numbers end 40 characters after the indent, or further when a step is longer (at least
+  two spaces before the number)
+- the funnel counts the entries of the searched type (only files without a `type` condition); an entry which matches
+  but is left out (generated, binary with `binary = exclude`, unreadable) is not counted
+- in the text format `funnel:` comes after the legend, right after the header when there is no legend (an empty
+  result, `count` detail); in JSON `"funnel": [{ "step": "lang = rust", "files": 312 }, ...]` after `result`
+
 ### Hints
 
 For an empty result the server tries cheap variations of the condition where the count dropped to 0 on the files which
