@@ -1,6 +1,6 @@
 # Task 119: macOS specifics
 
-Status: in progress
+Status: implemented, see [119__SUMMARY__MACOS.md](119__SUMMARY__MACOS.md)
 
 Depends on: task 118, task 47, task 52
 
