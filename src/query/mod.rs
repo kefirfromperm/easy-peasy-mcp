@@ -821,82 +821,87 @@ fn compile_date(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
     }
 }
 
+/// The pattern of a `text` condition: the regex of `=~`, otherwise the value — escaped (`/e`) or in any naming style
+/// (`/n`) — with the anchors of its operator.
+fn content_pattern(c: &Condition) -> TextPattern {
+    let Value::Str(s) = &c.value else {
+        unreachable!("text conditions have a string")
+    };
+    let has = |name: &str| c.modifiers.iter().any(|m| m.name == name);
+    let whole_word = has("w");
+    let skip_comments = has("c");
+    let op = c.op.as_ref().map(|(op, _)| *op);
+    if op == Some(Op::Regex) {
+        let multiline = has("m");
+        let regex = regex::RegexBuilder::new(&s.value)
+            .case_insensitive(has("i"))
+            .multi_line(multiline)
+            .build()
+            .expect("regexes are validated before compiling");
+        return TextPattern {
+            regex,
+            per_line: !multiline,
+            whole_word,
+            skip_comments,
+            escape_levels: Vec::new(),
+        };
+    }
+    let escape = c.modifiers.iter().find_map(|m| {
+        let (style, levels) = m.args.as_ref()?;
+        let style = Style::from_keyword(&style.text).expect("styles are validated");
+        let levels = escape_levels("", levels).expect("levels are validated");
+        Some((style, levels))
+    });
+    let (escaped, escape_levels) = match escape {
+        Some((style, levels)) => (
+            escape::pattern(style, &s.value, levels.clone()),
+            levels.collect(),
+        ),
+        None if has("n") => (naming::pattern(&s.value), Vec::new()),
+        None => (regex::escape(&s.value), Vec::new()),
+    };
+    let anchored = match op {
+        Some(Op::Eq) => format!(r"\A{escaped}\z"),
+        Some(Op::Starts) => format!(r"\A{escaped}"),
+        Some(Op::Ends) => format!(r"{escaped}\z"),
+        _ => escaped,
+    };
+    let flags = if has("n") || has("i") { "(?i)" } else { "" };
+    TextPattern {
+        regex: Regex::new(&format!("{flags}{anchored}"))
+            .expect("an escaped string is a valid regex"),
+        per_line: false,
+        whole_word,
+        skip_comments,
+        escape_levels,
+    }
+}
+
 fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions) -> Filter {
     if c.target == Target::Text {
-        let Value::Str(s) = &c.value else {
-            unreachable!("text conditions have a string")
-        };
-        let flags = if c.modifiers.iter().any(|m| m.name == "i") {
-            "(?i)"
-        } else {
-            ""
-        };
-        let escape = c.modifiers.iter().find_map(|m| {
-            let (style, levels) = m.args.as_ref()?;
-            let style = Style::from_keyword(&style.text).expect("styles are validated");
-            let levels = escape_levels("", levels).expect("levels are validated");
-            Some((style, levels))
-        });
-        let (escaped, escape_levels) = match &escape {
-            Some((style, levels)) => (
-                escape::pattern(*style, &s.value, levels.clone()),
-                levels.clone().collect(),
-            ),
-            None => (regex::escape(&s.value), Vec::new()),
-        };
-        let pattern = match c.op.as_ref().map(|(op, _)| *op) {
-            Some(Op::Eq) => format!(r"\A{escaped}\z"),
-            Some(Op::Starts) => format!(r"\A{escaped}"),
-            Some(Op::Ends) => format!(r"{escaped}\z"),
-            _ => escaped,
-        };
-        let whole_word = c.modifiers.iter().any(|m| m.name == "w");
-        let skip_comments = c.modifiers.iter().any(|m| m.name == "c");
-        if c.op.as_ref().map(|(op, _)| *op) == Some(Op::Regex) {
-            let insensitive = c.modifiers.iter().any(|m| m.name == "i");
-            let multiline = c.modifiers.iter().any(|m| m.name == "m");
-            let regex = regex::RegexBuilder::new(&s.value)
-                .case_insensitive(insensitive)
-                .multi_line(multiline)
-                .build()
-                .expect("regexes are validated before compiling");
-            return Filter::Content {
-                id,
-                order,
-                pattern: TextPattern {
-                    regex,
-                    per_line: !multiline,
-                    whole_word,
-                    skip_comments,
-                    escape_levels: Vec::new(),
-                },
-            };
-        }
-        let regex =
-            Regex::new(&format!("{flags}{pattern}")).expect("an escaped string is a valid regex");
         return Filter::Content {
             id,
             order,
-            pattern: TextPattern {
-                regex,
-                per_line: false,
-                whole_word,
-                skip_comments,
-                escape_levels,
-            },
+            pattern: content_pattern(c),
         };
     }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
         unreachable!("name and path conditions have an operator and a string")
     };
     let value = nfc(&s.value);
-    let insensitive = options.case_insensitive_paths || c.modifiers.iter().any(|m| m.name == "i");
+    let identifier = c.modifiers.iter().any(|m| m.name == "n");
+    let insensitive =
+        options.case_insensitive_paths || identifier || c.modifiers.iter().any(|m| m.name == "i");
     let regex = if *op == Op::Wildcard {
         wildcard::compile(&value, insensitive).expect("wildcards are validated before compiling")
     } else if *op == Op::Regex {
         user_regex(&value, insensitive).expect("regexes are validated before compiling")
     } else {
-        let escaped = regex::escape(&value);
+        let escaped = if identifier {
+            naming::pattern(&value)
+        } else {
+            regex::escape(&value)
+        };
         let pattern = match op {
             Op::Eq => format!("^{escaped}$"),
             Op::Starts => format!("^{escaped}"),
@@ -1136,10 +1141,8 @@ mod tests {
     fn allowed_modifiers_pass_validation() {
         assert!(parse("text =~ 'a' /m /w /i /c", &SENSITIVE).is_ok());
         assert!(parse("text has 'a' /e(xml, 1) /w", &SENSITIVE).is_ok());
-        for q in ["name has 'a b' /n", "line(text has 'a' /n /i)"] {
-            let e = parse(q, &SENSITIVE).unwrap_err();
-            assert_eq!(e.code, ErrorCode::NotImplemented, "{q}: {e:?}");
-        }
+        assert!(parse("name has 'a b' /n", &SENSITIVE).is_ok());
+        assert!(parse("line(text has 'a' /n /i)", &SENSITIVE).is_ok());
     }
 
     #[test]

@@ -3,7 +3,7 @@
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
 //! `kind` and `git` conditions, `text` with `=`, `has`, `starts`,
 //! `ends`, `=~` in file scope; `=~` on `name` and `path`; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
-//! modifiers `/i`, `/w`, `/m`, `/c` and `/e`, with labels, `line( ... )` groups, `near( ... )`,
+//! modifiers `/i`, `/w`, `/m`, `/c`, `/e` and `/n`, with labels, `line( ... )` groups, `near( ... )`,
 //! combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
@@ -81,7 +81,7 @@ fn unsupported(query: &str, node: &Node, found: &mut Vec<(Range<usize>, String)>
             for m in c
                 .modifiers
                 .iter()
-                .filter(|m| !matches!(m.name.as_str(), "i" | "w" | "m" | "c" | "e"))
+                .filter(|m| !matches!(m.name.as_str(), "i" | "w" | "m" | "c" | "e" | "n"))
             {
                 let span = m.span.start..m.span.start + 1 + m.name.len();
                 found.push((span.clone(), format!("the modifier '{}'", &query[span])));
@@ -141,10 +141,7 @@ mod tests {
         assert_eq!(check_str("near(text has 'a', text has 'b', 1)"), None);
         assert_eq!(check_str("text has 'a' /i/w"), None);
         assert_eq!(check_str("text has 'a' /e(xml, 1) /c"), None);
-        assert_eq!(
-            check_str("name = 'a' /n"),
-            Some(("the modifier '/n' is not implemented yet".into(), 11..13))
-        );
+        assert_eq!(check_str("name = 'a' /n"), None);
         assert_eq!(check_str("name = 'a' @x or name = 'b' @y"), None);
         assert_eq!(check_str("name = 'a' # x\n# y"), None);
         assert_eq!(check_str("# only"), None);
