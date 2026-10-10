@@ -247,8 +247,32 @@ fn run_setup(root: &Path, action: &str) {
             let link = root.join(link.trim());
             symlink(target.trim(), &link);
         }
+        "git" | "git!" => {
+            let (dir, args) = rest.trim().split_once(' ').expect("git <dir> <args>");
+            let status = std::process::Command::new("git")
+                .arg("-C")
+                .arg(root.join(dir))
+                .args(args.split_whitespace())
+                .env("GIT_CONFIG_GLOBAL", null_device())
+                .env("GIT_CONFIG_NOSYSTEM", "1")
+                .env("GIT_AUTHOR_NAME", "Test")
+                .env("GIT_AUTHOR_EMAIL", "test@example.com")
+                .env("GIT_COMMITTER_NAME", "Test")
+                .env("GIT_COMMITTER_EMAIL", "test@example.com")
+                .env("GIT_AUTHOR_DATE", "2026-10-01T10:00:00Z")
+                .env("GIT_COMMITTER_DATE", "2026-10-01T10:00:00Z")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .expect("git is installed");
+            assert!(verb == "git!" || status.success(), "setup failed: {action}");
+        }
         other => panic!("unknown setup action {other}"),
     }
+}
+
+fn null_device() -> &'static str {
+    if cfg!(windows) { "NUL" } else { "/dev/null" }
 }
 
 #[cfg(unix)]
