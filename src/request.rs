@@ -264,8 +264,12 @@ mod tests {
             [(Key::Before, KeyValue::Whole(1))]
         );
         assert_eq!(
-            text(&json!({ "output": { "after": 1 } })),
-            "error[not_implemented]: the field 'output.after' is not implemented yet\n"
+            config(&json!({ "output": { "after": 1 } })),
+            [(Key::After, KeyValue::Whole(1))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "blank_context": true } })),
+            "error[not_implemented]: the field 'output.blank_context' is not implemented yet\n"
         );
     }
 
