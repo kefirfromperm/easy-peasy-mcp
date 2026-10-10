@@ -731,6 +731,11 @@ Problems which don't make the request fail: the response is returned and lists t
 | `results_changed`      | the totals differ from the ones in the cursor, files changed between pages |
 | `not_a_git_repo`       | the query has `git` conditions, but a file is outside of a repository      |
 
+Unreadable entries (`permission_denied`): a directory which can't be listed is skipped with everything below it, also
+by `type = dir`; a file which can't be opened is skipped when the server opens it — for its content when the other
+conditions don't decide, and always before it is returned. A file which doesn't match by its other conditions is not
+opened and gets no warning.
+
 Warnings of the same code are grouped, with the number of entries and at most 3 example paths in path order, in the
 order of the table above. In the text format every group is one line at the end of the response, after an empty
 line: `warning: <code> (<count>): <path>, <path>, <path>`, and `, … N more` when more entries have the warning;
