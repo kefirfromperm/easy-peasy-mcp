@@ -66,11 +66,11 @@ files: 3  lines: 0  matches: 0  result: r1
 #1 name has 'config'
 #2 name = 'guide.md'
 
-<fixture>/docs/
-guide.md  [#2]
 <fixture>/src/
 config.rs  [#1]
 config_loader.rs  [#1]
+<fixture>/docs/
+guide.md  [#2]
 ```
 
 ## E90.3 In JSON

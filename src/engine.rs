@@ -13,6 +13,7 @@ use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
 use crate::output::{BlockOptions, Detail, Highlight, Response, Sort, sort_files};
 use crate::query::{self, ParseOptions};
+use crate::relevance;
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
@@ -230,8 +231,13 @@ impl Engine {
         let sort = Sort::parse(settings.text(Key::Sort));
         let meta = settings.bool(Key::Meta);
         search_options.meta = meta || sort.needs_meta();
+        search_options.rank = sort == Sort::Relevance;
         let (mut files, warnings, timed_out) = search_all(&working_dirs, &query, &search_options);
-        sort_files(&mut files, sort);
+        if sort == Sort::Relevance {
+            relevance::rank(&mut files, &query.ranking);
+        } else {
+            sort_files(&mut files, sort);
+        }
         if !meta {
             for file in &mut files {
                 file.meta = None;
@@ -353,6 +359,7 @@ impl Engine {
             first_only: false,
             path_fragments: settings.bool(Key::PathFragments),
             meta: settings.bool(Key::Meta),
+            rank: false,
             kinds: KindOptions {
                 generated_markers: settings.list(Key::GeneratedMarkers).to_vec(),
                 generated_marker_lines: settings.whole(Key::GeneratedMarkerLines),

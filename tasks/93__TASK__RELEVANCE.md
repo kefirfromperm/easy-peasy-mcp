@@ -1,6 +1,6 @@
 # Task 93: Relevance ranking
 
-Status: not implemented
+Status: implemented, see [93__SUMMARY__RELEVANCE.md](93__SUMMARY__RELEVANCE.md)
 
 Depends on: task 92, task 91, task 32
 

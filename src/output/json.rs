@@ -99,6 +99,8 @@ struct File {
     modified: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     encoding: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    score: Option<f64>,
     #[serde(skip_serializing_if = "is_zero")]
     lines: usize,
     #[serde(skip_serializing_if = "is_zero")]
@@ -238,6 +240,9 @@ impl Response<'_> {
                 .and_then(|m| m.modified)
                 .map(|secs| super::meta::date_json(secs as f64, &self.time_zone)),
             encoding: found.encoding.map(|e| e.name().into_owned()),
+            score: meta
+                .and(found.score)
+                .map(crate::relevance::shown_score),
             lines: found.matches.as_ref().map_or(0, |m| m.lines),
             matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
             conditions: found.conditions.iter().map(ToString::to_string).collect(),
@@ -400,6 +405,8 @@ mod tests {
             id: None,
             path_fragments: None,
             meta: None,
+            signals: None,
+            score: None,
         }];
         let text = Response {
             detail: Detail::Lines,

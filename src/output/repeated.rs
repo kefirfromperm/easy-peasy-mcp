@@ -158,6 +158,8 @@ mod tests {
             id: None,
             path_fragments: None,
             meta: None,
+            signals: None,
+            score: None,
         }
     }
 

@@ -38,10 +38,14 @@ impl Sort {
         }
     }
 
-    /// Whether the order needs the metadata of the files.
+    /// Whether the order needs the metadata of the files: the date, the size, or the kind and the date of the
+    /// relevance.
     #[must_use]
     pub fn needs_meta(self) -> bool {
-        matches!(self, Self::Modified { .. } | Self::Size { .. })
+        matches!(
+            self,
+            Self::Relevance | Self::Modified { .. } | Self::Size { .. }
+        )
     }
 }
 
@@ -89,6 +93,8 @@ mod tests {
             encoding: None,
             id: None,
             path_fragments: None,
+            signals: None,
+            score: None,
             meta: Some(Meta {
                 entry_type: EntryType::File,
                 size,

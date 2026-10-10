@@ -85,8 +85,8 @@ files: 2  lines: 0  matches: 0  result: r1
 #1 name ~ '*.rs'
 
 src/
-big.rs  [#1]  file 2.1K 2026-10-08 14:03 rust source
-small.rs  [#1]  file 512B 2026-10-07 18:22 rust source
+big.rs  [#1]  file 2.1K 2026-10-08 14:03 rust source 0.93
+small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.91
 ```
 
 ## E91.3 In JSON
@@ -106,9 +106,9 @@ Fixture: `meta`
   "legend": { "#1": "name ~ '*.rs'" },
   "files": [
     { "path": "src/big.rs", "type": "file", "size": 2150, "lang": "rust", "kind": "source",
-      "modified": "2026-10-08T14:03:00+00:00", "conditions": ["#1"] },
+      "modified": "2026-10-08T14:03:00+00:00", "score": 0.93, "conditions": ["#1"] },
     { "path": "src/small.rs", "type": "file", "size": 512, "lang": "rust", "kind": "source",
-      "modified": "2026-10-07T18:22:00+00:00", "conditions": ["#1"] }
+      "modified": "2026-10-07T18:22:00+00:00", "score": 0.91, "conditions": ["#1"] }
   ]
 }
 ```
@@ -126,14 +126,14 @@ files: 2  lines: 0  matches: 0  result: r1
 #1 name ~ '*.{md,bin}'
 
 ./
-README.md  [#1]  file 7B 2026-10-02 09:30 markdown doc
+README.md  [#1]  file 7B 2026-10-02 09:30 markdown doc 0.87
 data/
-blob.bin  [#1]  file 1.5M 2026-10-01 10:00 unknown other
+blob.bin  [#1]  file 1.5M 2026-10-01 10:00 unknown other 0.71
 ```
 
 ## E91.5 A directory
 
-A directory has only its type and date.
+A directory has only its type and date. With the default `sort = relevance` every file shows its score.
 
 Fixture: `meta`
 
@@ -147,7 +147,7 @@ files: 1  lines: 0  matches: 0  result: r1
 #2 name = 'docs'
 
 ./
-docs/  [#1 #2]  dir 2026-10-03 12:00
+docs/  [#1 #2]  dir 2026-10-03 12:00 0.80
 ```
 
 ```json request
@@ -162,7 +162,7 @@ docs/  [#1 #2]  dir 2026-10-03 12:00
   "counts": { "files": 1, "lines": 0, "matches": 0 },
   "legend": { "#1": "type = dir", "#2": "name = 'docs'" },
   "files": [
-    { "path": "docs/", "type": "dir", "modified": "2026-10-03T12:00:00+00:00", "conditions": ["#1", "#2"] }
+    { "path": "docs/", "type": "dir", "modified": "2026-10-03T12:00:00+00:00", "score": 0.8, "conditions": ["#1", "#2"] }
   ]
 }
 ```
@@ -180,7 +180,7 @@ files: 1  lines: 1  matches: 1  result: r1
 #1 text has 'Meta'
 
 ./
-README.md  [#1]  lines: 1  matches: 1  file 7B 2026-10-02 09:30 markdown doc
+README.md  [#1]  lines: 1  matches: 1  file 7B 2026-10-02 09:30 markdown doc 0.58
 1:# ⟦#1:Meta⟧
 ```
 
@@ -210,7 +210,7 @@ files: 1  lines: 0  matches: 0  result: r1
 #1 name = 'small.rs'
 
 src/
-small.rs  [#1]  file 512B 2026-10-07 18:22 rust source
+small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.93
 ```
 
 3. `get_config`
@@ -294,7 +294,7 @@ files: 1  lines: 0  matches: 0  result: r1
 #1 name = 'small.rs'
 
 src/
-small.rs  [#1]  file 512B 2026-10-07 18:22 rust source
+small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.93
 ```
 
 ## E91.11 An invalid value in the config file

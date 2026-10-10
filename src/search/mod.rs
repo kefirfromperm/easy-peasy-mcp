@@ -24,6 +24,7 @@ use crate::query::UNKNOWN_LANG;
 use crate::query::{
     ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, nfc,
 };
+use crate::relevance::{self, Signals};
 use crate::warning::{WarningCode, Warnings};
 
 /// Settings of one search.
@@ -80,6 +81,8 @@ pub struct SearchOptions {
     pub path_fragments: bool,
     /// Give every matched entry its metadata (`output.meta`).
     pub meta: bool,
+    /// Give every matched entry the signals of its relevance (`sort = relevance`).
+    pub rank: bool,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -109,7 +112,7 @@ pub enum Archives {
 }
 
 /// A matched file.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Found {
     /// The path relative to the working directory; of a member of an archive the path of the archive.
     pub rel: PathBuf,
@@ -129,6 +132,10 @@ pub struct Found {
     pub path_fragments: Option<PathFragments>,
     /// The metadata, with `meta`.
     pub meta: Option<Meta>,
+    /// The signals of the relevance, with `sort = relevance`.
+    pub signals: Option<Signals>,
+    /// The relevance score, once the files are ranked.
+    pub score: Option<f64>,
 }
 
 /// The metadata of a matched entry (OUTPUT.md#meta).
@@ -490,6 +497,8 @@ struct Evaluated {
     text: bool,
     /// The fragments of the `name` and `path` conditions, with `path_fragments`.
     path_fragments: Option<PathFragments>,
+    /// The signals of the relevance, with `rank`.
+    signals: Option<Signals>,
 }
 
 /// What the visit of an entry already knows for its metadata.
@@ -577,18 +586,7 @@ impl Walk<'_> {
                 &|code| self.warn(code, rel, false),
             )?,
         };
-        let is_file = entry_type == EntryType::File;
-        if !self.readable(entry.path(), rel, entry_type) {
-            return None;
-        }
-        if self.skips_generated() && is_file && self.kinds.is_generated(&path, entry.path()) {
-            return None;
-        }
-        if self.options.binary == Binary::Exclude
-            && is_file
-            && !evaluated.text
-            && self.starts_binary(entry.path(), &name)
-        {
+        if self.left_out(entry, rel, entry_type, &name, &path, evaluated.text) {
             return None;
         }
         let meta = self.options.meta.then(|| {
@@ -609,6 +607,8 @@ impl Walk<'_> {
             id: entry.metadata().ok().and_then(|m| file_id(&m)),
             path_fragments: evaluated.path_fragments,
             meta,
+            signals: self.signals(evaluated.signals, &name, &nfc_path),
+            score: None,
         })
     }
 
@@ -663,6 +663,43 @@ impl Walk<'_> {
                 .and_then(|m| m.modified().ok())
                 .map(|t| whole_seconds(system_seconds(t))),
         }
+    }
+
+    /// Whether a matched entry is left out after all: unreadable, generated (with `skip_generated`), or binary with
+    /// `binary = exclude` (`text`: its content was decoded as text).
+    fn left_out(
+        &self,
+        entry: &ignore::DirEntry,
+        rel: &Path,
+        entry_type: EntryType,
+        name: &str,
+        path: &str,
+        text: bool,
+    ) -> bool {
+        let is_file = entry_type == EntryType::File;
+        !self.readable(entry.path(), rel, entry_type)
+            || (self.skips_generated() && is_file && self.kinds.is_generated(path, entry.path()))
+            || (self.options.binary == Binary::Exclude
+                && is_file
+                && !text
+                && self.starts_binary(entry.path(), name))
+    }
+
+    /// The signals of the relevance of a matched entry: those of its evaluation, or for the empty query those of its
+    /// path.
+    fn signals(&self, evaluated: Option<Signals>, name: &str, path: &str) -> Option<Signals> {
+        if !self.options.rank {
+            return None;
+        }
+        evaluated.or_else(|| {
+            Some(relevance::signals(
+                &self.query.ranking,
+                &[],
+                name,
+                path,
+                None,
+            ))
+        })
     }
 
     /// The metadata of a matched member of an archive: a file with the size and the date stored in the archive.
@@ -770,12 +807,23 @@ impl Walk<'_> {
         } else {
             None
         };
+        let signals = self.options.rank.then(|| {
+            let content = match file.content {
+                ContentState::Text(content) => Some((
+                    content.line_count(),
+                    matches.as_ref().map_or(0, |m| m.fragments.len()),
+                )),
+                _ => None,
+            };
+            relevance::signals(&self.query.ranking, &leaves, file.name, file.path, content)
+        });
         Some(Evaluated {
             conditions,
             matches,
             encoding,
             text,
             path_fragments,
+            signals,
         })
     }
 
@@ -932,6 +980,8 @@ impl Walk<'_> {
             meta: self.options.meta.then(|| {
                 self.member_meta(member, &path, language, query.needs.kind.then_some(kind))
             }),
+            signals: self.signals(evaluated.signals, &name, &nfc_path),
+            score: None,
         })
     }
 
