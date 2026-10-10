@@ -34,6 +34,7 @@ Empty query = all files.
                                  text =~ `fn \\w+_test` regex (Rust syntax), per line: ^ $ are line ends;
                                  with /m on the whole content: \\n matches a line break;
                                  binary files are not searched: content conditions are unknown for them
+  line(text has 'a' and not text has 'b')    conditions on the same line; not line(...) = no line matches
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'

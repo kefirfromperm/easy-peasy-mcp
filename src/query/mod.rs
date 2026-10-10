@@ -21,7 +21,7 @@ use lexer::Token;
 
 pub use eval::{
     ContentState, EntryType, FileValues, Filter, Kind, NumberTarget, TextMatcher, TextTarget,
-    Truth, content_matches,
+    Truth, content_matches, find_all,
 };
 pub(crate) use suggest::did_you_mean;
 
@@ -178,6 +178,20 @@ fn validate(
         Expr::Not(inner) | Expr::Group(inner) => validate(text, inner, in_line, options, errors),
         Expr::Node(node) => match &node.kind {
             NodeKind::Condition(c) => validate_condition(text, c, in_line, options, errors),
+            NodeKind::Line(_) | NodeKind::Near(_) if in_line => {
+                let (message, hint) = if matches!(node.kind, NodeKind::Line(_)) {
+                    ("nested line( ... )", "line( ... ) can't be nested")
+                } else {
+                    (
+                        "near( ... ) inside line( ... )",
+                        "line( ... ) can't contain near( ... )",
+                    )
+                };
+                errors.push(
+                    QueryError::new(ErrorCode::NestedLine, message, node.keyword.clone())
+                        .hint(hint),
+                );
+            }
             NodeKind::Line(inner) => validate(text, inner, true, options, errors),
             NodeKind::Near(near) => {
                 validate(text, &near.a, true, options, errors);
@@ -194,6 +208,17 @@ fn validate_condition(
     options: &ParseOptions,
     errors: &mut Vec<QueryError>,
 ) {
+    if in_line && !matches!(c.target, Target::Text | Target::Len) {
+        let target = &text[c.target_span.clone()];
+        errors.push(
+            QueryError::new(
+                ErrorCode::FileTargetInside,
+                format!("'{target}' inside line( ... )"),
+                c.target_span.clone(),
+            )
+            .hint(format!("move '{target}' out of line( ... )")),
+        );
+    }
     if let (Some((Op::Wildcard, _)), Value::Str(s), Target::Name | Target::Path) =
         (&c.op, &c.value, c.target)
         && let Err(e) = wildcard::compile(&nfc(&s.value), options.case_insensitive_paths)
@@ -457,7 +482,14 @@ fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
         Expr::And(items) => Filter::And(all(items)),
         Expr::Not(inner) => Filter::Not(Box::new(compile(inner, options))),
         Expr::Group(inner) => compile(inner, options),
-        Expr::Node(node) => compile_node(node, options),
+        Expr::Node(node) => match &node.kind {
+            NodeKind::Line(inner) => Filter::Line {
+                id: node.id.clone(),
+                order: node.tokens.start,
+                inner: Box::new(compile(inner, options)),
+            },
+            _ => compile_node(node, options),
+        },
     }
 }
 
@@ -1061,6 +1093,62 @@ mod tests {
         assert!(content_matches("text =~ `^b$` /m", "a\nb\nc"));
         assert!(!content_matches("text =~ `a.b` /m", "a\nb"));
         assert!(content_matches("text =~ `(?s)a.b` /m", "a\nb"));
+    }
+
+    #[test]
+    fn line_groups() {
+        assert!(content_matches(
+            "line(text has 'a' and text has 'b')",
+            "a\nab\nb"
+        ));
+        assert!(!content_matches(
+            "line(text has 'a' and text has 'b')",
+            "a\nb"
+        ));
+        assert!(content_matches("line(not text has 'a')", "a\nb"));
+        assert!(!content_matches("line(not text has 'a')", "a\nab"));
+        assert!(content_matches("not line(text has 'x')", "a\nb"));
+        assert!(content_matches("line(text = 'ab')", "x\nab\ny"));
+        assert!(content_matches(
+            "line(text starts 'b' and text ends 'c')",
+            "a\nbxc"
+        ));
+        assert!(content_matches("line(text =~ `^b`)", "a\nb"));
+    }
+
+    fn error(q: &str) -> (ErrorCode, String, Range<usize>, String) {
+        let e = parse(q, &SENSITIVE).unwrap_err();
+        (e.code, e.message, e.span, e.hint.unwrap_or_default())
+    }
+
+    #[test]
+    fn line_group_errors() {
+        assert_eq!(
+            error("line(name ~ '*.rs')"),
+            (
+                ErrorCode::FileTargetInside,
+                "'name' inside line( ... )".into(),
+                5..9,
+                "move 'name' out of line( ... )".into()
+            )
+        );
+        assert_eq!(
+            error("line(text has 'a' and size > 1)").1,
+            "'size' inside line( ... )"
+        );
+        assert_eq!(
+            error("line(line(text has 'a'))"),
+            (
+                ErrorCode::NestedLine,
+                "nested line( ... )".into(),
+                5..9,
+                "line( ... ) can't be nested".into()
+            )
+        );
+        assert_eq!(
+            error("line(near(text has 'a', text has 'b', 1))").3,
+            "line( ... ) can't contain near( ... )"
+        );
     }
 
     #[test]

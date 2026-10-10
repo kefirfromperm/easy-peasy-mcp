@@ -20,6 +20,8 @@ pub enum ErrorCode {
     InvalidRange,
     InvalidDate,
     InvalidRegex,
+    FileTargetInside,
+    NestedLine,
     InvalidOption,
     NotImplemented,
 }
@@ -43,6 +45,8 @@ impl ErrorCode {
             Self::InvalidRange => "invalid_range",
             Self::InvalidDate => "invalid_date",
             Self::InvalidRegex => "invalid_regex",
+            Self::FileTargetInside => "file_target_inside",
+            Self::NestedLine => "nested_line",
             Self::InvalidOption => "invalid_option",
             Self::NotImplemented => "not_implemented",
         }

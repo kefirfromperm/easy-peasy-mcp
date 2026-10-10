@@ -179,7 +179,6 @@ impl Content {
         self.line_starts.len()
     }
 
-    #[cfg(test)]
     /// The line with the 0-based index `i`, without its line break.
     pub fn line(&self, i: usize) -> &str {
         let (start, end) = self.line_range(i);

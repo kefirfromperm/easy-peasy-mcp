@@ -1,6 +1,6 @@
 # Task 26: Line scope `line( ... )`
 
-Status: not implemented
+Status: implemented, see [26__SUMMARY__LINE_SCOPE.md](26__SUMMARY__LINE_SCOPE.md)
 
 Depends on: task 22
 
