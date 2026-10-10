@@ -356,8 +356,8 @@ mod tests {
             [(Key::Archives, KeyValue::Text("compressed".into()))]
         );
         assert_eq!(
-            text(&json!({ "traversal": { "archives": "all" } })),
-            "error[not_implemented]: the value 'all' of 'traversal.archives' is not implemented yet\n"
+            config(&json!({ "traversal": { "archives": "all" } })),
+            [(Key::Archives, KeyValue::Text("all".into()))]
         );
         assert_eq!(
             text(&json!({ "traversal": { "max_archive_size": "1G" } })),

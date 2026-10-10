@@ -47,7 +47,8 @@ Empty query = all files.
                                  binary files are not searched: content conditions are unknown for them
                                  (traversal.binary: \"search\" searches them as text, \"exclude\" never returns them),
                                  neither are files bigger than traversal.max_file_size (default \"10M\");
-                                 traversal.archives = \"compressed\" searches .gz .bz2 .xz .zst .lz4 decompressed
+                                 traversal.archives = \"compressed\" searches .gz .bz2 .xz .zst .lz4 decompressed,
+                                 \"all\" also archive members: path ~ '**/*!/**' is only inside archives
   line(text has 'a' and not text has 'b')    conditions on the same line; not line(...) = no line matches;
                                  len > 120 (characters of the line) works inside line()
   near(text has 'lock', text has 'await', 3[, ordered][, closest|first])   lines within 3 of each other
@@ -102,7 +103,7 @@ pub fn find_schema() -> Value {
                     "max_file_size": { "type": "string", "description": "Bigger files are not searched by content (content conditions are unknown for them, a too_big warning), e.g. '1G'; units B K M G. Default: 10M." },
                     "encoding": { "type": "string", "description": "auto: by the BOM, UTF-16 by its zero bytes, otherwise UTF-8; or a WHATWG encoding name like windows-1252 for every file without a BOM. The output shows the encoding of every file which is not UTF-8. Default: auto." },
                     "fallback_encoding": { "type": "string", "description": "With encoding auto: files which are not valid UTF-8 are decoded with this WHATWG encoding, e.g. windows-1251, instead of replacing the invalid bytes. Default: not set." },
-                    "archives": { "enum": ["none", "compressed", "all"], "description": "none: compressed files are binary files; compressed: .gz .bz2 .xz .zst .lz4 files are searched as their decompressed content (max_file_size applies to it). Default: none." }
+                    "archives": { "enum": ["none", "compressed", "all"], "description": "none: compressed files and archives are binary files; compressed: .gz .bz2 .xz .zst .lz4 files are searched as their decompressed content (max_file_size applies to it); all: also the members of .zip .jar .tar .tar.gz/.tgz .tar.bz2 .tar.xz .tar.zst .7z, with the path <archive>!/<member>. Default: none." }
                 }
             }
         }

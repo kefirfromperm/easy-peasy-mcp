@@ -38,7 +38,7 @@ pub enum Decompressed {
 }
 
 /// A reader of the decompressed content of `source`.
-fn reader<'a>(
+pub fn reader<'a>(
     compression: Compression,
     source: impl Read + 'a,
 ) -> std::io::Result<Box<dyn Read + 'a>> {

@@ -1037,11 +1037,8 @@ mod tests {
         );
         assert!(check("[traversal]\nignore_paths = ['~/ignore', 'a']\n").is_ok());
         assert_eq!(
-            error("[traversal]\narchives = 'all'\n"),
-            (
-                2,
-                "the value 'all' of 'traversal.archives' is not implemented yet".into()
-            )
+            check("[traversal]\narchives = 'all'\n").unwrap().values,
+            [(Key::Archives, KeyValue::Text("all".into()))]
         );
         assert_eq!(
             error("[traversal]\nexclude = ['a', '[a-']\n"),
@@ -1209,7 +1206,7 @@ mod tests {
         );
         assert_eq!(
             update(&json!({ "set": "traversal.archives = 'all'" })),
-            "error[not_implemented]: the value 'all' of 'traversal.archives' is not implemented yet\n"
+            "[traversal]\narchives = \"all\"    # was \"none\"\n"
         );
         assert_eq!(
             update(&json!({ "reset": ["languages.rust"] })),

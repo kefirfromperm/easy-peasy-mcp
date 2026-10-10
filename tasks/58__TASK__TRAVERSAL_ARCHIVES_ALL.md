@@ -1,6 +1,6 @@
 # Task 58: `traversal.archives`: `all`
 
-Status: not implemented
+Status: implemented, see [58__SUMMARY__TRAVERSAL_ARCHIVES_ALL.md](58__SUMMARY__TRAVERSAL_ARCHIVES_ALL.md)
 
 Depends on: task 57
 

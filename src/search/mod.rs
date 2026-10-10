@@ -11,6 +11,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
+use crate::archive::{ArchiveKind, Member, for_each_member};
 use crate::compressed::{Compression, Decompressed, decompress};
 use crate::content::{Content, DecodeOptions, Decoded, Encoding, decode, is_binary_content};
 use crate::git::{GitIndex, GitStatus};
@@ -58,6 +59,8 @@ pub struct SearchOptions {
     pub decode: DecodeOptions,
     /// Which compressed files and archives are searched inside.
     pub archives: Archives,
+    /// The local time zone: the dates of zip members without one.
+    pub time_zone: jiff::tz::TimeZone,
     /// Bigger files are not searched by content, in bytes.
     pub max_file_size: f64,
     /// The canonical allowed roots: a followed symlink must point inside them.
@@ -84,13 +87,17 @@ pub enum Archives {
     None,
     /// Single compressed files, as their decompressed content.
     Compressed,
+    /// Compressed files and the members of archives.
+    All,
 }
 
 /// A matched file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Found {
-    /// The path relative to the working directory.
+    /// The path relative to the working directory; of a member of an archive the path of the archive.
     pub rel: PathBuf,
+    /// The path of a member inside its archive, as stored; `None` for an entry of the file system.
+    pub member: Option<String>,
     /// Whether the entry is a directory, written with a trailing separator.
     pub is_dir: bool,
     /// The ids of the conditions which made the file match.
@@ -214,9 +221,12 @@ pub struct SearchResult {
 /// A device and inode pair which identifies a file reachable by several hard links.
 pub type FileId = (u64, u64);
 
-/// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
-/// regular files.
-pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
+/// Symlinks which point outside of the allowed roots, found by the walk: the path relative to the working directory
+/// and whether the target is a directory.
+type Outside = std::sync::Arc<Mutex<Vec<(PathBuf, bool)>>>;
+
+/// The walker of `root` with the walk options: ignore files, hidden entries, depth, symlinks and exclusions.
+fn walk_builder(root: &Path, options: &SearchOptions) -> (WalkBuilder, Outside) {
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(!options.hidden)
@@ -229,7 +239,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .follow_links(options.follow_symlinks)
         .threads(options.threads)
         .max_depth(options.max_depth);
-    let outside: std::sync::Arc<Mutex<Vec<(PathBuf, bool)>>> = std::sync::Arc::default();
+    let outside: Outside = std::sync::Arc::default();
     if options.follow_symlinks || !options.exclude.is_empty() {
         let roots = std::sync::Arc::clone(&options.allowed_roots);
         let outside = std::sync::Arc::clone(&outside);
@@ -266,6 +276,13 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     for path in options.ignore_paths.iter().filter(|p| p.is_file()) {
         let _ = builder.add_ignore(path);
     }
+    (builder, outside)
+}
+
+/// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
+/// regular files.
+pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
+    let (builder, outside) = walk_builder(root, options);
     let walk = Walk {
         root,
         query,
@@ -290,6 +307,9 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
                             .expect("no thread panics while holding the lock")
                             .push(item);
                     }
+                    if walk.options.archives == Archives::All {
+                        walk.visit_members(&entry);
+                    }
                 }
                 Err(err) => walk.walk_error(&err),
             }
@@ -305,11 +325,11 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     {
         warnings.add(WarningCode::PermissionDenied, rel, is_dir);
     }
-    found.sort_by(|a, b| a.rel.cmp(&b.rel));
+    found.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
     let mut seen = std::collections::HashSet::new();
     let files = found
         .into_iter()
-        .filter(|f| f.id.is_none_or(|id| seen.insert(id)))
+        .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
         .collect();
     SearchResult {
         files,
@@ -421,7 +441,13 @@ impl Walk<'_> {
         };
         let evaluated = match &query.filter {
             None => Evaluated::default(),
-            Some(filter) => self.evaluate(filter, file, language, entry.path(), rel)?,
+            Some(filter) => self.evaluate(
+                filter,
+                file,
+                language,
+                &mut || self.read_content(entry.path(), rel, &name),
+                &|code| self.warn(code, rel, false),
+            )?,
         };
         let is_file = entry_type == EntryType::File;
         if !self.readable(entry.path(), rel, entry_type) {
@@ -439,6 +465,7 @@ impl Walk<'_> {
         }
         Some(Found {
             rel: rel.to_path_buf(),
+            member: None,
             is_dir: entry_type == EntryType::Dir,
             conditions: evaluated.conditions,
             matches: evaluated.matches,
@@ -449,13 +476,14 @@ impl Walk<'_> {
 
     /// The conditions which made the file match and its content fragments, or `None` if it doesn't match. The file
     /// is read only when the conditions without the content don't decide; a binary file's content is unknown.
+    /// `read` reads the content when it is needed, `warn` gives a warning about the entry.
     fn evaluate(
         &self,
         filter: &Filter,
         file: FileValues<'_>,
         language: Option<&Language>,
-        path: &Path,
-        rel: &Path,
+        read: &mut dyn FnMut() -> ReadContent,
+        warn: &dyn Fn(WarningCode),
     ) -> Option<Evaluated> {
         if filter.eval(&file) == Truth::False {
             return None;
@@ -466,7 +494,7 @@ impl Walk<'_> {
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
         if matches!(file.content, ContentState::NotRead) {
-            let bytes = match self.read_content(path, rel, file.name) {
+            let bytes = match read() {
                 ReadContent::Bytes(bytes) => Some(bytes),
                 ReadContent::Unknown => None,
                 ReadContent::Unreadable => return None,
@@ -476,7 +504,7 @@ impl Walk<'_> {
                     Decoded::Binary if self.options.binary == Binary::Exclude => return None,
                     Decoded::Binary => {
                         file.content = ContentState::Unknown;
-                        self.warn(WarningCode::BinarySkipped, rel, false);
+                        warn(WarningCode::BinarySkipped);
                     }
                     Decoded::Text {
                         content: decoded,
@@ -484,7 +512,7 @@ impl Walk<'_> {
                         errors,
                     } => {
                         if errors {
-                            self.warn(WarningCode::DecodeErrors, rel, false);
+                            warn(WarningCode::DecodeErrors);
                         }
                         encoding = (used != Encoding::Utf8).then_some(used);
                         text = true;
@@ -519,6 +547,146 @@ impl Walk<'_> {
             matches,
             encoding,
             text,
+        })
+    }
+
+    /// Visits the members of an archive with `archives = all`: the matched members go to the found entries; an
+    /// archive which can't be read gets `archive_error` (`permission_denied` when it can't be opened).
+    fn visit_members(&self, entry: &ignore::DirEntry) {
+        if entry.depth() == 0 || entry_type(entry) != Some(EntryType::File) {
+            return;
+        }
+        let Some(kind) = ArchiveKind::of(&entry.file_name().to_string_lossy()) else {
+            return;
+        };
+        let Ok(rel) = entry.path().strip_prefix(self.root) else {
+            return;
+        };
+        let archive = slash_path(rel);
+        let id = entry.metadata().ok().and_then(|m| file_id(&m));
+        let mut found = Vec::new();
+        let result = for_each_member(
+            entry.path(),
+            kind,
+            &self.options.time_zone,
+            &mut |member, reader| {
+                if self.past_deadline() {
+                    return false;
+                }
+                if let Some(mut item) = self.visit_member(rel, &archive, member, reader) {
+                    item.id = id;
+                    found.push(item);
+                }
+                true
+            },
+        );
+        if let Err(e) = result {
+            let code = if e.kind() == std::io::ErrorKind::PermissionDenied {
+                WarningCode::PermissionDenied
+            } else {
+                WarningCode::ArchiveError
+            };
+            self.warn(code, rel, false);
+        }
+        self.found
+            .lock()
+            .expect("no thread panics while holding the lock")
+            .extend(found);
+    }
+
+    /// The matched member of an archive, or `None`. A member is a regular file with the path
+    /// `<archive>!/<member>`, its name, size and modification date from the archive, no creation or access date, no
+    /// git status; nested archives are not opened.
+    fn visit_member(
+        &self,
+        rel: &Path,
+        archive: &str,
+        member: &Member,
+        reader: &mut dyn std::io::Read,
+    ) -> Option<Found> {
+        use std::io::Read;
+        let query = self.query;
+        let path = format!("{archive}!/{}", member.path);
+        let nfc_path = nfc(&path);
+        let name = nfc(member.path.rsplit('/').next().unwrap_or(&member.path));
+        let warn = |code| self.warn_member(code, rel, &member.path);
+        if query.needs.created || query.needs.accessed {
+            warn(WarningCode::DateUnsupported);
+        }
+        let language = (query.needs.lang || query.needs.comments)
+            .then(|| self.options.languages.detect(&name, || None))
+            .flatten();
+        let kind = if query.needs.kind {
+            self.kinds.classify(
+                &path,
+                Path::new(""),
+                false,
+                language.is_some_and(|l| l.source),
+            )
+        } else {
+            Kind::Other
+        };
+        let file = FileValues {
+            name: &name,
+            path: &nfc_path,
+            entry_type: EntryType::File,
+            is_link: false,
+            empty: member.size == 0,
+            size: member.size,
+            modified: member.modified,
+            created: None,
+            accessed: None,
+            lang: language.map_or(UNKNOWN_LANG, |l| l.name.as_str()),
+            kind,
+            git: None,
+            content: if query.needs.content {
+                ContentState::NotRead
+            } else {
+                ContentState::Absent
+            },
+        };
+        let limit = self.size_limit();
+        let mut read = || {
+            if member.size > limit {
+                warn(WarningCode::TooBig);
+                return ReadContent::Unknown;
+            }
+            let mut bytes = Vec::new();
+            match reader.take(limit.saturating_add(1)).read_to_end(&mut bytes) {
+                Ok(_) if bytes.len() as u64 > limit => {
+                    warn(WarningCode::TooBig);
+                    ReadContent::Unknown
+                }
+                Ok(_) => ReadContent::Bytes(bytes),
+                Err(_) => {
+                    self.warn(WarningCode::ArchiveError, rel, false);
+                    ReadContent::Unknown
+                }
+            }
+        };
+        let evaluated = match &query.filter {
+            None => Evaluated::default(),
+            Some(filter) => self.evaluate(filter, file, language, &mut read, &warn)?,
+        };
+        if !query.needs.kind && self.kinds.is_generated_path(&path) {
+            return None;
+        }
+        if self.options.binary == Binary::Exclude && !evaluated.text {
+            let mut head = Vec::new();
+            if reader.take(8 * 1024).read_to_end(&mut head).is_ok()
+                && is_binary_content(&head, &self.options.decode)
+            {
+                return None;
+            }
+        }
+        Some(Found {
+            rel: rel.to_path_buf(),
+            member: Some(member.path.clone()),
+            is_dir: false,
+            conditions: evaluated.conditions,
+            matches: evaluated.matches,
+            encoding: evaluated.encoding,
+            id: None,
         })
     }
 
@@ -693,6 +861,13 @@ impl Walk<'_> {
         if let Some(rest) = until.checked_duration_since(Instant::now()) {
             std::thread::sleep(rest);
         }
+    }
+
+    fn warn_member(&self, code: WarningCode, rel: &Path, member: &str) {
+        self.warnings
+            .lock()
+            .expect("no thread panics while holding the lock")
+            .add_member(code, rel.to_path_buf(), member.to_string());
     }
 
     fn warn(&self, code: WarningCode, rel: &Path, is_dir: bool) {

@@ -41,13 +41,27 @@ const MAX_PATHS: usize = 3;
 /// The warnings of one response: entries grouped by code.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Warnings {
-    entries: BTreeMap<WarningCode, Vec<(PathBuf, bool)>>,
+    /// Per code: the path relative to the working directory, the member path inside an archive, whether it is a
+    /// directory.
+    entries: BTreeMap<WarningCode, Vec<(PathBuf, Option<String>, bool)>>,
 }
 
 impl Warnings {
     /// Adds an entry (a path relative to the working directory, whether it is a directory) with a warning.
     pub fn add(&mut self, code: WarningCode, rel: PathBuf, is_dir: bool) {
-        self.entries.entry(code).or_default().push((rel, is_dir));
+        self.entries
+            .entry(code)
+            .or_default()
+            .push((rel, None, is_dir));
+    }
+
+    /// Adds a member of an archive (the archive path relative to the working directory, the member path inside it)
+    /// with a warning.
+    pub fn add_member(&mut self, code: WarningCode, rel: PathBuf, member: String) {
+        self.entries
+            .entry(code)
+            .or_default()
+            .push((rel, Some(member), false));
     }
 
     /// Adds a warning which is not about entries.
@@ -61,7 +75,7 @@ impl Warnings {
             self.entries.entry(code).or_default().extend(
                 entries
                     .into_iter()
-                    .map(|(rel, is_dir)| (prefix.join(rel), is_dir)),
+                    .map(|(rel, member, is_dir)| (prefix.join(rel), member, is_dir)),
             );
         }
     }
@@ -85,7 +99,10 @@ impl Warnings {
             let shown: Vec<String> = entries
                 .iter()
                 .take(MAX_PATHS)
-                .map(|(rel, is_dir)| display_path(rel, *is_dir))
+                .map(|(rel, member, is_dir)| match member {
+                    Some(member) => format!("{}!/{member}", display_path(rel, false)),
+                    None => display_path(rel, *is_dir),
+                })
                 .collect();
             let _ = write!(
                 out,

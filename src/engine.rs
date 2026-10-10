@@ -208,7 +208,7 @@ impl Engine {
                 result
                     .files
                     .into_iter()
-                    .filter(|f| f.id.is_none_or(|id| seen.insert(id)))
+                    .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
                     .map(|mut f| {
                         f.rel = prefix.join(&f.rel);
                         f
@@ -220,7 +220,7 @@ impl Engine {
                 break;
             }
         }
-        files.sort_by(|a, b| a.rel.cmp(&b.rel));
+        files.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
         let cached = files
             .iter()
             .map(|f| CachedFile {
@@ -305,8 +305,10 @@ impl Engine {
             },
             archives: match settings.text(Key::Archives) {
                 "none" => Archives::None,
-                _ => Archives::Compressed,
+                "compressed" => Archives::Compressed,
+                _ => Archives::All,
             },
+            time_zone: self.options.time_zone.clone(),
             max_file_size: settings.size(Key::MaxFileSize),
             read_delay: self.options.read_delay,
         }
