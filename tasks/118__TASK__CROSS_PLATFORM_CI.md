@@ -1,6 +1,6 @@
 # Task 118: CI on Linux, macOS and Windows
 
-Status: in progress
+Status: implemented, see [118__SUMMARY__CROSS_PLATFORM_CI.md](118__SUMMARY__CROSS_PLATFORM_CI.md)
 
 Depends on: task 1
 
