@@ -23,6 +23,12 @@ pub const FIELDS: [&str; 14] = [
     "languages",
 ];
 
+/// The `traversal` object of a request: the values which replace the configuration for this request.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Traversal {
+    pub min_depth: Option<usize>,
+}
+
 /// A validated `find` request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
@@ -32,6 +38,7 @@ pub struct Request {
     pub dirs: Option<Vec<String>>,
     /// The time limit; `None` — `server.timeout`; zero — no limit.
     pub timeout: Option<std::time::Duration>,
+    pub traversal: Traversal,
 }
 
 /// Checks the arguments of `find`.
@@ -103,6 +110,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         query,
         dirs,
         timeout,
+        traversal: Traversal::default(),
     })
 }
 
@@ -161,6 +169,34 @@ mod tests {
                 "error[invalid_option]: 'dirs' must be a non-empty list of strings\n"
             );
         }
+    }
+
+    #[test]
+    fn traversal() {
+        assert_eq!(
+            parse(&json!({ "traversal": { "min_depth": 2 } }))
+                .unwrap()
+                .traversal
+                .min_depth,
+            Some(2)
+        );
+        assert_eq!(parse(&json!({})).unwrap().traversal, Traversal::default());
+        assert_eq!(
+            text(&json!({ "traversal": { "min_depth": "2" } })),
+            "error[invalid_option]: 'traversal.min_depth' must be a whole number\n"
+        );
+        assert_eq!(
+            text(&json!({ "traversal": [] })),
+            "error[invalid_option]: 'traversal' must be an object\n"
+        );
+        assert!(
+            text(&json!({ "traversal": { "colour": 1 } }))
+                .starts_with("error[invalid_option]: unknown field 'traversal.colour'\n  hint: expected one of: min_depth, ")
+        );
+        assert_eq!(
+            text(&json!({ "traversal": { "hidden": true } })),
+            "error[not_implemented]: the field 'traversal.hidden' is not implemented yet\n"
+        );
     }
 
     #[test]
