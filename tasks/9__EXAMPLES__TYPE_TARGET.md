@@ -104,10 +104,11 @@ files: 4  lines: 0  matches: 0  result: r1
 
 lib/
 config.rs  [#1 #2]
-current.rs  [#1 #2]
 main.rs  [#1 #2]
 lib/sub/
 util.rs  [#1 #2]
+lib/
+current.rs  [#1 #2]
 ```
 
 ## E9.5 `type != file`
