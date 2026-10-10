@@ -25,11 +25,12 @@ pub enum Key {
     Binary,
     MaxFileSize,
     Encoding,
+    FallbackEncoding,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 16] = [
+    pub const ALL: [Key; 17] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -46,6 +47,7 @@ impl Key {
         Self::Binary,
         Self::MaxFileSize,
         Self::Encoding,
+        Self::FallbackEncoding,
     ];
 
     /// The section, the name and the type.
@@ -79,6 +81,7 @@ impl Key {
             ),
             Self::MaxFileSize => ("traversal", "max_file_size", Type::Size),
             Self::Encoding => ("traversal", "encoding", Type::Encoding),
+            Self::FallbackEncoding => ("traversal", "fallback_encoding", Type::OptEncoding),
         }
     }
 
@@ -91,7 +94,7 @@ impl Key {
             Self::Timeout => Value::Text("30s".to_string()),
             Self::Threads | Self::MinDepth => Value::Whole(0),
             Self::ResultCache => Value::Whole(50),
-            Self::MaxDepth => Value::NotSet,
+            Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
             Self::GitExcludes => Value::Bool(true),
@@ -153,6 +156,8 @@ pub enum Type {
     Size,
     /// `"auto"` or a WHATWG encoding label, as written.
     Encoding,
+    /// A WHATWG encoding label, as written, or not set.
+    OptEncoding,
 }
 
 impl Type {
@@ -173,6 +178,7 @@ impl Type {
             Self::Encoding => {
                 "\"auto\" or an encoding name like \"windows-1252\" is expected".to_string()
             }
+            Self::OptEncoding => "an encoding name like \"windows-1251\" is expected".to_string(),
         }
     }
 
@@ -188,6 +194,7 @@ impl Type {
             Self::Choice(values) => format!("one of: {}", values.join(", ")),
             Self::Size => "a size like \"10M\" (units B, K, M, G)".to_string(),
             Self::Encoding => "\"auto\" or an encoding name like \"windows-1252\"".to_string(),
+            Self::OptEncoding => "an encoding name like \"windows-1251\"".to_string(),
         }
     }
 
@@ -265,6 +272,10 @@ impl Type {
                 .as_str()
                 .filter(|v| *v == "auto" || encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
+            Self::OptEncoding => item
+                .as_str()
+                .filter(|v| encoding(v).is_some())
+                .map(|v| Value::Text(v.to_string())),
         }
     }
 
@@ -295,6 +306,10 @@ impl Type {
             Self::Encoding => value
                 .as_str()
                 .filter(|v| *v == "auto" || encoding(v).is_some())
+                .map(|v| Value::Text(v.to_string())),
+            Self::OptEncoding => value
+                .as_str()
+                .filter(|v| encoding(v).is_some())
                 .map(|v| Value::Text(v.to_string())),
         }
     }

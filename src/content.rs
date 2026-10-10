@@ -59,6 +59,8 @@ pub struct DecodeOptions {
     pub binary_as_text: bool,
     /// `encoding`: every file without a BOM is decoded with it; `None` — `auto`.
     pub encoding: Option<&'static encoding_rs::Encoding>,
+    /// `fallback_encoding`: with `auto`, a file which is not valid UTF-8 is decoded with it.
+    pub fallback: Option<&'static encoding_rs::Encoding>,
 }
 
 /// A decoded file.
@@ -108,13 +110,21 @@ pub fn is_binary_content(bytes: &[u8], options: &DecodeOptions) -> bool {
 
 /// Decodes a file: by its BOM, otherwise by the options (CONFIG.md#encoding).
 pub fn decode(bytes: &[u8], options: &DecodeOptions) -> Decoded {
-    let (encoding, body) = match by_bom(bytes) {
+    let (mut encoding, body) = match by_bom(bytes) {
         Some(found) => found,
         None => match without_bom(bytes, options) {
             Some(encoding) => (encoding, bytes),
             None => return Decoded::Binary,
         },
     };
+    if let Some(fallback) = options.fallback
+        && options.encoding.is_none()
+        && encoding == Encoding::Utf8
+        && body.len() == bytes.len()
+        && std::str::from_utf8(body).is_err()
+    {
+        encoding = Encoding::of(fallback);
+    }
     let (text, errors) = match encoding {
         Encoding::Utf8 => {
             let text = String::from_utf8_lossy(body);
@@ -429,7 +439,7 @@ mod tests {
     fn binary_files_searched_as_text() {
         let as_text = DecodeOptions {
             binary_as_text: true,
-            encoding: None,
+            ..DecodeOptions::default()
         };
         match decode(b"\0\0\0\0\nlogo\n", &as_text) {
             Decoded::Text {
@@ -457,8 +467,8 @@ mod tests {
 
     fn forced(label: &str) -> DecodeOptions {
         DecodeOptions {
-            binary_as_text: false,
             encoding: encoding_rs::Encoding::for_label(label.as_bytes()),
+            ..DecodeOptions::default()
         }
     }
 
