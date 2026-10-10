@@ -11,7 +11,7 @@ use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::error::{ErrorCode, Report};
 use crate::languages::LanguageTable;
-use crate::output::{BlockOptions, Detail, Highlight, Response};
+use crate::output::{BlockOptions, Detail, Highlight, Response, Sort, sort_files};
 use crate::query::{self, ParseOptions};
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, SearchOptions};
@@ -227,7 +227,16 @@ impl Engine {
             "files" => Detail::Files,
             _ => Detail::Lines,
         };
-        let (files, warnings, timed_out) = search_all(&working_dirs, &query, &search_options);
+        let sort = Sort::parse(settings.text(Key::Sort));
+        let meta = settings.bool(Key::Meta);
+        search_options.meta = meta || sort.needs_meta();
+        let (mut files, warnings, timed_out) = search_all(&working_dirs, &query, &search_options);
+        sort_files(&mut files, sort);
+        if !meta {
+            for file in &mut files {
+                file.meta = None;
+            }
+        }
         let result_id = if detail == Detail::Exists {
             None
         } else {

@@ -14,8 +14,10 @@ mod json;
 mod lines;
 mod meta;
 mod repeated;
+mod sort;
 
 pub use blocks::BlockOptions;
+pub use sort::{Sort, sort_files};
 
 pub use lines::{Fragment, matched_lines, merge_identical};
 

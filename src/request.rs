@@ -308,8 +308,12 @@ mod tests {
             [(Key::Meta, KeyValue::Bool(true))]
         );
         assert_eq!(
-            text(&json!({ "output": { "sort": "path asc" } })),
-            "error[not_implemented]: the field 'output.sort' is not implemented yet\n"
+            config(&json!({ "output": { "sort": "path asc" } })),
+            [(Key::Sort, KeyValue::Text("path asc".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "max_files": 1 } })),
+            "error[not_implemented]: the field 'output.max_files' is not implemented yet\n"
         );
     }
 

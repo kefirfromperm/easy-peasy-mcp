@@ -50,6 +50,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+sort = "relevance"
 path_style = "relative"
 ```
 
@@ -130,6 +131,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = false    # update
 group_repeated = 3    # default
+sort = "relevance"    # default
 path_style = "relative"    # default
 ```
 
@@ -195,6 +197,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = false    # file: conf/o.toml
 group_repeated = 3    # default
+sort = "relevance"    # default
 path_style = "relative"    # default
 ```
 

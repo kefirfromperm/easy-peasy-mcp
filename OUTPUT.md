@@ -436,6 +436,11 @@ When a limit is hit:
 The files are sorted before the limits are applied, so `sort: "modified desc", max_files: 10` returns the 10 most
 recently changed matching files.
 
+With `path`, `modified`, `size` and `matches` the files are ordered by the value, `asc` from the lowest, `desc` from
+the highest; `matches` counts the content fragments. Files with equal values are ordered by the full path, in
+ascending order also with `desc`; files without the value (the size of a directory, the date of a member of an
+archive which has none) come last.
+
 ## Pagination
 
 To get the next page, repeat the same request and add `output.cursor` from `next_cursor`:
