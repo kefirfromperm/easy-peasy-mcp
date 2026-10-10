@@ -508,6 +508,13 @@ mod tests {
     fn languages() {
         assert!(parse(&json!({ "languages": { "terraform": { "extensions": ["tf"] } } })).is_ok());
         assert_eq!(
+            parse(&json!({ "languages": { "groovy": { "names": ["Jenkinsfile"] } } }))
+                .unwrap()
+                .languages[0]
+                .names,
+            ["Jenkinsfile"]
+        );
+        assert_eq!(
             text(&json!({ "languages": { "terraform": { "extensions": "tf" } } })),
             "error[invalid_option]: 'languages.terraform.extensions' must be a list of strings\n"
         );
