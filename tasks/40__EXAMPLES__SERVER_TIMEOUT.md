@@ -65,13 +65,14 @@ Fixture: `timeout`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']
 default_dirs = ['.']
 timeout = "30s"
 threads = 0
+allow_update = true
 ```
 
 ## E40.4 A timeout for the session
@@ -99,13 +100,14 @@ timeout = "200ms"    # was "30s"
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "200ms"    # update
 threads = 0    # default
+allow_update = true    # default
 ```
 
 3. `find`
@@ -164,13 +166,14 @@ easy-peasy-mcp --timeout 5s
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "5s"    # cli
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ## E40.8 A timeout from the config file
@@ -192,13 +195,14 @@ easy-peasy-mcp --config conf/t.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "1m"    # file: conf/t.toml
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ## E40.9 `--timeout` comes before the config file
@@ -220,13 +224,14 @@ easy-peasy-mcp --config conf/t.toml --timeout 5s
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots
+# read-only: server.allowed_roots, server.allow_update
 
 [server]
 allowed_roots = ['<fixture>']    # default
 default_dirs = ['.']    # default
 timeout = "5s"    # cli
 threads = 0    # default
+allow_update = true    # default
 ```
 
 ## E40.10 An invalid timeout in the config file
