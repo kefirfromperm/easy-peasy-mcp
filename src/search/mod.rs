@@ -9,7 +9,9 @@ use std::time::{Duration, Instant};
 
 use ignore::{WalkBuilder, WalkState};
 
-pub use kinds::{DEFAULT_GENERATED, DEFAULT_MARKER_LINES, DEFAULT_MARKERS, KindOptions, KindRules};
+pub use kinds::{
+    DEFAULT_GENERATED, DEFAULT_MARKER_LINES, DEFAULT_MARKERS, DEFAULT_TEST, KindOptions, KindRules,
+};
 
 use crate::archive::{ArchiveKind, Member, for_each_member};
 use crate::compressed::{Compression, Decompressed, decompress};
