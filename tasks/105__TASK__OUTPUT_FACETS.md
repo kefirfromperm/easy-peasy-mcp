@@ -1,6 +1,6 @@
 # Task 105: `output.facets`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 79, task 16, task 17
 
