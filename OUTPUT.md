@@ -623,7 +623,7 @@ detail at all; `detail = files` still lists such a file. The counts are not chan
 Every response with `count` detail or higher has a result id, e.g. `result: r12` in the header, unless
 `server.result_cache = 0`. The server keeps the last [`server.result_cache`](CONFIG.md#server) results in memory
 (default 50, until the server stops): the request, all matched files (not only the shown ones) and a fingerprint of
-their matched lines.
+their matched lines. The ids count the kept results: a response without an id doesn't use one.
 
 ### Refine: `within`
 
