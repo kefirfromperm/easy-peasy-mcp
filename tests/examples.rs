@@ -65,7 +65,8 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
         };
         let expected_text = expected
             .text
-            .replace("<version>", env!("CARGO_PKG_VERSION"));
+            .replace("<version>", env!("CARGO_PKG_VERSION"))
+            .replace("<fixture>", &dir.root.to_string_lossy());
         if output.is_error != want_error || output.text != expected_text {
             return Err(format!(
                 "step {step}: expected {kind} (isError: {want_error}):\n{expected_text}\nactual (isError: {}):\n{}",

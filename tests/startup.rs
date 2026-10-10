@@ -80,9 +80,13 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     let mut blocks = example.blocks.iter();
     let mut id = 1;
     while let Some(block) = blocks.next() {
-        if block.info != "json request" {
+        let Some(tool) = block.info.strip_prefix("json request") else {
             continue;
-        }
+        };
+        let tool = match tool.trim() {
+            "" => "find",
+            other => other,
+        };
         id += 1;
         let arguments: serde_json::Value =
             serde_json::from_str(&block.text).map_err(|e| e.to_string())?;
@@ -92,7 +96,7 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         let response = server.request(
             id,
             "tools/call",
-            &json!({ "name": "find", "arguments": arguments }),
+            &json!({ "name": tool, "arguments": arguments }),
         );
         let text = response["result"]["content"][0]["text"]
             .as_str()
@@ -100,7 +104,8 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         let is_error = response["result"]["isError"] == json!(true);
         let expected_text = expected
             .text
-            .replace("<version>", env!("CARGO_PKG_VERSION"));
+            .replace("<version>", env!("CARGO_PKG_VERSION"))
+            .replace("<fixture>", &fixture_path);
         if is_error != (expected.info == "text error") || text != expected_text {
             return Err(format!(
                 "request {id}: expected:\n{expected_text}\nactual (isError: {is_error}):\n{text}"
