@@ -3,7 +3,7 @@
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
 //! `kind` and `git` conditions, `text` with `=`, `has`, `starts`,
 //! `ends`, `=~` in file scope; `=~` on `name` and `path`; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
-//! modifiers `/i` and `/w`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
+//! modifiers `/i`, `/w` and `/m`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
 
@@ -82,7 +82,7 @@ fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<u
             for m in c
                 .modifiers
                 .iter()
-                .filter(|m| !matches!(m.name.as_str(), "i" | "w"))
+                .filter(|m| !matches!(m.name.as_str(), "i" | "w" | "m"))
             {
                 let span = m.span.start..m.span.start + 1 + m.name.len();
                 found.push((span.clone(), format!("the modifier '{}'", &query[span])));
