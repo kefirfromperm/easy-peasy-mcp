@@ -1,0 +1,4 @@
+The quick brown fox jumps over the lazy dog and then TODO fix the fence near the old barn
+short TODO
+This context line is much longer than twenty characters
+TODO at the start and TODO again at the end of this rather long line TODO
