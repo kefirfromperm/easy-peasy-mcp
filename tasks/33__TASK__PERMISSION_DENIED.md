@@ -1,6 +1,6 @@
 # Task 33: Unreadable entries
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 20
 
