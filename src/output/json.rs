@@ -218,6 +218,7 @@ impl Response<'_> {
                 self.listed()
                     .iter()
                     .enumerate()
+                    .take(listing.shown)
                     .filter(|(index, _)| listing.files[*index] != Listed::LeftOut)
                     .map(|(index, file)| self.file(file, &listing, index))
                     .collect()

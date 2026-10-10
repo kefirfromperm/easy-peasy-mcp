@@ -1,6 +1,6 @@
 # Task 100: `output.max_output`
 
-Status: not implemented
+Status: implemented, see [100__SUMMARY__OUTPUT_MAX_OUTPUT.md](100__SUMMARY__OUTPUT_MAX_OUTPUT.md)
 
 Depends on: task 94
 

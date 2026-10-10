@@ -238,6 +238,7 @@ max_matches = 1000
 max_matches_per_file = 50
 max_line_length = 300
 max_output_per_file = 4000
+max_output = 40000
 dedent = true
 blank_context = false
 group_dirs = true
