@@ -1219,6 +1219,65 @@ mod tests {
     }
 
     #[test]
+    fn near_matches() {
+        assert!(content_matches(
+            "near(text has 'a', text has 'b', 1)",
+            "a\nb"
+        ));
+        assert!(content_matches(
+            "near(text has 'a', text has 'b', 1)",
+            "b\na"
+        ));
+        assert!(!content_matches(
+            "near(text has 'a', text has 'b', 1, ordered)",
+            "b\na"
+        ));
+        assert!(!content_matches(
+            "near(text has 'a', text has 'b', 1)",
+            "a\nx\nb"
+        ));
+        assert!(content_matches("near(text has 'a', text has 'b', 0)", "ba"));
+        assert!(!content_matches(
+            "near(text has 'a', text has 'b', 0, ordered)",
+            "ba"
+        ));
+        assert!(content_matches(
+            "near(text has 'a', text has 'b', 0, ordered)",
+            "ab"
+        ));
+        assert!(content_matches(
+            "near(text has 'a', len = 0, 1, first)",
+            "a\n"
+        ));
+    }
+
+    #[test]
+    fn near_option_errors() {
+        assert_eq!(
+            error("near(text has 'a', text has 'b', 3, nearest)"),
+            (
+                ErrorCode::InvalidNearOption,
+                "unknown option 'nearest'".into(),
+                36..43,
+                "options: any, ordered, all, closest, first".into()
+            )
+        );
+        assert_eq!(
+            error("near(text has 'a', text has 'b', 3, closest, all)"),
+            (
+                ErrorCode::ConflictingOptions,
+                "conflicting options 'closest' and 'all'".into(),
+                45..48,
+                "choose one of: all, closest, first".into()
+            )
+        );
+        assert_eq!(
+            error("near(name = 'a', text has 'b', 1)").1,
+            "'name' inside near( ... )"
+        );
+    }
+
+    #[test]
     fn line_group_errors() {
         assert_eq!(
             error("line(name ~ '*.rs')"),
