@@ -618,11 +618,12 @@ With `"sources": true` every value gets a comment:
 ```toml
 [traversal]
 exclude = ["**/target/**", "**/node_modules/**"]    # file: /home/me/.config/easy-peasy-mcp/config.toml
-hidden = false                                      # default
-max_file_size = "50M"                               # update
+hidden = false    # default
+max_file_size = "50M"    # update
 ```
 
-The comments of a section start in one column, four spaces after its longest line.
+A comment follows its line after four spaces; comments are not aligned, so the result doesn't depend on the length of
+the paths.
 
 `server.allowed_roots` shows the canonical roots in effect, so an empty list shows the start directory. Paths are
 written as TOML literal strings (`'...'`), so Windows paths need no escaping; a path with a `'` is a basic string.
@@ -676,15 +677,15 @@ Dotted keys are shorter for one or two values and need no line breaks:
 - a search which is already running keeps the configuration it started with
 
 Result — TOML with the keys whose value changed (in the order of the spec), the old value in a comment four spaces
-after the longest line of the section, like in `get_config`; `, reset` when the value comes from `reset`. A key which
+after the line, like in `get_config`; `, reset` when the value comes from `reset`. A key which
 is both reset and set gets the value of `set`. A changed value has the source `update` in `get_config`; a reset value
 gets its source back.
 
 ```toml
 [output]
-max_files = 30          # was 100
-context = 2             # was 0
-format = "text"         # was "json", reset
+format = "text"    # was "json", reset
+context = 2    # was 0
+max_files = 30    # was 100
 
 [traversal]
 exclude = ["**/target/**"]    # was []
