@@ -3,6 +3,7 @@
 pub mod ast;
 mod escape;
 mod eval;
+mod fuzzy;
 mod lexer;
 mod naming;
 mod parser;
