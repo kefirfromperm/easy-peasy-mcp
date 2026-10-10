@@ -34,11 +34,12 @@ pub enum Key {
     GeneratedMarkers,
     GeneratedMarkerLines,
     KindsGenerated,
+    KindsTest,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 25] = [
+    pub const ALL: [Key; 26] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -64,6 +65,7 @@ impl Key {
         Self::GeneratedMarkers,
         Self::GeneratedMarkerLines,
         Self::KindsGenerated,
+        Self::KindsTest,
     ];
 
     /// The section, the name and the type.
@@ -109,6 +111,7 @@ impl Key {
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
             Self::GeneratedMarkerLines => ("kinds", "generated_marker_lines", Type::AtLeast(1)),
+            Self::KindsTest => ("kinds", "test", Type::Wildcards),
             Self::KindsGenerated => ("kinds", "generated", Type::Wildcards),
         }
     }
@@ -125,6 +128,7 @@ impl Key {
             Self::MaxLevel => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),
+            Self::KindsTest => list(&crate::search::DEFAULT_TEST),
             Self::KindsGenerated => list(&crate::search::DEFAULT_GENERATED),
             Self::GeneratedMarkerLines => Value::Whole(crate::search::DEFAULT_MARKER_LINES),
             Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
