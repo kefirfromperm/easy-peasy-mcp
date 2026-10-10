@@ -116,6 +116,7 @@ mod tests {
             signals: None,
             score: None,
             git: None,
+            root: 0,
         }
     }
 

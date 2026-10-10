@@ -142,6 +142,8 @@ pub struct Found {
     pub score: Option<f64>,
     /// The git status, with `git_status`; `None` outside of a repository.
     pub git: Option<GitStatus>,
+    /// The index of its working directory in the request.
+    pub root: usize,
 }
 
 /// The metadata of a matched entry (OUTPUT.md#meta).
@@ -402,20 +404,7 @@ fn walk_builder(root: &Path, options: &SearchOptions) -> (WalkBuilder, Outside) 
 /// regular files.
 pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
     let (builder, outside) = walk_builder(root, options);
-    let walk = Walk {
-        root,
-        query,
-        options,
-        kinds: KindRules::new(&options.kinds, options.case_insensitive_paths),
-        git: GitIndex::new(!options.git_global_excludes, options.git_base.clone()),
-        found: Mutex::default(),
-        warnings: Mutex::default(),
-        timed_out: AtomicBool::new(false),
-        done: AtomicBool::new(false),
-        funnel: (0..query.funnel.as_ref().map_or(0, |f| f.steps.len()))
-            .map(|_| AtomicUsize::new(0))
-            .collect(),
-    };
+    let walk = Walk::new(root, query, options);
     builder.build_parallel().run(|| {
         let walk = &walk;
         Box::new(move |entry| {
@@ -431,7 +420,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
                             .push(item);
                     }
                     if walk.options.archives == Archives::All {
-                        walk.visit_members(&entry);
+                        walk.visit_members(&entry, None);
                     }
                     if walk.options.first_only
                         && !walk
@@ -449,30 +438,192 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
             WalkState::Continue
         })
     });
-    let mut found = walk.found.into_inner().expect("the walk is finished");
-    let mut warnings = walk.warnings.into_inner().expect("the walk is finished");
-    for (rel, is_dir) in outside
+    let outside: Vec<(PathBuf, bool)> = outside
         .lock()
         .expect("no thread panics while holding the lock")
         .drain(..)
-    {
-        warnings.add(WarningCode::PermissionDenied, rel, is_dir);
-    }
-    found.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
-    let mut seen = std::collections::HashSet::new();
-    let files = found
-        .into_iter()
-        .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
         .collect();
-    SearchResult {
-        files,
-        warnings,
-        timed_out: walk.timed_out.into_inner(),
-        funnel: walk
-            .funnel
+    walk.finish(outside)
+}
+
+/// Searches the files `files` of the working directory `root` (paths in it and the members of archives) without a
+/// walk (`within`): a file which doesn't exist any more is skipped; the matched entries in path order.
+pub fn search_files(
+    root: &Path,
+    files: &[(PathBuf, Option<String>)],
+    query: &Query,
+    options: &SearchOptions,
+) -> SearchResult {
+    let walk = Walk::new(root, query, options);
+    let mut members: Vec<(&PathBuf, Vec<String>)> = Vec::new();
+    for (rel, member) in files {
+        if let Some(member) = member {
+            match members.iter_mut().find(|(r, _)| *r == rel) {
+                Some((_, list)) => list.push(member.clone()),
+                None => members.push((rel, vec![member.clone()])),
+            }
+            continue;
+        }
+        if walk.past_deadline() {
+            break;
+        }
+        let Some(entry) = FileEntry::new(root, rel, options.follow_symlinks) else {
+            continue;
+        };
+        if let Some(item) = walk.visit(&entry) {
+            walk.found
+                .lock()
+                .expect("no thread panics while holding the lock")
+                .push(item);
+        }
+    }
+    for (rel, list) in members {
+        if let Some(entry) = FileEntry::new(root, rel, options.follow_symlinks)
+            && !walk.past_deadline()
+        {
+            walk.visit_members(&entry, Some(&list));
+        }
+    }
+    walk.finish(Vec::new())
+}
+
+impl<'a> Walk<'a> {
+    /// The state of a search of `root`.
+    fn new(root: &'a Path, query: &'a Query, options: &'a SearchOptions) -> Self {
+        Walk {
+            root,
+            query,
+            options,
+            kinds: KindRules::new(&options.kinds, options.case_insensitive_paths),
+            git: GitIndex::new(!options.git_global_excludes, options.git_base.clone()),
+            found: Mutex::default(),
+            warnings: Mutex::default(),
+            timed_out: AtomicBool::new(false),
+            done: AtomicBool::new(false),
+            funnel: (0..query.funnel.as_ref().map_or(0, |f| f.steps.len()))
+                .map(|_| AtomicUsize::new(0))
+                .collect(),
+        }
+    }
+
+    /// The result: the found entries in path order, every file once, the warnings with `permission_denied` for the
+    /// entries `outside` of the allowed roots.
+    fn finish(self, outside: Vec<(PathBuf, bool)>) -> SearchResult {
+        let mut found = self.found.into_inner().expect("the walk is finished");
+        let mut warnings = self.warnings.into_inner().expect("the walk is finished");
+        for (rel, is_dir) in outside {
+            warnings.add(WarningCode::PermissionDenied, rel, is_dir);
+        }
+        found.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
+        let mut seen = std::collections::HashSet::new();
+        let files = found
             .into_iter()
-            .map(AtomicUsize::into_inner)
-            .collect(),
+            .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
+            .collect();
+        SearchResult {
+            files,
+            warnings,
+            timed_out: self.timed_out.into_inner(),
+            funnel: self
+                .funnel
+                .into_iter()
+                .map(AtomicUsize::into_inner)
+                .collect(),
+        }
+    }
+}
+
+/// What the visit of an entry needs of it: an entry of the walk, or a file of a kept result (`within`).
+trait Entry {
+    fn path(&self) -> &Path;
+    /// The number of the path components below the working directory: 0 for the working directory.
+    fn depth(&self) -> usize;
+    /// The type: of the target of a followed symlink.
+    fn file_type(&self) -> Option<std::fs::FileType>;
+    fn file_name(&self) -> &std::ffi::OsStr;
+    /// The metadata: of the target of a followed symlink.
+    fn metadata(&self) -> Option<std::fs::Metadata>;
+    fn path_is_symlink(&self) -> bool;
+}
+
+impl Entry for ignore::DirEntry {
+    fn path(&self) -> &Path {
+        ignore::DirEntry::path(self)
+    }
+
+    fn depth(&self) -> usize {
+        ignore::DirEntry::depth(self)
+    }
+
+    fn file_type(&self) -> Option<std::fs::FileType> {
+        ignore::DirEntry::file_type(self)
+    }
+
+    fn file_name(&self) -> &std::ffi::OsStr {
+        ignore::DirEntry::file_name(self)
+    }
+
+    fn metadata(&self) -> Option<std::fs::Metadata> {
+        ignore::DirEntry::metadata(self).ok()
+    }
+
+    fn path_is_symlink(&self) -> bool {
+        ignore::DirEntry::path_is_symlink(self)
+    }
+}
+
+/// A file of a kept result, visited without a walk.
+struct FileEntry {
+    path: PathBuf,
+    depth: usize,
+    /// Of the target of a followed symlink.
+    metadata: std::fs::Metadata,
+    symlink: bool,
+}
+
+impl FileEntry {
+    /// The file `rel` of the working directory `root`; `None` when it doesn't exist any more.
+    fn new(root: &Path, rel: &Path, follow_symlinks: bool) -> Option<Self> {
+        let path = root.join(rel);
+        let link = std::fs::symlink_metadata(&path).ok()?;
+        let symlink = link.file_type().is_symlink();
+        let metadata = if symlink && follow_symlinks {
+            std::fs::metadata(&path).ok()?
+        } else {
+            link
+        };
+        Some(Self {
+            depth: rel.components().count(),
+            path,
+            metadata,
+            symlink,
+        })
+    }
+}
+
+impl Entry for FileEntry {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn depth(&self) -> usize {
+        self.depth
+    }
+
+    fn file_type(&self) -> Option<std::fs::FileType> {
+        Some(self.metadata.file_type())
+    }
+
+    fn file_name(&self) -> &std::ffi::OsStr {
+        self.path.file_name().unwrap_or_default()
+    }
+
+    fn metadata(&self) -> Option<std::fs::Metadata> {
+        Some(self.metadata.clone())
+    }
+
+    fn path_is_symlink(&self) -> bool {
+        self.symlink
     }
 }
 
@@ -539,7 +690,7 @@ struct Dates {
 
 impl Walk<'_> {
     /// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
-    fn visit(&self, entry: &ignore::DirEntry) -> Option<Found> {
+    fn visit(&self, entry: &dyn Entry) -> Option<Found> {
         let query = self.query;
         if entry.depth() == 0 || entry.depth() < self.options.min_depth {
             return None;
@@ -553,7 +704,7 @@ impl Walk<'_> {
         let name = nfc(&entry.file_name().to_string_lossy());
         let nfc_path = nfc(&path);
         let metadata = (query.needs.empty || query.needs.metadata)
-            .then(|| entry.metadata().ok())
+            .then(|| entry.metadata())
             .flatten();
         let empty = query.needs.empty
             && metadata
@@ -625,7 +776,7 @@ impl Walk<'_> {
             conditions: evaluated.conditions,
             matches: evaluated.matches,
             encoding: evaluated.encoding,
-            id: entry.metadata().ok().and_then(|m| file_id(&m)),
+            id: entry.metadata().and_then(|m| file_id(&m)),
             path_fragments: evaluated.path_fragments,
             meta,
             signals: self.signals(evaluated.signals, &name, &nfc_path),
@@ -635,23 +786,20 @@ impl Walk<'_> {
             } else {
                 None
             },
+            root: 0,
         })
     }
 
     /// The metadata of a matched entry of the file system, from what the visit knows and what is missing.
     fn meta(
         &self,
-        entry: &ignore::DirEntry,
+        entry: &dyn Entry,
         entry_type: EntryType,
         name: &str,
         path: &str,
         known: &Known<'_>,
     ) -> Meta {
-        let read = known
-            .metadata
-            .is_none()
-            .then(|| entry.metadata().ok())
-            .flatten();
+        let read = known.metadata.is_none().then(|| entry.metadata()).flatten();
         let metadata = known.metadata.or(read.as_ref());
         let is_file = entry_type == EntryType::File;
         let language = if is_file {
@@ -695,7 +843,7 @@ impl Walk<'_> {
     /// `binary = exclude` (`text`: its content was decoded as text).
     fn left_out(
         &self,
-        entry: &ignore::DirEntry,
+        entry: &dyn Entry,
         rel: &Path,
         entry_type: EntryType,
         name: &str,
@@ -901,9 +1049,10 @@ impl Walk<'_> {
         }
     }
 
-    /// Visits the members of an archive with `archives = all`: the matched members go to the found entries; an
-    /// archive which can't be read gets `archive_error` (`permission_denied` when it can't be opened).
-    fn visit_members(&self, entry: &ignore::DirEntry) {
+    /// Visits the members of an archive with `archives = all` (`only` those, when given): the matched members go to
+    /// the found entries; an archive which can't be read gets `archive_error` (`permission_denied` when it can't be
+    /// opened).
+    fn visit_members(&self, entry: &dyn Entry, only: Option<&[String]>) {
         if entry.depth() == 0 || entry_type(entry) != Some(EntryType::File) {
             return;
         }
@@ -914,7 +1063,7 @@ impl Walk<'_> {
             return;
         };
         let archive = slash_path(rel);
-        let id = entry.metadata().ok().and_then(|m| file_id(&m));
+        let id = entry.metadata().and_then(|m| file_id(&m));
         let mut found = Vec::new();
         let mut total = 0_u64;
         let mut too_big = false;
@@ -932,6 +1081,9 @@ impl Walk<'_> {
                 if total as f64 > self.options.max_archive_size {
                     too_big = true;
                     return false;
+                }
+                if only.is_some_and(|only| !only.contains(&member.path)) {
+                    return true;
                 }
                 if let Some(mut item) = self.visit_member(rel, &archive, member, reader) {
                     item.id = id;
@@ -1058,6 +1210,7 @@ impl Walk<'_> {
             signals: self.signals(evaluated.signals, &name, &nfc_path),
             score: None,
             git: None,
+            root: 0,
         })
     }
 
@@ -1294,7 +1447,7 @@ fn error_path(err: &ignore::Error) -> Option<&Path> {
 }
 
 /// The type of an entry, symlinks not followed; `None` for other entries (sockets, devices).
-fn entry_type(entry: &ignore::DirEntry) -> Option<EntryType> {
+fn entry_type(entry: &dyn Entry) -> Option<EntryType> {
     let t = entry.file_type()?;
     if t.is_symlink() {
         Some(EntryType::Link)

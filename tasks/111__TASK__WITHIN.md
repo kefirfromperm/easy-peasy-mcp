@@ -1,6 +1,6 @@
 # Task 111: Refine a previous result: `within`
 
-Status: not implemented
+Status: implemented, see [111__SUMMARY__WITHIN.md](111__SUMMARY__WITHIN.md)
 
 Depends on: task 43, task 39
 

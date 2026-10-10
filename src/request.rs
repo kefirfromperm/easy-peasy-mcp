@@ -49,11 +49,13 @@ pub struct Request {
     pub languages: Vec<crate::languages::Language>,
     /// `output.cursor`: where the page starts.
     pub cursor: Option<String>,
+    /// `within`: the number of the result whose files are searched.
+    pub within: Option<u64>,
 }
 
 /// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
 fn is_implemented(field: &str) -> bool {
-    ["version", "query", "dirs", "timeout", "languages"].contains(&field)
+    ["version", "query", "dirs", "within", "timeout", "languages"].contains(&field)
         || SECTION_FIELDS
             .iter()
             .any(|(f, section)| *f == field && Key::ALL.iter().any(|k| k.section() == *section))
@@ -93,6 +95,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
     if let Some(version) = object.get("version") {
         check_version(version)?;
     }
+    let within = object.get("within").map(result_id).transpose()?;
     let dirs = match object.get("dirs") {
         None => None,
         Some(Value::Array(dirs)) if !dirs.is_empty() => Some(
@@ -150,6 +153,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         config,
         languages,
         cursor,
+        within,
     })
 }
 
@@ -229,6 +233,20 @@ fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report>
     Ok((config, cursor))
 }
 
+/// The number of a result id `rN` of `within`.
+fn result_id(value: &Value) -> Result<u64, Report> {
+    value
+        .as_str()
+        .and_then(|id| id.strip_prefix('r'))
+        .and_then(|n| n.parse().ok())
+        .ok_or_else(|| {
+            Report::new(
+                ErrorCode::InvalidOption,
+                "'within' must be a result id like 'r12'",
+            )
+        })
+}
+
 /// The spec versions this server supports (TOOLS.md#versioning).
 pub const SPEC_VERSIONS: [u64; 1] = [1];
 
@@ -301,10 +319,26 @@ mod tests {
     }
 
     #[test]
+    fn within() {
+        assert_eq!(
+            parse(&json!({ "query": "x", "within": "r12" }))
+                .unwrap()
+                .within,
+            Some(12)
+        );
+        for bad in [json!("12"), json!("r"), json!("rx"), json!(12)] {
+            assert_eq!(
+                text(&json!({ "within": bad })),
+                "error[invalid_option]: 'within' must be a result id like 'r12'\n"
+            );
+        }
+    }
+
+    #[test]
     fn spec_fields_are_not_implemented() {
         assert_eq!(
-            text(&json!({ "query": "x", "within": "r1" })),
-            "error[not_implemented]: the field 'within' is not implemented yet\n"
+            text(&json!({ "query": "x", "since": "r1" })),
+            "error[not_implemented]: the field 'since' is not implemented yet\n"
         );
     }
 

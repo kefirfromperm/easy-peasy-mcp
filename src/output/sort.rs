@@ -96,6 +96,7 @@ mod tests {
             signals: None,
             score: None,
             git: None,
+            root: 0,
             meta: Some(Meta {
                 entry_type: EntryType::File,
                 size,

@@ -595,6 +595,7 @@ mod tests {
             signals: None,
             score: None,
             git: None,
+            root: 0,
         }
     }
 
@@ -686,6 +687,7 @@ mod tests {
             signals: None,
             score: None,
             git: None,
+            root: 0,
         }];
         let text = Response {
             detail: Detail::Lines,

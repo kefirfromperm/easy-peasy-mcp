@@ -86,3 +86,21 @@ fn results_dont_depend_on_the_threads() {
     assert_eq!(one(4), single);
     assert_eq!(one(0), single);
 }
+
+#[test]
+fn within_skips_files_deleted_since_the_result() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(root.join("a.txt"), "retry\n").unwrap();
+    fs::write(root.join("b.txt"), "retry\n").unwrap();
+    let engine = engine(root);
+    let first = engine.find(&json!({ "query": "name ~ '*.txt'" }));
+    assert!(first.text.starts_with("files: 2  "), "{}", first.text);
+    fs::remove_file(root.join("b.txt")).unwrap();
+    fs::write(root.join("c.txt"), "retry\n").unwrap();
+    let within = engine.find(&json!({ "within": "r1", "query": "text has 'retry'" }));
+    assert_eq!(
+        within.text,
+        "files: 1  lines: 1  matches: 1  result: r2\n#1 text has 'retry'\n\n./\na.txt  [#1]  lines: 1  matches: 1\n1:⟦#1:retry⟧\n"
+    );
+}
