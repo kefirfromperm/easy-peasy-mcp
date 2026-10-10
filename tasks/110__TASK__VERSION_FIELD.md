@@ -1,6 +1,6 @@
 # Task 110: Request field `version`
 
-Status: in progress
+Status: implemented, see [110__SUMMARY__VERSION_FIELD.md](110__SUMMARY__VERSION_FIELD.md)
 
 Depends on: task 78
 
