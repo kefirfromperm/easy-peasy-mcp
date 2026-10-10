@@ -1,6 +1,6 @@
 # Task 74: `languages.<name>.block_comments`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 73
 
