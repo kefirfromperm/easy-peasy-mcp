@@ -185,13 +185,16 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     builder.build_parallel().run(|| {
         let walk = &walk;
         Box::new(move |entry| {
-            if let Ok(entry) = entry
-                && let Some(item) = walk.visit(&entry)
-            {
-                walk.found
-                    .lock()
-                    .expect("no thread panics while holding the lock")
-                    .push(item);
+            match entry {
+                Ok(entry) => {
+                    if let Some(item) = walk.visit(&entry) {
+                        walk.found
+                            .lock()
+                            .expect("no thread panics while holding the lock")
+                            .push(item);
+                    }
+                }
+                Err(err) => walk.walk_error(&err),
             }
             WalkState::Continue
         })
@@ -291,6 +294,9 @@ impl Walk<'_> {
             Some(filter) => self.evaluate(filter, file, language, entry.path(), rel)?,
         };
         let is_file = entry_type == EntryType::File;
+        if !self.readable(entry.path(), rel, entry_type) {
+            return None;
+        }
         if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
             return None;
         }
@@ -325,7 +331,16 @@ impl Walk<'_> {
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
         if matches!(file.content, ContentState::NotRead) {
-            match decode(&std::fs::read(path).ok()?) {
+            let bytes = match std::fs::read(path) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        self.warn(WarningCode::PermissionDenied, rel, false);
+                    }
+                    return None;
+                }
+            };
+            match decode(&bytes) {
                 Decoded::Binary => {
                     file.content = ContentState::Unknown;
                     self.warn(WarningCode::BinarySkipped, rel, false);
@@ -405,11 +420,53 @@ impl Walk<'_> {
         status
     }
 
+    /// Whether a matched entry can be read before it is returned: a file opened, a directory listed. A file which
+    /// can't be opened gets `permission_denied`; the walker reports a directory it can't list.
+    fn readable(&self, path: &Path, rel: &Path, entry_type: EntryType) -> bool {
+        match entry_type {
+            EntryType::File => match std::fs::File::open(path) {
+                Ok(_) => true,
+                Err(e) => {
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        self.warn(WarningCode::PermissionDenied, rel, false);
+                    }
+                    false
+                }
+            },
+            EntryType::Dir => std::fs::read_dir(path).is_ok(),
+            EntryType::Link => true,
+        }
+    }
+
+    /// An error of the walker: a directory or file it can't read gets `permission_denied`.
+    fn walk_error(&self, err: &ignore::Error) {
+        if err
+            .io_error()
+            .is_some_and(|e| e.kind() == std::io::ErrorKind::PermissionDenied)
+            && let Some(path) = error_path(err)
+            && let Ok(rel) = path.strip_prefix(self.root)
+        {
+            self.warn(WarningCode::PermissionDenied, rel, path.is_dir());
+        }
+    }
+
     fn warn(&self, code: WarningCode, rel: &Path, is_dir: bool) {
         self.warnings
             .lock()
             .expect("no thread panics while holding the lock")
             .add(code, rel.to_path_buf(), is_dir);
+    }
+}
+
+/// The path of a walker error, through its wrappers.
+fn error_path(err: &ignore::Error) -> Option<&Path> {
+    match err {
+        ignore::Error::WithPath { path, .. } => Some(path),
+        ignore::Error::WithDepth { err, .. } | ignore::Error::WithLineNumber { err, .. } => {
+            error_path(err)
+        }
+        ignore::Error::Partial(errs) if errs.len() == 1 => error_path(&errs[0]),
+        _ => None,
     }
 }
 
@@ -504,6 +561,20 @@ mod tests {
         ));
         assert!(is_empty(&root.join("zero"), EntryType::File, &meta("zero")));
         assert!(!is_empty(&root.join("one"), EntryType::File, &meta("one")));
+    }
+
+    #[test]
+    fn walker_error_paths() {
+        let io = || std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        let nested = ignore::Error::WithDepth {
+            depth: 1,
+            err: Box::new(ignore::Error::WithPath {
+                path: PathBuf::from("/r/a"),
+                err: Box::new(ignore::Error::Io(io())),
+            }),
+        };
+        assert_eq!(error_path(&nested), Some(Path::new("/r/a")));
+        assert_eq!(error_path(&ignore::Error::Io(io())), None);
     }
 
     #[test]

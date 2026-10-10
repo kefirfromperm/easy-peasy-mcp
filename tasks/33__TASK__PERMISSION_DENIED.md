@@ -1,6 +1,6 @@
 # Task 33: Unreadable entries
 
-Status: not implemented
+Status: implemented, see [33__SUMMARY__PERMISSION_DENIED.md](33__SUMMARY__PERMISSION_DENIED.md)
 
 Depends on: task 20
 

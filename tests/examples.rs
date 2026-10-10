@@ -7,7 +7,13 @@ use std::fmt::Write as _;
 use common::{Example, Fixture, load_examples, setup_fixture};
 use easy_peasy_mcp::{Engine, EngineOptions};
 
-fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
+/// Whether an example was skipped because its fixture can't be set up on this machine.
+enum Skipped {
+    No,
+    Yes,
+}
+
+fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, String> {
     let name = example
         .fixture
         .as_deref()
@@ -16,8 +22,11 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         .iter()
         .find(|f| f.name == name)
         .ok_or_else(|| format!("unknown fixture {name}"))?;
-    let (_tmp, root) = setup_fixture(fixture);
-    let mut options = EngineOptions::new(root);
+    let dir = setup_fixture(fixture);
+    if !dir.permissions_removed {
+        return Ok(Skipped::Yes);
+    }
+    let mut options = EngineOptions::new(dir.root.clone());
     options.git_global_excludes = false;
     options.time_zone = jiff::tz::TimeZone::UTC;
     options.now = fixture
@@ -59,7 +68,7 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     if step == 0 {
         return Err("the example has no request".to_string());
     }
-    Ok(())
+    Ok(Skipped::No)
 }
 
 #[test]
@@ -68,12 +77,22 @@ fn all_examples() {
     assert!(!examples.is_empty(), "no examples found");
     let mut failures = String::new();
     let mut count = 0;
+    let mut skipped = Vec::new();
     for example in &examples {
-        count += 1;
-        if let Err(e) = run_example(example, &fixtures) {
-            let _ = writeln!(failures, "=== {} ({}) ===\n{e}", example.id, example.file);
+        match run_example(example, &fixtures) {
+            Ok(Skipped::No) => count += 1,
+            Ok(Skipped::Yes) => skipped.push(example.id.as_str()),
+            Err(e) => {
+                let _ = writeln!(failures, "=== {} ({}) ===\n{e}", example.id, example.file);
+            }
         }
     }
     assert!(failures.is_empty(), "examples failed:\n{failures}");
     println!("{count} examples passed");
+    if !skipped.is_empty() {
+        println!(
+            "skipped, permissions can't be removed here: {}",
+            skipped.join(", ")
+        );
+    }
 }
