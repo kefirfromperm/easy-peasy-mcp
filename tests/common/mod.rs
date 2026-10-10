@@ -215,7 +215,9 @@ fn run_setup(root: &Path, action: &str) {
         "file" => {
             let mut parts = rest.split_whitespace();
             let p = root.join(parts.next().expect("file <path> [<bytes>]"));
-            let bytes: usize = parts.next().map_or(0, |n| n.parse().expect("a number of bytes"));
+            let bytes: usize = parts
+                .next()
+                .map_or(0, |n| n.parse().expect("a number of bytes"));
             fs::create_dir_all(p.parent().unwrap()).unwrap();
             fs::write(p, "x".repeat(bytes)).unwrap();
         }

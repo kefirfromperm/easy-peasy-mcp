@@ -6,6 +6,7 @@ mod lexer;
 mod parser;
 mod subset;
 mod suggest;
+mod value;
 pub mod wildcard;
 
 use std::ops::Range;
@@ -540,6 +541,7 @@ mod tests {
             path: name,
             entry_type,
             empty: name.is_empty(),
+            size: name.len() as u64,
         };
         query.filter.unwrap().eval(&file)
     }
@@ -562,6 +564,45 @@ mod tests {
         assert!(matches("not empty and name = 'a'", "a", EntryType::Dir));
         assert!(parse("name = 'a' or empty", SENSITIVE).unwrap().needs_empty);
         assert!(!parse("name = 'a'", SENSITIVE).unwrap().needs_empty);
+    }
+
+    #[test]
+    fn size_conditions() {
+        assert!(matches("size = 3", "abc", EntryType::File));
+        assert!(matches(
+            "size in 1..3B and size != 2",
+            "abc",
+            EntryType::File
+        ));
+        assert!(!matches("size > 3", "abc", EntryType::File));
+        assert!(parse("size > 1", SENSITIVE).unwrap().needs_metadata);
+        assert!(!parse("name = 'a'", SENSITIVE).unwrap().needs_metadata);
+    }
+
+    #[test]
+    fn size_errors() {
+        let e = parse("size > 10MB", SENSITIVE).unwrap_err();
+        assert_eq!(
+            (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
+            (
+                ErrorCode::InvalidSize,
+                "invalid size '10MB'",
+                7..11,
+                Some("units: B, K, M, G")
+            )
+        );
+        let e = parse("size in 1K..1x", SENSITIVE).unwrap_err();
+        assert_eq!((e.code, e.span), (ErrorCode::InvalidSize, 12..14));
+        let e = parse("size in 10M..1M", SENSITIVE).unwrap_err();
+        assert_eq!(
+            (e.code, e.message.as_str(), e.span, e.hint.as_deref()),
+            (
+                ErrorCode::InvalidRange,
+                "invalid range '10M..1M'",
+                8..15,
+                Some("the start must not be greater than the end")
+            )
+        );
     }
 
     #[test]
