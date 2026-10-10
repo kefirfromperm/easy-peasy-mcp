@@ -43,6 +43,7 @@ format = "text"
 detail = "lines"
 context = 0
 # before =  (not set)
+# after =  (not set)
 ```
 
 ## E81.2 Lines before in a request
@@ -140,6 +141,7 @@ format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
 before = 2    # update
+# after =  (not set)    # default
 ```
 
 ## E81.5 An invalid value in a request
@@ -195,6 +197,7 @@ format = "text"    # default
 detail = "lines"    # default
 context = 0    # default
 before = 2    # file: conf/o.toml
+# after =  (not set)    # default
 ```
 
 2. `find`

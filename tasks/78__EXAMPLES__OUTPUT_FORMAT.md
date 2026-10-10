@@ -59,6 +59,7 @@ format = "text"
 detail = "lines"
 context = 0
 # before =  (not set)
+# after =  (not set)
 ```
 
 ## E78.2 JSON in a request
@@ -381,6 +382,7 @@ format = "json"    # update
 detail = "lines"    # default
 context = 0    # default
 # before =  (not set)    # default
+# after =  (not set)    # default
 ```
 
 ## E78.10 Text in a request when the session is JSON
@@ -467,6 +469,7 @@ format = "json"    # file: conf/o.toml
 detail = "lines"    # default
 context = 0    # default
 # before =  (not set)    # default
+# after =  (not set)    # default
 ```
 
 2. `find`
