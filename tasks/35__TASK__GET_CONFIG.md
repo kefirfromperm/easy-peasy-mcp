@@ -1,6 +1,6 @@
 # Task 35: `get_config` tool
 
-Status: in progress
+Status: implemented, see [35__SUMMARY__GET_CONFIG.md](35__SUMMARY__GET_CONFIG.md)
 
 Depends on: task 34
 
