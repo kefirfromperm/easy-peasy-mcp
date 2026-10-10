@@ -128,3 +128,39 @@ fn since_sees_changed_and_deleted_files() {
         "files: 3  lines: 3  matches: 3  result: r2  since: r1  unchanged: 1\n#1 text has 'retry'\n\n~ a.txt  [#1]  lines: 1  matches: 1\n+ d.txt  [#1]  lines: 1  matches: 1\n- b.txt\n"
     );
 }
+
+#[test]
+fn a_cancelled_search_stops_soon() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    for i in 0..20 {
+        fs::write(root.join(format!("{i:02}.txt")), "x\n").unwrap();
+    }
+    let mut options = EngineOptions::new(root.to_path_buf());
+    options.git_global_excludes = false;
+    options.read_delay = Some(std::time::Duration::from_secs(1));
+    let engine = std::sync::Arc::new(Engine::new(options));
+    // one search thread: twenty reads of a second take twenty seconds
+    let update = engine
+        .call("update_config", &json!({ "set": "server.threads = 1" }))
+        .unwrap();
+    assert!(!update.is_error, "{}", update.text);
+    let progress = std::sync::Arc::new(easy_peasy_mcp::Progress::default());
+    let cancel = std::sync::Arc::clone(&progress);
+    let started = std::time::Instant::now();
+    let canceller = std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        cancel.cancel();
+    });
+    let _ = engine.call_with(
+        "find",
+        &json!({ "query": "text has 'x'" }),
+        Some(&progress),
+    );
+    canceller.join().unwrap();
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(3),
+        "twenty reads of a second take far longer: {:?}",
+        started.elapsed()
+    );
+}
