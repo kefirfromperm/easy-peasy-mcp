@@ -1,6 +1,6 @@
 # Task 17: `git` target: working tree statuses
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 16
 
