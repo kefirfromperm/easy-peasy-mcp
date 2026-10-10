@@ -70,166 +70,207 @@ base = "auto"
 [languages.c]
 extensions = ['c', 'h']
 names = []
+shebangs = []
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
 names = []
+shebangs = []
 
 [languages.csharp]
 extensions = ['cs']
 names = []
+shebangs = []
 
 [languages.java]
 extensions = ['java']
 names = []
+shebangs = []
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
 names = []
+shebangs = []
 
 [languages.scala]
 extensions = ['scala', 'sc']
 names = []
+shebangs = []
 
 [languages.go]
 extensions = ['go']
 names = []
+shebangs = []
 
 [languages.swift]
 extensions = ['swift']
 names = []
+shebangs = []
 
 [languages.dart]
 extensions = ['dart']
 names = []
+shebangs = []
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
 names = []
+shebangs = []
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
 names = []
+shebangs = ['node']
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
 names = []
+shebangs = []
 
 [languages.rust]
 extensions = ['rs']
 names = []
+shebangs = []
 
 [languages.php]
 extensions = ['php']
 names = []
+shebangs = []
 
 [languages.css]
 extensions = ['css']
 names = []
+shebangs = []
 
 [languages.scss]
 extensions = ['scss', 'less']
 names = []
+shebangs = []
 
 [languages.python]
 extensions = ['py', 'pyi']
 names = []
+shebangs = ['python', 'python3']
 
 [languages.ruby]
 extensions = ['rb']
 names = ['Gemfile', 'Rakefile']
+shebangs = ['ruby']
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
 names = []
+shebangs = ['sh', 'bash', 'zsh']
 
 [languages.perl]
 extensions = ['pl', 'pm']
 names = []
+shebangs = ['perl']
 
 [languages.r]
 extensions = ['r']
 names = []
+shebangs = []
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
 names = []
+shebangs = []
 
 [languages.batch]
 extensions = ['bat', 'cmd']
 names = []
+shebangs = []
 
 [languages.sql]
 extensions = ['sql']
 names = []
+shebangs = []
 
 [languages.lua]
 extensions = ['lua']
 names = []
+shebangs = []
 
 [languages.haskell]
 extensions = ['hs']
 names = []
+shebangs = []
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
 names = []
+shebangs = []
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
 names = []
+shebangs = []
 
 [languages.html]
 extensions = ['html', 'htm']
 names = []
+shebangs = []
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
 names = []
+shebangs = []
 
 [languages.vue]
 extensions = ['vue']
 names = []
+shebangs = []
 
 [languages.markdown]
 extensions = ['md', 'markdown']
 names = []
+shebangs = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
 names = []
+shebangs = []
 
 [languages.toml]
 extensions = ['toml']
 names = []
+shebangs = []
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
 names = []
+shebangs = []
 
 [languages.properties]
 extensions = ['properties']
 names = []
+shebangs = []
 
 [languages.dotenv]
 extensions = ['env']
 names = ['.env']
+shebangs = []
 
 [languages.json]
 extensions = ['json']
 names = []
+shebangs = []
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
 names = []
+shebangs = []
 
 [languages.dockerfile]
 extensions = ['dockerfile']
 names = ['Dockerfile']
+shebangs = []
 
 [languages.makefile]
 extensions = ['mk']
 names = ['Makefile', 'GNUmakefile']
+shebangs = []
 ```
 
 ## E35.2 One section
@@ -321,166 +362,207 @@ base = "auto"    # default
 [languages.c]
 extensions = ['c', 'h']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.csharp]
 extensions = ['cs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.java]
 extensions = ['java']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.kotlin]
 extensions = ['kt', 'kts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scala]
 extensions = ['scala', 'sc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.go]
 extensions = ['go']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.swift]
 extensions = ['swift']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dart]
 extensions = ['dart']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']    # default
 names = []    # default
+shebangs = ['node']    # default
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.rust]
 extensions = ['rs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.php]
 extensions = ['php']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.css]
 extensions = ['css']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.scss]
 extensions = ['scss', 'less']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.python]
 extensions = ['py', 'pyi']    # default
 names = []    # default
+shebangs = ['python', 'python3']    # default
 
 [languages.ruby]
 extensions = ['rb']    # default
 names = ['Gemfile', 'Rakefile']    # default
+shebangs = ['ruby']    # default
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']    # default
 names = []    # default
+shebangs = ['sh', 'bash', 'zsh']    # default
 
 [languages.perl]
 extensions = ['pl', 'pm']    # default
 names = []    # default
+shebangs = ['perl']    # default
 
 [languages.r]
 extensions = ['r']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.batch]
 extensions = ['bat', 'cmd']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.sql]
 extensions = ['sql']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lua]
 extensions = ['lua']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.haskell]
 extensions = ['hs']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.html]
 extensions = ['html', 'htm']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.vue]
 extensions = ['vue']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.markdown]
 extensions = ['md', 'markdown']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.yaml]
 extensions = ['yml', 'yaml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.toml]
 extensions = ['toml']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.properties]
 extensions = ['properties']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dotenv]
 extensions = ['env']    # default
 names = ['.env']    # default
+shebangs = []    # default
 
 [languages.json]
 extensions = ['json']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']    # default
 names = []    # default
+shebangs = []    # default
 
 [languages.dockerfile]
 extensions = ['dockerfile']    # default
 names = ['Dockerfile']    # default
+shebangs = []    # default
 
 [languages.makefile]
 extensions = ['mk']    # default
 names = ['Makefile', 'GNUmakefile']    # default
+shebangs = []    # default
 ```
 
 ## E35.4 An unknown section

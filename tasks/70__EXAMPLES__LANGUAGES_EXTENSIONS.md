@@ -51,166 +51,207 @@ vars.tfvars  [#1]
 [languages.c]
 extensions = ['c', 'h']
 names = []
+shebangs = []
 
 [languages.cpp]
 extensions = ['cpp', 'cc', 'cxx', 'hpp', 'hh', 'hxx']
 names = []
+shebangs = []
 
 [languages.csharp]
 extensions = ['cs']
 names = []
+shebangs = []
 
 [languages.java]
 extensions = ['java']
 names = []
+shebangs = []
 
 [languages.kotlin]
 extensions = ['kt', 'kts']
 names = []
+shebangs = []
 
 [languages.scala]
 extensions = ['scala', 'sc']
 names = []
+shebangs = []
 
 [languages.go]
 extensions = ['go']
 names = []
+shebangs = []
 
 [languages.swift]
 extensions = ['swift']
 names = []
+shebangs = []
 
 [languages.dart]
 extensions = ['dart']
 names = []
+shebangs = []
 
 [languages.groovy]
 extensions = ['groovy', 'gradle']
 names = []
+shebangs = []
 
 [languages.javascript]
 extensions = ['js', 'jsx', 'mjs', 'cjs']
 names = []
+shebangs = ['node']
 
 [languages.typescript]
 extensions = ['ts', 'tsx', 'mts', 'cts']
 names = []
+shebangs = []
 
 [languages.rust]
 extensions = ['rs']
 names = []
+shebangs = []
 
 [languages.php]
 extensions = ['php']
 names = []
+shebangs = []
 
 [languages.css]
 extensions = ['css']
 names = []
+shebangs = []
 
 [languages.scss]
 extensions = ['scss', 'less']
 names = []
+shebangs = []
 
 [languages.python]
 extensions = ['py', 'pyi']
 names = []
+shebangs = ['python', 'python3']
 
 [languages.ruby]
 extensions = ['rb']
 names = ['Gemfile', 'Rakefile']
+shebangs = ['ruby']
 
 [languages.shell]
 extensions = ['sh', 'bash', 'zsh']
 names = []
+shebangs = ['sh', 'bash', 'zsh']
 
 [languages.perl]
 extensions = ['pl', 'pm']
 names = []
+shebangs = ['perl']
 
 [languages.r]
 extensions = ['r']
 names = []
+shebangs = []
 
 [languages.powershell]
 extensions = ['ps1', 'psm1']
 names = []
+shebangs = []
 
 [languages.batch]
 extensions = ['bat', 'cmd']
 names = []
+shebangs = []
 
 [languages.sql]
 extensions = ['sql']
 names = []
+shebangs = []
 
 [languages.lua]
 extensions = ['lua']
 names = []
+shebangs = []
 
 [languages.haskell]
 extensions = ['hs']
 names = []
+shebangs = []
 
 [languages.clojure]
 extensions = ['clj', 'cljs', 'cljc']
 names = []
+shebangs = []
 
 [languages.lisp]
 extensions = ['lisp', 'el', 'scm']
 names = []
+shebangs = []
 
 [languages.html]
 extensions = ['html', 'htm']
 names = []
+shebangs = []
 
 [languages.xml]
 extensions = ['xml', 'svg', 'xsd', 'xsl']
 names = []
+shebangs = []
 
 [languages.vue]
 extensions = ['vue']
 names = []
+shebangs = []
 
 [languages.markdown]
 extensions = ['md', 'markdown']
 names = []
+shebangs = []
 
 [languages.yaml]
 extensions = ['yml', 'yaml']
 names = []
+shebangs = []
 
 [languages.toml]
 extensions = ['toml']
 names = []
+shebangs = []
 
 [languages.ini]
 extensions = ['ini', 'cfg', 'conf']
 names = []
+shebangs = []
 
 [languages.properties]
 extensions = ['properties']
 names = []
+shebangs = []
 
 [languages.dotenv]
 extensions = ['env']
 names = ['.env']
+shebangs = []
 
 [languages.json]
 extensions = ['json']
 names = []
+shebangs = []
 
 [languages.jsonc]
 extensions = ['jsonc', 'json5']
 names = []
+shebangs = []
 
 [languages.dockerfile]
 extensions = ['dockerfile']
 names = ['Dockerfile']
+shebangs = []
 
 [languages.makefile]
 extensions = ['mk']
 names = ['Makefile', 'GNUmakefile']
+shebangs = []
 ```
 
 ## E70.2 A new language in a request
