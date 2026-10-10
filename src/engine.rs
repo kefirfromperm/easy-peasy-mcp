@@ -712,7 +712,10 @@ impl Engine {
     /// A working directory as given: resolved against the start directory, checked and canonicalized; the path to
     /// search and the prefix of the output paths (the directory as given, `.` omitted).
     fn working_dir(&self, dir: &str, settings: &Settings) -> Result<(PathBuf, PathBuf), Report> {
-        let path = self.options.start_dir.join(dir);
+        let path = self
+            .options
+            .start_dir
+            .join(config::expand_home(dir, self.options.home.as_deref()));
         if !path.exists() {
             return Err(Report::new(
                 ErrorCode::DirNotFound,
