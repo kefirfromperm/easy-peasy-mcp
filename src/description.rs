@@ -94,6 +94,7 @@ pub fn find_schema() -> Value {
                 "description": "Working directories inside the allowed roots. Default: server.default_dirs."
             },
             "within": { "type": "string", "description": "A result id like r12: search only the files of that result, without a walk; dirs and the walk options of traversal are ignored, the paths are written as in that result." },
+            "since": { "type": "string", "description": "A result id like r12: return only the differences to that result — + added, ~ changed (other matched lines), - removed files, and the number of unchanged ones; the counts are of the current result." },
             "query": { "type": "string", "description": "Search query, see the tool description. Empty: all files." },
             "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max search time, e.g. '10s'. '0s': no limit." },
             "traversal": {

@@ -15,7 +15,7 @@ use crate::hints;
 use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
-    BlockOptions, Detail, Highlight, Hint, Limits, Page, Response, Sort, sort_files,
+    BlockOptions, Change, Detail, Highlight, Hint, Limits, Page, Response, Since, Sort, sort_files,
 };
 use crate::query::{self, ParseOptions};
 use crate::relevance;
@@ -210,6 +210,7 @@ impl Engine {
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
         let within = request.within.map(|id| self.kept(id)).transpose()?;
+        let since = request.since.map(|id| self.kept(id)).transpose()?;
         let working_dirs = match &within {
             Some(result) => result.working_dirs.clone(),
             None => self.working_dirs(request.dirs.as_deref(), settings)?,
@@ -243,6 +244,7 @@ impl Engine {
             detail,
             limit,
             facet_names,
+            since,
             result,
         })
     }
@@ -258,6 +260,7 @@ impl Engine {
             detail,
             limit,
             facet_names,
+            since,
             result:
                 search::SearchResult {
                     mut files,
@@ -304,6 +307,13 @@ impl Engine {
         } else {
             self.keep_result(settings, arguments, &working_dirs, &files)
         };
+        let (files, since) = match since {
+            Some(kept) => {
+                let (changed, since) = differences(&kept, files);
+                (changed, Some(since))
+            }
+            None => (files, None),
+        };
         let json = settings.text(Key::Format) == "json";
         let response = Response {
             detail,
@@ -317,6 +327,7 @@ impl Engine {
             facets,
             facet_limit: settings.whole(Key::FacetLimit),
             budget: None,
+            since,
             limits: limits(settings),
             blocks: block_options(settings),
             result_id: result_id.as_deref(),
@@ -709,6 +720,62 @@ fn shown_funnel(
     })
 }
 
+/// The differences of the files of a result to a kept result (OUTPUT.md#changes-since): the added and changed files in
+/// their order, then the removed ones in the order of the kept result; the same file has the same path and member.
+fn differences(kept: &CachedResult, files: Vec<search::Found>) -> (Vec<search::Found>, Since) {
+    let key = |rel: &std::path::Path, member: &Option<String>| (rel.to_path_buf(), member.clone());
+    let before: std::collections::HashMap<(PathBuf, Option<String>), u64> = kept
+        .files
+        .iter()
+        .map(|f| {
+            let prefix = kept
+                .working_dirs
+                .get(f.root)
+                .map_or_else(PathBuf::new, |(_, prefix)| prefix.clone());
+            (key(&prefix.join(&f.rel), &f.member), f.fingerprint)
+        })
+        .collect();
+    let totals = totals_of(&files);
+    let now: HashSet<(PathBuf, Option<String>)> =
+        files.iter().map(|f| key(&f.rel, &f.member)).collect();
+    let mut unchanged = 0;
+    let mut listed = Vec::new();
+    let mut changes = Vec::new();
+    for file in files {
+        match before.get(&key(&file.rel, &file.member)) {
+            None => {
+                changes.push(Change::Added);
+                listed.push(file);
+            }
+            Some(old) if *old != fingerprint(&file) => {
+                changes.push(Change::Changed);
+                listed.push(file);
+            }
+            Some(_) => unchanged += 1,
+        }
+    }
+    for f in &kept.files {
+        let prefix = kept
+            .working_dirs
+            .get(f.root)
+            .map_or_else(PathBuf::new, |(_, prefix)| prefix.clone());
+        let rel = prefix.join(&f.rel);
+        if !now.contains(&key(&rel, &f.member)) {
+            changes.push(Change::Removed);
+            listed.push(search::Found::path_only(rel, f.member.clone()));
+        }
+    }
+    (
+        listed,
+        Since {
+            id: format!("r{}", kept.id),
+            unchanged,
+            changes,
+            totals,
+        },
+    )
+}
+
 /// The counts of a result: files, matched lines, fragments.
 fn totals_of(files: &[search::Found]) -> [usize; 3] {
     let (lines, matches) = files
@@ -770,6 +837,8 @@ struct Run {
     /// The time limit of the request.
     limit: Option<std::time::Duration>,
     facet_names: Vec<String>,
+    /// The kept result of `since`.
+    since: Option<CachedResult>,
     result: search::SearchResult,
 }
 
