@@ -660,7 +660,8 @@ path ~~ 'srv hndl'             # src/server/handlers.rs, services/http/handler.g
 ```
 
 Every match gets a score from 0 to 1. It is higher when the characters are at word starts (after `/`, `_`, `-`, `.`
-and case changes), consecutive, in the file name rather than in directories, and when the value is shorter. Matches
+and case changes), consecutive, in the file name rather than in directories, and when the matched name or path is
+shorter. With several terms the score is computed for each term and averaged. Matches
 below [`query.fuzzy_min_score`](CONFIG.md#query) (default 0.5) are dropped. The score is one of the
 [relevance](OUTPUT.md#relevance) signals, so with the default `sort = relevance` the best matches tend to come first.
 
