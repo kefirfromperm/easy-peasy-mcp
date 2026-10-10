@@ -27,6 +27,9 @@ pub enum ErrorCode {
     ConflictingOptions,
     InvalidEscapeLevel,
     InvalidOption,
+    InvalidToml,
+    ReadOnly,
+    UnknownKey,
     NotImplemented,
 }
 
@@ -56,6 +59,9 @@ impl ErrorCode {
             Self::ConflictingOptions => "conflicting_options",
             Self::InvalidEscapeLevel => "invalid_escape_level",
             Self::InvalidOption => "invalid_option",
+            Self::InvalidToml => "invalid_toml",
+            Self::ReadOnly => "read_only",
+            Self::UnknownKey => "unknown_key",
             Self::NotImplemented => "not_implemented",
         }
     }

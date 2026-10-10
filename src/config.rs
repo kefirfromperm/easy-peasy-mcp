@@ -161,6 +161,63 @@ pub fn load(path: &Path) -> Result<(), StartError> {
     check(&text).map_err(|(line, message)| error(Some(line), message))
 }
 
+/// What a TOML document holds, by the sections of the spec.
+enum Entry<'d> {
+    /// A top level name which is not a section of the spec.
+    UnknownSection(&'d str),
+    /// A section of the spec written as a value.
+    NotASection(&'d str),
+    /// A key of a section; for `languages` a language.
+    Key { section: &'static str, key: &'d str },
+}
+
+/// The entries of a TOML document with their byte offsets, in the order of the text.
+fn entries<S>(doc: &toml_edit::Document<S>) -> Vec<(usize, Entry<'_>)> {
+    let root = doc.as_table();
+    let offset = |key: Option<&toml_edit::Key>, item: &toml_edit::Item| {
+        key.and_then(toml_edit::Key::span)
+            .or_else(|| item.span())
+            .map_or(0, |s| s.start)
+    };
+    let mut entries = Vec::new();
+    for (name, item) in root {
+        let at = offset(root.key(name), item);
+        let Some((section, _)) = SECTIONS.iter().find(|(section, _)| *section == name) else {
+            entries.push((at, Entry::UnknownSection(name)));
+            continue;
+        };
+        let Some(table) = item.as_table_like() else {
+            entries.push((at, Entry::NotASection(name)));
+            continue;
+        };
+        for (key, value) in table.iter() {
+            let at = offset(table.get_key_value(key).map(|(k, _)| k), value);
+            entries.push((at, Entry::Key { section, key }));
+        }
+    }
+    entries.sort_by_key(|(at, _)| *at);
+    entries
+}
+
+/// The names of the sections, in the order of the spec.
+fn section_names() -> Vec<&'static str> {
+    SECTIONS.iter().map(|(section, _)| *section).collect()
+}
+
+/// Whether the spec defines `key` in `section`: one of its keys, or any language in `languages`.
+fn is_spec_key(section: &str, key: &str) -> bool {
+    section == "languages"
+        || SECTIONS
+            .iter()
+            .any(|(name, keys)| *name == section && keys.contains(&key))
+}
+
+/// The key of the spec closest to `key` in `section`.
+fn close_key(section: &str, key: &str) -> Option<&'static str> {
+    let (_, keys) = SECTIONS.iter().find(|(name, _)| *name == section)?;
+    did_you_mean(key, keys)
+}
+
 /// Checks the text of a config file: the 1-based line and the message of the first error.
 fn check(text: &str) -> Result<(), (usize, String)> {
     let line = |offset: usize| text[..offset.min(text.len())].matches('\n').count() + 1;
@@ -168,48 +225,26 @@ fn check(text: &str) -> Result<(), (usize, String)> {
         let offset = e.span().map_or(0, |s| s.start);
         (line(offset), format!("invalid TOML: {}", e.message()))
     })?;
-    let root = doc.as_table();
-    let mut errors: Vec<(usize, String)> = Vec::new();
-    let offset = |key: Option<&toml_edit::Key>, item: &toml_edit::Item| {
-        key.and_then(toml_edit::Key::span)
-            .or_else(|| item.span())
-            .map_or(0, |s| s.start)
+    let Some((at, entry)) = entries(&doc).into_iter().next() else {
+        return Ok(());
     };
-    for (name, item) in root {
-        let at = offset(root.key(name), item);
-        let Some((_, keys)) = SECTIONS.iter().find(|(section, _)| *section == name) else {
-            let names: Vec<&str> = SECTIONS.iter().map(|(section, _)| *section).collect();
-            errors.push((
-                at,
-                format!(
-                    "unknown section '{name}', expected one of: {}",
-                    names.join(", ")
-                ),
-            ));
-            continue;
-        };
-        let Some(table) = item.as_table_like() else {
-            errors.push((at, format!("'{name}' must be a section")));
-            continue;
-        };
-        for (key, value) in table.iter() {
-            let at = offset(table.get_key_value(key).map(|(k, _)| k), value);
-            let full = format!("{name}.{key}");
-            let message = if name == "languages" || keys.contains(&key) {
-                format!("the key '{full}' is not implemented yet")
-            } else {
-                match did_you_mean(key, keys) {
-                    Some(close) => format!("unknown key '{full}', did you mean '{name}.{close}'?"),
-                    None => format!("unknown key '{full}'"),
-                }
-            };
-            errors.push((at, message));
+    let message = match entry {
+        Entry::UnknownSection(name) => format!(
+            "unknown section '{name}', expected one of: {}",
+            section_names().join(", ")
+        ),
+        Entry::NotASection(name) => format!("'{name}' must be a section"),
+        Entry::Key { section, key } if is_spec_key(section, key) => {
+            format!("the key '{section}.{key}' is not implemented yet")
         }
-    }
-    match errors.into_iter().min_by_key(|(at, _)| *at) {
-        Some((at, message)) => Err((line(at), message)),
-        None => Ok(()),
-    }
+        Entry::Key { section, key } => match close_key(section, key) {
+            Some(close) => {
+                format!("unknown key '{section}.{key}', did you mean '{section}.{close}'?")
+            }
+            None => format!("unknown key '{section}.{key}'"),
+        },
+    };
+    Err((line(at), message))
 }
 
 /// The fields of `get_config`, in the order of its input schema.
@@ -219,23 +254,7 @@ const GET_CONFIG_FIELDS: [&str; 2] = ["section", "sources"];
 /// and the spec versions; the read-only keys and the sections with their keys follow, as far as they are
 /// implemented — no key is implemented yet, so `section` and `sources` don't change the result.
 pub(crate) fn get_config(arguments: &Value) -> Result<String, Report> {
-    let empty = serde_json::Map::new();
-    let object = match arguments {
-        Value::Null => &empty,
-        Value::Object(object) => object,
-        _ => {
-            return Err(Report::new(
-                ErrorCode::InvalidOption,
-                "the arguments must be an object",
-            ));
-        }
-    };
-    if let Some(unknown) = object
-        .keys()
-        .find(|k| !GET_CONFIG_FIELDS.contains(&k.as_str()))
-    {
-        return Err(unknown_name("field", unknown, &GET_CONFIG_FIELDS));
-    }
+    let object = arguments_object(arguments, &GET_CONFIG_FIELDS)?;
     match object.get("section") {
         None => {}
         Some(Value::String(section)) => {
@@ -273,9 +292,133 @@ fn unknown_name(what: &str, name: &str, names: &[&str]) -> Report {
     Report::new(ErrorCode::InvalidOption, format!("unknown {what} '{name}'")).hint(hint)
 }
 
-/// The `update_config` tool (`CONFIG.md#update_config`).
-pub(crate) fn update_config(_arguments: &Value) -> Result<String, Report> {
-    Ok(String::new())
+/// The fields of `update_config`, in the order of its input schema.
+const UPDATE_CONFIG_FIELDS: [&str; 2] = ["set", "reset"];
+
+/// The keys which only the config file and the command line set.
+const READ_ONLY: [(&str, &str, &str); 2] = [
+    (
+        "server",
+        "allowed_roots",
+        "allowed roots are set only at start",
+    ),
+    (
+        "server",
+        "allow_update",
+        "allow_update is set only at start",
+    ),
+];
+
+/// The `update_config` tool (`CONFIG.md#update_config`): the `reset` keys, then the `set` TOML, checked in this order.
+/// No key is implemented yet, so a valid call changes nothing.
+pub(crate) fn update_config(arguments: &Value) -> Result<String, Report> {
+    let object = arguments_object(arguments, &UPDATE_CONFIG_FIELDS)?;
+    let set = match object.get("set") {
+        None => "",
+        Some(Value::String(set)) => set.as_str(),
+        Some(_) => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "'set' must be a string",
+            ));
+        }
+    };
+    let reset: Vec<&str> = match object.get("reset") {
+        None => Some(Vec::new()),
+        Some(Value::Array(keys)) => keys.iter().map(Value::as_str).collect::<Option<_>>(),
+        Some(_) => None,
+    }
+    .ok_or_else(|| {
+        Report::new(
+            ErrorCode::InvalidOption,
+            "'reset' must be a list of strings",
+        )
+    })?;
+    for key in reset.into_iter().filter(|k| *k != "all") {
+        let Some((section, name)) = key.split_once('.') else {
+            let hint = if section_names().contains(&key) {
+                format!("expected a key like '{key}.max_files', or 'all'")
+            } else {
+                format!("expected one of: {}", section_names().join(", "))
+            };
+            return Err(unknown_key(key).hint(hint));
+        };
+        let Some((section, _)) = SECTIONS.iter().find(|(s, _)| *s == section) else {
+            return Err(
+                unknown_key(key).hint(format!("expected one of: {}", section_names().join(", ")))
+            );
+        };
+        check_update_key(section, name)?;
+    }
+    let doc = toml_edit::Document::parse(set).map_err(|e| {
+        let offset = e.span().map_or(0, |s| s.start).min(set.len());
+        let line_start = set[..offset].rfind('\n').map_or(0, |i| i + 1);
+        let line = set[..offset].matches('\n').count() + 1;
+        let column = set[line_start..offset].chars().count() + 1;
+        Report::new(ErrorCode::InvalidToml, "invalid TOML in 'set'")
+            .hint(format!("line {line}, col {column}: {}", e.message()))
+    })?;
+    for (_, entry) in entries(&doc) {
+        match entry {
+            Entry::UnknownSection(name) => {
+                return Err(unknown_key(name)
+                    .hint(format!("expected one of: {}", section_names().join(", "))));
+            }
+            Entry::NotASection(name) => {
+                return Err(Report::new(
+                    ErrorCode::UnknownKey,
+                    format!("'{name}' must be a section"),
+                ));
+            }
+            Entry::Key { section, key } => check_update_key(section, key)?,
+        }
+    }
+    Ok("# nothing changed\n".to_string())
+}
+
+/// The error of a key which `update_config` can't change: read-only, unknown, or not implemented yet.
+fn check_update_key(section: &str, key: &str) -> Result<(), Report> {
+    let full = format!("{section}.{key}");
+    if let Some((_, _, hint)) = READ_ONLY
+        .iter()
+        .find(|(s, k, _)| *s == section && *k == key)
+    {
+        return Err(Report::new(ErrorCode::ReadOnly, format!("'{full}' is read-only")).hint(*hint));
+    }
+    if is_spec_key(section, key) {
+        return Err(Report::not_implemented(&format!("the key '{full}'")));
+    }
+    let error = unknown_key(&full);
+    Err(match close_key(section, key) {
+        Some(close) => error.hint(format!("did you mean '{section}.{close}'?")),
+        None => error,
+    })
+}
+
+/// `unknown_key` for `key`.
+fn unknown_key(key: &str) -> Report {
+    Report::new(ErrorCode::UnknownKey, format!("unknown key '{key}'"))
+}
+
+/// The arguments of a config tool as an object without unknown fields.
+fn arguments_object<'a>(
+    arguments: &'a Value,
+    fields: &[&str],
+) -> Result<std::borrow::Cow<'a, serde_json::Map<String, Value>>, Report> {
+    let object = match arguments {
+        Value::Null => std::borrow::Cow::Owned(serde_json::Map::new()),
+        Value::Object(object) => std::borrow::Cow::Borrowed(object),
+        _ => {
+            return Err(Report::new(
+                ErrorCode::InvalidOption,
+                "the arguments must be an object",
+            ));
+        }
+    };
+    if let Some(unknown) = object.keys().find(|k| !fields.contains(&k.as_str())) {
+        return Err(unknown_name("field", unknown, fields));
+    }
+    Ok(object)
 }
 
 #[cfg(test)]
@@ -466,8 +609,8 @@ mod tests {
         );
     }
 
-    fn update(arguments: Value) -> String {
-        match update_config(&arguments) {
+    fn update(arguments: &Value) -> String {
+        match update_config(arguments) {
             Ok(text) => text,
             Err(report) => report.to_text(),
         }
@@ -476,17 +619,17 @@ mod tests {
     #[test]
     fn update_config_changes_nothing_yet() {
         use serde_json::json;
-        assert_eq!(update(json!({})), "# nothing changed\n");
+        assert_eq!(update(&json!({})), "# nothing changed\n");
         assert_eq!(
-            update(json!({ "reset": ["all"], "set": "" })),
+            update(&json!({ "reset": ["all"], "set": "" })),
             "# nothing changed\n"
         );
         assert_eq!(
-            update(json!({ "set": "output.context = 2" })),
+            update(&json!({ "set": "output.context = 2" })),
             "error[not_implemented]: the key 'output.context' is not implemented yet\n"
         );
         assert_eq!(
-            update(json!({ "reset": ["languages.rust"] })),
+            update(&json!({ "reset": ["languages.rust"] })),
             "error[not_implemented]: the key 'languages.rust' is not implemented yet\n"
         );
     }
@@ -495,32 +638,32 @@ mod tests {
     fn update_config_errors() {
         use serde_json::json;
         assert_eq!(
-            update(json!({ "set": "# x\n  a = \"é\" b" })),
-            "error[invalid_toml]: invalid TOML in 'set'\n  hint: line 2, col 11: unexpected content, expected nothing\n"
+            update(&json!({ "set": "# x\n  a = \"é\" b" })),
+            "error[invalid_toml]: invalid TOML in 'set'\n  hint: line 2, col 11: unexpected key or value, expected newline, `#`\n"
         );
         assert_eq!(
-            update(json!({ "set": "[server]\nallow_update = false" })),
+            update(&json!({ "set": "[server]\nallow_update = false" })),
             "error[read_only]: 'server.allow_update' is read-only\n  hint: allow_update is set only at start\n"
         );
         assert_eq!(
-            update(json!({ "set": "output = 1" })),
+            update(&json!({ "set": "output = 1" })),
             "error[unknown_key]: 'output' must be a section\n"
         );
         assert_eq!(
-            update(json!({ "reset": ["output"] })),
+            update(&json!({ "reset": ["output"] })),
             "error[unknown_key]: unknown key 'output'\n  hint: expected a key like 'output.max_files', or 'all'\n"
         );
         assert_eq!(
-            update(json!({ "reset": ["zzz.a"] })),
+            update(&json!({ "reset": ["zzz.a"] })),
             "error[unknown_key]: unknown key 'zzz.a'\n  hint: expected one of: server, traversal, output, escape, query, kinds, git, languages\n"
         );
         // the first key of the TOML
         assert_eq!(
-            update(json!({ "set": "output.zzz = 1\nserver.allowed_roots = []" })),
+            update(&json!({ "set": "output.zzz = 1\nserver.allowed_roots = []" })),
             "error[unknown_key]: unknown key 'output.zzz'\n"
         );
         assert_eq!(
-            update(json!({ "reset": [1] })),
+            update(&json!({ "reset": [1] })),
             "error[invalid_option]: 'reset' must be a list of strings\n"
         );
     }

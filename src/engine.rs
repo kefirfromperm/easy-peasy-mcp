@@ -58,6 +58,18 @@ impl ToolOutput {
     }
 }
 
+impl From<Result<String, Report>> for ToolOutput {
+    fn from(result: Result<String, Report>) -> Self {
+        match result {
+            Ok(text) => Self {
+                text,
+                is_error: false,
+            },
+            Err(report) => Self::error(&report),
+        }
+    }
+}
+
 /// A tool name the server doesn't have.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[error("unknown tool '{0}'")]
@@ -76,7 +88,7 @@ pub struct Engine {
 
 impl Engine {
     /// The names of the tools, in the order of `tools/list`.
-    pub const TOOLS: [&'static str; 2] = ["find", "get_config"];
+    pub const TOOLS: [&'static str; 3] = ["find", "get_config", "update_config"];
 
     /// A new session.
     #[must_use]
@@ -96,13 +108,8 @@ impl Engine {
     pub fn call(&self, tool: &str, arguments: &Value) -> Result<ToolOutput, UnknownTool> {
         match tool {
             "find" => Ok(self.find(arguments)),
-            "get_config" => Ok(match config::get_config(arguments) {
-                Ok(text) => ToolOutput {
-                    text,
-                    is_error: false,
-                },
-                Err(report) => ToolOutput::error(&report),
-            }),
+            "get_config" => Ok(ToolOutput::from(config::get_config(arguments))),
+            "update_config" => Ok(ToolOutput::from(config::update_config(arguments))),
             other => Err(UnknownTool(other.to_string())),
         }
     }
