@@ -89,34 +89,42 @@ impl Warnings {
         self.entries.is_empty()
     }
 
+    /// The warnings by code in the order of the table: the code, the number of entries (`None` for a warning which
+    /// is not about entries) and at most three example paths in path order.
+    pub fn groups(&self) -> Vec<(&'static str, Option<usize>, Vec<String>)> {
+        self.entries
+            .iter()
+            .map(|(code, entries)| {
+                if entries.is_empty() {
+                    return (code.as_str(), None, Vec::new());
+                }
+                let mut entries = entries.clone();
+                entries.sort();
+                entries.dedup();
+                let shown = entries
+                    .iter()
+                    .take(MAX_PATHS)
+                    .map(|(rel, member, is_dir)| match member {
+                        Some(member) => format!("{}!/{member}", display_path(rel, false)),
+                        None => display_path(rel, *is_dir),
+                    })
+                    .collect();
+                (code.as_str(), Some(entries.len()), shown)
+            })
+            .collect()
+    }
+
     /// One line per code: `warning: <code> (<count>): <paths>, … N more`.
     pub fn to_text(&self) -> String {
         let mut out = String::new();
-        for (code, entries) in &self.entries {
-            if entries.is_empty() {
-                let _ = writeln!(out, "warning: {}", code.as_str());
+        for (code, count, shown) in self.groups() {
+            let Some(count) = count else {
+                let _ = writeln!(out, "warning: {code}");
                 continue;
-            }
-            let mut entries = entries.clone();
-            entries.sort();
-            entries.dedup();
-            let shown: Vec<String> = entries
-                .iter()
-                .take(MAX_PATHS)
-                .map(|(rel, member, is_dir)| match member {
-                    Some(member) => format!("{}!/{member}", display_path(rel, false)),
-                    None => display_path(rel, *is_dir),
-                })
-                .collect();
-            let _ = write!(
-                out,
-                "warning: {} ({}): {}",
-                code.as_str(),
-                entries.len(),
-                shown.join(", ")
-            );
-            if entries.len() > MAX_PATHS {
-                let _ = write!(out, ", … {} more", entries.len() - MAX_PATHS);
+            };
+            let _ = write!(out, "warning: {code} ({count}): {}", shown.join(", "));
+            if count > MAX_PATHS {
+                let _ = write!(out, ", … {} more", count - MAX_PATHS);
             }
             out.push('\n');
         }

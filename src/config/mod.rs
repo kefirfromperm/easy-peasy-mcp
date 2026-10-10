@@ -1319,8 +1319,11 @@ mod tests {
             (2, "unknown key 'output.zzz'".into())
         );
         assert_eq!(
-            error("[output]\nformat = 'json'\n"),
-            (2, "the key 'output.format' is not implemented yet".into())
+            error("[output]\nchars_per_token = 3\n"),
+            (
+                2,
+                "the key 'output.chars_per_token' is not implemented yet".into()
+            )
         );
         assert_eq!(
             error("x = 1\n[output]\nmax_files = 1\n"),
@@ -1334,17 +1337,17 @@ mod tests {
             (1, "'output' must be a section".into())
         );
         assert_eq!(
-            error("output.max_files = 1\n"),
+            error("output.chars_per_token = 1\n"),
             (
                 1,
-                "the key 'output.max_files' is not implemented yet".into()
+                "the key 'output.chars_per_token' is not implemented yet".into()
             )
         );
         assert_eq!(
-            error("output = { max_files = 1 }\n"),
+            error("output = { chars_per_token = 1 }\n"),
             (
                 1,
-                "the key 'output.max_files' is not implemented yet".into()
+                "the key 'output.chars_per_token' is not implemented yet".into()
             )
         );
         assert_eq!(
@@ -1409,9 +1412,10 @@ mod tests {
                 "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\nresult_cache = 50    # default\n"
             )
         );
-        assert_eq!(
-            get_config(&settings, &serde_json::json!({ "section": "output" })).unwrap(),
-            first
+        assert!(
+            get_config(&settings, &serde_json::json!({ "section": "output" }))
+                .unwrap()
+                .starts_with(&format!("{first}\n[output]\nformat = \"text\"\n"))
         );
         let error = |v: Value| get_config(&settings, &v).unwrap_err().to_text();
         assert_eq!(
@@ -1450,8 +1454,8 @@ mod tests {
             "# nothing changed\n"
         );
         assert_eq!(
-            update(&json!({ "set": "output.context = 2" })),
-            "error[not_implemented]: the key 'output.context' is not implemented yet\n"
+            update(&json!({ "set": "output.chars_per_token = 2" })),
+            "error[not_implemented]: the key 'output.chars_per_token' is not implemented yet\n"
         );
         assert_eq!(
             update(&json!({ "set": "traversal.archives = 'all'" })),

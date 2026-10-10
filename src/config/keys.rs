@@ -29,6 +29,7 @@ pub enum Key {
     Archives,
     MaxArchiveSize,
     SkipGenerated,
+    Format,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -42,7 +43,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 29] = [
+    pub const ALL: [Key; 30] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -63,6 +64,7 @@ impl Key {
         Self::Archives,
         Self::MaxArchiveSize,
         Self::SkipGenerated,
+        Self::Format,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -113,6 +115,7 @@ impl Key {
             ),
             Self::MaxArchiveSize => ("traversal", "max_archive_size", Type::Size),
             Self::SkipGenerated => ("traversal", "skip_generated", Type::Bool),
+            Self::Format => ("output", "format", Type::Choice(&["text", "json"])),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -152,6 +155,7 @@ impl Key {
             Self::MaxFileSize => Value::Text("10M".to_string()),
             Self::Encoding | Self::Base => Value::Text("auto".to_string()),
             Self::Archives => Value::Text("none".to_string()),
+            Self::Format => Value::Text("text".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
     }

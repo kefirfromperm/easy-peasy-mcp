@@ -57,7 +57,7 @@ pub fn matched_lines(content: &Content, fragments: &[Fragment]) -> usize {
 }
 
 /// The indexes of the lines touched by the fragments, sorted.
-fn lines_of(content: &Content, fragments: &[Fragment]) -> Vec<usize> {
+pub(super) fn lines_of(content: &Content, fragments: &[Fragment]) -> Vec<usize> {
     let mut lines: Vec<usize> = fragments
         .iter()
         .flat_map(|f| {

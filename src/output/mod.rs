@@ -1,4 +1,4 @@
-//! The text format of the response (OUTPUT.md#text-format).
+//! The response of `find` in the text format (OUTPUT.md#text-format) and in JSON (`json`).
 
 use std::fmt::Write as _;
 use std::path::{Component, Path};
@@ -7,6 +7,7 @@ use crate::query::ast::CondId;
 use crate::search::Found;
 use crate::warning::Warnings;
 
+mod json;
 mod lines;
 
 pub use lines::{Fragment, matched_lines, merge_identical};
@@ -27,21 +28,23 @@ pub struct Response<'a> {
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 impl Response<'_> {
+    /// The matched lines and the fragments of all files.
+    fn totals(&self) -> (usize, usize) {
+        self.files
+            .iter()
+            .filter_map(|file| file.matches.as_ref())
+            .fold((0, 0), |(lines, matches), m| {
+                (lines + m.lines, matches + m.fragments.len())
+            })
+    }
+
     /// The text format.
     #[must_use]
     pub fn to_text(&self) -> String {
-        let count = |f: fn(&crate::search::FileMatches) -> usize| -> usize {
-            self.files
-                .iter()
-                .filter_map(|file| file.matches.as_ref())
-                .map(f)
-                .sum()
-        };
+        let (lines, matches) = self.totals();
         let mut out = format!(
-            "files: {}  lines: {}  matches: {}",
+            "files: {}  lines: {lines}  matches: {matches}",
             self.files.len(),
-            count(|m| m.lines),
-            count(|m| m.fragments.len()),
         );
         if let Some(id) = self.result_id {
             let _ = write!(out, "  result: {id}");
@@ -119,6 +122,14 @@ pub fn display_path(rel: &Path, is_dir: bool) -> String {
         out.push(SEP);
     }
     out
+}
+
+/// The full path of a matched entry: a directory with the separator, a member of an archive after `!/`.
+pub fn display_found(file: &Found) -> String {
+    match &file.member {
+        Some(member) => format!("{}!/{member}", display_path(&file.rel, false)),
+        None => display_path(&file.rel, file.is_dir),
+    }
 }
 
 /// The directory header and the name of a matched entry; a member of an archive is under `<archive>!/<member dir>/`,
