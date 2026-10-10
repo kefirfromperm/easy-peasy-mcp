@@ -171,8 +171,8 @@ or more commits. Refactor in small steps.
 
 ### 5. Summary — `N__SUMMARY__NAME.md`
 
-Written when the task is done. In the same commit set the task status to `implemented` and link the summary from the
-task file.
+Written when the task is done. In the same commit set the task status to `implemented`, link the summary from the
+task file and bump the server version, see [Server version](#server-version).
 
 - what was built, feature by feature, with links to the spec sections
 - architecture: modules, key types, how a request flows through them
@@ -180,6 +180,20 @@ task file.
 - tests: what is covered and where (example ids, test files)
 - limitations and known gaps, and which future task closes them
 - how to try it: command line, an MCP client registration, a sample request
+- the new server version
+
+### Server version
+
+The server version (TOOLS.md#versioning) is `version` in `Cargo.toml`; `serverInfo` and `--version` take it from
+there (`env!("CARGO_PKG_VERSION")`), never a second copy. It is bumped after every implemented task, in the summary
+commit:
+
+- a task adds or changes features: bump the minor version, `0.N.0` → `0.N+1.0`
+- a task only fixes bugs, refactors or changes tooling: bump the patch version, `0.N.M` → `0.N.M+1`
+- `1.0.0` is set by hand when the spec is fully implemented, not by a task
+
+The first task starts at `0.1.0`. The spec version is unrelated and changes only by the spec's own rules. Examples
+and tests never hard-code the server version: a test that checks `serverInfo` compares with `CARGO_PKG_VERSION`.
 
 ## Always a usable application
 
@@ -299,6 +313,7 @@ And for a task:
 - the binary was started and a `find` request answered over stdio (an end-to-end test does this)
 - the spec is consistent with the code; any spec change is committed
 - `N__SUMMARY__NAME.md` is written and the task status is `implemented`
+- the server version in `Cargo.toml` is bumped, see [Server version](#server-version)
 
 ## Git
 
@@ -312,7 +327,7 @@ And for a task:
   | 2 | `N__PLAN__NAME.md`, task status `in progress`                   | unchanged  |
   | 3 | tests: example tests and unit tests, failing                    | red is OK  |
   | 4 | code that makes the tests pass; may be several commits          | green at the end |
-  | 5 | `N__SUMMARY__NAME.md`, task status `implemented`                | green      |
+  | 5 | `N__SUMMARY__NAME.md`, task status `implemented`, version bump  | green      |
 
 - red tests may be committed on a task branch; `master` is always green
 - a spec fix found during the task is its own commit on the branch
