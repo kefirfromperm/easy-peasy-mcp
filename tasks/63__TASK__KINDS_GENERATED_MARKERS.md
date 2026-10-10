@@ -1,6 +1,6 @@
 # Task 63: `kinds.generated_markers`
 
-Status: not implemented
+Status: implemented, see [63__SUMMARY__KINDS_GENERATED_MARKERS.md](63__SUMMARY__KINDS_GENERATED_MARKERS.md)
 
 Depends on: task 16, task 36
 

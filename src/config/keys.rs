@@ -31,11 +31,12 @@ pub enum Key {
     SkipGenerated,
     MaxLevel,
     FuzzyMinScore,
+    GeneratedMarkers,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 22] = [
+    pub const ALL: [Key; 23] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -58,6 +59,7 @@ impl Key {
         Self::SkipGenerated,
         Self::MaxLevel,
         Self::FuzzyMinScore,
+        Self::GeneratedMarkers,
     ];
 
     /// The section, the name and the type.
@@ -101,6 +103,7 @@ impl Key {
             Self::SkipGenerated => ("traversal", "skip_generated", Type::Bool),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
+            Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
         }
     }
 
@@ -115,6 +118,7 @@ impl Key {
             Self::ResultCache => Value::Whole(50),
             Self::MaxLevel => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
+            Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),
             Self::MaxDepth | Self::FallbackEncoding => Value::NotSet,
             Self::FollowSymlinks | Self::Hidden => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),

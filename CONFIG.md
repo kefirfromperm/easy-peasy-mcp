@@ -464,14 +464,17 @@ Rules of the `kind` target (see [QUERY.md](QUERY.md#kind)). A file gets the firs
 | `config`                 | list of wildcards | paths of configuration                                            |
 
 The defaults are in the [full example](#full-example). Wildcards are matched like `path ~`, relative to the working
-directory; the defaults start with `**/`, so the kind of a file doesn't depend on the working directory. A list in
-the config file replaces the built-in list:
+directory; the defaults start with `**/`, so the kind of a file doesn't depend on the working directory. Markers are
+compared case-sensitively with the first lines as they are. A list in the config file replaces the built-in list:
 
 ```toml
 [kinds]
 test = ["**/tests/**", "**/*_test.go", "**/e2e/**"]
 generated = ["**/*.lock", "**/src/gen/**", "**/*.pb.go"]
 ```
+
+Errors: `invalid value for 'kinds.generated_markers': a list of strings is expected`; in a request (the object
+`kinds`) `'kinds.generated_markers' must be a list of strings`.
 
 ### git
 

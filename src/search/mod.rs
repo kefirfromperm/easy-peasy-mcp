@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use ignore::{WalkBuilder, WalkState};
 
-pub use kinds::KindRules;
+pub use kinds::{DEFAULT_MARKERS, KindOptions, KindRules};
 
 use crate::archive::{ArchiveKind, Member, for_each_member};
 use crate::compressed::{Compression, Decompressed, decompress};
@@ -67,6 +67,8 @@ pub struct SearchOptions {
     pub max_archive_size: f64,
     /// Skip generated files unless the query has a `kind` condition.
     pub skip_generated: bool,
+    /// The rules of the kinds.
+    pub kinds: KindOptions,
     /// The canonical allowed roots: a followed symlink must point inside them.
     pub allowed_roots: std::sync::Arc<Vec<PathBuf>>,
     /// A test hook: every read of a file's content takes this long, cut short at the deadline.
@@ -291,7 +293,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         root,
         query,
         options,
-        kinds: KindRules::builtin(options.case_insensitive_paths),
+        kinds: KindRules::new(&options.kinds, options.case_insensitive_paths),
         git: GitIndex::new(!options.git_global_excludes),
         found: Mutex::default(),
         warnings: Mutex::default(),
