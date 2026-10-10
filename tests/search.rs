@@ -193,3 +193,18 @@ fn native_path_case_is_the_platform_convention_by_default() {
         cfg!(any(target_os = "macos", target_os = "windows"))
     );
 }
+
+#[test]
+fn a_working_directory_in_the_home_directory() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    fs::create_dir(root.join("projects")).unwrap();
+    fs::write(root.join("projects/a.txt"), "x\n").unwrap();
+    let mut options = EngineOptions::new(root.to_path_buf());
+    options.git_global_excludes = false;
+    options.home = Some(root.to_path_buf());
+    let out =
+        Engine::new(options).find(&json!({ "dirs": ["~/projects"], "query": "name = 'a.txt'" }));
+    assert!(!out.is_error, "{}", out.text);
+    assert!(out.text.starts_with("files: 1  "), "{}", out.text);
+}

@@ -377,8 +377,10 @@ gets `"cut": true`. `col` always refers to the original line.
 - `…` is written where characters were left out, at the start, between the windows and at the end
 - JSON: `"cut": true` comes before the `text`; the lines of the [repeated lines](#repeated-lines) are not cut
 
+A minified line with `max_line_length: 64` keeps `(64 − 6) / 2 = 29` characters on both sides of `unwrap`:
+
 ```json
-{ "n": 1, "cut": true, "text": "…var a=require(\"./x\");var b=a.unwrap();var c=…",
+{ "n": 1, "cut": true, "text": "…var a=require(\"./x\");var b=a.unwrap();var c=require(\"./y\");var d…",
   "fragments": [ { "col": [18342, 18348], "text": "unwrap", "ids": ["#1"] } ] }
 ```
 
@@ -465,7 +467,7 @@ archive which has none) come last.
 To get the next page, repeat the same request and add `output.cursor` from `next_cursor`:
 
 ```json
-{ "dirs": ["."], "query": "text has 'TODO'", "output": { "max_files": 20, "cursor": "eyJ2IjoxLCJoIjoiYjI3ZSIsImYiOjIwLCJ0IjpbNDUsODAsOTZdfQ" } }
+{ "dirs": ["."], "query": "text has 'TODO'", "output": { "max_files": 20, "cursor": "eyJ2IjoxLCJoIjoiZTJlOTNjN2QiLCJmIjoyMCwidCI6WzIxLDIxLDIxXX0" } }
 ```
 
 - the cursor is opaque, it encodes the request hash, the position (file index and fragment index inside the file)
@@ -524,8 +526,8 @@ conditions, each group in the order of the query:
 ```
 files: 0  lines: 0  matches: 0
 funnel:
-  lang = rust                          312
-  and modified > -7d                    41
+  lang = rust                           12
+  and modified > -7d                     5
   and text has 'parseQuery'              0
 ```
 
@@ -542,7 +544,7 @@ hints count it as skipped.
 - the funnel counts the entries of the searched type (only files without a `type` condition); an entry which matches
   but is left out (generated, binary with `binary = exclude`, unreadable) is not counted
 - in the text format `funnel:` comes after the legend, right after the header when there is no legend (an empty
-  result, `count` detail); in JSON `"funnel": [{ "step": "lang = rust", "files": 312 }, ...]` after `result`
+  result, `count` detail); in JSON `"funnel": [{ "step": "lang = rust", "files": 12 }, ...]` after `result`
 
 ### Hints
 
@@ -562,14 +564,15 @@ looks for similar paths and names:
 ```
 files: 0  lines: 0  matches: 0
 funnel:
-  lang = rust                          312
-  and modified > -7d                    41
+  lang = rust                           12
+  and modified > -7d                     5
   and text has 'parseQuery'              0
 hints:
-  text has 'parseQuery' /i             2 files: ParseQuery
-  text has 'parseQuery' /n             4 files: parse_query, ParseQuery
-  skipped: 5 ignored by .gitignore (traversal.ignore_files), 2 generated (traversal.skip_generated),
-           1 too big (traversal.max_file_size)
+  text has 'parseQuery' /i               2 files: ParseQuery
+  text has 'parseQuery' /n               4 files: parse_query, ParseQuery
+  skipped: 5 ignored (traversal.ignore_files), 2 generated (traversal.skip_generated), 1 too big (traversal.max_file_size)
+
+warning: too_big (1): src/tables.rs
 ```
 
 The hints of an empty result in detail:
@@ -592,17 +595,25 @@ The hints of an empty result in detail:
 The hints use at most 20% of the timeout, or 5 seconds without a timeout. For a huge result the hints show where the
 matches are — the top values of the `dir` and `lang` facets — and a few ways to narrow the query:
 
+```json
+{ "query": "text has 'error'", "output": { "max_files": 1 } }
 ```
-files: 1840  lines: 9211  matches: 10380  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNGE3ZCIsImYiOjEwMCwidCI6WzE4NDAsOTIxMSwxMDM4MF19
+
+```
+files: 14  lines: 19  matches: 19  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiYTk4MzkzN2MiLCJmIjoxLCJ0IjpbMTQsMTksMTldfQ
 #1 text has 'error'
 funnel:
-  text has 'error'                    1840
+  text has 'error'                      14
 hints:
-  dir: vendor/tokio/ 610 · vendor/hyper/ 600 · src/parser/ 402 · tests/integration/ 228
-  lang: rust 1790 · c 50
+  dir: vendor/tokio/ 5 · vendor/hyper/ 4 · src/parser/ 3 · tests/integration/ 2
+  lang: rust 12 · c 2
   narrow with: not path ~ 'vendor/**', kind = source, /w
 
-... the first 100 files
+src/parser/
+error.rs  [#1]  lines: 2  matches: 2
+1:/// A syntax ⟦#1:error⟧ with its position.
+--
+7:/// The message of an ⟦#1:error⟧: where and what.
 ```
 
 The hints of a huge result (more than 10 × `max_files` files) in detail:
@@ -654,14 +665,14 @@ the matches are.
 ```
 
 ```
-files: 162  lines: 410  matches: 455
+files: 10  lines: 16  matches: 17
 #1 kind in (source, test)
 @unwrap text has 'unwrap('
 @expect text has 'expect('
-dir:        tests/integration/ 88 · src/parser/ 41 · tests/unit/ 24 · src/eval/ 9
-lang:       rust 158 · python 4
-kind:       test 112 · source 50
-condition:  #1 162 · @unwrap 120 · @expect 61
+dir:        tests/integration/ 4 · src/parser/ 3 · tests/unit/ 2 · src/eval/ 1
+lang:       rust 9 · python 1
+kind:       test 6 · source 4
+condition:  #1 10 · @unwrap 7 · @expect 4
 ```
 
 | Facet       | Values                                                                        |
@@ -674,7 +685,7 @@ condition:  #1 162 · @unwrap 120 · @expect 61
 | `condition` | condition ids: in how many files the condition made the file match; for a condition inside `line( ... )` / `near( ... )` — in how many files it produced a fragment |
 
 Values are sorted by count, more than `facet_limit` values end with `… 5 more (21)`. In JSON:
-`"facets": { "dir": { "tests/integration/": 88, ... } }`.
+`"facets": { "dir": { "tests/integration/": 4, ... } }`.
 
 - the facets are the ones of `output.facets`, in its order; every facet is counted over all matched files, also
   when the response lists only some of them
@@ -864,12 +875,12 @@ Several queries in one call: one round trip, one response.
   `{ "label": ..., "error": {...} }`
 
 ```
-== defs ==  files: 1  lines: 1  matches: 1  result: r20
+== defs ==  files: 1  lines: 1  matches: 1  result: r1
 #1 lang = rust
 #2 text =~ `fn\s+load_config`
 
 src/config.rs  [#1 #2]  lines: 1  matches: 1
-== calls ==  files: 3  lines: 4  matches: 4  result: r21
+== calls ==  files: 3  lines: 4  matches: 4  result: r2
 #1 lang = rust
 #2 text has 'load_config('
 #3 text =~ `fn\s+load_config`
@@ -877,7 +888,7 @@ src/config.rs  [#1 #2]  lines: 1  matches: 1
 src/main.rs  [#1 #2]  lines: 1  matches: 1
 src/cli.rs  [#1 #2]  lines: 1  matches: 1
 src/server/mod.rs  [#1 #2]  lines: 2  matches: 2
-== tests ==  files: 2  lines: 5  matches: 5  result: r22
+== tests ==  files: 2  lines: 5  matches: 5  result: r3
 ```
 
 ## Warnings
@@ -917,9 +928,9 @@ response without files has the empty line and the warnings after its header and 
       "code": "permission_denied",
       "count": 3,
       "paths": [
+        "root-only/",
         "secrets/a.key",
-        "secrets/b.key",
-        "root-only/"
+        "secrets/b.key"
       ]
     }
   ]
@@ -1092,7 +1103,7 @@ files: 1  lines: 2  matches: 2
 @await text has '.await'
 
 src/cache.rs  [#1]  lines: 2  matches: 2
-57:        let mut guard = self.inner.⟦#1,@lock:.lock()⟧;
+57:        let mut guard = self.inner⟦#1,@lock:.lock()⟧;
 --
 59:        let value = fetch(key)⟦#1,@await:.await⟧?;
 ```
@@ -1152,7 +1163,7 @@ src/eval.rs  [#1]  lines: 2  matches: 1
 ```
 
 ```
-files: 7  lines: 12  matches: 12  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiOWMxZiIsImYiOjIsInQiOls3LDEyLDEyXX0
+files: 7  lines: 12  matches: 12  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiODVjMzMxMTUiLCJmIjoyLCJ0IjpbNywxMiwxMl19
 #1 text has 'TODO'
 
 src/parser.rs  [#1]  lines: 3  matches: 3
@@ -1164,11 +1175,15 @@ The next page:
 ```json
 {
   "query": "text has 'TODO'",
-  "output": { "detail": "files", "max_files": 2, "sort": "modified desc", "cursor": "eyJ2IjoxLCJoIjoiOWMxZiIsImYiOjIsInQiOls3LDEyLDEyXX0" }
+  "output": { "detail": "files", "max_files": 2, "sort": "modified desc", "cursor": "eyJ2IjoxLCJoIjoiODVjMzMxMTUiLCJmIjoyLCJ0IjpbNywxMiwxMl19" }
 }
 ```
 
 ### With warnings
+
+```json
+{ "query": "text has 'password'" }
+```
 
 ```
 files: 1  lines: 1  matches: 1

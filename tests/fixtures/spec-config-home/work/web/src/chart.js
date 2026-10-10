@@ -1,0 +1,1 @@
+import{useState as u,useEffect as e}from"react";export function Chart(p){const[d,s]=u([]);e(()=>{fetch(p.url).then(r=>r.json()).then(s)},[p.url]);return d.map((v,i)=>({x:i,y:v.value,label:v.name,color:i%2?"#1f77b4":"#ff7f0e",width:p.width/d.length}))}

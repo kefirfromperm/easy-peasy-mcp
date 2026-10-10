@@ -352,6 +352,9 @@ Two kinds:
 
 Tool errors are results, not JSON-RPC errors, so the agent sees the message and the hint, if any, and can fix the
 request.
+Malformed JSON-RPC is JSON which isn't a valid message: it gets `-32600 Invalid request`. A line which isn't JSON at
+all is ignored (logged at the `debug` level), like the other MCP SDKs do: it has no id to answer, and answering it
+could start an error storm with a peer which echoes the answer back.
 Input which doesn't match the schema is also a tool error (`invalid_option`) for the same reason. In a batch an
 invalid query gets its error in its own section and the others still run; `isError` is true only if all queries
 fail, see [OUTPUT.md](OUTPUT.md#batch).
@@ -386,11 +389,12 @@ If the request has a progress token, the server sends progress notifications abo
 
 ```json
 { "jsonrpc": "2.0", "method": "notifications/progress",
-  "params": { "progressToken": "p7", "progress": 12400, "message": "scanned 12400 files, 37 matched, 3.2s" } }
+  "params": { "progressToken": "p7", "progress": 12400.0, "message": "scanned 12400 files, 37 matched, 3.2s" } }
 ```
 
-- `progress` is the number of scanned files, it only grows: the entries whose conditions were evaluated, matched or
-  not; the message has the files matched so far and the time since the request arrived with one decimal
+- `progress` is the number of scanned files (a JSON number with a fraction: MCP declares it a float), it only
+  grows: the entries whose conditions were evaluated, matched or not; the message has the files matched so far and
+  the time since the request arrived with one decimal
 - `total` is not sent: the size of the tree is unknown until the walk ends
 - no notifications for searches shorter than one second
 

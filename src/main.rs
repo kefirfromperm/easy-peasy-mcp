@@ -104,10 +104,14 @@ fn main() -> ExitCode {
 fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()> {
     let start_dir = std::env::current_dir().context("the current directory is not readable")?;
     let env = |name: &str| std::env::var(name).ok();
-    let file = config::locate(config, &env, std::env::consts::OS, &|p| p.is_file())
-        .map(|path| config::load(&path))
-        .transpose()?;
     let home = env(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
+    // `~` of `--config` is expanded here too: an MCP client starts the server without a shell
+    let config = config.map(|path| config::expand_home(&path.to_string_lossy(), home.as_deref()));
+    let file = config::locate(config.as_deref(), &env, std::env::consts::OS, &|p| {
+        p.is_file()
+    })
+    .map(|path| config::load(&path))
+    .transpose()?;
     let settings = config::Settings::resolve(file.as_ref(), cli, &start_dir, home.as_deref())?;
     tracing::info!(
         "easy-peasy-mcp {} started in {}, config file: {}",

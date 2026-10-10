@@ -1,0 +1,4 @@
+[
+  {"type": "login", "user": 7, "payload": "{\"role\": \"admin\", \"ip\": \"10.0.0.7\"}"},
+  {"type": "login", "user": 8, "payload": "{\"role\": \"viewer\", \"ip\": \"10.0.0.8\"}"}
+]

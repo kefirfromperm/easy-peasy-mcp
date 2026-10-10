@@ -1,6 +1,6 @@
 # Task 121: Spec examples as tests
 
-Status: not implemented
+Status: implemented, see [121__SUMMARY__SPEC_CONFORMANCE.md](121__SUMMARY__SPEC_CONFORMANCE.md)
 
 Depends on: task 117, task 119, task 120
 

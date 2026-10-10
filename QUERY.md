@@ -533,7 +533,7 @@ or `any` (`invalid escape level 'all'`, hint `levels: a number, a range like 0..
 `escape.max_level` (at that number) are `invalid_escape_level`; a range whose start is greater than its end is
 `invalid_range`. The variants grow with every level (`'` has 2ⁿ forms on level n in the `backslash` style); a level whose
 variants of the value are too many for the regex engine is `invalid_escape_level` too, at the levels, with the hint
-`the escaped forms of this value are too many on level 9, use a lower one`.
+`the escaped forms of this value are too many on level 11, use a lower one`.
 
 ### Examples
 
@@ -769,7 +769,7 @@ string token is shown with its own quotes: `unexpected 'x'` for `'x'`, `unexpect
 | `line_target_outside`    | `len > 100`                                | 'len' outside of line( ... )             | 'len' works only inside line( ... ) or near( ... ) |
 | `file_target_inside`     | `line(name ~ '*.rs')`                      | 'name' inside line( ... )                | move 'name' out of line( ... )                   |
 | `nested_line`            | `line(line(text has 'a'))`                 | nested line( ... )                       | line( ... ) can't be nested                      |
-| `unknown_value`          | `lang = rusty`                             | unknown value 'rusty'                    | did you mean 'rust'?                             |
+| `unknown_value`          | `kind = tests`                             | unknown value 'tests'                    | did you mean 'test'? expected one of: source, test, config, doc, generated, other |
 | `invalid_near_option`    | `near(text has 'a', text has 'b', 3, nearest)` | unknown option 'nearest'             | options: any, ordered, all, closest, first       |
 | `conflicting_options`    | `near(text has 'a', text has 'b', 3, any, ordered)` | conflicting options 'any' and 'ordered' | choose one of: any, ordered             |
 | `invalid_escape_level`   | `text has 'a' /e(backslash, 9)`            | invalid escape level 9                   | max level is 3 (configuration escape.max_level)  |

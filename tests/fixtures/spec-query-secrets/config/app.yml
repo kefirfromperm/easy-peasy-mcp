@@ -1,0 +1,4 @@
+database:
+  user: app
+  password: s3cret
+# password: example
