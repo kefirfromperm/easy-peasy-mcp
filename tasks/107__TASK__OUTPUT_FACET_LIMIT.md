@@ -1,6 +1,6 @@
 # Task 107: `output.facet_limit`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 105
 
