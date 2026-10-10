@@ -136,8 +136,10 @@ pub struct FileValues<'a> {
     pub name: &'a str,
     /// The NFC path relative to the working directory, `/` as the separator.
     pub path: &'a str,
-    /// The type of the entry; symlinks are not followed.
+    /// The type of the entry: of the target for a followed symlink.
     pub entry_type: EntryType,
+    /// Whether the entry is a symlink: `type = link` matches it, also when it is followed.
+    pub is_link: bool,
     /// A file of size 0 or a directory without entries; only computed when the query has `empty`.
     pub empty: bool,
     /// The size in bytes; only read when the query has `size`.
@@ -717,6 +719,7 @@ mod tests {
             name,
             path: name,
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: Some(0.0),
@@ -814,6 +817,7 @@ mod tests {
             name: "a",
             path: "a",
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: Some(0.0),

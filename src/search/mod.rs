@@ -299,6 +299,7 @@ impl Walk<'_> {
             name: &name,
             path: &nfc_path,
             entry_type,
+            is_link: entry_type == EntryType::Link,
             empty,
             size: metadata.as_ref().map_or(0, std::fs::Metadata::len),
             modified: dates.modified,

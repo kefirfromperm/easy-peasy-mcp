@@ -1178,6 +1178,7 @@ mod tests {
             name,
             path: name,
             entry_type,
+            is_link: entry_type == EntryType::Link,
             empty: name.is_empty(),
             size: name.len() as u64,
             modified: Some(0.0),
@@ -1279,6 +1280,7 @@ mod tests {
             name: "a",
             path: "a",
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: None,
@@ -1310,6 +1312,7 @@ mod tests {
             name: "a",
             path: "a",
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: None,
@@ -1341,6 +1344,7 @@ mod tests {
             name: "a",
             path: "a",
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: None,
@@ -1373,6 +1377,7 @@ mod tests {
             name: "a.rs",
             path: "a.rs",
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: None,
@@ -1441,6 +1446,7 @@ mod tests {
             name: path.rsplit('/').next().unwrap(),
             path,
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: None,
@@ -1509,6 +1515,30 @@ mod tests {
             "name ~~ 'srv hndl'",
             "src/server/handlers.rs"
         ));
+    }
+
+    #[test]
+    fn followed_links_are_links() {
+        let file = FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            is_link: true,
+            empty: false,
+            size: 0,
+            modified: None,
+            created: None,
+            accessed: None,
+            lang: "unknown",
+            kind: Kind::Other,
+            git: None,
+            content: ContentState::Absent,
+        };
+        let matches = |q: &str| parse(q, &SENSITIVE).unwrap().filter.unwrap().matches(&file);
+        assert!(matches("type = file and type = link"));
+        assert!(matches("type in (dir, link)"));
+        assert!(!matches("type != link"));
+        assert!(!matches("type = dir"));
     }
 
     #[test]
@@ -1716,6 +1746,7 @@ mod tests {
             name: "a",
             path: "a",
             entry_type: EntryType::File,
+            is_link: false,
             empty: false,
             size: 0,
             modified: None,
