@@ -26,7 +26,7 @@ pub const FIELDS: [&str; 14] = [
 /// A validated `find` request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
-    /// The query text.
+    /// The query text; empty for a missing `query`.
     pub query: String,
 }
 
@@ -62,10 +62,9 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         return Err(Report::not_implemented(&format!("the field '{field}'")));
     }
     match object.get("query") {
-        None => Err(Report::not_implemented("the empty query")),
-        Some(Value::String(q)) if q.trim().is_empty() => {
-            Err(Report::not_implemented("the empty query"))
-        }
+        None => Ok(Request {
+            query: String::new(),
+        }),
         Some(Value::String(q)) => Ok(Request { query: q.clone() }),
         Some(_) => Err(Report::new(
             ErrorCode::InvalidOption,
@@ -111,10 +110,7 @@ mod tests {
     #[test]
     fn missing_or_empty_query() {
         for args in [json!({}), json!(null), json!({ "query": " \n" })] {
-            assert_eq!(
-                text(&args),
-                "error[not_implemented]: the empty query is not implemented yet\n"
-            );
+            assert_eq!(parse(&args).unwrap().query.trim(), "");
         }
     }
 

@@ -40,8 +40,12 @@ impl Response<'_> {
                 out.push('\n');
                 current = Some(dir);
             }
-            let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
-            let _ = writeln!(out, "{name}  [{}]", ids.join(" "));
+            out.push_str(&name);
+            if !file.conditions.is_empty() {
+                let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
+                let _ = write!(out, "  [{}]", ids.join(" "));
+            }
+            out.push('\n');
         }
         out
     }
@@ -102,6 +106,25 @@ mod tests {
             format!(
                 "files: 4  lines: 0  matches: 0  result: r3\n#1 name ~ '*'\n\n.{s}\nCargo.toml  [#1]\nsrc{s}\na.rs  [#1]\nb.rs  [#1]\nsrc{s}x{s}\nc.rs  [#1]\n"
             )
+        );
+    }
+
+    #[test]
+    fn files_without_conditions_have_no_brackets() {
+        let files = [Found {
+            rel: PathBuf::from("a.md"),
+            conditions: vec![],
+        }];
+        let text = Response {
+            result_id: "r1",
+            legend: &[],
+            files: &files,
+        }
+        .to_text();
+        let s = SEP;
+        assert_eq!(
+            text,
+            format!("files: 1  lines: 0  matches: 0  result: r1\n\n.{s}\na.md\n")
         );
     }
 

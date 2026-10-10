@@ -66,7 +66,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
                 return WalkState::Continue;
             };
             let name = nfc(&entry.file_name().to_string_lossy());
-            let Some(conditions) = evaluate(&query.filter, &name) else {
+            let Some(conditions) = evaluate(query.filter.as_ref(), &name) else {
                 return WalkState::Continue;
             };
             if generated.is_generated(&slash_path(rel), entry.path()) {
@@ -97,10 +97,11 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> Vec<Found>
         .collect()
 }
 
-/// The ids of the conditions which made the file match, or `None` if it doesn't match.
-fn evaluate(filter: &Filter, name: &str) -> Option<Vec<CondId>> {
+/// The ids of the conditions which made the file match, or `None` if it doesn't match; no filter matches all.
+fn evaluate(filter: Option<&Filter>, name: &str) -> Option<Vec<CondId>> {
     match filter {
-        Filter::Name { id, matcher } => matcher.is_match(name).then(|| vec![id.clone()]),
+        None => Some(Vec::new()),
+        Some(Filter::Name { id, matcher }) => matcher.is_match(name).then(|| vec![id.clone()]),
     }
 }
 

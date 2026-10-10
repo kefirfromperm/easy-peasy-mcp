@@ -1,6 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
-//! Implemented: exactly one condition `name = <string>` or `name ~ <wildcard>`, without modifiers and labels.
+//! Implemented: the empty query, or exactly one condition `name = <string>` or `name ~ <wildcard>`, without
+//! modifiers and labels.
 
 use std::ops::Range;
 
@@ -57,9 +58,6 @@ fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, 
             _ => format!("'{text}'"),
         };
         return Some((token.span.clone(), feature));
-    }
-    if lexed.tokens.is_empty() {
-        return Some((0..0, "the empty query".to_string()));
     }
     None
 }
@@ -141,9 +139,7 @@ mod tests {
             check_str("# only").unwrap().0,
             "the comment '#' is not implemented yet"
         );
-        assert_eq!(
-            check_str("").unwrap().0,
-            "the empty query is not implemented yet"
-        );
+        assert_eq!(check_str(""), None);
+        assert_eq!(check_str(" \n\t"), None);
     }
 }
