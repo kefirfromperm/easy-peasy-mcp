@@ -34,6 +34,7 @@ pub enum Key {
     Context,
     Before,
     After,
+    Highlight,
     Dedent,
     BlankContext,
     GroupDirs,
@@ -51,7 +52,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 38] = [
+    pub const ALL: [Key; 39] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -77,6 +78,7 @@ impl Key {
         Self::Context,
         Self::Before,
         Self::After,
+        Self::Highlight,
         Self::Dedent,
         Self::BlankContext,
         Self::GroupDirs,
@@ -142,6 +144,11 @@ impl Key {
             Self::After => ("output", "after", Type::OptWhole),
             Self::Dedent => ("output", "dedent", Type::Bool),
             Self::BlankContext => ("output", "blank_context", Type::Bool),
+            Self::Highlight => (
+                "output",
+                "highlight",
+                Type::Choice(&["auto", "none", "columns", "markers"]),
+            ),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
@@ -183,7 +190,7 @@ impl Key {
             Self::PathCase => Value::Text("native".to_string()),
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
-            Self::Encoding | Self::Base => Value::Text("auto".to_string()),
+            Self::Encoding | Self::Base | Self::Highlight => Value::Text("auto".to_string()),
             Self::Archives => Value::Text("none".to_string()),
             Self::Format => Value::Text("text".to_string()),
             Self::Detail => Value::Text("lines".to_string()),

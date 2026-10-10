@@ -3,7 +3,8 @@
 use std::fmt::Write as _;
 use std::ops::Range;
 
-use super::blocks::{Block, BlockLine};
+use super::Highlight;
+use super::blocks::Block;
 use crate::content::Content;
 use crate::query::ast::CondId;
 
@@ -72,9 +73,14 @@ pub(super) fn lines_of(content: &Content, fragments: &[Fragment]) -> Vec<usize> 
     lines
 }
 
-/// The blocks as `N:text` for a matched line with the merged parts marked and `N-text` for a context line, `--`
-/// between blocks.
-pub fn render(content: &Content, fragments: &[Fragment], blocks: &[Block]) -> String {
+/// The blocks as `N:text` for a matched line and `N-text` for a context line in the highlight style, `--` between
+/// blocks.
+pub fn render(
+    content: &Content,
+    fragments: &[Fragment],
+    blocks: &[Block],
+    highlight: Highlight,
+) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
     for (i, block) in blocks.iter().enumerate() {
@@ -85,31 +91,125 @@ pub fn render(content: &Content, fragments: &[Fragment], blocks: &[Block]) -> St
             let _ = writeln!(out, "⇥{}", block.indent);
         }
         for line in &block.lines {
-            render_line(&mut out, content, &parts, line, block.indent);
+            let separator = if line.matched { ':' } else { '-' };
+            let _ = write!(out, "{}{separator}", line.index + 1);
+            write_styled(
+                &mut out,
+                content,
+                &parts,
+                line.index,
+                block.indent,
+                highlight,
+            );
+            out.push('\n');
+            if highlight == Highlight::Columns {
+                push_columns(&mut out, content, fragments, line.index);
+            }
         }
     }
     out
 }
 
-/// One line of a block with its marked parts, without its first `indent` bytes.
-fn render_line(
+/// The line with the 0-based index `i` without its first `skip` bytes, with the markers of the fragments for
+/// `markers`, as it is otherwise.
+pub fn shown_line(
+    content: &Content,
+    fragments: &[Fragment],
+    i: usize,
+    skip: usize,
+    highlight: Highlight,
+) -> String {
+    let mut out = String::new();
+    write_styled(
+        &mut out,
+        content,
+        &merge_overlapping(fragments),
+        i,
+        skip,
+        highlight,
+    );
+    out
+}
+
+/// Writes the line `i` from its byte `skip`, with the marked parts for `markers`.
+fn write_styled(
     out: &mut String,
     content: &Content,
     parts: &[Part],
-    line: &BlockLine,
-    indent: usize,
+    i: usize,
+    skip: usize,
+    highlight: Highlight,
 ) {
-    let separator = if line.matched { ':' } else { '-' };
-    let _ = write!(out, "{}{separator}", line.index + 1);
-    write_marked(out, content, parts, line.index, indent);
-    out.push('\n');
+    if highlight == Highlight::Markers {
+        write_marked(out, content, parts, i, skip);
+    } else {
+        let (start, end) = content.line_range(i);
+        out.push_str(&content.text()[(start + skip).min(end)..end]);
+    }
 }
 
-/// The line with the 0-based index `i` and the markers of the fragments, without its first `skip` bytes.
-pub fn marked_line(content: &Content, fragments: &[Fragment], i: usize, skip: usize) -> String {
-    let mut out = String::new();
-    write_marked(&mut out, content, &merge_overlapping(fragments), i, skip);
-    out
+/// Writes the line `  @ s..e ids  @ …` of the fragments which start in the line `i`, if any (OUTPUT.md#highlight).
+pub fn push_columns(out: &mut String, content: &Content, fragments: &[Fragment], i: usize) {
+    let mut any = false;
+    for f in fragments.iter().filter(|f| starts_in(content, f, i)) {
+        let at = columns(content, f, i);
+        out.push_str("  @ ");
+        any = true;
+        let _ = write!(out, "{}..", at.start);
+        match at.to {
+            Some((line, col)) => {
+                let _ = write!(out, "{line}:{col}");
+            }
+            None => {
+                let _ = write!(out, "{}", at.end);
+            }
+        }
+        let ids: Vec<String> = f.ids.iter().map(|(_, id)| id.to_string()).collect();
+        let _ = write!(out, " {}", ids.join(","));
+        if let Some(level) = f.escape {
+            let _ = write!(out, "/e{level}");
+        }
+    }
+    if any {
+        out.push('\n');
+    }
+}
+
+/// Whether the fragment starts in the line `i`.
+pub(super) fn starts_in(content: &Content, f: &Fragment, i: usize) -> bool {
+    let (_, end) = content.line_range(i);
+    content.line_of(f.range.start) == i && f.range.start <= end
+}
+
+/// Where a fragment which starts in its line is, in characters (OUTPUT.md#fragments).
+pub(super) struct Columns {
+    /// The 1-based start column.
+    pub start: usize,
+    /// The exclusive end column; of a multiline fragment the end of its first line.
+    pub end: usize,
+    /// Of a multiline fragment the 1-based line and the exclusive column of its end.
+    pub to: Option<(usize, usize)>,
+}
+
+/// The columns of the fragment `f` which starts in the line `i`.
+pub(super) fn columns(content: &Content, f: &Fragment, i: usize) -> Columns {
+    let (start, _) = content.line_range(i);
+    let column = |from: usize, offset: usize| content.text()[from..offset].chars().count() + 1;
+    let last = content.line_of(f.range.end.saturating_sub(1).max(f.range.start));
+    if last > i {
+        let (last_start, _) = content.line_range(last);
+        Columns {
+            start: column(start, f.range.start),
+            end: content.line(i).chars().count() + 1,
+            to: Some((last + 1, column(last_start, f.range.end))),
+        }
+    } else {
+        Columns {
+            start: column(start, f.range.start),
+            end: column(start, f.range.end),
+            to: None,
+        }
+    }
 }
 
 /// Writes the line `i` with its marked parts, from its byte `skip`.
@@ -176,14 +276,13 @@ fn merge_overlapping(fragments: &[Fragment]) -> Vec<Part> {
 mod tests {
     use super::*;
     use crate::content::Content;
-    use crate::output::Highlight;
     use crate::query::ast::CondId;
 
     /// The matched lines without context.
     fn render_plain(c: &Content, fragments: &[Fragment]) -> String {
         let blocks =
             super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
-        render(c, fragments, &blocks)
+        render(c, fragments, &blocks, Highlight::Markers)
     }
 
     fn frag(range: std::ops::Range<usize>, ids: &[u32]) -> Fragment {
