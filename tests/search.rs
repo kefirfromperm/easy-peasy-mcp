@@ -160,3 +160,31 @@ fn a_cancelled_search_stops_soon() {
         started.elapsed()
     );
 }
+
+#[test]
+fn native_path_case_follows_the_option() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    fs::write(root.join("README.md"), "x\n").unwrap();
+    let count = |insensitive: bool| {
+        let mut options = EngineOptions::new(root.to_path_buf());
+        options.git_global_excludes = false;
+        options.native_case_insensitive = insensitive;
+        let out = Engine::new(options).find(
+            &json!({ "query": "name = 'readme.md'", "output": { "detail": "count", "funnel": "never" } }),
+        );
+        assert!(!out.is_error, "{}", out.text);
+        out.text
+    };
+    assert!(count(true).starts_with("files: 1  "), "{}", count(true));
+    assert!(count(false).starts_with("files: 0  "), "{}", count(false));
+}
+
+#[test]
+fn native_path_case_is_the_platform_convention_by_default() {
+    let options = EngineOptions::new(std::path::PathBuf::from("."));
+    assert_eq!(
+        options.native_case_insensitive,
+        cfg!(any(target_os = "macos", target_os = "windows"))
+    );
+}

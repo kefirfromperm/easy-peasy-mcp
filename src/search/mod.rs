@@ -1605,6 +1605,22 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(target_os = "macos")]
+    fn the_hidden_flag_is_read() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("a.txt");
+        std::fs::write(&path, "").unwrap();
+        assert!(!flagged_hidden(&std::fs::metadata(&path).unwrap()));
+        let status = std::process::Command::new("chflags")
+            .arg("hidden")
+            .arg(&path)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        assert!(flagged_hidden(&std::fs::metadata(&path).unwrap()));
+    }
+
+    #[test]
     fn path_fragments_after_the_working_directory() {
         let fragments = PathFragments {
             path: "src/a.zip!/x/a.rs".into(),

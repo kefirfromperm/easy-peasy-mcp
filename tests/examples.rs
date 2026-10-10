@@ -38,6 +38,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
         .now
         .map(|secs| jiff::Timestamp::from_second(secs).expect("a valid now"));
     options.read_delay = example.slow_reads;
+    // the examples are written with the Linux path case unless they are marked with a platform (AGENTS.md)
+    if example.platform.is_none() {
+        options.native_case_insensitive = false;
+    }
     let engine = Engine::new(options);
 
     let mut blocks = example.blocks.iter().peekable();
