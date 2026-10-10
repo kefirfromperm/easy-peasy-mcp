@@ -300,8 +300,12 @@ mod tests {
             [(Key::PathFragments, KeyValue::Bool(true))]
         );
         assert_eq!(
-            text(&json!({ "output": { "path_style": "absolute" } })),
-            "error[not_implemented]: the field 'output.path_style' is not implemented yet\n"
+            config(&json!({ "output": { "path_style": "absolute" } })),
+            [(Key::PathStyle, KeyValue::Text("absolute".into()))]
+        );
+        assert_eq!(
+            text(&json!({ "output": { "meta": true } })),
+            "error[not_implemented]: the field 'output.meta' is not implemented yet\n"
         );
     }
 

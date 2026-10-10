@@ -561,6 +561,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
+    fn absolute_paths() {
+        assert_eq!(display_path(Path::new("/tmp/x/a.rs"), false), "/tmp/x/a.rs");
+        assert_eq!(split(Path::new("/tmp/a.rs")), ("/tmp/".to_string(), "a.rs".to_string()));
+        assert_eq!(split(Path::new("/a.rs")), ("/".to_string(), "a.rs".to_string()));
+    }
+
+    #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,
