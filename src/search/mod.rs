@@ -1628,6 +1628,24 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(windows)]
+    fn hard_links_have_the_same_file_id() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (a, b, c) = (
+            tmp.path().join("a.txt"),
+            tmp.path().join("b.txt"),
+            tmp.path().join("c.txt"),
+        );
+        std::fs::write(&a, "x").unwrap();
+        std::fs::write(&c, "x").unwrap();
+        std::fs::hard_link(&a, &b).unwrap();
+        let id = |p: &Path| file_id(p, &std::fs::metadata(p).unwrap());
+        assert!(id(&a).is_some());
+        assert_eq!(id(&a), id(&b));
+        assert_ne!(id(&a), id(&c));
+    }
+
+    #[test]
     #[cfg(target_os = "macos")]
     fn the_hidden_flag_is_read() {
         let tmp = tempfile::tempdir().unwrap();

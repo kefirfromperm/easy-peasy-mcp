@@ -11,7 +11,6 @@ fn engine(root: &std::path::Path) -> Engine {
     Engine::new(options)
 }
 
-#[cfg(unix)]
 #[test]
 fn hard_links_are_returned_once_under_the_first_path() {
     let tmp = tempfile::tempdir().unwrap();
@@ -23,7 +22,10 @@ fn hard_links_are_returned_once_under_the_first_path() {
     let out = engine(root).find(&json!({ "query": "name = 'data.txt'" }));
     assert_eq!(
         out.text,
-        "files: 1  lines: 0  matches: 0  result: r1\n#1 name = 'data.txt'\n\na/\ndata.txt  [#1]\n"
+        format!(
+            "files: 1  lines: 0  matches: 0  result: r1\n#1 name = 'data.txt'\n\na{}\ndata.txt  [#1]\n",
+            std::path::MAIN_SEPARATOR
+        )
     );
 }
 
@@ -101,7 +103,10 @@ fn within_skips_files_deleted_since_the_result() {
     let within = engine.find(&json!({ "within": "r1", "query": "text has 'retry'" }));
     assert_eq!(
         within.text,
-        "files: 1  lines: 1  matches: 1  result: r2\n#1 text has 'retry'\n\n./\na.txt  [#1]  lines: 1  matches: 1\n1:⟦#1:retry⟧\n"
+        format!(
+            "files: 1  lines: 1  matches: 1  result: r2\n#1 text has 'retry'\n\n.{}\na.txt  [#1]  lines: 1  matches: 1\n1:⟦#1:retry⟧\n",
+            std::path::MAIN_SEPARATOR
+        )
     );
 }
 

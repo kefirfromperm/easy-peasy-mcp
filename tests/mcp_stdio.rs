@@ -71,7 +71,10 @@ fn initialize_list_and_find() {
     assert_eq!(call["result"]["isError"], false);
     assert_eq!(
         call["result"]["content"],
-        json!([{ "type": "text", "text": "files: 1  lines: 0  matches: 0  result: r1\n#1 name = 'Cargo.toml'\n\n./\nCargo.toml  [#1]\n" }])
+        json!([{ "type": "text", "text": format!(
+            "files: 1  lines: 0  matches: 0  result: r1\n#1 name = 'Cargo.toml'\n\n.{}\nCargo.toml  [#1]\n",
+            std::path::MAIN_SEPARATOR
+        ) }])
     );
 
     let error = server.request(

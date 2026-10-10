@@ -1516,6 +1516,30 @@ mod tests {
         assert!(matcher.is_match("caf\u{e9}"));
     }
 
+    #[test]
+    fn backslash_is_a_separator_where_asked() {
+        let windows = ParseOptions {
+            backslash_separator: true,
+            ..SENSITIVE.clone()
+        };
+        let path = |q: &str, options: &ParseOptions| {
+            let Some(Filter::Text { matcher, .. }) = parse(q, options).unwrap().filter else {
+                panic!("{q}")
+            };
+            matcher
+        };
+        assert!(path(r"path ~ `src\**\*.rs`", &windows).is_match("src/a/b.rs"));
+        assert!(path(r"path = `src\a.rs`", &windows).is_match("src/a.rs"));
+        assert!(path(r"path starts `src\`", &windows).is_match("src/a.rs"));
+        // a regex keeps its escapes
+        assert!(path(r"path =~ `^src\.rs$`", &windows).is_match("src.rs"));
+        // elsewhere `\` is a character of the path
+        assert!(!path(r"path = `src\a.rs`", &SENSITIVE).is_match("src/a.rs"));
+        assert!(path(r"path = `src\a.rs`", &SENSITIVE).is_match(r"src\a.rs"));
+        assert_eq!(slashed(r"a\b/c", true), "a/b/c");
+        assert_eq!(slashed(r"a\b", false), r"a\b");
+    }
+
     fn matcher(q: &str, insensitive: bool) -> TextMatcher {
         let options = ParseOptions {
             case_insensitive_paths: insensitive,
