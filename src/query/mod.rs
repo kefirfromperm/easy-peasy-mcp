@@ -1003,6 +1003,62 @@ mod tests {
             fuzzy_min_score: 0.5,
         });
 
+    fn funnel(q: &str) -> Option<(FunnelKind, Vec<String>)> {
+        parse(q, &SENSITIVE)
+            .unwrap()
+            .funnel
+            .map(|f| (f.kind, f.steps.into_iter().map(|s| s.text).collect()))
+    }
+
+    #[test]
+    fn the_steps_of_the_funnel() {
+        assert_eq!(
+            funnel("text has 'parse' and lang = rust"),
+            Some((
+                FunnelKind::And,
+                vec!["lang = rust".into(), "and text has 'parse'".into()]
+            ))
+        );
+        assert_eq!(
+            funnel("lang = rust and (text has 'a' or text has 'b') and not size > 1K"),
+            Some((
+                FunnelKind::And,
+                vec![
+                    "lang = rust".into(),
+                    "and not size > 1K".into(),
+                    "and (text has 'a' or text has 'b')".into()
+                ]
+            ))
+        );
+        assert_eq!(
+            funnel("line(text has 'a')   and name ~ '*.rs'"),
+            Some((
+                FunnelKind::And,
+                vec!["name ~ '*.rs'".into(), "and line(text has 'a')".into()]
+            ))
+        );
+        assert_eq!(
+            funnel("name = 'a' or not lang = rust"),
+            Some((
+                FunnelKind::Or,
+                vec!["name = 'a'".into(), "or not lang = rust".into()]
+            ))
+        );
+        assert_eq!(
+            funnel("((size > 1K))"),
+            Some((FunnelKind::One, vec!["size > 1K".into()]))
+        );
+        assert_eq!(
+            funnel("name = 'a' xor name = 'b'"),
+            Some((FunnelKind::One, vec!["name = 'a' xor name = 'b'".into()]))
+        );
+        assert_eq!(funnel(""), None);
+        // the steps point at the items of the compiled filter
+        let q = parse("text has 'x' and lang = rust", &SENSITIVE).unwrap();
+        let order: Vec<usize> = q.funnel.unwrap().steps.iter().map(|s| s.item).collect();
+        assert_eq!(order, [1, 0]);
+    }
+
     fn legend(q: &str) -> Vec<String> {
         let lexed = lexer::lex(q);
         let mut expr = parser::parse(q, &lexed).unwrap().unwrap();
