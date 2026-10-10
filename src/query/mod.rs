@@ -44,6 +44,8 @@ pub struct ParseOptions {
     pub time_zone: jiff::tz::TimeZone,
     /// The language table: the values of `lang`.
     pub languages: std::sync::Arc<crate::languages::LanguageTable>,
+    /// `escape.max_level`: the upper level of `/e(style, any)` and the highest level a query may ask for.
+    pub max_escape_level: usize,
 }
 
 /// A parsed and compiled query.
@@ -304,7 +306,25 @@ fn validate_condition(
     }
     for modifier in &c.modifiers {
         if let Some((style, levels)) = &modifier.args {
-            validate_escape(text, style, levels, errors);
+            let before = errors.len();
+            validate_escape(text, style, levels, options.max_escape_level, errors);
+            if errors.len() == before
+                && c.target == Target::Text
+                && content_pattern(c, options.max_escape_level).is_none()
+            {
+                let highest =
+                    escape_levels(text, levels, options.max_escape_level).map_or(0, |l| *l.end());
+                errors.push(
+                    QueryError::new(
+                        ErrorCode::InvalidEscapeLevel,
+                        format!("invalid escape level {highest}"),
+                        levels.span.clone(),
+                    )
+                    .hint(format!(
+                        "the escaped forms of this value are too many on level {highest}, use a lower one"
+                    )),
+                );
+            }
         }
         if let Some(hint) = modifier_not_allowed(c, modifier, scope != Scope::File) {
             errors.push(
@@ -526,20 +546,30 @@ fn validate_dates(text: &str, value: &Value, options: &ParseOptions, errors: &mu
 
 /// The arguments of `/e(style, levels)`: `unknown_value` for the style, `invalid_escape_level` or `invalid_range` for
 /// the levels.
-fn validate_escape(text: &str, style: &Spanned, levels: &Spanned, errors: &mut Vec<QueryError>) {
+fn validate_escape(
+    text: &str,
+    style: &Spanned,
+    levels: &Spanned,
+    max: usize,
+    errors: &mut Vec<QueryError>,
+) {
     if Style::from_keyword(&style.text).is_none() {
         let names: Vec<&str> = Style::ALL.iter().map(|s| s.keyword()).collect();
         errors.push(unknown_value(style, &names));
     }
-    if let Err(e) = escape_levels(text, levels) {
+    if let Err(e) = escape_levels(text, levels, max) {
         errors.push(e);
     }
 }
 
-/// The levels of `/e` as written: a number, a range `a..b` or `any` (QUERY.md#levels).
-fn escape_levels(text: &str, levels: &Spanned) -> Result<RangeInclusive<u8>, QueryError> {
+/// The levels of `/e` as written: a number, a range `a..b` or `any` up to `max` (QUERY.md#levels).
+fn escape_levels(
+    text: &str,
+    levels: &Spanned,
+    max: usize,
+) -> Result<RangeInclusive<u8>, QueryError> {
     if levels.text.trim().eq_ignore_ascii_case("any") {
-        return Ok(0..=escape::MAX_LEVEL);
+        return Ok(0..=u8::try_from(max).unwrap_or(u8::MAX));
     }
     let not_levels = || {
         QueryError::new(
@@ -563,7 +593,7 @@ fn escape_levels(text: &str, levels: &Spanned) -> Result<RangeInclusive<u8>, Que
             span: start..start + trimmed.len(),
         };
         match trimmed.parse::<u8>() {
-            Ok(n) if n <= escape::MAX_LEVEL => numbers.push((n, number)),
+            Ok(n) if usize::from(n) <= max => numbers.push((n, number)),
             _ => {
                 return Err(QueryError::new(
                     ErrorCode::InvalidEscapeLevel,
@@ -571,8 +601,7 @@ fn escape_levels(text: &str, levels: &Spanned) -> Result<RangeInclusive<u8>, Que
                     number.span,
                 )
                 .hint(format!(
-                    "max level is {} (configuration escape.max_level)",
-                    escape::MAX_LEVEL
+                    "max level is {max} (configuration escape.max_level)"
                 )));
             }
         }
@@ -819,8 +848,8 @@ fn compile_date(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
 }
 
 /// The pattern of a `text` condition: the regex of `=~`, otherwise the value — escaped (`/e`) or in any naming style
-/// (`/n`) — with the anchors of its operator.
-fn content_pattern(c: &Condition) -> TextPattern {
+/// (`/n`) — with the anchors of its operator; `None` when the escaped forms are too many for the regex engine.
+fn content_pattern(c: &Condition, max_escape_level: usize) -> Option<TextPattern> {
     let Value::Str(s) = &c.value else {
         unreachable!("text conditions have a string")
     };
@@ -835,23 +864,23 @@ fn content_pattern(c: &Condition) -> TextPattern {
             .multi_line(multiline)
             .build()
             .expect("regexes are validated before compiling");
-        return TextPattern {
+        return Some(TextPattern {
             regex,
             per_line: !multiline,
             whole_word,
             skip_comments,
             escape_levels: Vec::new(),
-        };
+        });
     }
     let escape = c.modifiers.iter().find_map(|m| {
         let (style, levels) = m.args.as_ref()?;
         let style = Style::from_keyword(&style.text).expect("styles are validated");
-        let levels = escape_levels("", levels).expect("levels are validated");
+        let levels = escape_levels("", levels, max_escape_level).expect("levels are validated");
         Some((style, levels))
     });
     let (escaped, escape_levels) = match escape {
         Some((style, levels)) => (
-            escape::pattern(style, &s.value, levels.clone()),
+            escape::pattern(style, &s.value, levels.clone())?,
             levels.collect(),
         ),
         None if has("n") => (naming::pattern(&s.value), Vec::new()),
@@ -864,14 +893,13 @@ fn content_pattern(c: &Condition) -> TextPattern {
         _ => escaped,
     };
     let flags = if has("n") || has("i") { "(?i)" } else { "" };
-    TextPattern {
-        regex: Regex::new(&format!("{flags}{anchored}"))
-            .expect("an escaped string is a valid regex"),
+    Some(TextPattern {
+        regex: Regex::new(&format!("{flags}{anchored}")).ok()?,
         per_line: false,
         whole_word,
         skip_comments,
         escape_levels,
-    }
+    })
 }
 
 fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions) -> Filter {
@@ -879,7 +907,8 @@ fn compile_text(c: &Condition, id: CondId, order: usize, options: &ParseOptions)
         return Filter::Content {
             id,
             order,
-            pattern: content_pattern(c),
+            pattern: content_pattern(c, options.max_escape_level)
+                .expect("the escaped forms are checked before compiling"),
         };
     }
     let (Some((op, _)), Value::Str(s)) = (&c.op, &c.value) else {
@@ -946,6 +975,7 @@ mod tests {
             now: jiff::Timestamp::UNIX_EPOCH,
             time_zone: jiff::tz::TimeZone::UTC,
             languages: std::sync::Arc::new(crate::languages::LanguageTable::builtin()),
+            max_escape_level: 3,
         });
 
     fn legend(q: &str) -> Vec<String> {
@@ -954,6 +984,31 @@ mod tests {
         let mut out = Vec::new();
         expr.visit_nodes_mut(&mut |n| out.push(legend_text(q, &lexed.tokens, n.tokens.clone())));
         out
+    }
+
+    #[test]
+    fn escape_levels_up_to_the_configured_maximum() {
+        let options = |max| ParseOptions {
+            max_escape_level: max,
+            ..SENSITIVE.clone()
+        };
+        assert!(parse("text has 'a' /e(xml, 5)", &options(5)).is_ok());
+        let error = parse("text has 'a' /e(xml, 5)", &options(4)).unwrap_err();
+        assert_eq!(
+            error.hint.as_deref(),
+            Some("max level is 4 (configuration escape.max_level)")
+        );
+        // any is 0 to the maximum, at most 255 for a bigger one
+        assert!(parse("text has 'a' /e(xml, any)", &options(1000)).is_ok());
+        let error = parse("text has \"it's\" /e(backslash, 0..20)", &options(20)).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidEscapeLevel);
+        assert_eq!(error.message, "invalid escape level 20");
+        assert_eq!(
+            error.hint.as_deref(),
+            Some("the escaped forms of this value are too many on level 20, use a lower one")
+        );
+        let q = "text has \"it's\" /e(backslash, 0..20)";
+        assert_eq!(&q[error.span.clone()], "0..20");
     }
 
     #[test]
