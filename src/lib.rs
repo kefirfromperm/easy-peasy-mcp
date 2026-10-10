@@ -10,6 +10,7 @@ mod output;
 mod query;
 mod request;
 mod search;
+mod warning;
 
 pub use engine::{Engine, EngineOptions, ToolOutput, UnknownTool};
 

@@ -214,7 +214,8 @@ mod tests {
             entry_type: EntryType::File,
             empty: false,
             size: 0,
-            modified: 0.0,
+            modified: Some(0.0),
+            created: None,
         };
         filter.eval(&file).then(|| {
             filter
@@ -269,5 +270,50 @@ mod tests {
             ids(&f, "ab"),
             Some(vec!["#1".into(), "#2".into(), "#3".into()])
         );
+    }
+
+    fn created(n: u32) -> Filter {
+        Filter::Number {
+            id: CondId::Number(n),
+            order: n as usize,
+            target: NumberTarget::Created,
+            bounds: Bounds {
+                min: Some((0.0, true)),
+                max: None,
+                negated: false,
+            },
+        }
+    }
+
+    #[test]
+    fn truth_tables() {
+        use Truth::{False, True, Unknown};
+        assert_eq!(Unknown.not(), Unknown);
+        assert_eq!(True.and(Unknown), Unknown);
+        assert_eq!(False.and(Unknown), False);
+        assert_eq!(True.or(Unknown), True);
+        assert_eq!(False.or(Unknown), Unknown);
+        assert_eq!(True.xor(Unknown), Unknown);
+        assert_eq!(True.xor(True), False);
+        assert_eq!(True.xor(False), True);
+    }
+
+    #[test]
+    fn a_missing_date_is_unknown() {
+        let file = FileValues {
+            name: "a",
+            path: "a",
+            entry_type: EntryType::File,
+            empty: false,
+            size: 0,
+            modified: Some(0.0),
+            created: None,
+        };
+        assert_eq!(created(1).eval(&file), Truth::Unknown);
+        assert!(!Filter::Not(Box::new(created(1))).matches(&file));
+        let either = Filter::Or(vec![created(1), text(2, "a")]);
+        assert!(either.matches(&file));
+        assert_eq!(either.contributors(&file), [CondId::Number(2)]);
+        assert!(!Filter::And(vec![created(1), text(2, "a")]).matches(&file));
     }
 }

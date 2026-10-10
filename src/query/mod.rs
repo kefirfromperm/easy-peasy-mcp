@@ -671,9 +671,10 @@ mod tests {
             entry_type,
             empty: name.is_empty(),
             size: name.len() as u64,
-            modified: 0.0,
+            modified: Some(0.0),
+            created: Some(0.0),
         };
-        query.filter.unwrap().eval(&file)
+        query.filter.unwrap().matches(&file)
     }
 
     #[test]
@@ -736,6 +737,17 @@ mod tests {
                 8..15,
                 Some("the start must not be greater than the end")
             )
+        );
+    }
+
+    #[test]
+    fn created_conditions() {
+        assert!(matches("created >= 1970-01-01", "a", EntryType::File));
+        assert!(parse("created > -1d", &SENSITIVE).unwrap().needs_created);
+        assert!(parse("created > -1d", &SENSITIVE).unwrap().needs_metadata);
+        assert_eq!(
+            parse("created > -1y", &SENSITIVE).unwrap_err().code,
+            ErrorCode::InvalidDate
         );
     }
 
