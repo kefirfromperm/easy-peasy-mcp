@@ -142,6 +142,16 @@ mod tests {
     }
 
     #[test]
+    fn markers_in_content_after_dates() {
+        let mut w = Warnings::default();
+        w.add(WarningCode::Timeout, PathBuf::from("t"), false);
+        w.add(WarningCode::MarkerInContent, PathBuf::from("m"), false);
+        w.add(WarningCode::DateUnsupported, PathBuf::from("d"), false);
+        let codes: Vec<&str> = w.groups().into_iter().map(|(code, _, _)| code).collect();
+        assert_eq!(codes, ["date_unsupported", "marker_in_content", "timeout"]);
+    }
+
+    #[test]
     fn lines_show_three_paths_and_the_rest() {
         let mut w = Warnings::default();
         for name in ["e", "b", "a", "d", "c"] {

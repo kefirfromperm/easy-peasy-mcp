@@ -453,6 +453,46 @@ mod tests {
     }
 
     #[test]
+    fn a_marker_in_a_matched_line_is_a_warning() {
+        let content = crate::content::Content::from_bytes("a ⟧ b\nc\n".as_bytes());
+        let b = content.text().find('b').unwrap();
+        let files = [Found {
+            matches: Some(crate::search::FileMatches {
+                content,
+                fragments: vec![Fragment {
+                    range: b..b + 1,
+                    ids: vec![(1, CondId::Number(1))],
+                    escape: None,
+                }],
+                lines: 1,
+            }),
+            ..found("f")
+        }];
+        let legend = [(CondId::Number(1), "text has 'b'".to_string())];
+        let response = |highlight: Highlight| {
+            Response {
+                detail: Detail::Lines,
+                blocks: BlockOptions::default(),
+                group_dirs: false,
+                group_repeated: 3,
+                highlight,
+                result_id: None,
+                legend: &legend,
+                files: &files,
+                warnings: &Warnings::default(),
+                timed_out: false,
+            }
+            .to_text()
+        };
+        assert_eq!(
+            response(Highlight::Markers("⟦", "⟧")),
+            "files: 1  lines: 1  matches: 1\n#1 text has 'b'\n\nf  [#1]  lines: 1  matches: 1\n1:a ⟧ ⟦#1:b⟧\n\nwarning: marker_in_content (1): f\n"
+        );
+        assert!(!response(Highlight::Markers("<", ">")).contains("warning"));
+        assert!(!response(Highlight::Columns).contains("warning"));
+    }
+
+    #[test]
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,

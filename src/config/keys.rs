@@ -672,4 +672,30 @@ mod tests {
             "error[invalid_option]: invalid wildcard '{a' in 'traversal.exclude'\n  hint: unclosed '{'\n"
         );
     }
+
+    #[test]
+    fn markers_are_two_strings() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        assert_eq!(
+            Type::Markers.check_toml(&item("['<<', '>>']")),
+            Ok(Value::List(vec!["<<".into(), ">>".into()]))
+        );
+        for bad in ["['<']", "['<', '>', '!']", "['', '>']", "'<>'"] {
+            assert_eq!(
+                Type::Markers.check_toml(&item(bad)),
+                Err("two non-empty strings are expected".into()),
+                "{bad}"
+            );
+        }
+        assert_eq!(Type::Markers.parse_json(&json!(["<", ""])), None);
+        assert_eq!(Type::Markers.must_be(), "two non-empty strings");
+        assert_eq!(
+            Key::Markers.default_value(),
+            Value::List(vec!["⟦".into(), "⟧".into()])
+        );
+    }
 }
