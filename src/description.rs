@@ -155,7 +155,8 @@ pub fn find_schema() -> Value {
                         "line_comments": { "type": "array", "items": { "type": "string" }, "description": "Markers which start a comment until the end of the line, for /c." },
                         "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 }, "description": "Start and end markers of block comments, for /c, e.g. [[\"/*\", \"*/\"]]." },
                         "nested_block_comments": { "type": "boolean", "description": "Block comments can be nested (Rust, Haskell). Default: false." },
-                        "strings": { "type": "array", "items": { "type": "string" }, "description": "String delimiters: comment markers inside strings are not comments." }
+                        "strings": { "type": "array", "items": { "type": "string" }, "description": "String delimiters: comment markers inside strings are not comments." },
+                        "source": { "type": "boolean", "description": "true: code, its files are kind = source; false: a data or document format. Default: true." }
                     }
                 }
             }
