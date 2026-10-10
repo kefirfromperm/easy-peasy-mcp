@@ -1,6 +1,6 @@
 # Task 60: `traversal.skip_generated`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 16, task 44
 
