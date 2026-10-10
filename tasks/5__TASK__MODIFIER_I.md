@@ -1,6 +1,6 @@
 # Task 5: `/i` modifier on `name` and `path`
 
-Status: not implemented
+Status: implemented, see [5__SUMMARY__MODIFIER_I.md](5__SUMMARY__MODIFIER_I.md)
 
 Depends on: task 4
 

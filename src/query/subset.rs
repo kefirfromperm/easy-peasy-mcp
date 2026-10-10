@@ -1,7 +1,7 @@
 //! Rejects valid query syntax which this server version doesn't implement yet with `not_implemented`.
 //!
 //! Implemented: the empty query, or exactly one condition on `name` or `path` with `=`, `has`, `starts`, `ends` or `~`,
-//! without modifiers and labels.
+//! with the modifier `/i` only and without labels.
 
 use std::ops::Range;
 
@@ -51,6 +51,7 @@ fn first_unsupported_token(query: &str, lexed: &Lexed) -> Option<(Range<usize>, 
                 continue;
             }
             (2, Tok::Str { .. }) => continue,
+            (3.., Tok::Modifier(m)) if m.eq_ignore_ascii_case("i") => continue,
             (_, Tok::LParen) => "the bracket '('".to_string(),
             (_, Tok::Word(w)) if w.eq_ignore_ascii_case("line") => {
                 "the group line( ... )".to_string()
@@ -133,9 +134,11 @@ mod tests {
             check_str("near(text has 'a', text has 'b', 1)").unwrap().0,
             "the group near( ... ) is not implemented yet"
         );
+        assert_eq!(check_str("name = 'a' /i"), None);
+        assert_eq!(check_str("name = 'a'/I /i"), None);
         assert_eq!(
-            check_str("name = 'a' /i").unwrap().0,
-            "the modifier '/i' is not implemented yet"
+            check_str("name = 'a' /i/w"),
+            Some(("the modifier '/w' is not implemented yet".into(), 13..15))
         );
         assert_eq!(
             check_str("name = 'a' @x").unwrap().0,

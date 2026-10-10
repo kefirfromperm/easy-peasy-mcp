@@ -15,6 +15,7 @@ QUERY: one condition on the file name or path. Empty query = all files.
                                  [*] [?] [[] [{] match the character itself
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator; ** any dirs
   path starts 'docs/'            =, has, starts, ends work on paths too
+Modifier after the value: /i ignore case (Unicode), e.g. name = 'readme.md' /i.
 Strings: '...' or \"...\" with the escapes \\' \\\" \\\\ \\n \\t; `...` raw.
 Hidden files, files in .gitignore / .ignore / .aiignore and generated files are skipped.
 
