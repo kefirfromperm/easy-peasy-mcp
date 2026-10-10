@@ -62,6 +62,8 @@ pub struct FileValues<'a> {
     pub path: &'a str,
     /// The type of the entry; symlinks are not followed.
     pub entry_type: EntryType,
+    /// A file of size 0 or a directory without entries; only computed when the query has `empty`.
+    pub empty: bool,
 }
 
 /// The compiled query, evaluated for every file; brackets are gone, the precedence is in the tree.
@@ -86,6 +88,11 @@ pub enum Filter {
         values: Vec<EntryType>,
         negated: bool,
     },
+    /// `empty`.
+    Empty {
+        id: CondId,
+        order: usize,
+    },
 }
 
 impl Filter {
@@ -105,6 +112,7 @@ impl Filter {
             Self::Type {
                 values, negated, ..
             } => values.contains(&file.entry_type) != *negated,
+            Self::Empty { .. } => file.empty,
         }
     }
 
@@ -128,7 +136,9 @@ impl Filter {
                 }
             }
             Self::Not(_) => {}
-            Self::Text { id, order, .. } | Self::Type { id, order, .. } => {
+            Self::Text { id, order, .. }
+            | Self::Type { id, order, .. }
+            | Self::Empty { id, order } => {
                 found.push((*order, id.clone()));
             }
         }

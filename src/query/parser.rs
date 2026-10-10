@@ -334,7 +334,12 @@ impl<'a> Parser<'a> {
             value: Value::None,
             modifiers: Vec::new(),
         };
-        if class != TargetClass::Alone {
+        if class == TargetClass::Alone {
+            if let Some(token) = self.peek().filter(|t| matches!(t.tok, Tok::Op(_))) {
+                let hint = format!("'{target_text}' stands alone, without an operator and a value");
+                return Err(self.unexpected(token, &hint));
+            }
+        } else {
             let op = self.operator(target, target_text)?;
             condition.value = self.value(class, op.clone())?;
             condition.op = Some(op);
