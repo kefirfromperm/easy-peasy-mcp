@@ -291,6 +291,8 @@ pub struct Node {
     pub label: Option<Spanned>,
     /// The indexes of the first and the last token of the node, label excluded.
     pub tokens: Range<usize>,
+    /// The byte range of the first token: the target, `line` or `near`.
+    pub keyword: Range<usize>,
     /// Set after parsing, in the order of appearance.
     pub id: CondId,
 }

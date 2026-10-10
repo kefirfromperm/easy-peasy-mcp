@@ -209,6 +209,7 @@ impl<'a> Parser<'a> {
             kind,
             label,
             tokens: start..end,
+            keyword: token.span.clone(),
             id: CondId::Number(0),
         })))
     }

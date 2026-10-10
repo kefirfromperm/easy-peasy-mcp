@@ -3,7 +3,7 @@
 //! Implemented: the empty query; `type`, `empty`, `size`, `modified`, `created`, `accessed`, `lang`,
 //! `kind` and `git` conditions, `text` with `=`, `has`, `starts`,
 //! `ends`, `=~` in file scope; `=~` on `name` and `path`; conditions on `name` and `path` with `=`, `has`, `starts`, `ends`, `~` and the
-//! modifiers `/i`, `/w` and `/m`, with labels, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
+//! modifiers `/i`, `/w` and `/m`, with labels, `line( ... )` groups, combined with `not`, `and`, `xor`, `or` and brackets; `#` comments.
 
 use std::ops::Range;
 
@@ -29,7 +29,7 @@ pub fn check(query: &str, lexed: &Lexed, expr: Option<&Expr>) -> Option<QueryErr
 fn unsupported(query: &str, lexed: &Lexed, node: &Node, found: &mut Vec<(Range<usize>, String)>) {
     let keyword = lexed.tokens[node.tokens.start].span.clone();
     match &node.kind {
-        NodeKind::Line(_) => found.push((keyword, "the group line( ... )".into())),
+        NodeKind::Line(_) => {}
         NodeKind::Near(_) => found.push((keyword, "the group near( ... )".into())),
         NodeKind::Condition(c) => {
             if !matches!(
@@ -138,13 +138,7 @@ mod tests {
 
     #[test]
     fn groups_modifiers_labels_comments() {
-        assert_eq!(
-            check_str("name = 'a' and line(text has 'a')"),
-            Some((
-                "the group line( ... ) is not implemented yet".into(),
-                15..19
-            ))
-        );
+        assert_eq!(check_str("name = 'a' and line(text has 'a')"), None);
         assert_eq!(
             check_str("near(text has 'a', text has 'b', 1)").unwrap().0,
             "the group near( ... ) is not implemented yet"

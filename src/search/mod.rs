@@ -16,7 +16,7 @@ use crate::output::{Fragment, matched_lines, merge_identical};
 use crate::query::UNKNOWN_LANG;
 use crate::query::{
     ContentState, EntryType, FileValues, Filter, Kind, Query, Truth, ast::CondId, content_matches,
-    nfc,
+    find_all, nfc,
 };
 use crate::warning::{WarningCode, Warnings};
 
@@ -60,6 +60,45 @@ pub struct FileMatches {
     pub lines: usize,
 }
 
+/// The fragments of a `line( ... )` group: in every line which matches it, the matches of its contributing text
+/// conditions with the ids of the condition and the group, or the whole line with the id of the group.
+fn line_fragments(content: &Content, group: (usize, &CondId), inner: &Filter) -> Vec<Fragment> {
+    let group = (group.0, group.1.clone());
+    let mut fragments = Vec::new();
+    for i in 0..content.line_count() {
+        let line = content.line(i);
+        if !inner.eval_line(line) {
+            continue;
+        }
+        let (start, end) = content.line_range(i);
+        let before = fragments.len();
+        for leaf in inner.contributing_in_line(line) {
+            if let Filter::Content {
+                id,
+                order,
+                regex,
+                whole_word,
+                ..
+            } = leaf
+            {
+                fragments.extend(find_all(regex, line, *whole_word).into_iter().map(|r| {
+                    Fragment {
+                        range: start + r.start..start + r.end,
+                        ids: vec![group.clone(), (*order, id.clone())],
+                    }
+                }));
+            }
+        }
+        if fragments.len() == before {
+            fragments.push(Fragment {
+                range: start..end,
+                ids: vec![group.clone()],
+            });
+        }
+    }
+    fragments
+}
+
 /// The fragments of the contributing content conditions; `None` when there is none.
 fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
     let mut fragments = Vec::new();
@@ -80,6 +119,11 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
                         ids: vec![(*order, id.clone())],
                     }),
             );
+        }
+    }
+    for leaf in leaves {
+        if let Filter::Line { id, order, inner } = leaf {
+            fragments.extend(line_fragments(content, (*order, id), inner));
         }
     }
     if fragments.is_empty() {

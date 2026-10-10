@@ -233,6 +233,12 @@ pub enum Filter {
         per_line: bool,
         whole_word: bool,
     },
+    /// `line( ... )`: true if the inner expression is true for one line.
+    Line {
+        id: CondId,
+        order: usize,
+        inner: Box<Filter>,
+    },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
         id: CondId,
@@ -270,7 +276,7 @@ fn is_word_char(c: char) -> bool {
 }
 
 /// All matches in `hay`; with `whole_word` a rejected match lets the search go on one character after its start.
-fn find_all(regex: &Regex, hay: &str, whole_word: bool) -> Vec<std::ops::Range<usize>> {
+pub fn find_all(regex: &Regex, hay: &str, whole_word: bool) -> Vec<std::ops::Range<usize>> {
     if !whole_word {
         return regex.find_iter(hay).map(|m| m.range()).collect();
     }
@@ -399,6 +405,13 @@ impl Filter {
                     Truth::from(!content_matches(regex, *per_line, *whole_word, content).is_empty())
                 }
             },
+            Self::Line { inner, .. } => match file.content {
+                ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
+                ContentState::Absent => Truth::False,
+                ContentState::Text(content) => {
+                    Truth::from((0..content.line_count()).any(|i| inner.eval_line(content.line(i))))
+                }
+            },
             Self::Git {
                 values, negated, ..
             } => Truth::from(
@@ -454,7 +467,44 @@ impl Filter {
             | Self::Kind { id, order, .. }
             | Self::Git { id, order, .. }
             | Self::Content { id, order, .. }
+            | Self::Line { id, order, .. }
             | Self::Number { id, order, .. } => Some((*order, id)),
+        }
+    }
+
+    /// Whether a line scope expression is true for the line.
+    pub fn eval_line(&self, line: &str) -> bool {
+        match self {
+            Self::And(items) => items.iter().all(|f| f.eval_line(line)),
+            Self::Or(items) => items.iter().any(|f| f.eval_line(line)),
+            Self::Xor(items) => items.iter().filter(|f| f.eval_line(line)).count() % 2 == 1,
+            Self::Not(inner) => !inner.eval_line(line),
+            Self::Content {
+                regex, whole_word, ..
+            } => !find_all(regex, line, *whole_word).is_empty(),
+            _ => false,
+        }
+    }
+
+    /// The conditions which made a line scope expression true for the line, in the order of appearance.
+    pub fn contributing_in_line(&self, line: &str) -> Vec<&Filter> {
+        let mut found = Vec::new();
+        self.collect_line(line, &mut found);
+        found.sort_by_key(|f| f.id().map(|(order, _)| order));
+        found.dedup_by_key(|f| f.id().map(|(order, _)| order));
+        found
+    }
+
+    fn collect_line<'f>(&'f self, line: &str, found: &mut Vec<&'f Filter>) {
+        match self {
+            Self::And(items) => items.iter().for_each(|f| f.collect_line(line, found)),
+            Self::Or(items) | Self::Xor(items) => {
+                for f in items.iter().filter(|f| f.eval_line(line)) {
+                    f.collect_line(line, found);
+                }
+            }
+            Self::Not(_) => {}
+            leaf => found.push(leaf),
         }
     }
 
