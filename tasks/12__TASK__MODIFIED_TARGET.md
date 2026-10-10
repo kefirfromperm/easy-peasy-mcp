@@ -1,6 +1,6 @@
 # Task 12: `modified` target and dates
 
-Status: in progress
+Status: implemented, see [12__SUMMARY__MODIFIED_TARGET.md](12__SUMMARY__MODIFIED_TARGET.md)
 
 Depends on: task 11
 
