@@ -1,6 +1,6 @@
 # Task 117: Final tool descriptions and instructions
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 113, task 115, task 116
 
