@@ -34,8 +34,8 @@ pub struct Fixture {
     pub tree: Vec<(String, i64)>,
     /// The fixed `now` of the fixture in seconds since the Unix epoch, from a line `` Now: `2026-10-08 12:00` ``.
     pub now: Option<i64>,
-    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `symlink <path> -> <target>`,
-    /// `atime <path> <date> <time>`.
+    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `bytes <path> <hex>`,
+    /// `symlink <path> -> <target>`, `atime <path> <date> <time>`, `git <dir> <args>`.
     pub setup: Vec<String>,
 }
 
@@ -246,6 +246,17 @@ fn run_setup(root: &Path, action: &str) {
             let (link, target) = rest.split_once(" -> ").expect("symlink <path> -> <target>");
             let link = root.join(link.trim());
             symlink(target.trim(), &link);
+        }
+        "bytes" => {
+            let (path, hex) = rest.trim().split_once(' ').expect("bytes <path> <hex>");
+            let hex: String = hex.split_whitespace().collect();
+            let bytes: Vec<u8> = (0..hex.len())
+                .step_by(2)
+                .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("hex bytes"))
+                .collect();
+            let p = root.join(path);
+            fs::create_dir_all(p.parent().unwrap()).unwrap();
+            fs::write(p, bytes).unwrap();
         }
         "git" | "git!" => {
             let (dir, args) = rest.trim().split_once(' ').expect("git <dir> <args>");
