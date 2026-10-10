@@ -53,6 +53,9 @@ skip_generated = true
 
 [escape]
 max_level = 3
+
+[query]
+fuzzy_min_score = 0.5
 ```
 
 ## E38.2 With the source
@@ -95,6 +98,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ## E38.3 Another section
@@ -156,6 +162,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ```json request
@@ -240,6 +249,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 ```json request
@@ -303,6 +315,9 @@ skip_generated = true
 
 [escape]
 max_level = 3
+
+[query]
+fuzzy_min_score = 0.5
 ```
 
 ```json request
@@ -367,6 +382,9 @@ skip_generated = true
 
 [escape]
 max_level = 3
+
+[query]
+fuzzy_min_score = 0.5
 ```
 
 ## E38.9 An invalid value

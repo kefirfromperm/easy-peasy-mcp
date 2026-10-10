@@ -254,6 +254,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 3. `find`
@@ -378,6 +381,9 @@ skip_generated = true    # default
 
 [escape]
 max_level = 3    # default
+
+[query]
+fuzzy_min_score = 0.5    # default
 ```
 
 2. `find`
