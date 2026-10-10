@@ -9,6 +9,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
+use crate::git::{GitIndex, GitStatus};
 use crate::languages::LanguageTable;
 use crate::query::UNKNOWN_LANG;
 use crate::query::{EntryType, FileValues, Kind, Query, ast::CondId, nfc};
@@ -52,7 +53,6 @@ type FileId = (u64, u64);
 /// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
 /// regular files.
 pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
-    let kinds = KindRules::builtin(options.case_insensitive_paths);
     let mut builder = WalkBuilder::new(root);
     builder
         .hidden(true)
@@ -66,17 +66,22 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
     for name in IGNORE_FILES {
         builder.add_custom_ignore_filename(name);
     }
-    let found: Mutex<Vec<(Found, Option<FileId>)>> = Mutex::new(Vec::new());
-    let warnings = Mutex::new(Warnings::default());
+    let walk = Walk {
+        root,
+        query,
+        options,
+        kinds: KindRules::builtin(options.case_insensitive_paths),
+        git: GitIndex::new(!options.git_global_excludes),
+        found: Mutex::default(),
+        warnings: Mutex::default(),
+    };
     builder.build_parallel().run(|| {
-        let found = &found;
-        let warnings = &warnings;
-        let kinds = &kinds;
+        let walk = &walk;
         Box::new(move |entry| {
             if let Ok(entry) = entry
-                && let Some(item) = visit(&entry, root, query, options, kinds, warnings)
+                && let Some(item) = walk.visit(&entry)
             {
-                found
+                walk.found
                     .lock()
                     .expect("no thread panics while holding the lock")
                     .push(item);
@@ -84,7 +89,7 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
             WalkState::Continue
         })
     });
-    let mut found = found.into_inner().expect("the walk is finished");
+    let mut found = walk.found.into_inner().expect("the walk is finished");
     found.sort_by(|a, b| a.0.rel.cmp(&b.0.rel));
     let mut seen = std::collections::HashSet::new();
     let files = found
@@ -94,7 +99,160 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .collect();
     SearchResult {
         files,
-        warnings: warnings.into_inner().expect("the walk is finished"),
+        warnings: walk.warnings.into_inner().expect("the walk is finished"),
+    }
+}
+
+/// The state of one walk, shared by its threads.
+struct Walk<'a> {
+    root: &'a Path,
+    query: &'a Query,
+    options: &'a SearchOptions,
+    kinds: KindRules,
+    git: GitIndex,
+    found: Mutex<Vec<(Found, Option<FileId>)>>,
+    warnings: Mutex<Warnings>,
+}
+
+/// The dates of an entry in seconds since the Unix epoch.
+struct Dates {
+    modified: Option<f64>,
+    created: Option<f64>,
+    accessed: Option<f64>,
+}
+
+impl Walk<'_> {
+    /// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
+    fn visit(&self, entry: &ignore::DirEntry) -> Option<(Found, Option<FileId>)> {
+        let query = self.query;
+        if entry.depth() == 0 {
+            return None;
+        }
+        let entry_type = entry_type(entry)?;
+        if !query.has_type && entry_type != EntryType::File {
+            return None;
+        }
+        let rel = entry.path().strip_prefix(self.root).ok()?;
+        let path = slash_path(rel);
+        let name = nfc(&entry.file_name().to_string_lossy());
+        let nfc_path = nfc(&path);
+        let metadata = (query.needs.empty || query.needs.metadata)
+            .then(|| entry.metadata().ok())
+            .flatten();
+        let empty = query.needs.empty
+            && metadata
+                .as_ref()
+                .is_some_and(|m| is_empty(entry.path(), entry_type, m));
+        let dates = self.dates(metadata.as_ref(), rel, entry_type);
+        let language = (query.needs.lang && entry_type != EntryType::Dir)
+            .then(|| {
+                self.options
+                    .languages
+                    .detect(&name, || first_line(entry.path()))
+            })
+            .flatten();
+        let kind = if query.needs.kind {
+            self.kinds.classify(
+                &path,
+                entry.path(),
+                entry_type == EntryType::File,
+                language.is_some_and(|l| l.source),
+            )
+        } else {
+            Kind::Other
+        };
+        let file = FileValues {
+            name: &name,
+            path: &nfc_path,
+            entry_type,
+            empty,
+            size: metadata.as_ref().map_or(0, std::fs::Metadata::len),
+            modified: dates.modified,
+            created: dates.created,
+            accessed: dates.accessed,
+            lang: language.map_or(UNKNOWN_LANG, |l| l.name.as_str()),
+            kind,
+            git: self.git_status(entry.path(), rel, entry_type),
+        };
+        let conditions = match &query.filter {
+            None => Vec::new(),
+            Some(filter) if filter.matches(&file) => filter.contributors(&file),
+            Some(_) => return None,
+        };
+        let is_file = entry_type == EntryType::File;
+        if !query.needs.kind && is_file && self.kinds.is_generated(&path, entry.path()) {
+            return None;
+        }
+        let id = is_file
+            .then(|| entry.metadata().ok().and_then(|m| file_id(&m)))
+            .flatten();
+        let found = Found {
+            rel: rel.to_path_buf(),
+            is_dir: entry_type == EntryType::Dir,
+            conditions,
+        };
+        Some((found, id))
+    }
+
+    /// The dates of an entry; `date_unsupported` when the query needs a date the file system doesn't provide.
+    fn dates(
+        &self,
+        metadata: Option<&std::fs::Metadata>,
+        rel: &Path,
+        entry_type: EntryType,
+    ) -> Dates {
+        let date = |get: fn(&std::fs::Metadata) -> std::io::Result<std::time::SystemTime>| {
+            metadata.and_then(|m| get(m).ok()).map(system_seconds)
+        };
+        let dates = Dates {
+            modified: date(std::fs::Metadata::modified),
+            created: date(std::fs::Metadata::created),
+            accessed: date(std::fs::Metadata::accessed),
+        };
+        let needs = self.query.needs;
+        if (needs.created && dates.created.is_none())
+            || (needs.accessed && dates.accessed.is_none())
+        {
+            self.warn(
+                WarningCode::DateUnsupported,
+                rel,
+                entry_type == EntryType::Dir,
+            );
+        }
+        dates
+    }
+
+    /// The git status of a file; `not_a_git_repo` when the query has `git` and the file is outside of a repository.
+    fn git_status(&self, path: &Path, rel: &Path, entry_type: EntryType) -> Option<GitStatus> {
+        if !self.query.needs.git || entry_type == EntryType::Dir {
+            return None;
+        }
+        let status = self.git.status(path);
+        if status.is_none() && !self.git.in_repo(path) {
+            self.warn(WarningCode::NotAGitRepo, rel, false);
+        }
+        status
+    }
+
+    fn warn(&self, code: WarningCode, rel: &Path, is_dir: bool) {
+        self.warnings
+            .lock()
+            .expect("no thread panics while holding the lock")
+            .add(code, rel.to_path_buf(), is_dir);
+    }
+}
+
+/// The type of an entry, symlinks not followed; `None` for other entries (sockets, devices).
+fn entry_type(entry: &ignore::DirEntry) -> Option<EntryType> {
+    let t = entry.file_type()?;
+    if t.is_symlink() {
+        Some(EntryType::Link)
+    } else if t.is_dir() {
+        Some(EntryType::Dir)
+    } else if t.is_file() {
+        Some(EntryType::File)
+    } else {
+        None
     }
 }
 
@@ -105,117 +263,6 @@ fn is_empty(path: &Path, entry_type: EntryType, metadata: &std::fs::Metadata) ->
         EntryType::Dir => std::fs::read_dir(path).is_ok_and(|mut d| d.next().is_none()),
         EntryType::Link => false,
     }
-}
-
-/// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
-fn visit(
-    entry: &ignore::DirEntry,
-    root: &Path,
-    query: &Query,
-    options: &SearchOptions,
-    kinds: &KindRules,
-    warnings: &Mutex<Warnings>,
-) -> Option<(Found, Option<FileId>)> {
-    if entry.depth() == 0 {
-        return None;
-    }
-    let entry_type = entry.file_type().and_then(|t| {
-        if t.is_symlink() {
-            Some(EntryType::Link)
-        } else if t.is_dir() {
-            Some(EntryType::Dir)
-        } else if t.is_file() {
-            Some(EntryType::File)
-        } else {
-            None
-        }
-    })?;
-    if !query.has_type && entry_type != EntryType::File {
-        return None;
-    }
-    let Ok(rel) = entry.path().strip_prefix(root) else {
-        return None;
-    };
-    let path = slash_path(rel);
-    let name = nfc(&entry.file_name().to_string_lossy());
-    let nfc_path = nfc(&path);
-    let metadata = (query.needs.empty || query.needs.metadata)
-        .then(|| entry.metadata().ok())
-        .flatten();
-    let empty = query.needs.empty
-        && metadata
-            .as_ref()
-            .is_some_and(|m| is_empty(entry.path(), entry_type, m));
-    let size = metadata.as_ref().map_or(0, std::fs::Metadata::len);
-    let modified = metadata
-        .as_ref()
-        .and_then(|m| m.modified().ok())
-        .map(system_seconds);
-    let created = metadata
-        .as_ref()
-        .and_then(|m| m.created().ok())
-        .map(system_seconds);
-    let accessed = metadata
-        .as_ref()
-        .and_then(|m| m.accessed().ok())
-        .map(system_seconds);
-    if (query.needs.created && created.is_none()) || (query.needs.accessed && accessed.is_none()) {
-        warnings
-            .lock()
-            .expect("no thread panics while holding the lock")
-            .add(
-                WarningCode::DateUnsupported,
-                rel.to_path_buf(),
-                entry_type == EntryType::Dir,
-            );
-    }
-    let language = (query.needs.lang && entry_type != EntryType::Dir)
-        .then(|| options.languages.detect(&name, || first_line(entry.path())))
-        .flatten();
-    let lang = language.map_or(UNKNOWN_LANG, |l| l.name.as_str());
-    let kind = if query.needs.kind {
-        kinds.classify(
-            &path,
-            entry.path(),
-            entry_type == EntryType::File,
-            language.is_some_and(|l| l.source),
-        )
-    } else {
-        Kind::Other
-    };
-    let file = FileValues {
-        name: &name,
-        path: &nfc_path,
-        entry_type,
-        empty,
-        size,
-        modified,
-        created,
-        accessed,
-        lang,
-        kind,
-    };
-    let conditions = match &query.filter {
-        None => Vec::new(),
-        Some(filter) if filter.matches(&file) => filter.contributors(&file),
-        Some(_) => return None,
-    };
-    if !query.needs.kind && entry_type == EntryType::File && kinds.is_generated(&path, entry.path())
-    {
-        return None;
-    }
-    let id = (entry_type == EntryType::File)
-        .then(|| entry.metadata().ok().and_then(|m| file_id(&m)))
-        .flatten();
-    let item = (
-        Found {
-            rel: rel.to_path_buf(),
-            is_dir: entry_type == EntryType::Dir,
-            conditions,
-        },
-        id,
-    );
-    Some(item)
 }
 
 /// The first line of a file, at most 1K, for the shebang; `None` if it can't be read.

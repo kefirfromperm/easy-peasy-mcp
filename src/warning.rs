@@ -10,6 +10,7 @@ use crate::output::display_path;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum WarningCode {
     DateUnsupported,
+    NotAGitRepo,
 }
 
 impl WarningCode {
@@ -17,6 +18,7 @@ impl WarningCode {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::DateUnsupported => "date_unsupported",
+            Self::NotAGitRepo => "not_a_git_repo",
         }
     }
 }

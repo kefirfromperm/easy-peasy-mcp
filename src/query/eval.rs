@@ -3,6 +3,7 @@
 use regex::Regex;
 
 use super::ast::CondId;
+use crate::git::{GitStatus, GitValue};
 
 /// How a text value is matched: a regex over the NFC form of the value.
 #[derive(Debug, Clone)]
@@ -118,6 +119,8 @@ pub struct FileValues<'a> {
     pub lang: &'a str,
     /// The kind; only computed when the query has `kind`.
     pub kind: Kind,
+    /// The git status; `None` outside of a repository, for directories, or without a `git` condition.
+    pub git: Option<GitStatus>,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -195,6 +198,14 @@ pub enum Filter {
         id: CondId,
         order: usize,
         values: Vec<Kind>,
+        negated: bool,
+    },
+    /// `git = v`, `git in (...)`: the file has one of the statuses; `git != v`: it is in a repository and has none
+    /// of them. False outside of a repository.
+    Git {
+        id: CondId,
+        order: usize,
+        values: Vec<GitValue>,
         negated: bool,
     },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
@@ -301,6 +312,12 @@ impl Filter {
             Self::Kind {
                 values, negated, ..
             } => Truth::from(values.contains(&file.kind) != *negated),
+            Self::Git {
+                values, negated, ..
+            } => Truth::from(
+                file.git
+                    .is_some_and(|status| values.iter().any(|v| status.has(*v)) != *negated),
+            ),
             #[allow(clippy::cast_precision_loss)] // sizes up to 2^53 bytes are exact
             Self::Number { target, bounds, .. } => {
                 let value = match target {
@@ -344,6 +361,7 @@ impl Filter {
             | Self::Empty { id, order }
             | Self::Lang { id, order, .. }
             | Self::Kind { id, order, .. }
+            | Self::Git { id, order, .. }
             | Self::Number { id, order, .. } => {
                 found.push((*order, id.clone()));
             }
@@ -376,6 +394,7 @@ mod tests {
             accessed: None,
             lang: "unknown",
             kind: Kind::Other,
+            git: None,
         };
         filter.matches(&file).then(|| {
             filter
@@ -471,6 +490,7 @@ mod tests {
             accessed: None,
             lang: "unknown",
             kind: Kind::Other,
+            git: None,
         };
         assert_eq!(created(1).eval(&file), Truth::Unknown);
         assert!(!Filter::Not(Box::new(created(1))).matches(&file));
