@@ -7,32 +7,31 @@ Examples with a command line are startup examples (AGENTS.md); `Slow reads` is t
 ### timeout
 
 ```text tree
-a.txt                      2026-10-01 10:00
+sub/                       2026-10-01 10:00
 sub/b.txt                  2026-10-01 10:00
 ```
 
-File contents are in `tests/fixtures/timeout/`: `a.txt` has `alpha`, `sub/b.txt` has `x marks the spot`. Times are
-UTC.
+File contents are in `tests/fixtures/timeout/`: `sub/b.txt` has `x marks the spot`. Times are UTC.
 
 ## E40.1 The search stops at the timeout
 
-`a.txt` matches by its name without being read; reading `sub/b.txt` takes longer than the timeout, so the search stops and returns what it found.
+The directory `sub/` matches by its type and has no content to read; reading `sub/b.txt` takes longer than the timeout, so the search stops and returns what it found.
 
 Fixture: `timeout`
 
 Slow reads: `2s`
 
 ```json request
-{"timeout": "200ms", "query": "name = 'a.txt' or text has 'x'"}
+{"timeout": "200ms", "query": "type = dir or text has 'x'"}
 ```
 
 ```text response
 files: 1  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
-#1 name = 'a.txt'
+#1 type = dir
 #2 text has 'x'
 
 ./
-a.txt  [#1]
+sub/  [#1]
 
 warning: timeout
 ```
@@ -110,16 +109,16 @@ timeout = "200ms"    # update
 3. `find`
 
 ```json request
-{"query": "name = 'a.txt' or text has 'x'"}
+{"query": "type = dir or text has 'x'"}
 ```
 
 ```text response
 files: 1  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
-#1 name = 'a.txt'
+#1 type = dir
 #2 text has 'x'
 
 ./
-a.txt  [#1]
+sub/  [#1]
 
 warning: timeout
 ```
