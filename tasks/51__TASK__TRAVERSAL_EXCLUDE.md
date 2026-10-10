@@ -1,6 +1,6 @@
 # Task 51: `traversal.exclude`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 44
 
