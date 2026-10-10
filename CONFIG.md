@@ -203,7 +203,7 @@ Registration in an MCP client, e.g. `.mcp.json` of Claude Code, see also [TOOLS.
   "mcpServers": {
     "easy-peasy": {
       "command": "easy-peasy-mcp",
-      "args": ["--root", "/home/me/projects"]
+      "args": ["--root", "~/projects"]
     }
   }
 }
@@ -324,6 +324,8 @@ name from `ignore_files`) to hide generated code, fixtures or secrets from the a
   are applied as if the file were in the working directory, with the lowest priority, a later file winning over an
   earlier one. `~` is expanded to the home directory, relative paths are resolved against the directory the server is
   started in, like the [paths of the server section](#server); a file which doesn't exist is skipped
+- a working directory is searched even when an ignore file above it ignores it, like a path given to `rg`; the rules
+  of the ignore files above still apply to the entries inside it
 - `git_excludes` adds `.git/info/exclude` and the global excludes file of git (`core.excludesFile`)
 - `ignore_files = []`, `ignore_paths = []` and `git_excludes = false` turn ignoring off completely
 
@@ -677,10 +679,10 @@ min_depth = 0
 # max_depth =  (not set)
 follow_symlinks = false
 hidden = false
-ignore_files = [".gitignore", ".ignore", ".aiignore"]
+ignore_files = ['.gitignore', '.ignore', '.aiignore']
 git_excludes = true
 ignore_paths = []
-exclude = ["**/target/**", "**/node_modules/**"]
+exclude = ['**/target/**', '**/node_modules/**']
 path_case = "native"
 binary = "skip"
 max_file_size = "50M"
@@ -691,20 +693,38 @@ max_archive_size = "100M"
 skip_generated = true
 ```
 
-With `"sources": true` every value gets a comment:
+With `"sources": true` (`{ "section": "traversal", "sources": true }`) every value gets a comment; here `exclude`
+comes from the config file and `max_file_size` from `update_config`:
 
 ```toml
+# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
+# read-only: server.allowed_roots, server.allow_update
+
 [traversal]
-exclude = ["**/target/**", "**/node_modules/**"]    # file: /home/me/.config/easy-peasy-mcp/config.toml
+min_depth = 0    # default
+# max_depth =  (not set)    # default
+follow_symlinks = false    # default
 hidden = false    # default
+ignore_files = ['.gitignore', '.ignore', '.aiignore']    # default
+git_excludes = true    # default
+ignore_paths = []    # default
+exclude = ['**/target/**', '**/node_modules/**']    # file: /home/me/.config/easy-peasy-mcp/config.toml
+path_case = "native"    # default
+binary = "skip"    # default
 max_file_size = "50M"    # update
+encoding = "auto"    # default
+# fallback_encoding =  (not set)    # default
+archives = "none"    # default
+max_archive_size = "100M"    # default
+skip_generated = true    # default
 ```
 
 A comment follows its line after four spaces; comments are not aligned, so the result doesn't depend on the length of
 the paths.
 
-`server.allowed_roots` shows the canonical roots in effect, so an empty list shows the start directory. Paths are
-written as TOML literal strings (`'...'`), so Windows paths need no escaping; a path with a `'` is a basic string.
+`server.allowed_roots` shows the canonical roots in effect, so an empty list shows the start directory. The strings
+of a list (paths, names, wildcards, ...) are written as TOML literal strings (`'...'`), so Windows paths need no
+escaping; a string with a `'` is a basic string.
 
 Sources: `default`, `file: <path>`, `cli`, `update`. `cli` appears only for the values the command line can set:
 `server.allowed_roots`, `server.timeout`, `server.allow_update`. Values which are not set (e.g. `max_depth` without a
@@ -761,14 +781,16 @@ written like in `get_config` and as `(not set)` in the comment: `max_depth = 3  
 is both reset and set gets the value of `set`. A changed value has the source `update` in `get_config`; a reset value
 gets its source back.
 
+The result of the request above, after an earlier call set `output.format = "json"`:
+
 ```toml
+[traversal]
+exclude = ['**/target/**']    # was []
+
 [output]
 format = "text"    # was "json", reset
 context = 2    # was 0
 max_files = 30    # was 100
-
-[traversal]
-exclude = ["**/target/**"]    # was []
 ```
 
 A call which changes nothing (no `set`, an empty `reset`) returns `# nothing changed`.
@@ -827,7 +849,7 @@ configuration:
 
 ```toml
 [server]
-allowed_roots = ["~/projects", "/var/log/my-app"]
+allowed_roots = ["~/projects", "~/logs/my-app"]
 default_dirs = ["~/projects"]
 timeout = "60s"
 allow_update = false
@@ -858,7 +880,7 @@ Old projects with sources in Windows-1251 next to UTF-8 ones:
 
 ```toml
 [server]
-allowed_roots = ['C:\work\legacy', 'D:\src']
+allowed_roots = ['~\work\legacy', '~\src']
 
 [traversal]
 encoding = "auto"
@@ -873,12 +895,11 @@ The agent wants more context for the rest of the session:
 { "set": "output.context = 3" }
 ```
 
-And once searches inside `node_modules`, which is in `.gitignore`, with a short timeout:
+And once searches a library in `node_modules`, which is in `.gitignore`, with a short timeout:
 
 ```json
 {
-  "dirs": ["node_modules/some-lib"],
-  "query": "text has 'deprecated' /i",
+  "query": "path starts 'node_modules/some-lib/' and text has 'deprecated' /i",
   "timeout": "5s",
   "traversal": { "ignore_files": [] }
 }
