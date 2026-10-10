@@ -44,6 +44,8 @@ files: 0  lines: 0  matches: 0  result: r1
 funnel:
   lang = rust                            2
   and text has 'parseQuery'              0
+hints:
+  text has 'parseQuery' /n               1 file: parse_query
 ```
 
 2. `get_config`
@@ -175,6 +177,7 @@ Fixture: `funnel`
     { "step": "lang = rust", "files": 2 },
     { "step": "and text has 'parseQuery'", "files": 0 }
   ],
+  "hints": ["text has 'parseQuery' /n  1 file: parse_query"],
   "counts": { "files": 0, "lines": 0, "matches": 0 }
 }
 ```
