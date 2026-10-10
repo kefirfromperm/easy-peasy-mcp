@@ -261,6 +261,21 @@ mod tests {
     }
 
     #[test]
+    fn version() {
+        assert!(parse(&json!({ "version": 1, "query": "x" })).is_ok());
+        assert_eq!(
+            text(&json!({ "version": 2 })),
+            "error[unsupported_version]: the spec version 2 is not supported\n  hint: supported spec versions: 1\n"
+        );
+        for bad in [json!(0), json!("1"), json!(1.5), json!(-1)] {
+            assert_eq!(
+                text(&json!({ "version": bad })),
+                "error[invalid_option]: 'version' must be a whole number of at least 1\n"
+            );
+        }
+    }
+
+    #[test]
     fn spec_fields_are_not_implemented() {
         assert_eq!(
             text(&json!({ "query": "x", "within": "r1" })),
