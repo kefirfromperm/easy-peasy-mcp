@@ -153,6 +153,9 @@ fn parse_section(
     for (name, value) in fields {
         if let Some(key) = Key::find(section, name) {
             let checked = key.ty().check_json(&format!("{field}.{name}"), value)?;
+            if let Some(feature) = key.unimplemented(&checked) {
+                return Err(Report::not_implemented(&feature));
+            }
             config.push((key, checked));
         } else if keys.contains(&name.as_str()) {
             return Err(Report::not_implemented(&format!(

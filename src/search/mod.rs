@@ -11,6 +11,7 @@ use ignore::{WalkBuilder, WalkState};
 
 pub use kinds::KindRules;
 
+use crate::compressed::{Compression, Decompressed, decompress};
 use crate::content::{Content, DecodeOptions, Decoded, Encoding, decode, is_binary_content};
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::{Language, LanguageTable};
@@ -55,6 +56,8 @@ pub struct SearchOptions {
     pub binary: Binary,
     /// How the content of files is decoded; `binary_as_text` follows `binary`.
     pub decode: DecodeOptions,
+    /// Which compressed files and archives are searched inside.
+    pub archives: Archives,
     /// Bigger files are not searched by content, in bytes.
     pub max_file_size: f64,
     /// The canonical allowed roots: a followed symlink must point inside them.
@@ -72,6 +75,15 @@ pub enum Binary {
     Search,
     /// Never returned.
     Exclude,
+}
+
+/// Which compressed files and archives are searched inside (`traversal.archives`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Archives {
+    /// Nothing: they are binary files.
+    None,
+    /// Single compressed files, as their decompressed content.
+    Compressed,
 }
 
 /// A matched file.
@@ -319,6 +331,15 @@ struct Walk<'a> {
     timed_out: AtomicBool,
 }
 
+/// The content of a file read for its content conditions.
+enum ReadContent {
+    Bytes(Vec<u8>),
+    /// Not searched: too big or a broken compressed file; the warning is given.
+    Unknown,
+    /// Not readable, or the deadline passed: the file is skipped.
+    Unreadable,
+}
+
 /// What the evaluation of the query found out about a matched entry.
 #[derive(Debug, Default)]
 struct Evaluated {
@@ -330,15 +351,6 @@ struct Evaluated {
     encoding: Option<Encoding>,
     /// Whether the content was read and decoded as text.
     text: bool,
-}
-
-/// Whether a file is binary by its first 8K; a file which can't be read is not.
-fn starts_binary(path: &Path, options: &DecodeOptions) -> bool {
-    use std::io::Read;
-    let mut head = Vec::new();
-    std::fs::File::open(path)
-        .and_then(|f| f.take(8 * 1024).read_to_end(&mut head))
-        .is_ok_and(|_| is_binary_content(&head, options))
 }
 
 /// The dates of an entry in seconds since the Unix epoch.
@@ -421,7 +433,7 @@ impl Walk<'_> {
         if self.options.binary == Binary::Exclude
             && is_file
             && !evaluated.text
-            && starts_binary(entry.path(), &self.options.decode)
+            && self.starts_binary(entry.path(), &name)
         {
             return None;
         }
@@ -453,49 +465,40 @@ impl Walk<'_> {
         let mut text = false;
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
-        if matches!(file.content, ContentState::NotRead) && self.too_big(path) {
-            file.content = ContentState::Unknown;
-            self.warn(WarningCode::TooBig, rel, false);
-        }
         if matches!(file.content, ContentState::NotRead) {
-            self.slow_read();
-            let bytes = std::fs::read(path);
-            if self.past_deadline() {
-                return None;
-            }
-            let bytes = match bytes {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    if e.kind() == std::io::ErrorKind::PermissionDenied {
-                        self.warn(WarningCode::PermissionDenied, rel, false);
-                    }
-                    return None;
-                }
+            let bytes = match self.read_content(path, rel, file.name) {
+                ReadContent::Bytes(bytes) => Some(bytes),
+                ReadContent::Unknown => None,
+                ReadContent::Unreadable => return None,
             };
-            match decode(&bytes, &self.options.decode) {
-                Decoded::Binary if self.options.binary == Binary::Exclude => return None,
-                Decoded::Binary => {
-                    file.content = ContentState::Unknown;
-                    self.warn(WarningCode::BinarySkipped, rel, false);
-                }
-                Decoded::Text {
-                    content: decoded,
-                    encoding: used,
-                    errors,
-                } => {
-                    if errors {
-                        self.warn(WarningCode::DecodeErrors, rel, false);
+            if let Some(bytes) = bytes {
+                match decode(&bytes, &self.options.decode) {
+                    Decoded::Binary if self.options.binary == Binary::Exclude => return None,
+                    Decoded::Binary => {
+                        file.content = ContentState::Unknown;
+                        self.warn(WarningCode::BinarySkipped, rel, false);
                     }
-                    encoding = (used != Encoding::Utf8).then_some(used);
-                    text = true;
-                    content = match language {
-                        Some(language) if self.query.needs.comments => {
-                            decoded.with_comments(language)
+                    Decoded::Text {
+                        content: decoded,
+                        encoding: used,
+                        errors,
+                    } => {
+                        if errors {
+                            self.warn(WarningCode::DecodeErrors, rel, false);
                         }
-                        _ => decoded,
-                    };
-                    file.content = ContentState::Text(&content);
+                        encoding = (used != Encoding::Utf8).then_some(used);
+                        text = true;
+                        content = match language {
+                            Some(language) if self.query.needs.comments => {
+                                decoded.with_comments(language)
+                            }
+                            _ => decoded,
+                        };
+                        file.content = ContentState::Text(&content);
+                    }
                 }
+            } else {
+                file.content = ContentState::Unknown;
             }
         }
         if !filter.matches(&file) {
@@ -517,6 +520,78 @@ impl Walk<'_> {
             encoding,
             text,
         })
+    }
+
+    /// The content of a file whose content conditions must be decided: the bytes, decompressed for a compressed file
+    /// with `archives`; `Unknown` (with its warning) for a file too big or a broken compressed one; `Unreadable` when
+    /// it can't be read or the deadline passed.
+    fn read_content(&self, path: &Path, rel: &Path, name: &str) -> ReadContent {
+        let compression = if self.options.archives == Archives::None {
+            None
+        } else {
+            Compression::of(name)
+        };
+        if compression.is_none() && self.too_big(path) {
+            self.warn(WarningCode::TooBig, rel, false);
+            return ReadContent::Unknown;
+        }
+        self.slow_read();
+        let bytes = std::fs::read(path);
+        if self.past_deadline() {
+            return ReadContent::Unreadable;
+        }
+        let bytes = match bytes {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::PermissionDenied {
+                    self.warn(WarningCode::PermissionDenied, rel, false);
+                }
+                return ReadContent::Unreadable;
+            }
+        };
+        let Some(compression) = compression else {
+            return ReadContent::Bytes(bytes);
+        };
+        match decompress(compression, bytes.as_slice(), self.size_limit()) {
+            Ok(Decompressed::Bytes(bytes)) => ReadContent::Bytes(bytes),
+            Ok(Decompressed::TooBig) => {
+                self.warn(WarningCode::TooBig, rel, false);
+                ReadContent::Unknown
+            }
+            Err(_) => {
+                self.warn(WarningCode::ArchiveError, rel, false);
+                ReadContent::Unknown
+            }
+        }
+    }
+
+    /// Whether a file is binary by its first 8K, decompressed for a compressed file with `archives`; a file which
+    /// can't be read or decompressed is not.
+    fn starts_binary(&self, path: &Path, name: &str) -> bool {
+        use std::io::Read;
+        let Ok(file) = std::fs::File::open(path) else {
+            return false;
+        };
+        let compression = if self.options.archives == Archives::None {
+            None
+        } else {
+            Compression::of(name)
+        };
+        let head = if let Some(compression) = compression {
+            crate::compressed::head(compression, file, 8 * 1024)
+        } else {
+            let mut head = Vec::new();
+            file.take(8 * 1024).read_to_end(&mut head).map(|_| head)
+        };
+        head.is_ok_and(|head| is_binary_content(&head, &self.options.decode))
+    }
+
+    /// `max_file_size` in whole bytes: a content longer than this is too big.
+    fn size_limit(&self) -> u64 {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        // a non-negative size, saturated at the limits of u64
+        let limit = self.options.max_file_size.floor() as u64;
+        limit
     }
 
     /// Whether a file is bigger than `max_file_size`; a file without metadata is not.

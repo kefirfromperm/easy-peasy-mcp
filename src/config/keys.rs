@@ -26,11 +26,12 @@ pub enum Key {
     MaxFileSize,
     Encoding,
     FallbackEncoding,
+    Archives,
 }
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 17] = [
+    pub const ALL: [Key; 18] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -48,6 +49,7 @@ impl Key {
         Self::MaxFileSize,
         Self::Encoding,
         Self::FallbackEncoding,
+        Self::Archives,
     ];
 
     /// The section, the name and the type.
@@ -82,6 +84,11 @@ impl Key {
             Self::MaxFileSize => ("traversal", "max_file_size", Type::Size),
             Self::Encoding => ("traversal", "encoding", Type::Encoding),
             Self::FallbackEncoding => ("traversal", "fallback_encoding", Type::OptEncoding),
+            Self::Archives => (
+                "traversal",
+                "archives",
+                Type::Choice(&["none", "compressed", "all"]),
+            ),
         }
     }
 
@@ -103,6 +110,7 @@ impl Key {
             Self::Binary => Value::Text("skip".to_string()),
             Self::MaxFileSize => Value::Text("10M".to_string()),
             Self::Encoding => Value::Text("auto".to_string()),
+            Self::Archives => Value::Text("none".to_string()),
         }
     }
 
@@ -122,6 +130,19 @@ impl Key {
     #[must_use]
     pub fn ty(self) -> Type {
         self.spec().2
+    }
+
+    /// A value of the spec which this server version doesn't implement yet: the feature for `not_implemented`.
+    #[must_use]
+    pub fn unimplemented(self, value: &Value) -> Option<String> {
+        match (self, value) {
+            (Self::Archives, Value::Text(v)) if v == "all" => Some(format!(
+                "the value 'all' of '{}.{}'",
+                self.section(),
+                self.name()
+            )),
+            _ => None,
+        }
     }
 
     /// The key `name` of `section`, if it is implemented.

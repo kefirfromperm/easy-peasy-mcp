@@ -585,8 +585,12 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
             Entry::Key { section, key, item } if let Some(found) = Key::find(section, key) => {
                 match found.ty().check_toml(item) {
                     Ok(value) => {
-                        values.values.push((found, value));
-                        continue;
+                        if let Some(feature) = found.unimplemented(&value) {
+                            format!("{feature} is not implemented yet")
+                        } else {
+                            values.values.push((found, value));
+                            continue;
+                        }
                     }
                     Err(expected) => format!("invalid value for '{section}.{key}': {expected}"),
                 }
@@ -792,6 +796,9 @@ pub(crate) fn update_config(
                     )
                     .hint(expected)
                 })?;
+                if let Some(feature) = found.unimplemented(&value) {
+                    return Err(Report::not_implemented(&feature));
+                }
                 values.push((found, value));
             }
         }
