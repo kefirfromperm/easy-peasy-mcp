@@ -1,6 +1,6 @@
 # Task 26: Line scope `line( ... )`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 22
 
