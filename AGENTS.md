@@ -158,6 +158,8 @@ Fixture: `small-rust`
   `` Platform: `linux` `` (or `macos`, `windows`) runs the example only there
 - `<version>` in a response stands for the server version (`CARGO_PKG_VERSION`), e.g. in the first line of
   `get_config`; `<fixture>` in any example stands for the canonical absolute path of the fixture directory
+- a line `` Slow reads: `2s` `` in an example makes every read of a file's content take that long (a test hook of the
+  library, cut short at the deadline of the request), so a timeout can be shown without depending on the machine
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
   pagination) is written as a numbered sequence of requests and responses in one example
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates
