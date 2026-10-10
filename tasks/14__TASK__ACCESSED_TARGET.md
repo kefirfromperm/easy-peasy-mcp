@@ -1,6 +1,6 @@
 # Task 14: `accessed` target
 
-Status: not implemented
+Status: implemented, see [14__SUMMARY__ACCESSED_TARGET.md](14__SUMMARY__ACCESSED_TARGET.md)
 
 Depends on: task 13
 

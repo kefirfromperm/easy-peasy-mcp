@@ -50,6 +50,7 @@ pub struct Query {
 
 /// What the search must find out about every entry for the query.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // independent flags, one per thing to read
 pub struct Needs {
     /// An `empty` condition: whether entries are empty.
     pub empty: bool,
@@ -57,6 +58,8 @@ pub struct Needs {
     pub metadata: bool,
     /// A `created` condition: entries without a creation date get a warning.
     pub created: bool,
+    /// An `accessed` condition: entries without an access date get a warning.
+    pub accessed: bool,
 }
 
 /// Parses and checks `text`; the first error from the start of the query is returned.
@@ -93,9 +96,12 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
             if let NodeKind::Condition(c) = &node.kind {
                 has_type |= c.target == Target::Type;
                 needs.empty |= c.target == Target::Empty;
-                needs.metadata |=
-                    matches!(c.target, Target::Size | Target::Modified | Target::Created);
+                needs.metadata |= matches!(
+                    c.target,
+                    Target::Size | Target::Modified | Target::Created | Target::Accessed
+                );
                 needs.created |= c.target == Target::Created;
+                needs.accessed |= c.target == Target::Accessed;
             }
         });
     }
@@ -201,7 +207,10 @@ fn validate_condition(
     if c.target == Target::Size {
         validate_sizes(text, &c.value, errors);
     }
-    if matches!(c.target, Target::Modified | Target::Created) {
+    if matches!(
+        c.target,
+        Target::Modified | Target::Created | Target::Accessed
+    ) {
         validate_dates(text, &c.value, options, errors);
     }
     for modifier in &c.modifiers {
@@ -402,6 +411,7 @@ fn compile_node(node: &Node, options: &ParseOptions) -> Filter {
     if let Some(target) = match c.target {
         Target::Modified => Some(NumberTarget::Modified),
         Target::Created => Some(NumberTarget::Created),
+        Target::Accessed => Some(NumberTarget::Accessed),
         _ => None,
     } {
         let date = |s: &Spanned| {
@@ -688,6 +698,7 @@ mod tests {
             size: name.len() as u64,
             modified: Some(0.0),
             created: Some(0.0),
+            accessed: Some(0.0),
         };
         query.filter.unwrap().matches(&file)
     }
@@ -765,6 +776,13 @@ mod tests {
             parse("created > -1y", &SENSITIVE).unwrap_err().code,
             ErrorCode::InvalidDate
         );
+    }
+
+    #[test]
+    fn accessed_conditions() {
+        assert!(matches("accessed >= 1970-01-01", "a", EntryType::File));
+        let q = parse("accessed < -30d", &SENSITIVE).unwrap();
+        assert!(q.needs.accessed && q.needs.metadata && !q.needs.created);
     }
 
     #[test]

@@ -150,7 +150,11 @@ fn visit(
         .as_ref()
         .and_then(|m| m.created().ok())
         .map(system_seconds);
-    if query.needs.created && created.is_none() {
+    let accessed = metadata
+        .as_ref()
+        .and_then(|m| m.accessed().ok())
+        .map(system_seconds);
+    if (query.needs.created && created.is_none()) || (query.needs.accessed && accessed.is_none()) {
         warnings
             .lock()
             .expect("no thread panics while holding the lock")
@@ -168,6 +172,7 @@ fn visit(
         size,
         modified,
         created,
+        accessed,
     };
     let conditions = match &query.filter {
         None => Vec::new(),

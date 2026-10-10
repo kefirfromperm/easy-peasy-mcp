@@ -34,7 +34,8 @@ pub struct Fixture {
     pub tree: Vec<(String, i64)>,
     /// The fixed `now` of the fixture in seconds since the Unix epoch, from a line `` Now: `2026-10-08 12:00` ``.
     pub now: Option<i64>,
-    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `symlink <path> -> <target>`.
+    /// Actions of the `text setup` block: `mkdir <dir>`, `file <path> [<bytes>]`, `symlink <path> -> <target>`,
+    /// `atime <path> <date> <time>`.
     pub setup: Vec<String>,
 }
 
@@ -197,7 +198,7 @@ pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
     } else {
         fs::create_dir_all(&root).unwrap();
     }
-    for action in &fixture.setup {
+    for action in fixture.setup.iter().filter(|a| !a.starts_with("atime ")) {
         run_setup(&root, action);
     }
     for (path, mtime) in &fixture.tree {
@@ -214,6 +215,13 @@ pub fn setup_fixture(fixture: &Fixture) -> (tempfile::TempDir, PathBuf) {
         } else {
             filetime::set_file_mtime(&p, time).unwrap();
         }
+    }
+    for action in fixture.setup.iter().filter(|a| a.starts_with("atime ")) {
+        let parts: Vec<&str> = action.split_whitespace().collect();
+        let p = root.join(parts[1]);
+        let atime = filetime::FileTime::from_unix_time(parse_datetime(parts[2], parts[3]), 0);
+        let mtime = filetime::FileTime::from_last_modification_time(&fs::metadata(&p).unwrap());
+        filetime::set_file_times(&p, atime, mtime).unwrap();
     }
     (tmp, root)
 }

@@ -21,6 +21,7 @@ Empty query = all files.
                                  dates 2026-10-01, 2026-10-01T14:30, ...T14:30:00Z, ...+02:00 (local time without
                                  an offset), relative -30m -2h -7d -2w (units s m h d w)
   created > -1d                  creation date, the same forms; unknown where the file system has none
+  accessed < -30d                last access date, the same forms
   empty                          a file of size 0 or a directory without entries; type = dir and empty
   type = dir                     also: type = file|link, type != file, type in (dir, link); without a type
                                  condition only regular files are returned; directories are written as 'name/'

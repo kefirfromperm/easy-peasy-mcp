@@ -70,6 +70,8 @@ pub struct FileValues<'a> {
     pub modified: Option<f64>,
     /// The creation time in seconds since the Unix epoch; `None` when the file system doesn't provide it.
     pub created: Option<f64>,
+    /// The last access time in seconds since the Unix epoch; `None` when the file system doesn't provide it.
+    pub accessed: Option<f64>,
 }
 
 /// An interval of numbers with inclusive or exclusive ends; `negated` turns it into its complement.
@@ -104,6 +106,8 @@ pub enum NumberTarget {
     Modified,
     /// The creation time in seconds since the Unix epoch, if the file system provides it.
     Created,
+    /// The last access time in seconds since the Unix epoch, if the file system provides it.
+    Accessed,
 }
 
 /// The compiled query, evaluated for every file; brackets are gone, the precedence is in the tree.
@@ -237,6 +241,7 @@ impl Filter {
                     NumberTarget::Size => Some(file.size as f64),
                     NumberTarget::Modified => file.modified,
                     NumberTarget::Created => file.created,
+                    NumberTarget::Accessed => file.accessed,
                 };
                 value.map_or(Truth::Unknown, |v| Truth::from(bounds.contains(v)))
             }
@@ -300,6 +305,7 @@ mod tests {
             size: 0,
             modified: Some(0.0),
             created: None,
+            accessed: None,
         };
         filter.matches(&file).then(|| {
             filter
@@ -392,6 +398,7 @@ mod tests {
             size: 0,
             modified: Some(0.0),
             created: None,
+            accessed: None,
         };
         assert_eq!(created(1).eval(&file), Truth::Unknown);
         assert!(!Filter::Not(Box::new(created(1))).matches(&file));
