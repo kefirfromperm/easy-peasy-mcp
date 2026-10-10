@@ -640,6 +640,9 @@ matches
 - The value can be written in any of these styles too: `'parse query'`, `'parseQuery'` and `'parse_query'` are the
   same. Words are split at spaces, `_`, `-`, `.` and case changes; an uppercase run is one word: `HTTPServer` →
   `http`, `server`. Digits stay with the preceding word: `utf8Decode` → `utf8`, `decode`.
+- The words are joined by nothing (camelCase, PascalCase, flat) or by one separator, `_`, `-`, `.` or a space, the
+  same between all words: `parse_query-x` doesn't join the words `parse`, `query`, `x`; neither does `parse__query`
+  join `parse` and `query`.
 - With `/w` the whole identifier must match: `text has 'user id' /n/w` matches `userId` and `user_id`, but not
   `userIdentity`.
 - Works on `path` and `name` too: `name has 'config loader' /n` finds `config_loader.rs`, `ConfigLoader.java`,
