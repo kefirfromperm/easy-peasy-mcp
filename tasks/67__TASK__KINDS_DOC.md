@@ -1,6 +1,6 @@
 # Task 67: `kinds.doc`
 
-Status: in progress
+Status: implemented, see [67__SUMMARY__KINDS_DOC.md](67__SUMMARY__KINDS_DOC.md)
 
 Depends on: task 63
 
