@@ -127,6 +127,13 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn the_file_is_not_a_part_of_the_request() {
+        let plain = json!({ "query": "x", "output": { "max_files": 2 } });
+        let filed = json!({ "query": "x", "output": { "max_files": 2, "file": "a.txt", "cursor": "c" } });
+        assert_eq!(request_hash(&plain), request_hash(&filed));
+    }
+
+    #[test]
     fn encoded_and_decoded() {
         let request = json!({
             "query": "text has 'TODO'",

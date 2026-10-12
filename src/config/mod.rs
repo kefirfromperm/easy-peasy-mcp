@@ -1388,17 +1388,18 @@ mod tests {
         let settings = Settings {
             allowed_roots: vec![PathBuf::from("/a"), PathBuf::from("/it's")],
             allowed_roots_source: Source::Cli,
+            output_dir: Some(PathBuf::from("/out")),
             ..Settings::defaults(Path::new("/"))
         };
         let first = format!(
-            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update\n",
+            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size\n",
             env!("CARGO_PKG_VERSION")
         );
         // the examples show every section in full; here the start of it
         let all = get_config(&settings, &Value::Null).unwrap();
         assert!(
             all.starts_with(&format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\noutput_dir = '/out'\nmax_output_file_size = \"100M\"\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
             )),
             "{all}"
         );
@@ -1409,7 +1410,7 @@ mod tests {
             )
             .unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\nresult_cache = 50    # default\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\nresult_cache = 50    # default\noutput_dir = '/out'    # default\nmax_output_file_size = \"100M\"    # default\n"
             )
         );
         assert!(
@@ -1622,13 +1623,12 @@ mod tests {
                     (Key::GitExcludes, KeyValue::Bool(false)),
                     (Key::IgnorePaths, KeyValue::List(vec!["~/i".into()])),
                 ],
-                languages: Vec::new(),
+                ..FileValues::default()
             },
         };
         let cli = CommandLine {
-            roots: Vec::new(),
             timeout: Some("5s".into()),
-            no_update: false,
+            ..CommandLine::default()
         };
         let settings = Settings::resolve(Some(&empty), &cli, &start, None).unwrap();
         assert_eq!(settings.text(Key::Timeout), "5s");
@@ -1653,6 +1653,92 @@ mod tests {
             &Source::File("c.toml".into())
         );
         std::fs::remove_dir_all(&tmp).unwrap();
+    }
+
+    #[test]
+    fn the_output_directory_and_its_cap() {
+        let values = check("[server]\noutput_dir = 'o'\nmax_output_file_size = '1K'\n").unwrap();
+        assert_eq!(values.output_dir, Some("o".to_string()));
+        assert_eq!(values.max_output_file_size, Some("1K".to_string()));
+        assert_eq!(
+            check("[server]\noutput_dir = 1\n").unwrap_err(),
+            (
+                2,
+                "invalid value for 'server.output_dir': a path is expected".into()
+            )
+        );
+        assert_eq!(
+            check("[server]\nmax_output_file_size = 'big'\n").unwrap_err(),
+            (
+                2,
+                "invalid value for 'server.max_output_file_size': a size like \"100M\" is expected (units B, K, M, G)"
+                    .into()
+            )
+        );
+        assert_eq!(
+            check("[output]\nfile = 'a.txt'\n").unwrap_err(),
+            (
+                2,
+                "invalid value for 'output.file': output.file is set per request".into()
+            )
+        );
+        let tmp = tempfile::tempdir().unwrap();
+        let start = crate::paths::canonicalize(tmp.path()).unwrap();
+        let resolve = |file: Option<&str>, cli: Option<&str>| {
+            let file = file.map(|dir| ConfigFile {
+                path: PathBuf::from("c.toml"),
+                values: FileValues {
+                    output_dir: Some(dir.to_string()),
+                    max_output_file_size: Some("1K".into()),
+                    ..FileValues::default()
+                },
+            });
+            let cli = CommandLine {
+                output_dir: cli.map(str::to_string),
+                ..CommandLine::default()
+            };
+            Settings::resolve(file.as_ref(), &cli, &start, Some(&start.join("home"))).unwrap()
+        };
+        let default = resolve(None, None);
+        assert_eq!(
+            default.output_dir,
+            Some(output_dir(
+                &std::env::temp_dir().join("easy-peasy-mcp").to_string_lossy(),
+                &start,
+                None
+            ))
+        );
+        assert_eq!(default.output_dir_source, Source::Default);
+        assert_eq!(default.max_output_file_size, "100M");
+        let file = resolve(Some("~/out"), None);
+        assert_eq!(file.output_dir, Some(start.join("home/out")));
+        assert_eq!(file.output_dir_source, Source::File("c.toml".into()));
+        assert_eq!(file.max_output_file_size, "1K");
+        let cli = resolve(Some("a"), Some("out/../o"));
+        assert_eq!(cli.output_dir, Some(start.join("o")));
+        assert_eq!(cli.output_dir_source, Source::Cli);
+        assert_eq!(resolve(None, Some("")).output_dir, None);
+    }
+
+    #[test]
+    fn output_file_is_not_a_key() {
+        use serde_json::json;
+        assert_eq!(
+            update(&json!({ "set": "output.file = 'a.txt'" })),
+            "error[invalid_value]: invalid value for 'output.file'\n  hint: output.file is set per request\n"
+        );
+        assert_eq!(
+            update(&json!({ "reset": ["output.file"] })),
+            "error[invalid_value]: invalid value for 'output.file'\n  hint: output.file is set per request\n"
+        );
+        assert_eq!(
+            update(&json!({ "set": "server.output_dir = '/'" })),
+            "error[read_only]: 'server.output_dir' is read-only\n  hint: output_dir is set only at start\n"
+        );
+        assert_eq!(
+            update(&json!({ "reset": ["server.max_output_file_size"] })),
+            "error[read_only]: 'server.max_output_file_size' is read-only\n  hint: max_output_file_size is set only at start\n"
+        );
     }
 
     #[test]

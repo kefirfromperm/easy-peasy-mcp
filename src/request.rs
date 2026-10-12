@@ -471,7 +471,39 @@ mod tests {
             text(&json!({ "output": { "cursor": 5 } })),
             "error[invalid_option]: 'output.cursor' must be a string\n"
         );
-        assert!(text(&json!({ "output": { "cursr": "a" } })).ends_with(", path_style, cursor\n"));
+        assert!(
+            text(&json!({ "output": { "cursr": "a" } })).ends_with(", path_style, cursor, file\n")
+        );
+    }
+
+    #[test]
+    fn output_file() {
+        let file = |value: Value| parse(&json!({ "output": { "file": value } })).map(|r| r.file);
+        assert_eq!(
+            file(json!("a/b.txt")).unwrap(),
+            Some(FileTarget::Path("a/b.txt".into()))
+        );
+        assert_eq!(file(json!(true)).unwrap(), Some(FileTarget::Auto));
+        assert_eq!(file(json!(false)).unwrap(), None);
+        assert_eq!(parse(&json!({})).unwrap().file, None);
+        for bad in [json!(""), json!(1), json!(["a"]), json!(null)] {
+            assert_eq!(
+                file(bad).unwrap_err().to_text(),
+                "error[invalid_option]: 'output.file' must be a path or true\n"
+            );
+        }
+        // not a configuration value
+        assert_eq!(
+            config(&json!({ "output": { "file": "a.txt", "max_output": 100 } })),
+            [(Key::MaxOutput, KeyValue::Whole(100))]
+        );
+    }
+
+    #[test]
+    fn values_given_in_the_request() {
+        let request = parse(&json!({ "output": { "max_output": 100 } })).unwrap();
+        assert_eq!(request.given(Key::MaxOutput), Some(100));
+        assert_eq!(request.given(Key::Budget), None);
     }
 
     #[test]
