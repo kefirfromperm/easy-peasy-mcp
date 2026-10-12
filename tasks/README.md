@@ -241,4 +241,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 
 | # | Task | Depends on | Status |
 |---|------|------------|--------|
-| 134 | [Every part of the output optional: `output.omit`](134__TASK__OUTPUT_OMIT.md) | 105, 108, 113, 123 | ⬜ |
+| 134 | [Every part of the output optional: `output.omit`](134__TASK__OUTPUT_OMIT.md) | 105, 108, 113, 123 | 🚧 |
