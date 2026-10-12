@@ -69,7 +69,8 @@ What the user (an agent calling the server) can do after this task that they cou
 - the release binary works when registered in an MCP client
 ```
 
-`Status` is the first thing a reader sees and it always tells the truth:
+`Status` is the first thing a reader sees and it always tells the truth; the Status column of
+[tasks/README.md](tasks/README.md) is changed in the same commit:
 
 | Status            | Set when                                              |
 |-------------------|-------------------------------------------------------|
