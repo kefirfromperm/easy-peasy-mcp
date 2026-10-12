@@ -51,8 +51,8 @@ language with the same name, the others stay.
 }
 ```
 
-Read-only values (`server.allowed_roots`, `server.allow_update`) can be set only by the config file and the command
-line.
+Read-only values (`server.allowed_roots`, `server.allow_update`, `server.output_dir`,
+`server.max_output_file_size`) can be set only by the config file and the command line.
 
 ## Config file
 
@@ -103,6 +103,8 @@ timeout = "30s"
 threads = 0                     # 0: number of CPU cores
 allow_update = true             # whether `update_config` is available
 result_cache = 50               # results kept for `within` / `since`
+output_dir = "/tmp/easy-peasy-mcp"   # default: `easy-peasy-mcp` in the temp dir of the system; "": off
+max_output_file_size = "100M"   # cap of a response written to a file (`output.file`)
 
 [traversal]
 min_depth = 0
@@ -183,8 +185,8 @@ source = true
 ## Command line
 
 ```
-easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--log-level <level>]
-               [--version]
+easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
+               [--log-level <level>] [--version]
 ```
 
 | Argument         | Overrides                      | Example                                  |
@@ -193,6 +195,7 @@ easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-
 | `--root`         | `server.allowed_roots`, repeatable; replaces the list from the file | `--root ~/projects --root /srv/logs` |
 | `--timeout`      | `server.timeout`               | `--timeout 10s`                          |
 | `--no-update`    | `server.allow_update = false`  |                                          |
+| `--output-dir`   | `server.output_dir`; `""` — off | `--output-dir ~/.cache/easy-peasy`      |
 | `--log-level`    | log level to stderr: `error`, `warn` (default), `info`, `debug` | `--log-level debug` |
 | `--version`      | prints the server and the spec version and exits |                         |
 
@@ -224,12 +227,20 @@ Can't be changed by a request; only `timeout` and `default_dirs` are replaced fo
 | `threads`       | number           | `0`      | no        | search threads, `0` — number of CPU cores                    |
 | `allow_update`  | bool             | `true`   | yes       | `false` disables `update_config`                             |
 | `result_cache`  | number           | `50`     | no        | results kept in memory for `within` and `since`, see [OUTPUT.md](OUTPUT.md#result-ids); `0` — off |
+| `output_dir`    | path             | `easy-peasy-mcp` in the temp dir | yes | where `output.file` writes responses, see [OUTPUT.md](OUTPUT.md#output-to-a-file); `""` — off |
+| `max_output_file_size` | size      | `"100M"` | yes       | cap of a response written to a file, counted like `max_output` |
 
 Paths
 
 - `~` is expanded to the home directory (`%USERPROFILE%` on Windows)
 - relative paths are resolved against the directory the server is started in
 - `allowed_roots` are canonicalized at start (symlinks resolved); a root which doesn't exist is an error
+- `output_dir` needn't exist, the server creates it when it writes the first file; at start it is made absolute and
+  its longest existing part is canonicalized; `get_config` shows it so. The default is the directory
+  `easy-peasy-mcp` in the temp directory of the system (`$TMPDIR` or `/tmp`, `%TEMP%` on Windows). `""` turns
+  `output.file` off. A value which is not a string is `invalid value for 'server.output_dir': a path is expected`
+- `max_output_file_size` is a size like `max_file_size` (`invalid value for 'server.max_output_file_size': a size like
+  "100M" is expected (units B, K, M, G)`)
 
 A request working directory must be inside an allowed root after canonicalization, otherwise the request fails with
 `dir_not_allowed`: `error[dir_not_allowed]: the working directory '<dir>' is outside of the allowed roots`, hint
@@ -423,6 +434,10 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `group_repeated`       | number      | `3`            |
 | `sort`                 | string      | `"relevance"`  |
 | `path_style`           | string      | `"relative"`   |
+
+`cursor` and `file` of the request `output` are not keys: they are set per request. `output.file` in the config
+file is `invalid value for 'output.file': output.file is set per request`, in `update_config` `invalid_value` with
+this hint; `output.cursor` is an unknown key.
 
 `markers`: choose characters which don't appear in your files, e.g. `["«", "»"]` or `["[[", "]]"]`. The value is
 two non-empty strings, the opening and the closing marker; otherwise `invalid value for 'output.markers': two non-empty
@@ -672,7 +687,7 @@ Result:
 
 ```toml
 # easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0
@@ -698,7 +713,7 @@ comes from the config file and `max_file_size` from `update_config`:
 
 ```toml
 # easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0    # default
@@ -727,7 +742,7 @@ of a list (paths, names, wildcards, ...) are written as TOML literal strings (`'
 escaping; a string with a `'` is a basic string.
 
 Sources: `default`, `file: <path>`, `cli`, `update`. `cli` appears only for the values the command line can set:
-`server.allowed_roots`, `server.timeout`, `server.allow_update`. Values which are not set (e.g. `max_depth` without a
+`server.allowed_roots`, `server.timeout`, `server.allow_update`, `server.output_dir`. Values which are not set (e.g. `max_depth` without a
 limit) are written as comments: `# max_depth =  (not set)`.
 
 An agent should call `get_config` once at the start to learn the allowed roots and limits instead of guessing.
@@ -802,10 +817,12 @@ Errors — the first one in the order `reset`, then `set` in the order of the TO
 | `invalid_toml`   | `set`: `output.context = `                          | invalid TOML in 'set'                      | line 1, col 18: string values must be quoted, expected literal string |
 | `read_only`      | `set`: `server.allowed_roots = ["/"]`               | 'server.allowed_roots' is read-only        | allowed roots are set only at start     |
 | `read_only`      | `reset`: `["server.allow_update"]`                  | 'server.allow_update' is read-only         | allow_update is set only at start       |
+| `read_only`      | `set`: `server.output_dir = "/"`                    | 'server.output_dir' is read-only           | output_dir is set only at start         |
 | `update_disabled`| any call with `allow_update = false`                | update_config is disabled                  | the configuration has server.allow_update = false |
 | `unknown_key`    | `set`: `output.max_file = 10`                       | unknown key 'output.max_file'              | did you mean 'output.max_files'?        |
 | `unknown_key`    | `set`: `[colors]`                                   | unknown key 'colors'                       | expected one of: server, traversal, output, escape, query, kinds, git, languages |
 | `invalid_value`  | `set`: `output.detail = "all"`                      | invalid value for 'output.detail'          | expected one of: exists, count, facets, files, lines |
+| `invalid_value`  | `set`: `output.file = "a.txt"`                      | invalid value for 'output.file'            | output.file is set per request          |
 
 The hint of `invalid_toml` is the line and the column (1-based, in characters) and the message of the TOML parser.
 A section written as a value (`output = 1`) is `unknown_key` with the message `'output' must be a section`; a section
@@ -814,8 +831,11 @@ Arguments which don't match the input schema are `invalid_option`, like in `find
 
 ## Security
 
-- The server only reads. There is no command which writes, moves or deletes files, and `update_config` never writes
-  the config file.
+- The server only reads the allowed roots; it writes only responses, and only into `server.output_dir`
+  ([`output.file`](OUTPUT.md#output-to-a-file)). There is no command which writes, moves or deletes the files of the
+  roots, and `update_config` never writes the config file.
+- `server.output_dir` and `server.max_output_file_size` can't be changed by the agent; a file of `output.file` is
+  checked to be inside `server.output_dir` after canonicalization, `..` included.
 - `allowed_roots` can't be changed by the agent: neither `update_config` nor a request can widen them.
 - Every working directory, every symlink target and every file of a `within` result is canonicalized and checked
   against the allowed roots; a cursor holds no paths, only the request hash, a position and the totals.

@@ -75,6 +75,8 @@ The spec version is an integer, it grows only on a breaking change.
 | `update_config` | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | change the configuration in memory |
 
 `update_config` is not listed when `server.allow_update = false`; a call made anyway fails with `update_disabled`.
+`find` stays `readOnlyHint: true` with `output.file`: it writes only its own responses into `server.output_dir`, never
+the files it searches.
 
 ### find
 
@@ -113,6 +115,7 @@ If the response has next_cursor, pass it back as output.cursor with the same req
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
 queries = [{label, query}, ...] runs several queries in one call.
+output.file = 'x.txt' writes the response to a file under the output dir and returns its path; for big results.
 
 EXAMPLES
   name ~ '*.py' and text has 'import requests'
@@ -210,7 +213,11 @@ EXAMPLES
         "group_repeated": { "type": "integer", "minimum": 0 },
         "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
         "path_style": { "enum": ["relative", "absolute"] },
-        "cursor": { "type": "string" }
+        "cursor": { "type": "string" },
+        "file": {
+          "type": ["string", "boolean"],
+          "description": "Write the response to this file under server.output_dir and return its path; true: a name like r12.txt."
+        }
       }
     },
     "escape": {
@@ -270,7 +277,8 @@ passed as `query_options`, because `query` is the query itself. Missing fields c
 
 #### Result
 
-The response of [OUTPUT.md](OUTPUT.md#response), in the format of `output.format`.
+The response of [OUTPUT.md](OUTPUT.md#response), in the format of `output.format`; with `output.file` its summary,
+see [OUTPUT.md](OUTPUT.md#output-to-a-file).
 
 ### get_config
 

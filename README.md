@@ -27,7 +27,7 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
 - [QUERY.md](QUERY.md) — the query language: targets (including `lang`, `kind`, `git`), operators, scopes, modifiers,
   escaping, proximity, identifiers and fuzzy names, grammar, errors, recipes
 - [OUTPUT.md](OUTPUT.md) — output options, response format, condition ids, fragments, highlight, limits, pagination,
-  relevance, funnel, budget, facets, compact output, result ids, batches
+  relevance, funnel, budget, facets, compact output, result ids, batches, output to a file
 - [CONFIG.md](CONFIG.md) — config file, command line, allowed roots, defaults, ignore files, encodings, archives,
   kinds, git, languages and comment syntax, platforms, `get_config` and `update_config`
 - [TOOLS.md](TOOLS.md) — MCP side: stdio transport, versioning, tool descriptions and input schemas, results, errors,
@@ -55,7 +55,7 @@ The `find` request contains fields, all of them optional:
 | `since`     | result id: return only the differences to a previous result                  | [OUTPUT.md](OUTPUT.md#result-ids) |
 | `timeout`   | max search time, e.g. `10s`                                                  | [TOOLS.md](TOOLS.md#timeout)  |
 | `traversal` | depth, symlinks, hidden files, ignore files, excludes, binary files, max file size, encoding, archives | [CONFIG.md](CONFIG.md#traversal) |
-| `output`    | format, detail level, budget, funnel, facets, context, limits, sorting, compaction, highlight, cursor | [OUTPUT.md](OUTPUT.md#options) |
+| `output`    | format, detail level, budget, funnel, facets, context, limits, sorting, compaction, highlight, cursor, output to a file | [OUTPUT.md](OUTPUT.md#options) |
 | `escape`    | max escape level                                                             | [CONFIG.md](CONFIG.md#escape) |
 | `query_options` | fuzzy match threshold                                                    | [CONFIG.md](CONFIG.md#query)  |
 | `kinds`     | rules of `kind`: generated, test, doc, config                                | [CONFIG.md](CONFIG.md#kinds)  |
