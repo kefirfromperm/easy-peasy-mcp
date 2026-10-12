@@ -213,10 +213,10 @@ pub fn get_config_schema() -> Value {
 
 /// The description of the `update_config` tool (`TOOLS.md#update_config`).
 pub const UPDATE_CONFIG_DESCRIPTION: &str = "\
-Changes the search server configuration in memory until the server stops: any value except server.allowed_roots and
-server.allow_update. `set` is TOML like the config file, e.g. \"output.context = 2\" or
-\"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value is invalid, nothing
-changes. To change a value for one search only, pass it in the find request instead.";
+Changes the search server configuration in memory until the server stops: any value except the read-only ones of
+server (allowed_roots, allow_update, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.
+\"output.context = 2\" or \"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value
+is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.";
 
 /// The input schema of the `update_config` tool.
 #[must_use]

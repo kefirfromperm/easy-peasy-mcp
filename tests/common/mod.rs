@@ -728,7 +728,12 @@ pub fn check_file(
         .or_else(|| block.info.strip_prefix("json file "))?;
     let file = output_dir.join(path.trim());
     let output = output_dir.to_string_lossy();
-    let expected = placeholders(&block.text, block.info.starts_with("json "), fixture, &output);
+    let expected = placeholders(
+        &block.text,
+        block.info.starts_with("json "),
+        fixture,
+        &output,
+    );
     Some(match fs::read_to_string(&file) {
         Ok(actual) if same_response(example, &block.info, &expected, &actual) => Ok(()),
         Ok(actual) => Err(format!(
