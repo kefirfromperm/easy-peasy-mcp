@@ -557,6 +557,54 @@ mod tests {
         assert_eq!(render_plain(&c, &fragments), "1:a⟦#1:b\n2:cd\n3:e⟧f\n");
     }
 
+    /// The matched lines without context with `auto`, cut at `max` characters.
+    fn render_auto(c: &Content, fragments: &[Fragment], max: usize) -> String {
+        let blocks =
+            super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
+        render(c, fragments, &blocks, Highlight::Auto("⟦", "⟧"), max)
+    }
+
+    #[test]
+    fn auto_writes_plain_the_lines_which_markers_outgrow() {
+        let c = Content::from_bytes(b"a x b\nax b\n");
+        let fragments: Vec<Fragment> = c
+            .text()
+            .match_indices('x')
+            .map(|(i, _)| frag(i..i + 1, &[1]))
+            .collect();
+        assert_eq!(
+            render_auto(&c, &fragments, usize::MAX),
+            "1:a ⟦#1:x⟧ b\n2:ax b\n"
+        );
+        assert_eq!(render_plain(&c, &fragments), "1:a ⟦#1:x⟧ b\n2:a⟦#1:x⟧ b\n");
+        assert_eq!(
+            shown_line(&c, &fragments, 1, 0, Highlight::Auto("⟦", "⟧")),
+            "ax b"
+        );
+    }
+
+    #[test]
+    fn auto_counts_the_lines_of_a_multiline_fragment_together() {
+        let c = Content::from_bytes(b"a\nb\nlong\nline\n");
+        let fragments = vec![frag(0..3, &[1]), frag(4..13, &[1])];
+        assert_eq!(
+            render_auto(&c, &fragments, usize::MAX),
+            "1:a\n2:b\n3:⟦#1:long\n4:line⟧\n"
+        );
+    }
+
+    #[test]
+    fn auto_counts_the_line_as_it_is_cut() {
+        let c = Content::from_bytes(format!("x x x {}\n", "b".repeat(40)).as_bytes());
+        let fragments: Vec<Fragment> = c
+            .text()
+            .match_indices('x')
+            .map(|(i, _)| frag(i..i + 1, &[1]))
+            .collect();
+        assert!(render_auto(&c, &fragments, usize::MAX).starts_with("1:⟦#1:x⟧ ⟦#1:x⟧ ⟦#1:x⟧ b"));
+        assert_eq!(render_auto(&c, &fragments, 20), "1:x x x bb…\n");
+    }
+
     #[test]
     fn empty_fragments_of_empty_lines() {
         let c = Content::from_bytes(b"a\n\nb\n");
