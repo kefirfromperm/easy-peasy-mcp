@@ -71,9 +71,9 @@ files: 1  lines: 2  matches: 2  result: r1
 
 config/
 app.conf  [#1 #2]  lines: 2  matches: 2
-5:⟦#2:⟧
+5:
 --
-8:⟦#2:⟧
+8:
 ```
 
 ## E27.4 A tab and a non-ASCII letter are one character each
@@ -92,8 +92,8 @@ files: 1  lines: 2  matches: 2  result: r1
 
 config/
 tabs.txt  [#1 #2]  lines: 2  matches: 2
-1:⟦#2:	x⟧
-2:⟦#2:äöü⟧
+1:	x
+2:äöü
 ```
 
 ## E27.5 `len` with text conditions on the same line

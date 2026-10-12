@@ -1,6 +1,6 @@
 # Task 132: `highlight = auto` without markers which outgrow the line
 
-Status: not implemented
+Status: implemented, see [132__SUMMARY__AUTO_HIGHLIGHT.md](132__SUMMARY__AUTO_HIGHLIGHT.md)
 
 Depends on: task 87, task 131
 

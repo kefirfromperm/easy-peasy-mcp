@@ -85,7 +85,7 @@ files: 1  lines: 2  matches: 2  result: r1
 notes.md  [#1 #2]  lines: 2  matches: 2
 3:⟦#2,#3:## ⟧Install
 --
-7:⟦#2,#3:## ⟧Use
+7:## Use
 ```
 
 ## E131.4 `text starts '#!'`: the file starts with it

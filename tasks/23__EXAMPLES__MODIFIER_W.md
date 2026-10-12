@@ -35,7 +35,7 @@ files: 1  lines: 3  matches: 3  result: r1
 
 src/
 ids.rs  [#1]  lines: 3  matches: 3
-1:⟦#1:id⟧
+1:id
 --
 3:let id2 = ⟦#1:id⟧;
 4:user_id(⟦#1:id⟧)
@@ -55,7 +55,7 @@ files: 1  lines: 3  matches: 3  result: r1
 
 src/
 ids.rs  [#1]  lines: 3  matches: 3
-1:⟦#1:id⟧
+1:id
 --
 3:let id2 = ⟦#1:id⟧;
 4:user_id(⟦#1:id⟧)
@@ -75,7 +75,7 @@ files: 1  lines: 3  matches: 4  result: r1
 
 src/
 ids.rs  [#1]  lines: 3  matches: 4
-1:⟦#1:id⟧
+1:id
 --
 3:let ⟦#1:id2⟧ = ⟦#1:id⟧;
 4:user_id(⟦#1:id⟧)
@@ -97,7 +97,7 @@ files: 1  lines: 1  matches: 1  result: r1
 
 src/
 ids.rs  [#1]  lines: 1  matches: 1
-1:⟦#1:id⟧
+1:id
 ```
 
 ## E23.5 Next to punctuation

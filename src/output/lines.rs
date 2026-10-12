@@ -86,16 +86,27 @@ pub fn render(
         if block.indent > 0 {
             let _ = writeln!(out, "⇥{}", block.indent);
         }
+        let plain = match highlight {
+            Highlight::Auto(open, close) => {
+                plain_lines(content, &parts, block, [open, close], max_line_length)
+            }
+            _ => Vec::new(),
+        };
         for line in &block.lines {
             let separator = if line.matched { ':' } else { '-' };
             let _ = write!(out, "{}{separator}", line.index + 1);
+            let style = if plain.contains(&line.index) {
+                Highlight::None
+            } else {
+                highlight
+            };
             write_cut(
                 &mut out,
                 content,
                 &parts,
                 line.index,
                 block.indent,
-                highlight,
+                style,
                 max_line_length,
             );
             out.push('\n');
@@ -108,7 +119,7 @@ pub fn render(
 }
 
 /// The line with the 0-based index `i` without its first `skip` bytes, with the markers of the fragments for
-/// `markers`, as it is otherwise.
+/// `markers` and for `auto` unless they outgrow it, as it is otherwise.
 pub fn shown_line(
     content: &Content,
     fragments: &[Fragment],
@@ -116,16 +127,99 @@ pub fn shown_line(
     skip: usize,
     highlight: Highlight<'_>,
 ) -> String {
-    let mut out = String::new();
-    write_styled(
-        &mut out,
-        content,
-        &merge_overlapping(fragments),
-        i,
-        skip,
-        highlight,
-    );
-    out
+    let parts = merge_overlapping(fragments);
+    let styled = |highlight| {
+        let mut out = String::new();
+        write_styled(&mut out, content, &parts, i, skip, highlight);
+        out
+    };
+    let marked = styled(highlight);
+    if let Highlight::Auto(..) = highlight {
+        let plain = styled(Highlight::None);
+        if outgrown(plain.chars().count(), marked.chars().count()) {
+            return plain;
+        }
+    }
+    marked
+}
+
+/// The lines of the blocks which `auto` writes without markers (OUTPUT.md#highlight).
+pub(super) fn plain_lines_of(
+    content: &Content,
+    fragments: &[Fragment],
+    blocks: &[Block],
+    markers: [&str; 2],
+    max: usize,
+) -> Vec<usize> {
+    let parts = merge_overlapping(fragments);
+    blocks
+        .iter()
+        .flat_map(|block| plain_lines(content, &parts, block, markers, max))
+        .collect()
+}
+
+/// Whether markers which make a text of `plain` characters `marked` characters long outgrow it
+/// (OUTPUT.md#highlight).
+fn outgrown(plain: usize, marked: usize) -> bool {
+    marked - plain > plain
+}
+
+/// The lines of the block which `auto` writes without markers: those whose markers would add more characters than
+/// they have as they are shown, after the dedent and the cut. The lines joined by a part which goes on in the next
+/// line are counted together.
+fn plain_lines(
+    content: &Content,
+    parts: &[Part],
+    block: &Block,
+    markers: [&str; 2],
+    max: usize,
+) -> Vec<usize> {
+    let mut plain = Vec::new();
+    // the lines of the current group, their characters without and with the markers, the last line its parts reach
+    let mut group: Vec<usize> = Vec::new();
+    let (mut chars, mut marked, mut reach) = (0, 0, 0);
+    let mut flush = |group: &mut Vec<usize>, chars: &mut usize, marked: &mut usize| {
+        if outgrown(*chars, *marked) {
+            plain.append(group);
+        }
+        group.clear();
+        (*chars, *marked) = (0, 0);
+    };
+    for line in &block.lines {
+        let (start, end) = content.line_range(line.index);
+        // the parts are merged, so sorted by their starts and by their ends
+        let first = parts.partition_point(|p| p.range.end <= start && p.range.start < start);
+        let Some(last) = parts[first..]
+            .iter()
+            .take_while(|p| p.range.start <= end)
+            .last()
+        else {
+            continue;
+        };
+        if !group.is_empty() && line.index > reach {
+            flush(&mut group, &mut chars, &mut marked);
+        }
+        let shown = |highlight| {
+            let mut out = String::new();
+            write_cut(
+                &mut out,
+                content,
+                parts,
+                line.index,
+                block.indent,
+                highlight,
+                max,
+            );
+            out.chars().count()
+        };
+        chars += shown(Highlight::None);
+        marked += shown(Highlight::Markers(markers[0], markers[1]));
+        group.push(line.index);
+        let last_line = content.line_of(last.range.end.saturating_sub(1).max(last.range.start));
+        reach = reach.max(line.index).max(last_line);
+    }
+    flush(&mut group, &mut chars, &mut marked);
+    plain
 }
 
 /// Writes the line `i` from its byte `skip`, with the marked parts for `markers`.
@@ -137,8 +231,8 @@ fn write_styled(
     skip: usize,
     highlight: Highlight<'_>,
 ) {
-    if let Highlight::Markers(open, close) = highlight {
-        write_marked(out, content, parts, i, skip, [open, close]);
+    if let Some(markers) = highlight.markers() {
+        write_marked(out, content, parts, i, skip, markers);
     } else {
         let (start, end) = content.line_range(i);
         out.push_str(&content.text()[(start + skip).min(end)..end]);
@@ -316,11 +410,9 @@ fn write_cut(
         if n > 0 || window.start > from {
             out.push('…');
         }
-        match highlight {
-            Highlight::Markers(open, close) => {
-                write_window(out, content, parts, window.clone(), end, [open, close]);
-            }
-            _ => out.push_str(&content.text()[window.clone()]),
+        match highlight.markers() {
+            Some(markers) => write_window(out, content, parts, window.clone(), end, markers),
+            None => out.push_str(&content.text()[window.clone()]),
         }
     }
     if windows.last().is_some_and(|w| w.end < end) {
@@ -555,6 +647,54 @@ mod tests {
         let c = Content::from_bytes(b"ab\ncd\nef\n");
         let fragments = vec![frag(1..7, &[1])];
         assert_eq!(render_plain(&c, &fragments), "1:a⟦#1:b\n2:cd\n3:e⟧f\n");
+    }
+
+    /// The matched lines without context with `auto`, cut at `max` characters.
+    fn render_auto(c: &Content, fragments: &[Fragment], max: usize) -> String {
+        let blocks =
+            super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
+        render(c, fragments, &blocks, Highlight::Auto("⟦", "⟧"), max)
+    }
+
+    #[test]
+    fn auto_writes_plain_the_lines_which_markers_outgrow() {
+        let c = Content::from_bytes(b"a x b\nax b\n");
+        let fragments: Vec<Fragment> = c
+            .text()
+            .match_indices('x')
+            .map(|(i, _)| frag(i..i + 1, &[1]))
+            .collect();
+        assert_eq!(
+            render_auto(&c, &fragments, usize::MAX),
+            "1:a ⟦#1:x⟧ b\n2:ax b\n"
+        );
+        assert_eq!(render_plain(&c, &fragments), "1:a ⟦#1:x⟧ b\n2:a⟦#1:x⟧ b\n");
+        assert_eq!(
+            shown_line(&c, &fragments, 1, 0, Highlight::Auto("⟦", "⟧")),
+            "ax b"
+        );
+    }
+
+    #[test]
+    fn auto_counts_the_lines_of_a_multiline_fragment_together() {
+        let c = Content::from_bytes(b"a\nb\nlong\nline\n");
+        let fragments = vec![frag(0..3, &[1]), frag(4..13, &[1])];
+        assert_eq!(
+            render_auto(&c, &fragments, usize::MAX),
+            "1:a\n2:b\n3:⟦#1:long\n4:line⟧\n"
+        );
+    }
+
+    #[test]
+    fn auto_counts_the_line_as_it_is_cut() {
+        let c = Content::from_bytes(format!("x x x {}\n", "b".repeat(40)).as_bytes());
+        let fragments: Vec<Fragment> = c
+            .text()
+            .match_indices('x')
+            .map(|(i, _)| frag(i..i + 1, &[1]))
+            .collect();
+        assert!(render_auto(&c, &fragments, usize::MAX).starts_with("1:⟦#1:x⟧ ⟦#1:x⟧ ⟦#1:x⟧ b"));
+        assert_eq!(render_auto(&c, &fragments, 20), "1:x x x b…\n");
     }
 
     #[test]

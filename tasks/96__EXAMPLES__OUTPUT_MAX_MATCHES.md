@@ -64,7 +64,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)  next c
 
 ./
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3
 1:⟦#1:TODO⟧ TODO TODO
 c.txt  [#1]  lines: 1  matches: 2
@@ -119,7 +119,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_lines, max_match
 
 ./
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3
 1:⟦#1:TODO⟧ ⟦#1:TODO⟧ TODO
 c.txt  [#1]  lines: 1  matches: 2
@@ -140,13 +140,13 @@ files: 4  lines: 4  matches: 8  result: r1
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO TODO
 c.txt  [#1]  lines: 1  matches: 2
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO
 d/e.txt  [#1]  lines: 1  matches: 2
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO
 ```
 
 ## E96.6 For the session
@@ -269,7 +269,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)  next c
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3
 c.txt  [#1]  lines: 1  matches: 2
 d/e.txt  [#1]  lines: 1  matches: 2

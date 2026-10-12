@@ -48,5 +48,5 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "files: 11  lines: 11  matches: 11  result: r1\n#1 text has 'x'\n\nrepeated:\n  ×11 ⟦#1:x⟧    many/f01.txt:1, many/f02.txt:1, many/f03.txt:1, … 8 more\n"}], "isError": false}}
+{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "files: 11  lines: 11  matches: 11  result: r1\n#1 text has 'x'\n\nrepeated:\n  ×11 x    many/f01.txt:1, many/f02.txt:1, many/f03.txt:1, … 8 more\n"}], "isError": false}}
 ```

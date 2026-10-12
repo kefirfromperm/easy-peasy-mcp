@@ -156,7 +156,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches_per_file
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3  (cut)
 1:⟦#1:TODO⟧ TODO TODO
 c.txt  [#1]  lines: 1  matches: 2  (cut)

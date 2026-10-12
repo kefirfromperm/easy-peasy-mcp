@@ -2613,9 +2613,9 @@ files: 1  lines: 2  matches: 2  result: r6
 
 db/
 migrate.sql  [#1 #3]  lines: 2  matches: 2
-1:⟦#1,#2:BEGIN⟧;
+1:BEGIN;
 --
-3:⟦#3,#4:COMMIT⟧;
+3:COMMIT;
 ```
 
 ## E121.41 QUERY.md comments: matches inside comments are ignored with `/c`
@@ -2844,7 +2844,7 @@ files: 1  lines: 2  matches: 2  result: r3
 
 tests/
 api.rs  [#1]  lines: 2  matches: 2
-1:⟦#1,#2:#[test]⟧
+1:#[test]
 2:⟦#1,#3:#[ignore]⟧
 ```
 
