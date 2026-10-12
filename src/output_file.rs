@@ -41,7 +41,7 @@ impl Written {
 /// What the summary of a response keeps (OUTPUT.md#the-summary).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Head {
-    /// The text format: the first line of the response and its warnings (an empty line and the warning lines).
+    /// The text format: the header line of the response and its warnings (an empty line and the warning lines).
     Text { first: String, warnings: String },
     /// JSON: the document with the fields of the summary.
     Json(String),
@@ -52,6 +52,10 @@ impl Head {
     #[must_use]
     pub fn summary(&self, written: &Written) -> String {
         match self {
+            // a header whose parts are all left out by `output.omit` has no line
+            Self::Text { first, warnings } if first.is_empty() => {
+                format!("{}\n{warnings}", written.line())
+            }
             Self::Text { first, warnings } => format!("{first}\n{}\n{warnings}", written.line()),
             Self::Json(fields) => with_file(fields, written),
         }

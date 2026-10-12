@@ -17,7 +17,8 @@ use crate::hints;
 use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
-    BlockOptions, Change, Detail, Highlight, Hint, Limits, Page, Response, Since, Sort, sort_files,
+    BlockOptions, Change, Detail, Highlight, Hint, Limits, Omit, Page, Part, Response, Since, Sort,
+    sort_files,
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
@@ -480,7 +481,10 @@ impl Engine {
         search.first_only = settings.text(Key::Detail) == "exists";
         search.progress = progress.cloned();
         let detail = detail(settings);
-        search.funnel = settings.text(Key::Funnel) != "never" && detail >= Detail::Count;
+        // `omit = ["funnel"]` is `funnel = never`
+        search.funnel = settings.text(Key::Funnel) != "never"
+            && !omit(settings).has(Part::Funnel)
+            && detail >= Detail::Count;
         let facet_names = facet_names(settings, detail, &mut search);
         let threads = match search.threads {
             0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
@@ -555,7 +559,8 @@ impl Engine {
             max_files,
         )
         .filter(|_| search.funnel);
-        let hints = if shown.is_some() {
+        let omit = omit(settings);
+        let hints = if shown.is_some() && !omit.has(Part::Hints) {
             let cx = hints::Context {
                 working_dirs: &working_dirs,
                 parse: &parse,
@@ -584,13 +589,7 @@ impl Engine {
         } else {
             self.keep_result(settings, arguments, &working_dirs, &files)
         };
-        let (files, since) = match since {
-            Some(kept) => {
-                let (changed, since) = differences(&kept, files);
-                (changed, Some(since))
-            }
-            None => (files, None),
-        };
+        let (files, since) = shown_files(since, files, omit);
         let json = settings.text(Key::Format) == "json";
         let (limits, budget) = if in_file {
             file_limits(settings, request)
@@ -617,6 +616,7 @@ impl Engine {
             files: &files,
             warnings: &warnings,
             timed_out,
+            omit,
         };
         let (text, response) = match budget {
             Some(budget) => {
@@ -625,7 +625,7 @@ impl Engine {
             None if json => (response.to_json(), response),
             None => (response.to_text(), response),
         };
-        let head = head(&text, &response, json);
+        let head = head(&response, json);
         (text, head, result_id)
     }
 
@@ -1116,13 +1116,13 @@ fn limits(settings: &Settings) -> Limits {
     }
 }
 
-/// The head of the summary of a response: its first line and its warnings, or its summary fields in JSON.
-fn head(text: &str, response: &Response<'_>, json: bool) -> Head {
+/// The head of the summary of a response: its header line and its warnings, or its summary fields in JSON.
+fn head(response: &Response<'_>, json: bool) -> Head {
     if json {
         Head::Json(response.summary_json())
     } else {
         Head::Text {
-            first: text.lines().next().unwrap_or_default().to_string(),
+            first: response.header_line(),
             warnings: response.warnings_text(),
         }
     }
@@ -1140,6 +1140,47 @@ fn answers(sections: Sections<Answer>) -> (Sections<String>, Sections<Head>) {
             Err(report) => ((label.clone(), Err(report.clone())), (label, Err(report))),
         })
         .unzip()
+}
+
+/// The parts of the response left out by `output.omit` (OUTPUT.md#omit).
+fn omit(settings: &Settings) -> Omit {
+    Omit::from_value(settings.value(Key::Omit))
+}
+
+/// The files of a response: the differences to the kept result of `since`, if any; without the ids of their
+/// fragments when `match_ids` is left out.
+fn shown_files(
+    since: Option<CachedResult>,
+    files: Vec<search::Found>,
+    omit: Omit,
+) -> (Vec<search::Found>, Option<Since>) {
+    let (mut files, since) = match since {
+        Some(kept) => {
+            let (changed, since) = differences(&kept, files);
+            (changed, Some(since))
+        }
+        None => (files, None),
+    };
+    if omit.has(Part::MatchIds) {
+        without_ids(&mut files);
+    }
+    (files, since)
+}
+
+/// The files without the ids and the escape levels of their fragments and path fragments: `match_ids` is left out.
+fn without_ids(files: &mut [search::Found]) {
+    let fragments = files.iter_mut().flat_map(|file| {
+        let lines = file.matches.iter_mut().flat_map(|m| m.fragments.iter_mut());
+        let path = file
+            .path_fragments
+            .iter_mut()
+            .flat_map(|p| p.fragments.iter_mut());
+        lines.chain(path)
+    });
+    for fragment in fragments {
+        fragment.ids.clear();
+        fragment.escape = None;
+    }
 }
 
 /// The output fields of the arguments of a batch item: the shared format, and its parts of the shared `budget` and

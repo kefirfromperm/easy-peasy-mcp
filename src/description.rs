@@ -31,7 +31,7 @@ OUTPUT: output.detail = exists | count | facets | files | lines (default); outpu
 output.budget = N tokens: the server picks the richest detail which fits. By default files are sorted by relevance.
 Text response with the default options: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match,
 [#1 @x] matched conditions, ⇥N removed indentation; empty or huge results come with a funnel and hints how to fix
-the query.
+the query. output.omit = ['legend', 'line_numbers', ...] or 'all' leaves those parts out.
 If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
@@ -131,6 +131,13 @@ const FIND_SCHEMA: &str = r##"{
         "group_repeated": { "type": "integer", "minimum": 0 },
         "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
         "path_style": { "enum": ["relative", "absolute"] },
+        "omit": {
+          "anyOf": [
+            { "type": "array", "items": { "enum": ["counts", "result", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "line_numbers", "gaps", "indent", "warnings"] } },
+            { "enum": ["all"] }
+          ],
+          "description": "Parts of the response to leave out, or \"all\"."
+        },
         "cursor": { "type": "string" },
         "file": {
           "type": ["string", "boolean"],

@@ -111,6 +111,7 @@ const SECTIONS: [(&str, &[&str]); 8] = [
             "group_repeated",
             "sort",
             "path_style",
+            "omit",
         ],
     ),
     ("escape", &["max_level"]),

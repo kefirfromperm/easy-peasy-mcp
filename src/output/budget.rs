@@ -160,6 +160,7 @@ mod tests {
             files,
             warnings,
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
     }
 
