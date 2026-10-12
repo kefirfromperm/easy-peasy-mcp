@@ -39,6 +39,21 @@ jobs:
         run: cargo test --all-targets
       - name: Release build
         run: cargo build --release
+      # the install scripts of INSTALL.md, building from this checkout into a temporary directory
+      - name: Lint install.sh
+        if: runner.os == 'Linux'
+        run: shellcheck install.sh
+      - name: Install script
+        if: runner.os != 'Windows'
+        run: |
+          ./install.sh --build --dir "$RUNNER_TEMP/bin"
+          "$RUNNER_TEMP/bin/easy-peasy-mcp" --version
+      - name: Install script
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call install.bat --build --dir "%RUNNER_TEMP%\bin" --no-path || exit /b 1
+          "%RUNNER_TEMP%\bin\easy-peasy-mcp.exe" --version || exit /b 1
       - uses: actions/upload-artifact@v4
         with:
           name: easy-peasy-mcp-${{ runner.os }}-${{ runner.arch }}
