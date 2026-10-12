@@ -212,3 +212,19 @@ Status column repeats it.
 | 122 | [The cursor of a file list cut by the budget](122__TASK__BUDGET_CURSOR.md) | 108, 101 | not implemented |
 | 123 | [Hints for an empty fuzzy result](123__TASK__FUZZY_HINTS.md) | 103, 62 | not implemented |
 | 124 | [No line for a facet without values](124__TASK__EMPTY_FACET.md) | 105 | not implemented |
+
+## Write tools
+
+| # | Task | Depends on | Status |
+|---|------|------------|--------|
+| 125 | [`delete` tool](125__TASK__DELETE_TOOL.md) | 111, 115, 120 | not implemented |
+| 126 | [`rename` tool](126__TASK__RENAME_TOOL.md) | 125 | not implemented |
+| 127 | [`copy` tool](127__TASK__COPY_TOOL.md) | 126 | not implemented |
+
+## Groups and replace
+
+| # | Task | Depends on | Status |
+|---|------|------------|--------|
+| 128 | [Query groups](128__TASK__QUERY_GROUPS.md) | 7, 22 | not implemented |
+| 129 | [`replace` tool](129__TASK__REPLACE_TOOL.md) | 125, 128 | not implemented |
+| 130 | [Output limited to groups](130__TASK__OUTPUT_GROUPS.md) | 128 | not implemented |
