@@ -442,7 +442,7 @@ impl Response<'_> {
             .next
             .map(|(file, fragment)| (start + file, fragment));
         if self.files_cut() {
-            let after = (start + self.limits.max_files, 0);
+            let after = (start + self.files_limit(), 0);
             next = Some(next.map_or(after, |n| n.min(after)));
         }
         let (file, fragment) = next.filter(|(file, _)| *file < self.files.len())?;
