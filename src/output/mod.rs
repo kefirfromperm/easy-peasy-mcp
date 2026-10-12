@@ -1011,4 +1011,58 @@ mod tests {
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
     }
+
+    /// The file where the next page starts: a list of 12 files from the third one, cut to `budget_files`.
+    fn next_file(max_files: usize, budget_files: usize) -> Option<usize> {
+        let files: Vec<Found> = (0..12).map(|i| found(&format!("f{i:02}.rs"))).collect();
+        let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
+        let response = Response {
+            detail: Detail::Files,
+            blocks: BlockOptions::default(),
+            group_dirs: true,
+            group_repeated: 3,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page {
+                file: 2,
+                fragment: 0,
+                hash: Some("0123abcd".to_string()),
+            },
+            funnel: None,
+            hints: Vec::new(),
+            facets: Vec::new(),
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits {
+                max_files,
+                budget_files,
+                ..Limits::default()
+            },
+            result_id: None,
+            legend: &legend,
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+        };
+        let listing = Listing::without_lines(response.listed(), &response.limits);
+        let cursor = response.next_cursor(&listing)?;
+        Some(
+            crate::cursor::Cursor::decode(&cursor)
+                .expect("a cursor the server made")
+                .file,
+        )
+    }
+
+    #[test]
+    fn the_cursor_of_a_budget_list_starts_after_the_files_listed() {
+        // max_files reaches past the end, the budget cuts the list
+        assert_eq!(next_file(100, 4), Some(6));
+        // max_files is inside the list, the budget cuts it shorter
+        assert_eq!(next_file(8, 4), Some(6));
+        // max_files alone
+        assert_eq!(next_file(8, usize::MAX), Some(10));
+        // everything fits
+        assert_eq!(next_file(100, usize::MAX), None);
+    }
 }
