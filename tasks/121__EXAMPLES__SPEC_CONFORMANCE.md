@@ -4967,6 +4967,7 @@ group_dirs = true    # file: config.toml
 group_repeated = 3    # file: config.toml
 sort = "relevance"    # file: config.toml
 path_style = "relative"    # file: config.toml
+omit = []    # default
 
 [escape]
 max_level = 3    # file: config.toml

@@ -253,6 +253,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 
 [escape]
 max_level = 3

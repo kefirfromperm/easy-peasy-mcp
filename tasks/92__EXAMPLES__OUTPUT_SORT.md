@@ -58,6 +58,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E92.2 By path
@@ -286,6 +287,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "modified asc"    # update
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 ## E92.8 An invalid value in a request

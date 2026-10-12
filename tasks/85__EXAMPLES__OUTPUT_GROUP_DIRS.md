@@ -65,6 +65,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E85.2 Full paths in a request
@@ -159,6 +160,7 @@ group_dirs = false    # update
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 ## E85.4 An invalid value in a request
@@ -238,6 +240,7 @@ group_dirs = false    # file: conf/o.toml
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 2. `find`

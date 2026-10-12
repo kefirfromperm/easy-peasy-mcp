@@ -136,6 +136,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 
 [escape]
 max_level = 3    # default
@@ -659,6 +660,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 
 [escape]
 max_level = 3    # default
