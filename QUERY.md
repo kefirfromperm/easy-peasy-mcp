@@ -666,6 +666,8 @@ and case changes), consecutive, in the file name rather than in directories, and
 shorter. With several terms the score is computed for each term and averaged. Matches
 below [`query.fuzzy_min_score`](CONFIG.md#query) (default 0.5) are dropped. The score is one of the
 [relevance](OUTPUT.md#relevance) signals, so with the default `sort = relevance` the best matches tend to come first.
+When `~~` finds nothing, the [hints](OUTPUT.md#hints) show the files it would match with a lower
+`fuzzy_min_score` and, for `name ~~`, what `path ~~` finds.
 
 ## Labels and condition ids
 
