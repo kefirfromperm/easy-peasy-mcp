@@ -203,3 +203,11 @@ The roadmap from the MVP to the whole specification. How a task is worked on is 
 | # | Task | Depends on |
 |---|------|------------|
 | 121 | [Spec examples as tests](121__TASK__SPEC_CONFORMANCE.md) | 117, 119, 120 |
+
+## Fixes from use
+
+| # | Task | Depends on |
+|---|------|------------|
+| 122 | [The cursor of a file list cut by the budget](122__TASK__BUDGET_CURSOR.md) | 108, 101 |
+| 123 | [Hints for an empty fuzzy result](123__TASK__FUZZY_HINTS.md) | 103, 62 |
+| 124 | [No line for a facet without values](124__TASK__EMPTY_FACET.md) | 105 |
