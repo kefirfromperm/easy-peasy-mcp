@@ -705,7 +705,9 @@ Values are sorted by count, more than `facet_limit` values end with `… 5 more 
 - `ext`: the extension without the dot, `(none)` for a file without one; `git`: `modified`, `staged`, `untracked`,
   `conflicted`, `clean` — a file can be counted in several, a file outside of a repository in none; `condition`:
   the ids in the order of the legend for equal counts
-- equal counts are in the order of the values; a value with no files is not listed
+- equal counts are in the order of the values; a value with no files is not listed; a facet with no values at all
+  (`condition` of the empty query, `git` outside of a repository) has no line in the text format and is an empty
+  object `{}` in JSON, so the keys of `"facets"` are always the ones of `output.facets`
 - the text format: the facet name and `:` in a column of 12 characters, `value count` joined with ` · `, the values
   over the limit as ` · … N more (M)` — `N` values with `M` files; after the legend and the funnel, without files
 - JSON: `"facets"` after `hints`, an object per facet with the values in their order and the values over the limit as

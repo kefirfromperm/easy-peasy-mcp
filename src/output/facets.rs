@@ -21,6 +21,12 @@ pub struct Facet {
 }
 
 impl Facet {
+    /// Whether no matched file has a value of the facet: it has no line in the text format.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
     /// The text line: the name in its column, the first `limit` values, `… N more (M)`.
     #[must_use]
     pub fn line(&self, limit: usize) -> String {

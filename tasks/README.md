@@ -211,7 +211,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 |---|------|------------|--------|
 | 122 | [The cursor of a file list cut by the budget](122__TASK__BUDGET_CURSOR.md) | 108, 101 | ✅ |
 | 123 | [Hints for an empty fuzzy result](123__TASK__FUZZY_HINTS.md) | 103, 62 | ✅ |
-| 124 | [No line for a facet without values](124__TASK__EMPTY_FACET.md) | 105 | ⬜ |
+| 124 | [No line for a facet without values](124__TASK__EMPTY_FACET.md) | 105 | ✅ |
 | 131 | [The file and the line scope of `text` in the tool description](131__TASK__TEXT_SCOPE_DESCRIPTION.md) | 117 | ⬜ |
 | 132 | [`highlight = auto` without markers which outgrow the line](132__TASK__AUTO_HIGHLIGHT.md) | 87, 131 | ⬜ |
 
