@@ -1,6 +1,6 @@
 # Task 124: No line for a facet without values
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 105
 
