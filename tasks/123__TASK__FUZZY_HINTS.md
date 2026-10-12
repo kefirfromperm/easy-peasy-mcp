@@ -1,6 +1,6 @@
 # Task 123: Hints for an empty fuzzy result
 
-Status: in progress
+Status: implemented, see [123__SUMMARY__FUZZY_HINTS.md](123__SUMMARY__FUZZY_HINTS.md)
 
 Depends on: task 103, task 62
 
