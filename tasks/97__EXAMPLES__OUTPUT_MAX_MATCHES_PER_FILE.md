@@ -63,14 +63,14 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches_per_file
 
 ./
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3  (cut)
 1:⟦#1:TODO⟧ ⟦#1:TODO⟧ TODO
 c.txt  [#1]  lines: 1  matches: 2
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO
 d/
 e.txt  [#1]  lines: 1  matches: 2
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO
 ```
 
 ## E97.3 In JSON
@@ -113,7 +113,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches, max_mat
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3  (cut)
 1:⟦#1:TODO⟧ TODO TODO
 c.txt  [#1]  lines: 1  matches: 2  (cut)

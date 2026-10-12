@@ -68,7 +68,7 @@ c.rs  [#1 #2]  lines: 3  matches: 3
 1:⟦#2:// Unwrap is only mentioned in this comment⟧
 2:⟦#2:fn c() {⟧
 --
-8:⟦#2:}⟧
+8:}
 ```
 
 ## E26.4 `not` before a group: no line matches
@@ -130,7 +130,7 @@ a.rs  [@calls]  lines: 2  matches: 3
 2:let x = foo.⟦@calls,@unwrap:unwrap(⟧);
 3:let y = bar.⟦@calls,@unwrap:unwrap(⟧).baz.⟦@calls,@unwrap:unwrap(⟧);
 b.rs  [@calls]  lines: 1  matches: 2
-2:let v = ⟦@calls,@parse:parse(⟧).⟦@calls,@unwrap:unwrap(⟧);
+2:let v = parse().unwrap();
 ```
 
 ## E26.7 A file target inside a group

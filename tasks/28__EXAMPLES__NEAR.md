@@ -229,7 +229,7 @@ files: 1  lines: 2  matches: 2  result: r1
 
 src/
 tests.rs  [#1]  lines: 2  matches: 2
-3:⟦#1,#2:#[test]⟧
+3:#[test]
 4:⟦#1,#3:#[ignore]⟧
 ```
 
@@ -271,8 +271,8 @@ files: 1  lines: 2  matches: 2  result: r1
 
 src/
 tie.txt  [#1 #2]  lines: 2  matches: 2
-1:⟦#2,#4:b⟧
-2:⟦#2,#3:a⟧
+1:b
+2:a
 ```
 
 ## E28.12 Unknown option

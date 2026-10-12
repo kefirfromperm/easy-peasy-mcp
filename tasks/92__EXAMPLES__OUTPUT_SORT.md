@@ -183,13 +183,13 @@ files: 4  lines: 4  matches: 8  result: r1
 #1 text has 'TODO'
 
 b.txt  [#1]  lines: 1  matches: 3
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO TODO
 c.txt  [#1]  lines: 1  matches: 2
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO
 d/e.txt  [#1]  lines: 1  matches: 2
-1:⟦#1:TODO⟧ ⟦#1:TODO⟧
+1:TODO TODO
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 ```
 
 ## E92.6 In JSON

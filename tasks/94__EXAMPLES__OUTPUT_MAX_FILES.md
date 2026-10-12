@@ -80,7 +80,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_files)  next cur
 
 ./
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 ```
 
 ## E94.4 In JSON
