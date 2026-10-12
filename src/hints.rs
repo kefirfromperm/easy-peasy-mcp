@@ -333,3 +333,49 @@ fn narrow(files: &[Found], query: &Query) -> Vec<String> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn files(scores: &[(&str, f64)]) -> Vec<(String, f64)> {
+        scores.iter().map(|(f, s)| ((*f).to_string(), *s)).collect()
+    }
+
+    #[test]
+    fn below_the_threshold_best_first() {
+        let hint = below_hint(
+            "name ~~ 'e'",
+            0.5,
+            files(&[
+                ("README.md", 0.0822),
+                ("parse.rs", 0.0825),
+                ("parser.rs", 0.0822),
+                ("lexer.rs", 0.0825),
+            ]),
+        );
+        assert_eq!(
+            hint,
+            Some(Hint::Line(
+                "name ~~ 'e': below query_options.fuzzy_min_score 0.5: parse.rs 0.08, lexer.rs 0.08, README.md 0.08"
+                    .to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn scores_rounded_down() {
+        let hint = below_hint("path ~~ 'x'", 1.0, files(&[("a", 0.999), ("b", 0.5488)]));
+        assert_eq!(
+            hint,
+            Some(Hint::Line(
+                "path ~~ 'x': below query_options.fuzzy_min_score 1: a 0.99, b 0.54".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn nothing_below() {
+        assert_eq!(below_hint("name ~~ 'x'", 0.5, Vec::new()), None);
+    }
+}

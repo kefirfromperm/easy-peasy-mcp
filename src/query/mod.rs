@@ -1396,7 +1396,10 @@ mod tests {
             .unwrap()
             .steps
             .into_iter()
-            .map(|s| (s.condition, s.variations))
+            .map(|s| {
+                let texts = s.variations.into_iter().map(|v| v.text).collect();
+                (s.condition, texts)
+            })
             .collect()
     }
 
@@ -1426,7 +1429,8 @@ mod tests {
         );
         assert!(variations("text has 'x' /i")[0].1.is_empty());
         assert!(variations("size > 1K")[0].1.is_empty());
-        assert!(variations("name ~~ 'cfg'")[0].1.is_empty());
+        assert_eq!(variations("name ~~ 'cfg'")[0].1, ["path ~~ 'cfg'"]);
+        assert!(variations("path ~~ 'cfg'")[0].1.is_empty());
         assert_eq!(
             variations("(text has 'a b')")[0].1,
             ["text has 'a b' /i", "text has 'a b' /n"]
@@ -1434,6 +1438,23 @@ mod tests {
         let steps = variations("lang = rust and (text has 'a' or text has 'b')");
         assert_eq!(steps[1].0, "(text has 'a' or text has 'b')");
         assert!(steps[1].1.is_empty(), "a group has no variations");
+    }
+
+    #[test]
+    fn the_fuzzy_steps() {
+        let step = |q: &str| parse(q, &SENSITIVE).unwrap().funnel.unwrap().steps;
+        let name = step("name ~~ 'cfg'");
+        assert_eq!(name[0].fuzzy, Some(Target::Name));
+        assert_eq!(
+            name[0].variations,
+            [Variation {
+                text: "path ~~ 'cfg'".to_string(),
+                target: Target::Path
+            }]
+        );
+        assert_eq!(step("path ~~ 'cfg'")[0].fuzzy, Some(Target::Path));
+        assert_eq!(step("name has 'cfg'")[0].fuzzy, None);
+        assert_eq!(step("text has 'x'")[0].variations[0].target, Target::Text);
     }
 
     #[test]
