@@ -693,6 +693,56 @@ fn run_setup(root: &Path, action: &str) {
     }
 }
 
+/// The canonical path of an existing `path` in the form the server shows it.
+pub fn canonical(path: &Path) -> PathBuf {
+    without_verbatim_prefix(fs::canonicalize(path).unwrap())
+}
+
+/// The text of a block with `<version>`, `<fixture>` and `<output_dir>` replaced (AGENTS.md); in a JSON block the
+/// paths are written as in a JSON string.
+pub fn placeholders(text: &str, json: bool, fixture: &str, output_dir: &str) -> String {
+    let shown = |path: &str| {
+        if json {
+            let quoted = serde_json::to_string(path).unwrap();
+            quoted[1..quoted.len() - 1].to_string()
+        } else {
+            path.to_string()
+        }
+    };
+    text.replace("<version>", env!("CARGO_PKG_VERSION"))
+        .replace("<fixture>", &shown(fixture))
+        .replace("<output_dir>", &shown(output_dir))
+}
+
+/// The check of a `text file <path>` or `json file <path>` block: the content of the file `<path>` of `output_dir`
+/// compared like a response; `None` for another block.
+pub fn check_file(
+    example: &Example,
+    block: &Block,
+    fixture: &str,
+    output_dir: &Path,
+) -> Option<Result<(), String>> {
+    let path = block
+        .info
+        .strip_prefix("text file ")
+        .or_else(|| block.info.strip_prefix("json file "))?;
+    let file = output_dir.join(path.trim());
+    let output = output_dir.to_string_lossy();
+    let expected = placeholders(
+        &block.text,
+        block.info.starts_with("json "),
+        fixture,
+        &output,
+    );
+    Some(match fs::read_to_string(&file) {
+        Ok(actual) if same_response(example, &block.info, &expected, &actual) => Ok(()),
+        Ok(actual) => Err(format!(
+            "the file {path}: expected:\n{expected}\nactual:\n{actual}"
+        )),
+        Err(e) => Err(format!("the file {path} can't be read: {e}")),
+    })
+}
+
 /// A canonical path in the form the server shows it: on Windows without the `\\?\` prefix (OUTPUT.md#paths).
 fn without_verbatim_prefix(path: PathBuf) -> PathBuf {
     let text = path.to_string_lossy();

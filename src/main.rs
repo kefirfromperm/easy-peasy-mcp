@@ -8,8 +8,8 @@ use easy_peasy_mcp::{Engine, EngineOptions, SPEC_VERSION, config, mcp::Server};
 use rmcp::ServiceExt as _;
 
 const USAGE: &str = "usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] \
-[--log-level <level>]
-               [--version]";
+[--output-dir <dir>]
+               [--log-level <level>] [--version]";
 
 /// What the command line asks for.
 enum Command {
@@ -55,6 +55,9 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
                 cli.timeout = Some(timeout.clone());
             }
             "--no-update" if !cli.no_update => cli.no_update = true,
+            "--output-dir" if cli.output_dir.is_none() => {
+                cli.output_dir = Some(args.next().ok_or(ArgError::Usage)?.clone());
+            }
             _ => return Err(ArgError::Usage),
         }
     }

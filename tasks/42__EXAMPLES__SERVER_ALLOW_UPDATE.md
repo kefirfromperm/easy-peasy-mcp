@@ -22,7 +22,7 @@ Fixture: `allow-update`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -31,6 +31,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 ## E42.2 Read-only for `update_config`
@@ -75,7 +77,7 @@ error[update_disabled]: update_config is disabled
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -84,6 +86,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = false    # cli
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default
@@ -596,7 +600,7 @@ easy-peasy-mcp --config conf/u.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -605,6 +609,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = false    # file: conf/u.toml
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default

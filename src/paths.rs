@@ -1,7 +1,7 @@
 //! Canonical paths in the form the agent reads: on Windows without the `\\?\` prefix where the path means the same
 //! without it (OUTPUT.md#paths).
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 /// `std::fs::canonicalize` in the form the agent reads: on Windows without the `\\?\` prefix where the path means
 /// the same without it, like the `dunce` crate does.
@@ -13,6 +13,49 @@ pub fn canonicalize(path: &Path) -> std::io::Result<PathBuf> {
         return Ok(PathBuf::from(plain));
     }
     Ok(canonical)
+}
+
+/// The canonical form of a path which needn't exist: `.` and `..` resolved without the file system, then its longest
+/// existing part canonicalized and the rest appended.
+#[must_use]
+pub fn canonical_prefix(path: &Path) -> PathBuf {
+    let normal = normalize(path);
+    let mut existing = normal.as_path();
+    let mut rest = Vec::new();
+    loop {
+        if let Ok(canonical) = canonicalize(existing) {
+            return rest
+                .iter()
+                .rev()
+                .fold(canonical, |path, name| path.join(name));
+        }
+        match (existing.parent(), existing.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name.to_os_string());
+                existing = parent;
+            }
+            _ => return normal,
+        }
+    }
+}
+
+/// A path with `.` and `..` resolved without the file system; `..` at the root stays there.
+fn normalize(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match out.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    out.pop();
+                }
+                Some(Component::RootDir | Component::Prefix(_)) => {}
+                _ => out.push(".."),
+            },
+            other => out.push(other),
+        }
+    }
+    out
 }
 
 /// The longest path Windows takes without the `\\?\` prefix: `MAX_PATH` without the terminating zero.
@@ -97,6 +140,23 @@ mod tests {
         }
         let long = format!(r"\\?\C:\{}", "a".repeat(300));
         assert_eq!(simplified(&long), None);
+    }
+
+    #[test]
+    fn a_path_which_does_not_exist_yet() {
+        let tmp = tempfile::tempdir().unwrap();
+        let base = canonicalize(tmp.path()).unwrap();
+        assert_eq!(
+            canonical_prefix(&tmp.path().join("a/./b/../c")),
+            base.join("a").join("c")
+        );
+        assert_eq!(
+            canonical_prefix(&tmp.path().join("..")),
+            base.parent().unwrap()
+        );
+        assert_eq!(normalize(Path::new("../a/..")), Path::new(".."));
+        assert_eq!(normalize(Path::new("../..")), Path::new("../.."));
+        assert_eq!(normalize(Path::new("/a/../../b")), Path::new("/b"));
     }
 
     #[test]

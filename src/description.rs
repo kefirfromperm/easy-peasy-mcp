@@ -36,6 +36,7 @@ If the response has next_cursor, pass it back as output.cursor with the same req
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
 queries = [{label, query}, ...] runs several queries in one call.
+output.file = 'x.txt' writes the response to a file under the output dir and returns its path; for big results.
 
 EXAMPLES
   name ~ '*.py' and text has 'import requests'
@@ -130,7 +131,11 @@ const FIND_SCHEMA: &str = r##"{
         "group_repeated": { "type": "integer", "minimum": 0 },
         "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
         "path_style": { "enum": ["relative", "absolute"] },
-        "cursor": { "type": "string" }
+        "cursor": { "type": "string" },
+        "file": {
+          "type": ["string", "boolean"],
+          "description": "Write the response to this file under server.output_dir and return its path; true: a name like r12.txt."
+        }
       }
     },
     "escape": {
@@ -208,10 +213,10 @@ pub fn get_config_schema() -> Value {
 
 /// The description of the `update_config` tool (`TOOLS.md#update_config`).
 pub const UPDATE_CONFIG_DESCRIPTION: &str = "\
-Changes the search server configuration in memory until the server stops: any value except server.allowed_roots and
-server.allow_update. `set` is TOML like the config file, e.g. \"output.context = 2\" or
-\"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value is invalid, nothing
-changes. To change a value for one search only, pass it in the find request instead.";
+Changes the search server configuration in memory until the server stops: any value except the read-only ones of
+server (allowed_roots, allow_update, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.
+\"output.context = 2\" or \"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value
+is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.";
 
 /// The input schema of the `update_config` tool.
 #[must_use]

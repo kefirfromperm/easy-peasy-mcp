@@ -20,14 +20,19 @@ fn tokens(text: &str, chars_per_token: f64) -> usize {
 
 /// The response written in its format at the first level of the budget it fits in: as requested, without context
 /// lines, lines cut to 120 characters, the files (as many as fit, at least 10 or all), the facets, the counts; never
-/// above the requested detail.
-pub fn fit(mut response: Response<'_>, budget: usize, chars_per_token: f64, json: bool) -> String {
+/// above the requested detail; the response at that level.
+pub fn fit(
+    mut response: Response<'_>,
+    budget: usize,
+    chars_per_token: f64,
+    json: bool,
+) -> (String, Response<'_>) {
     let render = |r: &Response<'_>| if json { r.to_json() } else { r.to_text() };
     let fits = |text: &str| tokens(text, chars_per_token) <= budget;
     let text = render(&response);
     let requested = response.detail;
     if fits(&text) || requested <= Detail::Count {
-        return text;
+        return (text, response);
     }
     let lower = |response: &mut Response<'_>, detail: Detail| {
         response.detail = detail;
@@ -42,12 +47,12 @@ pub fn fit(mut response: Response<'_>, budget: usize, chars_per_token: f64, json
         response.blocks.after = 0;
         let text = render(&response);
         if fits(&text) {
-            return text;
+            return (text, response);
         }
         response.limits.max_line_length = response.limits.max_line_length.min(CUT_LINES);
         let text = render(&response);
         if fits(&text) {
-            return text;
+            return (text, response);
         }
     }
     if requested >= Detail::Files {
@@ -72,17 +77,17 @@ pub fn fit(mut response: Response<'_>, budget: usize, chars_per_token: f64, json
         }
         if low == all || low >= MIN_FILES {
             response.limits.budget_files = low;
-            return render(&response);
+            return (render(&response), response);
         }
         response.limits.budget_files = usize::MAX;
     }
     lower(&mut response, Detail::Facets.min(requested));
     let text = render(&response);
     if requested >= Detail::Facets && fits(&text) {
-        return text;
+        return (text, response);
     }
     lower(&mut response, Detail::Count);
-    render(&response)
+    (render(&response), response)
 }
 
 #[cfg(test)]
@@ -164,7 +169,8 @@ mod tests {
         let files: Vec<Found> = (0..12).map(|i| file(&format!("f{i:02}"), &long)).collect();
         let legend = [(CondId::Number(1), "text has 'x'".to_string())];
         let warnings = Warnings::default();
-        let fitted = |budget: usize| fit(response(&files, &legend, &warnings), budget, 4.0, false);
+        let fitted =
+            |budget: usize| fit(response(&files, &legend, &warnings), budget, 4.0, false).0;
         // without the context lines of 200 characters the lines fit
         let text = fitted(600);
         assert!(
@@ -191,7 +197,7 @@ mod tests {
         }];
         big.facet_limit = 100;
         assert_eq!(
-            fit(big, 100, 4.0, false),
+            fit(big, 100, 4.0, false).0,
             "files: 12  lines: 12  matches: 12  detail: count (budget 100)  truncated: yes (budget)\n"
         );
     }
@@ -204,7 +210,7 @@ mod tests {
         let mut paged = response(&files, &legend, &warnings);
         paged.page.hash = Some("0123abcd".to_string());
         // all 11 files fit; 10 or 9 don't, with the next cursor of the cut list
-        let text = fit(paged, 116, 4.0, false);
+        let text = fit(paged, 116, 4.0, false).0;
         assert!(text.starts_with("files: 11  lines: 11  matches: 11  detail: files (budget 116)  truncated: yes (budget)\n"), "{text}");
         assert!(text.contains("f10  [#1]"), "all the files: {text}");
     }

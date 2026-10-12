@@ -22,6 +22,7 @@ full.
 - [Compact output](#compact-output)
 - [Result ids](#result-ids)
 - [Batch](#batch)
+- [Output to a file](#output-to-a-file)
 - [Warnings](#warnings)
 - [Errors](#errors)
 - [Examples](#examples)
@@ -29,7 +30,7 @@ full.
 ## Options
 
 The `output` field of the `find` request. Every option is optional; missing ones are taken from the configuration,
-except `cursor`, which has no default. The time limit is the `timeout` field of the request, see
+except `cursor` and `file`, which have no default and are not configuration keys. The time limit is the `timeout` field of the request, see
 [TOOLS.md](TOOLS.md#timeout).
 
 ```json
@@ -76,6 +77,7 @@ except `cursor`, which has no default. The time limit is the `timeout` field of 
 | `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
 | `path_style`           | `relative`, `absolute`                          | `relative` | how paths are written                                     |
 | `cursor`               | string                                          | —          | continue a truncated response, see [Pagination](#pagination) |
+| `file`                 | a path, `true`, `false`                         | —          | write the response to a file and return a summary, see [Output to a file](#output-to-a-file) |
 
 ## Detail levels
 
@@ -443,6 +445,7 @@ and no `fragments`, with `none` neither.
 | `max_matches_per_file` | fragments of one file                        | next fragments of this file are not listed, the next file is processed |
 | `max_output_per_file`  | characters of lines and context of one file  | next lines of this file are not listed, the next file is processed |
 | `max_output`           | characters of the whole response             | next lines and files are not listed              |
+| `max_output_file_size` | characters of a response written to a file, see [Output to a file](#output-to-a-file) | as `max_output`, with the `output_file_truncated` warning |
 | `budget`               | estimated tokens of the whole response       | the detail is lowered, then the file list is cut, see [Budget](#budget) |
 | `timeout`              | request field or [configuration](CONFIG.md#server) | the search stops, the results found so far are returned, `counts_exact: false` |
 
@@ -490,12 +493,14 @@ To get the next page, repeat the same request and add `output.cursor` from `next
 - a cursor with a different request is rejected with `cursor_mismatch`
 - if files change between pages, results can shift; the response has a `results_changed` warning when the totals
   differ from the ones in the cursor
-- `next_cursor` is given when `max_files`, `max_lines`, `max_matches`, `max_output` or the [budget](#budget) (a file
-  list cut at level 4) cut the response and the search wasn't stopped by the timeout; the header has
+- `next_cursor` is given when `max_files`, `max_lines`, `max_matches`, `max_output`, `max_output_file_size` or the
+  [budget](#budget) (a file list cut at level 4) cut the response and the search wasn't stopped by the timeout; the header has
   `next cursor: ...` after `truncated: yes (...)`
 - the next page starts at the first file which was not listed, or inside the file whose lines were cut, at its first
   fragment which was not listed; its header has the totals of the whole result, its result id is a new one
 - `output.cursor` must be a string (`'output.cursor' must be a string`); it is not a configuration key
+- the request a cursor belongs to is the request without `output.cursor` and `output.file`: the pages of a response
+  written to a [file](#output-to-a-file) can go to other files
 - `cursor_invalid`: `the cursor can't be decoded`, hint `pass next_cursor of the previous response unchanged`;
   `cursor_mismatch`: `the cursor belongs to another request`, hint `repeat the request of the cursor with only
   output.cursor added`
@@ -902,6 +907,8 @@ Several queries in one call: one round trip, one response.
 - the format is the shared one; in JSON the response is `{ "version": 1, "queries": [...] }`, every item the response
   of its query without `version` and with `"label"` first (the number as a string without a label), an invalid one
   `{ "label": ..., "error": {...} }`
+- `output.file` of an item writes the response of its query to its own file, `output.file` of the request the whole
+  batch response to one file, see [Output to a file](#in-a-batch)
 
 ```
 == defs ==  files: 1  lines: 1  matches: 1  result: r1
@@ -919,6 +926,87 @@ src/cli.rs  [#1 #2]  lines: 1  matches: 1
 src/server/mod.rs  [#1 #2]  lines: 2  matches: 2
 == tests ==  files: 2  lines: 5  matches: 5  result: r3
 ```
+
+## Output to a file
+
+A big result doesn't have to go through the context of the agent: with `output.file` the response is written to a
+file and the tool returns a short summary with its path. The agent reads the parts it needs, with its own file tools
+(by line ranges) or another `find` when the directory is an allowed root.
+
+```json
+{ "query": "text has 'TODO'", "output": { "file": "todos.txt" } }
+```
+
+```
+files: 214  lines: 1380  matches: 1402  result: r1
+written: /tmp/easy-peasy-mcp/todos.txt  lines: 1652  bytes: 98304
+```
+
+- `output.file` is a file name or a relative path, resolved against [`server.output_dir`](CONFIG.md#server), or an
+  absolute path inside it
+- `true`: the server picks the name, `<result id>.txt` (`r12.txt`), `.json` with `format = "json"`; a response
+  without a result id (`detail = exists`, `server.result_cache = 0`) gets `out-<n>.txt`, `n` counting these files of
+  the session from 1; `false`: no file, as without the option; another value is `invalid_option`: `'output.file' must
+  be a path or true`
+- the file holds the response exactly as it would be returned, in its `format`, with the [limits for a
+  file](#limits-for-a-file); an existing file is replaced; the response is written to a temporary file next to it and
+  renamed, so a reader never sees half a response; `server.output_dir` and the directories of the path in it are
+  created when needed
+- the path must be inside `server.output_dir` after `..` is resolved and its existing directories are canonicalized
+  (symlinks resolved), otherwise the request fails with `output_file_denied`: `the output file '<file>' is outside
+  of the output directory`, hint `files are written to <output_dir>`; with `server.output_dir = ""` the option is
+  off: `output_file_disabled`: `output to a file is disabled`, hint `the configuration has server.output_dir = ""`.
+  Both are checked before the search
+- a file which can't be written (permissions, a full disk, a file where a directory is needed) fails the request
+  with `output_file_failed`: `the output file '<path>' can't be written`, the error of the operating system as the
+  hint; the response is not returned instead
+- `output.file` is set per request: it is not a configuration key (`update_config` rejects it with `invalid_value`,
+  hint `output.file is set per request`), and the request a [cursor](#pagination) belongs to doesn't include it, so
+  the next page can go to another file
+- the server writes nothing else: the files of the allowed roots are only read, see
+  [CONFIG.md](CONFIG.md#security)
+
+### Limits for a file
+
+- `max_output`, `max_output_per_file` and `budget` apply only with the values given in the request: the values of
+  the configuration are for the context of the agent; the other [limits](#limits-and-truncation) (`max_files`,
+  `max_lines`, `max_matches`, `max_matches_per_file`, `max_line_length`) apply as usual, and a cut response has its
+  `next_cursor`
+- the read-only [`server.max_output_file_size`](CONFIG.md#server) (default `100M`) is a hard cap: it counts the
+  characters of the listed files like `max_output` (their paths and lines, so the file can be a little bigger by the
+  header, the legend and the warnings) and cuts the response like `max_output`; `truncated_by` names
+  `max_output_file_size`, the response gets the `output_file_truncated` warning and a cursor to continue; a
+  `max_output` of the request above the cap is the cap
+
+### The summary
+
+The tool returns the summary of the response instead of the response:
+
+- text: the first line of the response (the header with the counts, the result id, `truncated: yes (...)` and
+  `next cursor: ...`, or `exists: yes`), then `written: <path>  lines: <lines>  bytes: <bytes>`, then the warnings of
+  the response after an empty line, as at its end
+- `<path>` is the absolute canonical path of the file, so the agent can read it whatever its working directory is;
+  `lines` counts the lines of the file (a last line without a line break too), `bytes` its size
+- JSON: the fields of the response which the text header has, and its warnings, then `file`, `lines` and `bytes`:
+  `version`, `exists`, `result`, `detail_used`, `since`, `unchanged`, `counts`, `counts_exact`, `truncated`,
+  `truncated_by`, `next_cursor`, `warnings`, `file`, `lines`, `bytes`
+
+```json
+{"version":1,"exists":true,"result":"r1","counts":{"files":214,"lines":1380,"matches":1402},"file":"/tmp/easy-peasy-mcp/r1.json","lines":1,"bytes":231337}
+```
+
+### In a batch
+
+- `output.file` of an item writes the response of its query to its own file; its section is the summary
+- `output.file` of the request writes the whole [batch](#batch) response to one file, as it would be returned; a
+  section of an item with its own file is that item's summary there. The summary of the batch: the first line of
+  every section (`== label ==  files: ...`, or its error line), then `written: ...`; in JSON
+  `{ "version": 1, "queries": [...], "file", "lines", "bytes" }`, every item `label` and the summary fields of its
+  query, an invalid one `label` and `error`
+- every query written to a file has the limits for a file, the cap counts per query; the `budget` and `max_output`
+  given in the request are split between the queries written to the file of the request; a query written to its own
+  file gets no part of them, they are for the response in the context
+- when all the queries fail, nothing is written: the errors are returned as without the option
 
 ## Warnings
 
@@ -938,6 +1026,7 @@ Problems which don't make the request fail: the response is returned and lists t
 | `results_changed`      | the totals differ from the ones in the cursor, files changed between pages |
 | `not_a_git_repo`       | the query has `git` conditions, but a file is outside of a repository      |
 | `git_base_not_found`   | `git.base` doesn't exist in the repository of a file: `git = branch` is `changed` there |
+| `output_file_truncated` | the response written to a file was cut by `server.max_output_file_size`, see [Output to a file](#output-to-a-file) |
 
 Unreadable entries (`permission_denied`): a directory which can't be listed is skipped with everything below it, also
 by `type = dir`; a file which can't be opened is skipped when the server opens it — for its content when the other
@@ -1011,6 +1100,9 @@ Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 | `cursor_mismatch`   | the cursor belongs to another request                      |
 | `cursor_invalid`    | the cursor can't be decoded                                |
 | `result_expired`    | `within` / `since` refers to a result which is unknown or was evicted      |
+| `output_file_disabled` | `output.file` with `server.output_dir = ""`, see [Output to a file](#output-to-a-file) |
+| `output_file_denied` | `output.file` is outside of `server.output_dir`                           |
+| `output_file_failed` | the file of `output.file` can't be written                                |
 | `unsupported_version` | the requested `version` is not supported, see [TOOLS.md](TOOLS.md#versioning) |
 | `not_implemented`   | a valid feature of the spec which this server version doesn't implement yet: `error[not_implemented]: <feature> is not implemented yet`, with the position when the feature is in the query |
 

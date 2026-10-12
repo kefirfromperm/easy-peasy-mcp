@@ -1192,7 +1192,7 @@ easy-peasy-mcp
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "# easy-peasy-mcp *, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update\n\n[server]\nallowed_roots = ['*']\ndefault_dirs = ['.']\n*"}], "isError": false}}
+{"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "# easy-peasy-mcp *, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size\n\n[server]\nallowed_roots = ['*']\ndefault_dirs = ['.']\n*"}], "isError": false}}
 ```
 
 4. Count ← `files: 14  lines: 52  matches: 57  result: r1`
@@ -4727,7 +4727,7 @@ easy-peasy-mcp --root ~/projects
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>/projects']    # cli
@@ -4736,6 +4736,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 ```
 
 2. The start directory
@@ -4781,7 +4783,7 @@ easy-peasy-mcp --timeout 10s --no-update --log-level debug
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -4790,6 +4792,8 @@ timeout = "10s"    # cli
 threads = 0    # default
 allow_update = false    # cli
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 ```
 
 2. `update_config`
@@ -4904,7 +4908,7 @@ easy-peasy-mcp --config config.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # file: config.toml
@@ -4913,6 +4917,8 @@ timeout = "30s"    # file: config.toml
 threads = 0    # file: config.toml
 allow_update = true    # file: config.toml
 result_cache = 50    # file: config.toml
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # file: config.toml
@@ -5596,7 +5602,7 @@ max_file_size = "50M"    # was "10M"
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0
@@ -5655,7 +5661,7 @@ max_file_size = "50M"    # was "10M"
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0    # default
@@ -5889,7 +5895,7 @@ easy-peasy-mcp --config config.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>/projects/my-app']
@@ -5898,6 +5904,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 2. `find`
@@ -5956,7 +5964,7 @@ easy-peasy-mcp --config config.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>/projects', '<fixture>/logs/my-app']
@@ -5965,6 +5973,8 @@ timeout = "60s"
 threads = 0
 allow_update = false
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 2. `get_config` of `traversal`
@@ -5975,7 +5985,7 @@ result_cache = 50
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0
@@ -6121,7 +6131,7 @@ easy-peasy-mcp --config conf\legacy.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>\work\legacy', '<fixture>\src']
@@ -6130,6 +6140,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 2. `find`

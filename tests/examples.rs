@@ -36,7 +36,12 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
     if !dir.permissions_removed {
         return Ok(Skipped::Yes);
     }
+    let fixture_path = dir.root.to_string_lossy().into_owned();
+    // `server.output_dir` of the examples: `out` next to the fixture, not created beforehand (AGENTS.md)
+    let output_dir = common::canonical(dir.temp()).join("out");
+    let output_path = output_dir.to_string_lossy().into_owned();
     let mut options = EngineOptions::new(dir.root.clone());
+    options.settings.output_dir = Some(output_dir.clone());
     options.git_global_excludes = false;
     options.time_zone = jiff::tz::TimeZone::UTC;
     options.now = fixture
@@ -52,6 +57,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
     let mut blocks = example.blocks.iter().peekable();
     let mut step = 0;
     while let Some(block) = blocks.next() {
+        if let Some(checked) = common::check_file(example, block, &fixture_path, &output_dir) {
+            checked.map_err(|e| format!("step {step}: {e}"))?;
+            continue;
+        }
         let Some(tool) = block.info.strip_prefix("json request") else {
             continue;
         };
@@ -60,7 +69,8 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
             "" => "find",
             other => other,
         };
-        let arguments: serde_json::Value = serde_json::from_str(&block.text)
+        let request = common::placeholders(&block.text, true, &fixture_path, &output_path);
+        let arguments: serde_json::Value = serde_json::from_str(&request)
             .map_err(|e| format!("step {step}: invalid request JSON: {e}"))?;
         let expected = blocks
             .next()
@@ -73,10 +83,12 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
             "text error" | "json error" => (true, "error"),
             other => return Err(format!("step {step}: unknown block `{other}`")),
         };
-        let expected_text = expected
-            .text
-            .replace("<version>", env!("CARGO_PKG_VERSION"))
-            .replace("<fixture>", &dir.root.to_string_lossy());
+        let expected_text = common::placeholders(
+            &expected.text,
+            expected.info.starts_with("json "),
+            &fixture_path,
+            &output_path,
+        );
         let same = common::same_response(example, &expected.info, &expected_text, &output.text);
         if output.is_error != want_error || !same {
             return Err(format!(

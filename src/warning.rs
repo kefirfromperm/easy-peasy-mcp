@@ -21,6 +21,7 @@ pub enum WarningCode {
     ResultsChanged,
     NotAGitRepo,
     GitBaseNotFound,
+    OutputFileTruncated,
 }
 
 impl WarningCode {
@@ -39,6 +40,7 @@ impl WarningCode {
             Self::ResultsChanged => "results_changed",
             Self::NotAGitRepo => "not_a_git_repo",
             Self::GitBaseNotFound => "git_base_not_found",
+            Self::OutputFileTruncated => "output_file_truncated",
         }
     }
 }

@@ -22,6 +22,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     let dir = setup_fixture(fixture);
     let fixture_path = dir.root.to_string_lossy().into_owned();
     let home = dir.temp().join("no-home");
+    // the temp directory of the system, so the default `server.output_dir` is `<output_dir>` (AGENTS.md)
+    let temp = dir.temp().join("tmp");
+    fs::create_dir_all(&temp).unwrap();
+    let output_dir = common::canonical(&temp).join("easy-peasy-mcp");
     let mut command = None;
     let mut env = Vec::new();
     for block in &example.blocks {
@@ -45,6 +49,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     }
     let mut process = server_command(&dir.root, &home);
     process.args(words);
+    for name in ["TMPDIR", "TMP", "TEMP"] {
+        process.env(name, &temp);
+    }
     for (key, value) in &env {
         process.env(key, value);
     }
@@ -84,12 +91,22 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         return Ok(());
     }
 
-    run_session(McpServer::spawn(&mut process), example, &fixture_path)
+    run_session(
+        McpServer::spawn(&mut process),
+        example,
+        &fixture_path,
+        &output_dir,
+    )
 }
 
 /// Sends the requests of a startup example to the started server and compares the responses; runs its JSON-RPC
 /// exchange blocks.
-fn run_session(server: McpServer, example: &Example, fixture_path: &str) -> Result<(), String> {
+fn run_session(
+    server: McpServer,
+    example: &Example,
+    fixture_path: &str,
+    output_dir: &std::path::Path,
+) -> Result<(), String> {
     let mut server = server;
     let Some(initialized) = server.response_to_initialize() else {
         let status = server.child.wait().map_err(|e| e.to_string())?;
@@ -98,7 +115,7 @@ fn run_session(server: McpServer, example: &Example, fixture_path: &str) -> Resu
     let mut exchange = server.into_exchange();
     exchange.slashed = common::slashed(example);
     exchange.record(initialized);
-    let result = run_blocks(&mut exchange, example, fixture_path);
+    let result = run_blocks(&mut exchange, example, fixture_path, output_dir);
     let _ = exchange.child.kill();
     let _ = exchange.child.wait();
     result
@@ -109,10 +126,16 @@ fn run_blocks(
     exchange: &mut Exchange,
     example: &Example,
     fixture_path: &str,
+    output_dir: &std::path::Path,
 ) -> Result<(), String> {
+    let output_path = output_dir.to_string_lossy().into_owned();
     let mut blocks = example.blocks.iter();
     let mut id = 1;
     while let Some(block) = blocks.next() {
+        if let Some(checked) = common::check_file(example, block, fixture_path, output_dir) {
+            checked?;
+            continue;
+        }
         let parse = |text: &str| -> Result<Value, String> {
             serde_json::from_str(text).map_err(|e| format!("{}: {e}", block.info))
         };
@@ -145,7 +168,12 @@ fn run_blocks(
                     other => other,
                 };
                 id += 1;
-                let arguments = parse(&block.text)?;
+                let arguments = parse(&common::placeholders(
+                    &block.text,
+                    true,
+                    fixture_path,
+                    &output_path,
+                ))?;
                 let expected = blocks
                     .next()
                     .ok_or_else(|| format!("request {id}: no response"))?;
@@ -160,10 +188,12 @@ fn run_blocks(
                     .as_str()
                     .unwrap_or_default();
                 let is_error = response["result"]["isError"] == json!(true);
-                let expected_text = expected
-                    .text
-                    .replace("<version>", env!("CARGO_PKG_VERSION"))
-                    .replace("<fixture>", fixture_path);
+                let expected_text = common::placeholders(
+                    &expected.text,
+                    expected.info.starts_with("json "),
+                    fixture_path,
+                    &output_path,
+                );
                 let same = common::same_response(example, &expected.info, &expected_text, text);
                 if is_error != expected.info.ends_with(" error") || !same {
                     return Err(format!(

@@ -204,10 +204,23 @@ impl Response<'_> {
     /// The JSON format.
     #[must_use]
     pub fn to_json(&self) -> String {
+        self.json(true)
+    }
+
+    /// The fields of the JSON format which the summary of a response written to a file keeps: the ones of the text
+    /// header and the warnings (OUTPUT.md#the-summary).
+    #[must_use]
+    pub fn summary_json(&self) -> String {
+        self.json(false)
+    }
+
+    /// The JSON format; without `full` only the fields of the summary.
+    #[allow(clippy::too_many_lines)] // one field after another
+    fn json(&self, full: bool) -> String {
         let (lines, matches) = self.totals();
         let counted = self.detail >= Detail::Count;
-        let listed = self.detail >= Detail::Files;
-        let legend = self.detail >= Detail::Facets;
+        let listed = full && self.detail >= Detail::Files;
+        let legend = full && self.detail >= Detail::Facets;
         let repeated = self.repeated();
         let listing = self.listing(&repeated);
         let truncated_by = self.truncated_by(&listing);
@@ -222,15 +235,21 @@ impl Response<'_> {
             funnel: self
                 .funnel
                 .iter()
+                .filter(|_| full)
                 .flatten()
                 .map(|(step, files)| FunnelStep {
                     step,
                     files: *files,
                 })
                 .collect(),
-            hints: self.hints.iter().map(super::Hint::json).collect(),
+            hints: self
+                .hints
+                .iter()
+                .filter(|_| full)
+                .map(super::Hint::json)
+                .collect(),
             facets: Facets(
-                if self.detail == Detail::Facets {
+                if full && self.detail == Detail::Facets {
                     &self.facets
                 } else {
                     &[]
@@ -240,6 +259,7 @@ impl Response<'_> {
             repeated: repeated
                 .lines
                 .iter()
+                .filter(|_| full)
                 .map(|line| {
                     let shown = json_line(
                         &line.content,

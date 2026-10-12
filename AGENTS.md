@@ -167,7 +167,14 @@ Fixture: `small-rust`
   arrives within one second; the response to `initialize` (id 1) is the first message of the exchange, so a
   `json receive` block can check it too
 - `<version>` in a response stands for the server version (`CARGO_PKG_VERSION`), e.g. in the first line of
-  `get_config`; `<fixture>` in any example stands for the canonical absolute path of the fixture directory
+  `get_config`; `<fixture>` in any example stands for the canonical absolute path of the fixture directory, in the
+  requests too
+- `<output_dir>` stands for the canonical path of `server.output_dir`, in the requests too: the examples run with
+  `server.output_dir` = the directory `out` next to the fixture directory, not created beforehand; a startup example
+  runs with the temp directory of the system (`TMPDIR`, `TMP`, `TEMP`) pointing to an empty directory outside of the
+  fixture, so its default `server.output_dir` is `<output_dir>`
+- a `text file <path>` (or `json file <path>`) block after a response is the exact content of the file `<path>` of
+  `<output_dir>` after that request, compared like a response
 - a line `` Slow reads: `2s` `` in an example makes every read of a file's content take that long (a test hook of the
   library, cut short at the deadline of the request), so a timeout can be shown without depending on the machine; a
   startup example passes it to the binary in `EASY_PEASY_TEST_SLOW_READS` (milliseconds)

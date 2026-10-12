@@ -77,7 +77,7 @@ b.rs  [#1]  lines: 1  matches: 1
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -86,6 +86,8 @@ timeout = "30s"    # default
 threads = 1    # update
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default
@@ -573,7 +575,7 @@ Fixture: `threads`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -582,6 +584,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 ## E41.3 An invalid value for `update_config`
@@ -618,7 +622,7 @@ easy-peasy-mcp --config conf/t.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -627,6 +631,8 @@ timeout = "30s"    # default
 threads = 2    # file: conf/t.toml
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default

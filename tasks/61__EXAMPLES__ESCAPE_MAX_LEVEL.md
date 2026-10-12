@@ -53,7 +53,7 @@ nested.json  [#1 #2]  lines: 4  matches: 4
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [escape]
 max_level = 3
@@ -136,7 +136,7 @@ nested.json  [#1 #2]  lines: 3  matches: 3
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [escape]
 max_level = 2    # update
@@ -201,7 +201,7 @@ easy-peasy-mcp --config conf/e.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [escape]
 max_level = 1    # file: conf/e.toml

@@ -64,8 +64,8 @@ easy-peasy-mcp --log-level verbose
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--log-level <level>]
-               [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
+               [--log-level <level>] [--version]
 ```
 
 ## E37.4 A level is missing
@@ -77,6 +77,6 @@ easy-peasy-mcp --log-level
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--log-level <level>]
-               [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
+               [--log-level <level>] [--version]
 ```
