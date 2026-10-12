@@ -236,3 +236,9 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | # | Task | Depends on | Status |
 |---|------|------------|--------|
 | 133 | [Output to a file: `output.file`](133__TASK__OUTPUT_FILE.md) | 101, 108, 113 | ⬜ |
+
+## Output parts
+
+| # | Task | Depends on | Status |
+|---|------|------------|--------|
+| 134 | [Every part of the output optional: `output.omit`](134__TASK__OUTPUT_OMIT.md) | 105, 108, 113, 123 | ⬜ |
