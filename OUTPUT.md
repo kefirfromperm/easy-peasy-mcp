@@ -393,7 +393,7 @@ How the fragments are shown in the lines.
 | `none`    | no `fragments`, matched lines get `"match": true` | lines as they are                            |
 | `columns` | `fragments` with `col`, `text`, `ids`        | after the line: `  @ 44..51 #2`                   |
 | `markers` | markers inside `text`, no `fragments`        | markers inside the line                           |
-| `auto`    | `columns`                                    | `markers`                                         |
+| `auto`    | `columns`                                    | `markers`, unless they outgrow the line           |
 
 Markers wrap a fragment with its ids: `⟦ids:text⟧`, ids separated by `,`.
 
@@ -405,9 +405,23 @@ Overlapping fragments are merged into one marked part with all ids. The escape l
 with `/e` is written after the ids, level `0` too: `⟦#1/e1:\"type\": \"admin\"⟧`, `⟦#1/e0:"type": "admin"⟧`; a part
 merged from fragments of several levels lists them in ascending order: `⟦#1,#2/e0/e1:…⟧`. A multiline fragment opens on its first line and closes on its last one.
 
+`auto` in the text format writes a matched line with markers, unless its markers would add more characters than the
+line has: then the line is written as with `none`, as it is. Short and frequent fragments (a delimiter, a single
+character) are where markers cost the most and say the least; the line is still a matched line (`42:`) and the file
+lists its conditions.
+
+- the rule is per line: the other lines of the file keep their markers; the lines joined by a multiline fragment are
+  one line for the rule, their characters and their markers counted together
+- the line is counted as it is shown without markers, after the [dedent](#dedent) and the cut of a
+  [long line](#long-lines) with its `…`; the markers with their ids and escape levels
+- a [repeated line](#repeated-lines) follows the rule of its text in the `repeated` section
+- a line written without markers is not listed in `marker_in_content`
+- `markers` set explicitly marks every fragment; the fragments of [paths](#path-fragments) keep their markers
+
 The markers are `⟦` and `⟧` by default and can be changed in the [configuration](CONFIG.md#output). If a file contains
 the marker characters, the response has a warning and `columns` should be used: in `lines` detail with `markers` a
-file with a matched line which contains the opening or the closing marker is listed in `marker_in_content`.
+file with a matched line which contains the opening or the closing marker is listed in `marker_in_content`, with
+`auto` only when the line is written with markers.
 
 `columns` in the text format: a matched line is followed by one line with the fragments which start in it, every
 fragment as `@ <start>..<end> <ids>` — the columns of `col`, the ids separated by `,` with the escape levels as in the
