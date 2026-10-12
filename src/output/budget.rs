@@ -53,8 +53,14 @@ pub fn fit(mut response: Response<'_>, budget: usize, chars_per_token: f64, json
     if requested >= Detail::Files {
         lower(&mut response, Detail::Files);
         let all = response.listed().len();
+        // the whole list first: a list cut by the budget has a next cursor, so it can be longer with fewer files
+        response.limits.budget_files = all;
+        let (mut low, mut high) = if fits(&render(&response)) {
+            (all, all)
+        } else {
+            (0, all.saturating_sub(1))
+        };
         // the most files which fit, searched in halves
-        let (mut low, mut high) = (0, all);
         while low < high {
             let middle = (low + high).div_ceil(2);
             response.limits.budget_files = middle;
@@ -188,5 +194,18 @@ mod tests {
             fit(big, 100, 4.0, false),
             "files: 12  lines: 12  matches: 12  detail: count (budget 100)  truncated: yes (budget)\n"
         );
+    }
+
+    #[test]
+    fn the_whole_list_without_a_cursor() {
+        let files: Vec<Found> = (0..11).map(|i| file(&format!("f{i:02}"), "x\n")).collect();
+        let legend = [(CondId::Number(1), "text has 'x'".to_string())];
+        let warnings = Warnings::default();
+        let mut paged = response(&files, &legend, &warnings);
+        paged.page.hash = Some("0123abcd".to_string());
+        // all 11 files fit; 10 or 9 don't, with the next cursor of the cut list
+        let text = fit(paged, 116, 4.0, false);
+        assert!(text.starts_with("files: 11  lines: 11  matches: 11  detail: files (budget 116)  truncated: yes (budget)\n"), "{text}");
+        assert!(text.contains("f10  [#1]"), "all the files: {text}");
     }
 }

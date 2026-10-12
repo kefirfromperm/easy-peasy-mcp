@@ -1,6 +1,6 @@
 # Task 122: The cursor of a file list cut by the budget
 
-Status: not implemented
+Status: implemented, see [122__SUMMARY__BUDGET_CURSOR.md](122__SUMMARY__BUDGET_CURSOR.md)
 
 Depends on: task 108, task 101
 
