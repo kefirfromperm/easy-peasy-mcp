@@ -1,6 +1,6 @@
 # Task 124: No line for a facet without values
 
-Status: in progress
+Status: implemented, see [124__SUMMARY__EMPTY_FACET.md](124__SUMMARY__EMPTY_FACET.md)
 
 Depends on: task 105
 
