@@ -291,7 +291,7 @@ impl Response<'_> {
         }
         self.push_funnel(&mut out);
         if self.detail == Detail::Facets {
-            for facet in &self.facets {
+            for facet in self.facets.iter().filter(|f| !f.is_empty()) {
                 let _ = writeln!(out, "{}", facet.line(self.facet_limit));
             }
             self.push_warnings(&mut out);
