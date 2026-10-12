@@ -1,2 +1,5 @@
 # fixtures are test data: keep their bytes, line breaks included, on every platform
 tests/fixtures/** -text
+# install scripts: the line breaks their shells expect
+*.sh text eol=lf
+*.bat text eol=crlf

@@ -23,6 +23,7 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
 
 ## Documentation
 
+- [INSTALL.md](INSTALL.md) — install scripts, building from source, registration in an MCP client
 - [QUERY.md](QUERY.md) — the query language: targets (including `lang`, `kind`, `git`), operators, scopes, modifiers,
   escaping, proximity, identifiers and fuzzy names, grammar, errors, recipes
 - [OUTPUT.md](OUTPUT.md) — output options, response format, condition ids, fragments, highlight, limits, pagination,
