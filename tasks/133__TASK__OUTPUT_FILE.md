@@ -1,6 +1,6 @@
 # Task 133: Output to a file
 
-Status: in progress
+Status: implemented, see [133__SUMMARY__OUTPUT_FILE.md](133__SUMMARY__OUTPUT_FILE.md)
 
 Depends on: task 101, task 108, task 113
 
