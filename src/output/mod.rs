@@ -404,11 +404,13 @@ impl Response<'_> {
         }
         let content = Content::from_text(shown);
         match self.highlight {
-            Highlight::Markers(..) | Highlight::Auto(..) => {
+            // the fragments of a path keep their markers with `auto` too
+            Highlight::Markers(open, close) | Highlight::Auto(open, close) => {
+                let markers = Highlight::Markers(open, close);
                 let _ = writeln!(
                     out,
                     "  path: {}",
-                    lines::shown_line(&content, &path.fragments, 0, 0, self.highlight)
+                    lines::shown_line(&content, &path.fragments, 0, 0, markers)
                 );
             }
             Highlight::Columns => {
