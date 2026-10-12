@@ -194,7 +194,7 @@ error[unknown_key]: unknown key 'output.max_file'
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -203,6 +203,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 
 [traversal]
 min_depth = 0

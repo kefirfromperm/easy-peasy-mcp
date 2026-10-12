@@ -190,7 +190,7 @@ Fixture: `dirs`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -199,6 +199,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 ## E39.12 Changing the default working directories in a session
@@ -224,7 +226,7 @@ default_dirs = ['api']    # was ['.']
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -233,6 +235,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default
@@ -770,7 +774,7 @@ error[invalid_value]: invalid value for 'server.default_dirs'
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -779,6 +783,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 ```
 
 ## E39.14 The default working directories from the config file
@@ -802,7 +808,7 @@ easy-peasy-mcp --config conf/dirs.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -811,6 +817,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default

@@ -23,7 +23,7 @@ Fixture: `roots`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -32,6 +32,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 
 [traversal]
 min_depth = 0
@@ -519,7 +521,7 @@ Fixture: `roots`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -528,6 +530,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default
@@ -1017,7 +1021,7 @@ Fixture: `roots`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [output]
 format = "text"
@@ -1064,7 +1068,7 @@ easy-peasy-mcp --root .
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # cli
@@ -1073,6 +1077,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default
@@ -1602,7 +1608,7 @@ easy-peasy-mcp --config conf/roots.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>/src', '<fixture>']    # file: conf/roots.toml
@@ -1611,6 +1617,8 @@ timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
 result_cache = 50    # default
+output_dir = '<output_dir>'    # default
+max_output_file_size = "100M"    # default
 
 [traversal]
 min_depth = 0    # default
@@ -2119,7 +2127,7 @@ easy-peasy-mcp --config conf/roots.toml --root .
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -2128,6 +2136,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 
 [traversal]
 min_depth = 0
@@ -2637,7 +2647,7 @@ easy-peasy-mcp --root ~
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -2646,6 +2656,8 @@ timeout = "30s"
 threads = 0
 allow_update = true
 result_cache = 50
+output_dir = '<output_dir>'
+max_output_file_size = "100M"
 
 [traversal]
 min_depth = 0
@@ -3182,8 +3194,8 @@ easy-peasy-mcp --root
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--log-level <level>]
-               [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
+               [--log-level <level>] [--version]
 ```
 
 ## E38.13 Read-only for update_config

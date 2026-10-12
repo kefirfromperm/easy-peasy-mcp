@@ -44,7 +44,7 @@ b.rs  [#1]  lines: 2  matches: 2
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [output]
 format = "text"
@@ -207,7 +207,7 @@ files: 2  lines: 4  matches: 4  result: r1
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [output]
 format = "text"    # default
@@ -286,7 +286,7 @@ easy-peasy-mcp --config conf/o.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update
+# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
 
 [output]
 format = "text"    # default

@@ -250,6 +250,6 @@ easy-peasy-mcp --config
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--log-level <level>]
-               [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
+               [--log-level <level>] [--version]
 ```
