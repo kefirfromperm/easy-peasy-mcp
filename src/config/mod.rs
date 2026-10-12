@@ -55,6 +55,8 @@ const SECTIONS: [(&str, &[&str]); 8] = [
             "threads",
             "allow_update",
             "result_cache",
+            "output_dir",
+            "max_output_file_size",
         ],
     ),
     (
@@ -211,6 +213,10 @@ pub struct FileValues {
     pub allowed_roots: Option<(Vec<String>, usize)>,
     /// `server.allow_update`.
     pub allow_update: Option<bool>,
+    /// `server.output_dir` as written.
+    pub output_dir: Option<String>,
+    /// `server.max_output_file_size` as written.
+    pub max_output_file_size: Option<String>,
     /// The values of the keys which `update_config` changes too, in the order of the file.
     pub values: Vec<(Key, KeyValue)>,
     /// The languages of the file, in its order.
@@ -233,6 +239,12 @@ pub struct Settings {
     /// `server.allow_update`: whether `update_config` is available.
     pub allow_update: bool,
     pub allow_update_source: Source,
+    /// `server.output_dir`: absolute, its existing part canonical; `None` for `""`, the option `output.file` off.
+    pub output_dir: Option<PathBuf>,
+    pub output_dir_source: Source,
+    /// `server.max_output_file_size` as written, a valid size.
+    pub max_output_file_size: String,
+    pub max_output_file_size_source: Source,
     /// The values of the changeable keys with their sources; every key has one.
     values: BTreeMap<Key, (KeyValue, Source)>,
     /// The languages: the built-in table with the replaced and added ones.
@@ -248,6 +260,16 @@ impl Settings {
             allowed_roots_source: Source::Default,
             allow_update: true,
             allow_update_source: Source::Default,
+            output_dir: Some(output_dir(
+                &std::env::temp_dir()
+                    .join("easy-peasy-mcp")
+                    .to_string_lossy(),
+                start_dir,
+                None,
+            )),
+            output_dir_source: Source::Default,
+            max_output_file_size: "100M".to_string(),
+            max_output_file_size_source: Source::Default,
             values: Key::ALL
                 .into_iter()
                 .map(|key| (key, (key.default_value(), Source::Default)))
@@ -302,9 +324,27 @@ impl Settings {
             settings.languages = languages::merge(&settings.languages, changes)
                 .expect("the languages of the file are checked with it");
         }
+        if let Some(file) = file {
+            if let Some(dir) = &file.values.output_dir {
+                settings.output_dir = Some(dir)
+                    .filter(|d| !d.is_empty())
+                    .map(|d| output_dir(d, start_dir, home));
+                settings.output_dir_source = Source::File(file.path.clone());
+            }
+            if let Some(size) = &file.values.max_output_file_size {
+                settings.max_output_file_size.clone_from(size);
+                settings.max_output_file_size_source = Source::File(file.path.clone());
+            }
+        }
         if cli.no_update {
             settings.allow_update = false;
             settings.allow_update_source = Source::Cli;
+        }
+        if let Some(dir) = &cli.output_dir {
+            settings.output_dir = Some(dir)
+                .filter(|d| !d.is_empty())
+                .map(|d| output_dir(d, start_dir, home));
+            settings.output_dir_source = Source::Cli;
         }
         if let Some(timeout) = &cli.timeout {
             settings.set(Key::Timeout, KeyValue::Text(timeout.clone()), Source::Cli);
@@ -485,6 +525,12 @@ pub fn expand_home(path: &str, home: Option<&Path>) -> PathBuf {
     }
 }
 
+/// `server.output_dir`: `~` expanded to `home`, resolved against `start_dir`, its longest existing part canonicalized.
+#[must_use]
+pub fn output_dir(dir: &str, start_dir: &Path, home: Option<&Path>) -> PathBuf {
+    crate::paths::canonical_prefix(&start_dir.join(expand_home(dir, home)))
+}
+
 /// The canonical form of `path`, or `path` itself when it can't be resolved.
 fn canonical_or_same(path: &Path) -> PathBuf {
     crate::paths::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
@@ -513,6 +559,8 @@ pub struct CommandLine {
     pub timeout: Option<String>,
     /// `--no-update`.
     pub no_update: bool,
+    /// `--output-dir`; `""` turns `output.file` off.
+    pub output_dir: Option<String>,
 }
 
 /// A path as a TOML string, without the `\\?\` prefix of Windows.
@@ -608,6 +656,7 @@ fn close_key(section: &str, key: &str) -> Option<&'static str> {
 
 /// Checks the text of a config file and returns the values of the implemented keys; the error: the 1-based line and
 /// the message of the first problem.
+#[allow(clippy::too_many_lines)] // one arm per kind of entry
 fn check(text: &str) -> Result<FileValues, (usize, String)> {
     let line = |offset: usize| text[..offset.min(text.len())].matches('\n').count() + 1;
     let doc = toml_edit::Document::parse(text).map_err(|e| {
@@ -649,6 +698,19 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                     "invalid value for 'server.allow_update': true or false is expected".to_string()
                 }
             },
+            Entry::Key {
+                section: "server",
+                key: key @ ("output_dir" | "max_output_file_size"),
+                item,
+            } => match output_file_key(key, item, &mut values) {
+                Ok(()) => continue,
+                Err(message) => message,
+            },
+            Entry::Key {
+                section: "output",
+                key: "file",
+                ..
+            } => format!("invalid value for 'output.file': {PER_REQUEST}"),
             Entry::Key {
                 section: "languages",
                 key: name,
@@ -698,6 +760,30 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
     }
     check_language_conflicts(&values.languages, &key_lines)?;
     Ok(values)
+}
+
+/// `server.output_dir` or `server.max_output_file_size` of the config file into `values`; the error message.
+fn output_file_key(
+    key: &str,
+    item: &toml_edit::Item,
+    values: &mut FileValues,
+) -> Result<(), String> {
+    if key == "output_dir" {
+        let dir = item
+            .as_str()
+            .ok_or("invalid value for 'server.output_dir': a path is expected")?;
+        values.output_dir = Some(dir.to_string());
+    } else {
+        let size = item
+            .as_str()
+            .filter(|size| crate::query::parse_size(size).is_some())
+            .ok_or(
+                "invalid value for 'server.max_output_file_size': a size like \"100M\" is expected (units \
+                 B, K, M, G)",
+            )?;
+        values.max_output_file_size = Some(size.to_string());
+    }
+    Ok(())
 }
 
 /// An extension or a name of a language of the config file which is also in another language: the line of its key
@@ -795,6 +881,25 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
                     format!("allow_update = {}", settings.allow_update),
                     &settings.allow_update_source,
                 )),
+                ("server", "output_dir") => lines.push((
+                    format!(
+                        "output_dir = {}",
+                        settings
+                            .output_dir
+                            .as_deref()
+                            .map_or_else(|| "''".to_string(), toml_path)
+                    ),
+                    &settings.output_dir_source,
+                )),
+                ("server", "max_output_file_size") => lines.push((
+                    key_line(
+                        key,
+                        KeyValue::Text(settings.max_output_file_size.clone())
+                            .to_toml()
+                            .as_deref(),
+                    ),
+                    &settings.max_output_file_size_source,
+                )),
                 _ => {
                     if let Some(key) = Key::find(name, key) {
                         lines.push((settings.line(key), settings.source(key)));
@@ -846,8 +951,11 @@ fn unknown_name(what: &str, name: &str, names: &[&str]) -> Report {
 /// The fields of `update_config`, in the order of its input schema.
 const UPDATE_CONFIG_FIELDS: [&str; 2] = ["set", "reset"];
 
+/// Why `output.file` is not a configuration key.
+const PER_REQUEST: &str = "output.file is set per request";
+
 /// The keys which only the config file and the command line set.
-const READ_ONLY: [(&str, &str, &str); 2] = [
+const READ_ONLY: [(&str, &str, &str); 4] = [
     (
         "server",
         "allowed_roots",
@@ -857,6 +965,12 @@ const READ_ONLY: [(&str, &str, &str); 2] = [
         "server",
         "allow_update",
         "allow_update is set only at start",
+    ),
+    ("server", "output_dir", "output_dir is set only at start"),
+    (
+        "server",
+        "max_output_file_size",
+        "max_output_file_size is set only at start",
     ),
 ];
 
@@ -1106,6 +1220,13 @@ fn changes(old: &Settings, new: &Settings, resets: &[Key], set_keys: &[Key]) -> 
 /// The key which `update_config` changes, or the error: read-only, unknown, or not implemented yet.
 fn check_update_key(section: &str, key: &str) -> Result<Key, Report> {
     let full = format!("{section}.{key}");
+    if (section, key) == ("output", "file") {
+        return Err(Report::new(
+            ErrorCode::InvalidValue,
+            format!("invalid value for '{full}'"),
+        )
+        .hint(PER_REQUEST));
+    }
     if let Some((_, _, hint)) = READ_ONLY
         .iter()
         .find(|(s, k, _)| *s == section && *k == key)
@@ -1703,7 +1824,9 @@ mod tests {
         assert_eq!(
             default.output_dir,
             Some(output_dir(
-                &std::env::temp_dir().join("easy-peasy-mcp").to_string_lossy(),
+                &std::env::temp_dir()
+                    .join("easy-peasy-mcp")
+                    .to_string_lossy(),
                 &start,
                 None
             ))

@@ -1,8 +1,11 @@
 //! Several queries in one call (OUTPUT.md#batch).
 
+use std::fmt::Write as _;
+
 use serde_json::{Map, Value};
 
 use crate::error::{ErrorCode, Report};
+use crate::output_file::{self, Head, Written};
 use crate::query::did_you_mean;
 
 /// The fields of an item of `queries`.
@@ -104,7 +107,6 @@ pub fn item_arguments(shared: &Value, item: &Value) -> Result<Value, Report> {
 /// or its error after its `label`; in the text format the sections `== label ==  <response>`.
 #[must_use]
 pub fn response(sections: &[(String, Result<String, Report>)], json: bool) -> String {
-    use std::fmt::Write as _;
     if json {
         let items: Vec<String> = sections
             .iter()
@@ -136,6 +138,57 @@ pub fn response(sections: &[(String, Result<String, Report>)], json: bool) -> St
             let _ = write!(out, "== {label} ==  {body}");
             out
         })
+}
+
+/// The summary of a batch response written to a file (OUTPUT.md#in-a-batch): the first line of every section and the
+/// line of the file; in JSON the summary fields of every query after its label, then the fields of the file.
+#[must_use]
+pub fn summary(
+    sections: &[(String, Result<Head, Report>)],
+    json: bool,
+    written: &Written,
+) -> String {
+    if json {
+        let items: Vec<String> = sections
+            .iter()
+            .map(|(label, result)| {
+                let label = serde_json::to_string(label).expect("a string serializes");
+                let body = match result {
+                    Ok(Head::Json(fields)) => fields
+                        .strip_prefix("{\"version\":1,")
+                        .unwrap_or(fields)
+                        .to_string(),
+                    // a JSON batch has JSON heads
+                    Ok(Head::Text { .. }) => "}".to_string(),
+                    Err(report) => report
+                        .to_json()
+                        .strip_prefix('{')
+                        .unwrap_or_default()
+                        .to_string(),
+                };
+                format!("{{\"label\":{label},{body}")
+            })
+            .collect();
+        let document = format!("{{\"version\":1,\"queries\":[{}]}}", items.join(","));
+        return output_file::with_file(&document, written);
+    }
+    let mut out = String::new();
+    for (label, result) in sections {
+        let first = match result {
+            Ok(Head::Text { first, .. }) => first.clone(),
+            Ok(Head::Json(fields)) => fields.clone(),
+            Err(report) => report
+                .to_text()
+                .lines()
+                .next()
+                .unwrap_or_default()
+                .to_string(),
+        };
+        let _ = writeln!(out, "== {label} ==  {first}");
+    }
+    out.push_str(&written.line());
+    out.push('\n');
+    out
 }
 
 /// How a budget of the whole response is split between the queries: an item with its own value keeps it, the rest is

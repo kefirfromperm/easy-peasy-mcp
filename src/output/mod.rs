@@ -86,6 +86,8 @@ pub struct Limits {
     pub max_output: usize,
     /// The files listed within the budget.
     pub budget_files: usize,
+    /// `max_output` is the cap of a response written to a file, `server.max_output_file_size`.
+    pub file_cap: bool,
 }
 
 impl Default for Limits {
@@ -100,6 +102,7 @@ impl Default for Limits {
             max_output_per_file: usize::MAX,
             max_output: usize::MAX,
             budget_files: usize::MAX,
+            file_cap: false,
         }
     }
 }
@@ -480,7 +483,13 @@ impl Response<'_> {
         {
             by.push("max_files");
         }
-        by.extend(&listing.truncated_by);
+        by.extend(listing.truncated_by.iter().map(|&limit| {
+            if limit == "max_output" && self.limits.file_cap {
+                "max_output_file_size"
+            } else {
+                limit
+            }
+        }));
         if self.budget.is_some() {
             by.push("budget");
         }
@@ -555,16 +564,40 @@ impl Response<'_> {
     }
 
     fn push_warnings(&self, out: &mut String) {
+        out.push_str(&self.warnings_text());
+    }
+
+    /// The warnings at the end of the text format: an empty line and a line per warning; empty without warnings.
+    #[must_use]
+    pub fn warnings_text(&self) -> String {
         let warnings = self.all_warnings();
-        if !warnings.is_empty() {
-            out.push('\n');
-            out.push_str(&warnings.to_text());
+        if warnings.is_empty() {
+            String::new()
+        } else {
+            format!("\n{}", warnings.to_text())
         }
+    }
+
+    /// The warnings of the response: of the search, `marker_in_content` and `output_file_truncated` when the cap of a
+    /// file cut the listing.
+    fn all_warnings(&self) -> Cow<'_, Warnings> {
+        let mut warnings = self.marker_warnings();
+        if self.limits.file_cap
+            && self
+                .listing(&self.repeated())
+                .truncated_by
+                .contains(&"max_output")
+        {
+            warnings
+                .to_mut()
+                .add_global(WarningCode::OutputFileTruncated);
+        }
+        warnings
     }
 
     /// The warnings of the search and, in `lines` detail with markers, `marker_in_content` for the files with a
     /// matched line which contains a marker; with `auto` a line written without markers doesn't count.
-    fn all_warnings(&self) -> Cow<'_, Warnings> {
+    fn marker_warnings(&self) -> Cow<'_, Warnings> {
         let Some([open, close]) = self.highlight.markers() else {
             return Cow::Borrowed(self.warnings);
         };

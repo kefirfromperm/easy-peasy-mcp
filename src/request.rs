@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::config::{self, Key, KeyValue};
 use crate::error::{ErrorCode, Report};
+use crate::output_file::FileTarget;
 use crate::query::did_you_mean;
 
 /// The request fields of the spec, in the order of the input schema.
@@ -53,6 +54,19 @@ pub struct Request {
     pub within: Option<u64>,
     /// `since`: the number of the result the differences are to.
     pub since: Option<u64>,
+    /// `output.file`: the file the response is written to.
+    pub file: Option<FileTarget>,
+}
+
+impl Request {
+    /// The value of a whole number key given in the request, not by the configuration.
+    #[must_use]
+    pub fn given(&self, key: Key) -> Option<usize> {
+        self.config.iter().find_map(|(k, value)| match value {
+            KeyValue::Whole(n) if *k == key => Some(*n),
+            _ => None,
+        })
+    }
 }
 
 /// Whether a request field is implemented: the plain fields, and the section objects with an implemented key.
@@ -134,21 +148,12 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
             ));
         }
     };
-    let timeout = match object.get("timeout") {
-        None => None,
-        Some(timeout) => Some(
-            timeout
-                .as_str()
-                .and_then(crate::config::parse_duration)
-                .ok_or_else(|| {
-                    Report::new(
-                        ErrorCode::InvalidOption,
-                        "'timeout' must be a duration like \"10s\" (units ms, s, m)",
-                    )
-                })?,
-        ),
-    };
-    let (config, cursor) = sections(object)?;
+    let timeout = object.get("timeout").map(timeout).transpose()?;
+    let Sections {
+        config,
+        cursor,
+        file,
+    } = sections(object)?;
     let languages = match object.get("languages") {
         None => Vec::new(),
         Some(Value::Object(languages)) => languages
@@ -173,6 +178,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         cursor,
         within,
         since,
+        file,
     })
 }
 
@@ -199,7 +205,7 @@ fn parse_section(
         } else {
             let mut keys = keys.to_vec();
             if field == "output" {
-                keys.push("cursor");
+                keys.extend(["cursor", "file"]);
             }
             let expected = format!("expected one of: {}", keys.join(", "));
             let hint = match did_you_mean(name, &keys) {
@@ -216,13 +222,18 @@ fn parse_section(
     Ok(())
 }
 
-/// The configuration values of the section fields of a request, and `output.cursor`.
-type Sections = (Vec<(Key, KeyValue)>, Option<String>);
+/// The configuration values of the section fields of a request, `output.cursor` and `output.file`.
+struct Sections {
+    config: Vec<(Key, KeyValue)>,
+    cursor: Option<String>,
+    file: Option<FileTarget>,
+}
 
-/// The configuration values of the section fields of a request and `output.cursor`.
+/// The configuration values of the section fields of a request, `output.cursor` and `output.file`.
 fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report> {
     let mut config = Vec::new();
     let mut cursor = None;
+    let mut file = None;
     for (field, section) in SECTION_FIELDS {
         match object.get(field) {
             None => {}
@@ -238,6 +249,11 @@ fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report>
                         ));
                     }
                 };
+                file = fields
+                    .remove("file")
+                    .map(|f| file_target(&f))
+                    .transpose()?
+                    .flatten();
                 parse_section(field, section, &fields, &mut config)?;
             }
             Some(Value::Object(fields)) => parse_section(field, section, fields, &mut config)?,
@@ -249,7 +265,41 @@ fn sections(object: &serde_json::Map<String, Value>) -> Result<Sections, Report>
             }
         }
     }
-    Ok((config, cursor))
+    Ok(Sections {
+        config,
+        cursor,
+        file,
+    })
+}
+
+/// The duration of the field `timeout`.
+fn timeout(value: &Value) -> Result<std::time::Duration, Report> {
+    value
+        .as_str()
+        .and_then(crate::config::parse_duration)
+        .ok_or_else(|| {
+            Report::new(
+                ErrorCode::InvalidOption,
+                "'timeout' must be a duration like \"10s\" (units ms, s, m)",
+            )
+        })
+}
+
+/// The value of `output.file`: a path, `true` for a name of the server, `false` for no file.
+///
+/// # Errors
+///
+/// `invalid_option` for another value.
+pub fn file_target(value: &Value) -> Result<Option<FileTarget>, Report> {
+    match value {
+        Value::Bool(false) => Ok(None),
+        Value::Bool(true) => Ok(Some(FileTarget::Auto)),
+        Value::String(path) if !path.is_empty() => Ok(Some(FileTarget::Path(path.clone()))),
+        _ => Err(Report::new(
+            ErrorCode::InvalidOption,
+            "'output.file' must be a path or true",
+        )),
+    }
 }
 
 /// The number of a result id `rN` of the field `within` or `since`.

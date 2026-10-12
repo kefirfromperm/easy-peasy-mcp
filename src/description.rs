@@ -36,6 +36,7 @@ If the response has next_cursor, pass it back as output.cursor with the same req
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
 queries = [{label, query}, ...] runs several queries in one call.
+output.file = 'x.txt' writes the response to a file under the output dir and returns its path; for big results.
 
 EXAMPLES
   name ~ '*.py' and text has 'import requests'
@@ -130,7 +131,11 @@ const FIND_SCHEMA: &str = r##"{
         "group_repeated": { "type": "integer", "minimum": 0 },
         "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
         "path_style": { "enum": ["relative", "absolute"] },
-        "cursor": { "type": "string" }
+        "cursor": { "type": "string" },
+        "file": {
+          "type": ["string", "boolean"],
+          "description": "Write the response to this file under server.output_dir and return its path; true: a name like r12.txt."
+        }
       }
     },
     "escape": {

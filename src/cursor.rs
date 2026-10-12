@@ -70,13 +70,14 @@ impl Cursor {
     }
 }
 
-/// The hash of the arguments of a request without `output.cursor`: FNV-1a 32 of their compact JSON (keys sorted), 8
-/// hex digits.
+/// The hash of the arguments of a request without `output.cursor` and `output.file`: FNV-1a 32 of their compact
+/// JSON (keys sorted), 8 hex digits.
 #[must_use]
 pub fn request_hash(arguments: &Value) -> String {
     let mut request = arguments.clone();
     if let Some(output) = request.get_mut("output").and_then(Value::as_object_mut) {
         output.remove("cursor");
+        output.remove("file");
     }
     let text = serde_json::to_string(&request).expect("a JSON value serializes");
     let mut hash: u32 = 0x811c_9dc5;
@@ -129,7 +130,8 @@ mod tests {
     #[test]
     fn the_file_is_not_a_part_of_the_request() {
         let plain = json!({ "query": "x", "output": { "max_files": 2 } });
-        let filed = json!({ "query": "x", "output": { "max_files": 2, "file": "a.txt", "cursor": "c" } });
+        let filed =
+            json!({ "query": "x", "output": { "max_files": 2, "file": "a.txt", "cursor": "c" } });
         assert_eq!(request_hash(&plain), request_hash(&filed));
     }
 

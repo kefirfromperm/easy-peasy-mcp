@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError, RwLock};
 
 use serde_json::{Value, json};
@@ -18,6 +19,7 @@ use crate::output;
 use crate::output::{
     BlockOptions, Change, Detail, Highlight, Hint, Limits, Page, Response, Since, Sort, sort_files,
 };
+use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
 use crate::relevance;
 use crate::request;
@@ -111,6 +113,8 @@ pub struct Engine {
     results: Mutex<ResultCache>,
     /// The threads shared by the running searches.
     slots: Arc<Slots>,
+    /// The files of `output.file = true` written without a result id: `out-<n>`.
+    unnamed: AtomicUsize,
 }
 
 /// The threads of `server.threads`, shared by the running searches (TOOLS.md#concurrency): the number taken.
@@ -183,6 +187,7 @@ impl Engine {
             options,
             results: Mutex::default(),
             slots: Arc::default(),
+            unnamed: AtomicUsize::new(0),
         }
     }
 
@@ -251,9 +256,9 @@ impl Engine {
         if arguments.get("queries").is_some() {
             return self.batch(arguments, progress);
         }
-        match self.try_find(arguments, progress) {
-            Ok(text) => ToolOutput {
-                text,
+        match self.try_find(arguments, progress, false) {
+            Ok(answer) => ToolOutput {
+                text: answer.text,
                 is_error: false,
             },
             Err(report) if self.json_format(arguments) => ToolOutput {
@@ -265,9 +270,10 @@ impl Engine {
     }
 
     /// A batch request (OUTPUT.md#batch): every query in its section, the budget and `max_output` of the whole
-    /// response split between them; `isError` only when all of them fail.
+    /// response split between them; `isError` only when all of them fail. `output.file` of the request writes the
+    /// batch response to a file (OUTPUT.md#in-a-batch).
     fn batch(&self, arguments: &Value, progress: Option<&Arc<Progress>>) -> ToolOutput {
-        let shared = batch::shared(arguments);
+        let mut shared = batch::shared(arguments);
         let json = self.json_format(&shared);
         let fail = |report: &Report| ToolOutput {
             text: if json {
@@ -277,52 +283,71 @@ impl Engine {
             },
             is_error: true,
         };
+        // the file of the request is the file of the whole batch, not of every query
+        let shared_file = shared
+            .get_mut("output")
+            .and_then(Value::as_object_mut)
+            .and_then(|output| output.remove("file"));
         let checked = batch::items(arguments).and_then(|items| {
             let request = request::parse(&shared)?;
             let settings = self
                 .settings()
                 .with(&request.config, &request.languages)
                 .map_err(|p| p.request_report())?;
-            Ok((items, settings))
+            let target = match shared_file.as_ref().map(request::file_target).transpose()? {
+                Some(Some(file)) => Some(target(&settings, &file)?),
+                _ => None,
+            };
+            Ok((items, settings, request, target))
         });
-        let (items, settings) = match checked {
+        let (items, settings, request, target) = match checked {
             Ok(checked) => checked,
             Err(report) => return fail(&report),
         };
+        let own_file = |item: &Value| {
+            item.get("output")
+                .and_then(|o| o.get("file"))
+                .is_some_and(|f| f.as_str().is_some_and(|p| !p.is_empty()) || f == &json!(true))
+        };
+        // a query in its own file gets no part of the shared budget and max_output
         let own = |key: &str| -> Vec<Option<usize>> {
             items
                 .iter()
                 .map(|item| {
+                    if own_file(item) {
+                        return Some(0);
+                    }
                     let value = item.get("output")?.get(key)?.as_u64()?;
                     usize::try_from(value).ok()
                 })
                 .collect()
         };
-        let mut budget = settings
-            .opt_whole(Key::Budget)
-            .map(|total| batch::Split::new(total, &own("budget")));
-        let mut output = batch::Split::new(settings.whole(Key::MaxOutput), &own("max_output"));
+        // with a file the totals are the values of the request, the configured ones are for the context
+        let (budget_total, output_total) = if target.is_some() {
+            (request.given(Key::Budget), request.given(Key::MaxOutput))
+        } else {
+            (
+                settings.opt_whole(Key::Budget),
+                Some(settings.whole(Key::MaxOutput)),
+            )
+        };
+        let mut budget = budget_total.map(|total| batch::Split::new(total, &own("budget")));
+        let mut output = output_total.map(|total| batch::Split::new(total, &own("max_output")));
         let chars_per_token = settings.number(Key::CharsPerToken);
         let mut sections = Vec::with_capacity(items.len());
         for (index, item) in items.iter().enumerate() {
             let parts = (
                 budget.as_mut().map(|b| b.next(index).max(100)),
-                output.next(index).max(100),
+                output.as_mut().map(|o| o.next(index).max(100)),
             );
             let result = batch::item_arguments(&shared, item).and_then(|mut args| {
-                if let Some(object) = args
-                    .as_object_mut()
-                    .and_then(|a| a.entry("output").or_insert(json!({})).as_object_mut())
-                {
-                    object.insert("format".into(), json!(if json { "json" } else { "text" }));
-                    if let Some(budget) = parts.0 {
-                        object.insert("budget".into(), json!(budget));
-                    }
-                    object.insert("max_output".into(), json!(parts.1));
-                }
-                self.try_find(&args, progress)
+                let parts = (!own_file(item)).then_some(parts);
+                set_item_output(&mut args, item, json, parts);
+                self.try_find(&args, progress, target.is_some())
             });
-            let used = result.as_ref().map_or(0, |text| text.chars().count());
+            let used = result
+                .as_ref()
+                .map_or(0, |answer| answer.text.chars().count());
             if let Some(budget) = &mut budget {
                 #[allow(
                     clippy::cast_precision_loss,
@@ -331,12 +356,25 @@ impl Engine {
                 )]
                 budget.used((used as f64 / chars_per_token).ceil() as usize);
             }
-            output.used(used);
+            if let Some(output) = &mut output {
+                output.used(used);
+            }
             sections.push((batch::label(item, index), result));
         }
         let is_error = sections.iter().all(|(_, result)| result.is_err());
-        let text = batch::response(&sections, json);
-        ToolOutput { text, is_error }
+        let (texts, heads) = answers(sections);
+        let text = batch::response(&texts, json);
+        // nothing is written when all the queries fail
+        let Some(target) = target.filter(|_| !is_error) else {
+            return ToolOutput { text, is_error };
+        };
+        match output_file::write(&self.file_path(target, None, json), &text) {
+            Ok(written) => ToolOutput {
+                text: batch::summary(&heads, json, &written),
+                is_error: false,
+            },
+            Err(report) => fail(&report),
+        }
     }
 
     /// Whether the response of a request is JSON: its `output.format`, or the format of the session when the request
@@ -348,17 +386,26 @@ impl Engine {
         }
     }
 
+    /// A request of `find` without `queries`; `in_file`: its response goes to the file of a batch, so it has the
+    /// limits for a file. With `output.file` the response is written to its file and the answer is its summary.
     fn try_find(
         &self,
         arguments: &Value,
         progress: Option<&Arc<Progress>>,
-    ) -> Result<String, Report> {
+        in_file: bool,
+    ) -> Result<Answer, Report> {
         let arrival = std::time::Instant::now();
         let request = request::parse(arguments)?;
         let settings = self
             .settings()
             .with(&request.config, &request.languages)
             .map_err(|p| p.request_report())?;
+        // the path is checked before the search
+        let target = request
+            .file
+            .as_ref()
+            .map(|file| target(&settings, file))
+            .transpose()?;
         let run = self.run(&request, &settings, arguments, arrival, progress)?;
         if progress.is_some_and(|p| p.is_cancelled()) {
             // no response is sent and no result is kept for a cancelled request
@@ -367,7 +414,42 @@ impl Engine {
                 "the request was cancelled",
             ));
         }
-        Ok(self.respond(&settings, arguments, run))
+        let in_file = in_file || target.is_some();
+        let (text, head, result_id) = self.respond(&settings, &request, arguments, run, in_file);
+        let Some(target) = target else {
+            return Ok(Answer { text, head });
+        };
+        let json = settings.text(Key::Format) == "json";
+        let written =
+            output_file::write(&self.file_path(target, result_id.as_deref(), json), &text)?;
+        let summary = head.summary(&written);
+        let head = match head {
+            Head::Json(_) => Head::Json(summary.clone()),
+            text_head @ Head::Text { .. } => text_head,
+        };
+        Ok(Answer {
+            text: summary,
+            head,
+        })
+    }
+
+    /// The path of the file of a response: the path of `output.file`, or for `true` a name after the result id or
+    /// `out-<n>` without one.
+    fn file_path(&self, target: Target, result_id: Option<&str>, json: bool) -> PathBuf {
+        match target {
+            Target::Path(path) => path,
+            Target::Auto(dir) => {
+                let extension = if json { "json" } else { "txt" };
+                let name = match result_id {
+                    Some(id) => format!("{id}.{extension}"),
+                    None => format!(
+                        "out-{}.{extension}",
+                        self.unnamed.fetch_add(1, Ordering::Relaxed) + 1
+                    ),
+                };
+                dir.join(name)
+            }
+        }
     }
 
     /// Parses the query of a request and searches: the files of a kept result with `within`, the working
@@ -435,8 +517,16 @@ impl Engine {
         })
     }
 
-    /// The response of a search in the format of the settings, within the budget.
-    fn respond(&self, settings: &Settings, arguments: &Value, run: Run) -> String {
+    /// The response of a search in the format of the settings, within the budget; the head of its summary and its
+    /// result id. `in_file`: the limits for a file (OUTPUT.md#limits-for-a-file).
+    fn respond(
+        &self,
+        settings: &Settings,
+        request: &request::Request,
+        arguments: &Value,
+        run: Run,
+        in_file: bool,
+    ) -> (String, Head, Option<String>) {
         let Run {
             query,
             parse,
@@ -502,6 +592,11 @@ impl Engine {
             None => (files, None),
         };
         let json = settings.text(Key::Format) == "json";
+        let (limits, budget) = if in_file {
+            file_limits(settings, request)
+        } else {
+            (limits(settings), settings.opt_whole(Key::Budget))
+        };
         let response = Response {
             detail,
             group_dirs: settings.bool(Key::GroupDirs),
@@ -515,7 +610,7 @@ impl Engine {
             facet_limit: settings.whole(Key::FacetLimit),
             budget: None,
             since,
-            limits: limits(settings),
+            limits,
             blocks: block_options(settings),
             result_id: result_id.as_deref(),
             legend: &query.legend,
@@ -523,13 +618,15 @@ impl Engine {
             warnings: &warnings,
             timed_out,
         };
-        match settings.opt_whole(Key::Budget) {
+        let (text, response) = match budget {
             Some(budget) => {
                 output::fit(response, budget, settings.number(Key::CharsPerToken), json)
             }
-            None if json => response.to_json(),
-            None => response.to_text(),
-        }
+            None if json => (response.to_json(), response),
+            None => (response.to_text(), response),
+        };
+        let head = head(&text, &response, json);
+        (text, head, result_id)
     }
 
     /// The options of the query of a request.
@@ -1015,6 +1112,112 @@ fn limits(settings: &Settings) -> Limits {
         max_output_per_file: settings.whole(Key::MaxOutputPerFile),
         max_output: settings.whole(Key::MaxOutput),
         budget_files: usize::MAX,
+        file_cap: false,
+    }
+}
+
+/// The head of the summary of a response: its first line and its warnings, or its summary fields in JSON.
+fn head(text: &str, response: &Response<'_>, json: bool) -> Head {
+    if json {
+        Head::Json(response.summary_json())
+    } else {
+        Head::Text {
+            first: text.lines().next().unwrap_or_default().to_string(),
+            warnings: response.warnings_text(),
+        }
+    }
+}
+
+/// The sections of a batch: their texts and the heads of their summaries.
+type Sections<T> = Vec<(String, Result<T, Report>)>;
+
+/// The texts and the heads of the answers of the sections of a batch.
+fn answers(sections: Sections<Answer>) -> (Sections<String>, Sections<Head>) {
+    sections
+        .into_iter()
+        .map(|(label, result)| match result {
+            Ok(answer) => ((label.clone(), Ok(answer.text)), (label, Ok(answer.head))),
+            Err(report) => ((label.clone(), Err(report.clone())), (label, Err(report))),
+        })
+        .unzip()
+}
+
+/// The output fields of the arguments of a batch item: the shared format, and its parts of the shared `budget` and
+/// `max_output`; `parts` is `None` for an item in its own file, which keeps only its own values of them.
+fn set_item_output(
+    args: &mut Value,
+    item: &Value,
+    json: bool,
+    parts: Option<(Option<usize>, Option<usize>)>,
+) {
+    let Some(object) = args
+        .as_object_mut()
+        .and_then(|a| a.entry("output").or_insert(json!({})).as_object_mut())
+    else {
+        return;
+    };
+    object.insert("format".into(), json!(if json { "json" } else { "text" }));
+    match parts {
+        Some((budget, max_output)) => {
+            if let Some(budget) = budget {
+                object.insert("budget".into(), json!(budget));
+            }
+            if let Some(max_output) = max_output {
+                object.insert("max_output".into(), json!(max_output));
+            }
+        }
+        // the shared values are for the response in the context
+        None => {
+            for key in ["budget", "max_output"] {
+                if item.get("output").and_then(|o| o.get(key)).is_none() {
+                    object.remove(key);
+                }
+            }
+        }
+    }
+}
+
+/// The limits and the budget of a response written to a file (OUTPUT.md#limits-for-a-file): `max_output`,
+/// `max_output_per_file` and `budget` only from the request, `max_output` at most `server.max_output_file_size`.
+fn file_limits(settings: &Settings, request: &request::Request) -> (Limits, Option<usize>) {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // a size in bytes
+    let cap = crate::query::parse_size(&settings.max_output_file_size)
+        .map_or(usize::MAX, |size| size as usize);
+    let max_output = request.given(Key::MaxOutput).unwrap_or(usize::MAX);
+    let limits = Limits {
+        max_output: max_output.min(cap),
+        file_cap: cap < max_output,
+        max_output_per_file: request.given(Key::MaxOutputPerFile).unwrap_or(usize::MAX),
+        ..limits(settings)
+    };
+    (limits, request.given(Key::Budget))
+}
+
+/// The response of a request: its text (the summary when it was written to a file) and the head of its summary.
+struct Answer {
+    text: String,
+    head: Head,
+}
+
+/// Where the response of `output.file` goes: a checked path, or a name of the server in the output directory.
+enum Target {
+    Path(PathBuf),
+    Auto(PathBuf),
+}
+
+/// The target of `output.file` in `server.output_dir`: `output_file_disabled` without one, `output_file_denied` for
+/// a path outside of it.
+fn target(settings: &Settings, file: &FileTarget) -> Result<Target, Report> {
+    let dir = settings.output_dir.as_ref().ok_or_else(|| {
+        Report::new(
+            ErrorCode::OutputFileDisabled,
+            "output to a file is disabled",
+        )
+        .hint("the configuration has server.output_dir = \"\"")
+    })?;
+    match file {
+        FileTarget::Path(path) => output_file::resolve(dir, path).map(Target::Path),
+        FileTarget::Auto => Ok(Target::Auto(dir.clone())),
     }
 }
 
