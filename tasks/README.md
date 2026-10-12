@@ -230,3 +230,9 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 128 | [Query groups](128__TASK__QUERY_GROUPS.md) | 7, 22 | ⬜ |
 | 129 | [`replace` tool](129__TASK__REPLACE_TOOL.md) | 125, 128 | ⬜ |
 | 130 | [Output limited to groups](130__TASK__OUTPUT_GROUPS.md) | 128 | ⬜ |
+
+## Output to a file
+
+| # | Task | Depends on | Status |
+|---|------|------------|--------|
+| 133 | [Output to a file: `output.file`](133__TASK__OUTPUT_FILE.md) | 101, 108, 113 | ⬜ |
