@@ -1,6 +1,6 @@
 # Task 132: `highlight = auto` without markers which outgrow the line
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 87, task 131
 
