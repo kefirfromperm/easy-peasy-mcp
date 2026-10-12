@@ -65,9 +65,12 @@ fn collect(
             hints.extend(variation_hint(
                 cx,
                 before,
-                variation,
-                funnel.steps[step].target,
+                &variation.text,
+                variation.target,
             )?);
+        }
+        if let Some(target) = funnel.steps[step].fuzzy {
+            hints.extend(below(cx, before, &funnel.steps[step].condition, target)?);
         }
     }
     hints.extend(skipped(cx)?);
@@ -115,7 +118,7 @@ fn variation_hint(
     cx: &Context<'_>,
     before: &[query::FunnelStep],
     variation: &str,
-    target: Option<Target>,
+    target: Target,
 ) -> Result<Option<Hint>, OutOfTime> {
     let text: Vec<&str> = before
         .iter()
@@ -133,7 +136,7 @@ fn variation_hint(
     let mut examples: Vec<String> = Vec::new();
     for file in &files {
         let found: Vec<String> = match target {
-            Some(Target::Text) => file
+            Target::Text => file
                 .matches
                 .iter()
                 .flat_map(|m| {
@@ -143,7 +146,7 @@ fn variation_hint(
                         .map(|f| m.content.text()[f.range.clone()].to_string())
                 })
                 .collect(),
-            Some(Target::Name) => vec![name_of(file)],
+            Target::Name => vec![name_of(file)],
             _ => vec![display_found(file)],
         };
         for example in found {
@@ -157,6 +160,70 @@ fn variation_hint(
         files: files.len(),
         examples,
     }))
+}
+
+/// The files which the `~~` condition `condition` matches with a score below `query.fuzzy_min_score`, on the files
+/// of the steps before it.
+fn below(
+    cx: &Context<'_>,
+    before: &[query::FunnelStep],
+    condition: &str,
+    target: Target,
+) -> Result<Option<Hint>, OutOfTime> {
+    let threshold = cx.parse.fuzzy_min_score;
+    let parse = ParseOptions {
+        fuzzy_min_score: 0.0,
+        ..cx.parse.clone()
+    };
+    let Ok(query) = query::parse(condition, &parse) else {
+        return Ok(None);
+    };
+    // the score of the condition alone is the fuzzy signal of the relevance
+    let mut ranked = options(cx);
+    ranked.rank = true;
+    let mut files = search(cx, &query, &ranked)?;
+    if !before.is_empty() {
+        let text: Vec<&str> = before.iter().map(|s| s.condition.as_str()).collect();
+        let Ok(query) = query::parse(&text.join(" and "), cx.parse) else {
+            return Ok(None);
+        };
+        let passed: HashSet<(PathBuf, Option<String>)> = search(cx, &query, &options(cx))?
+            .into_iter()
+            .map(|f| (f.rel, f.member))
+            .collect();
+        files.retain(|f| passed.contains(&(f.rel.clone(), f.member.clone())));
+    }
+    files.sort_by_cached_key(display_found);
+    let scored = files
+        .iter()
+        .filter_map(|f| {
+            let score = f.signals?.fuzzy;
+            let shown = match target {
+                Target::Name => name_of(f),
+                _ => display_found(f),
+            };
+            (score < threshold).then_some((shown, score))
+        })
+        .collect();
+    Ok(below_hint(condition, threshold, scored))
+}
+
+/// The hint of the files below the fuzzy threshold, from the shown files with their scores in path order: best first,
+/// at most three, the scores rounded down to two decimals.
+fn below_hint(condition: &str, threshold: f64, mut files: Vec<(String, f64)>) -> Option<Hint> {
+    if files.is_empty() {
+        return None;
+    }
+    files.sort_by(|a, b| b.1.total_cmp(&a.1));
+    let shown: Vec<String> = files
+        .iter()
+        .take(3)
+        .map(|(file, score)| format!("{file} {:.2}", (score * 100.0).floor() / 100.0))
+        .collect();
+    Some(Hint::Line(format!(
+        "{condition}: below query_options.fuzzy_min_score {threshold}: {}",
+        shown.join(", ")
+    )))
 }
 
 /// The name of a found entry: the last part of its path or of its member path.
@@ -332,4 +399,50 @@ fn narrow(files: &[Found], query: &Query) -> Vec<String> {
         out.push("/w".to_string());
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn files(scores: &[(&str, f64)]) -> Vec<(String, f64)> {
+        scores.iter().map(|(f, s)| ((*f).to_string(), *s)).collect()
+    }
+
+    #[test]
+    fn below_the_threshold_best_first() {
+        let hint = below_hint(
+            "name ~~ 'e'",
+            0.5,
+            files(&[
+                ("README.md", 0.0822),
+                ("parse.rs", 0.0825),
+                ("parser.rs", 0.0822),
+                ("lexer.rs", 0.0825),
+            ]),
+        );
+        assert_eq!(
+            hint,
+            Some(Hint::Line(
+                "name ~~ 'e': below query_options.fuzzy_min_score 0.5: parse.rs 0.08, lexer.rs 0.08, README.md 0.08"
+                    .to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn scores_rounded_down() {
+        let hint = below_hint("path ~~ 'x'", 1.0, files(&[("a", 0.999), ("b", 0.5488)]));
+        assert_eq!(
+            hint,
+            Some(Hint::Line(
+                "path ~~ 'x': below query_options.fuzzy_min_score 1: a 0.99, b 0.54".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn nothing_below() {
+        assert_eq!(below_hint("name ~~ 'x'", 0.5, Vec::new()), None);
+    }
 }

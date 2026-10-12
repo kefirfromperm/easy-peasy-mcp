@@ -134,12 +134,21 @@ pub struct FunnelStep {
     pub item: usize,
     /// The text without `and ` / `or `.
     pub condition: String,
-    /// When the step is one `text`, `name` or `path` condition with a string: its target.
-    pub target: Option<Target>,
     /// The variations which the hints of an empty result try (OUTPUT.md#hints).
-    pub variations: Vec<String>,
+    pub variations: Vec<Variation>,
+    /// When the step is one `~~` condition: its target.
+    pub fuzzy: Option<Target>,
     /// What the hints look up for similar names or directories.
     pub lookup: Option<Lookup>,
+}
+
+/// A variation of the condition of a step which the hints of an empty result try (OUTPUT.md#hints).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Variation {
+    /// The condition as it is written.
+    pub text: String,
+    /// Its target: what the hint shows of the files it matches.
+    pub target: Target,
 }
 
 /// The names or directories the hints of an empty result look at for a step (OUTPUT.md#hints).
@@ -329,18 +338,18 @@ fn funnel_step(
         text: format!("{prefix}{condition}"),
         item: index,
         condition,
-        target: single
-            .filter(|(_, c)| matches!(c.target, Target::Text | Target::Name | Target::Path))
-            .map(|(_, c)| c.target),
         variations: single.map_or_else(Vec::new, |(node, c)| variations(text, tokens, node, c)),
         lookup: single.and_then(|(_, c)| lookup(c)),
+        fuzzy: single
+            .filter(|(_, c)| c.op.as_ref().is_some_and(|(op, _)| *op == Op::Fuzzy))
+            .map(|(_, c)| c.target),
     }
 }
 
 /// The variations of a `text`, `name` or `path` condition with a string: `/i` (not with `/i`, `/n`, `~~`), `/n`
 /// (with `=`, `has`, `starts`, `ends`, without `/e`, for a value of two words or more), without `/w`, `has` instead
-/// of `=`.
-fn variations(text: &str, tokens: &[Token], node: &Node, c: &Condition) -> Vec<String> {
+/// of `=`, `path ~~` instead of `name ~~`.
+fn variations(text: &str, tokens: &[Token], node: &Node, c: &Condition) -> Vec<Variation> {
     let (Some((op, op_span)), Value::Str(value)) = (&c.op, &c.value) else {
         return Vec::new();
     };
@@ -375,6 +384,21 @@ fn variations(text: &str, tokens: &[Token], node: &Node, c: &Condition) -> Vec<S
         out.push(rewritten(text, tokens, node.tokens.clone(), |i| {
             (tokens[i].span == *op_span).then_some("has")
         }));
+    }
+    let mut out: Vec<Variation> = out
+        .into_iter()
+        .map(|text| Variation {
+            text,
+            target: c.target,
+        })
+        .collect();
+    if *op == Op::Fuzzy && c.target == Target::Name {
+        out.push(Variation {
+            text: rewritten(text, tokens, node.tokens.clone(), |i| {
+                (i == node.tokens.start).then_some("path")
+            }),
+            target: Target::Path,
+        });
     }
     out
 }
@@ -1396,7 +1420,10 @@ mod tests {
             .unwrap()
             .steps
             .into_iter()
-            .map(|s| (s.condition, s.variations))
+            .map(|s| {
+                let texts = s.variations.into_iter().map(|v| v.text).collect();
+                (s.condition, texts)
+            })
             .collect()
     }
 
@@ -1426,7 +1453,8 @@ mod tests {
         );
         assert!(variations("text has 'x' /i")[0].1.is_empty());
         assert!(variations("size > 1K")[0].1.is_empty());
-        assert!(variations("name ~~ 'cfg'")[0].1.is_empty());
+        assert_eq!(variations("name ~~ 'cfg'")[0].1, ["path ~~ 'cfg'"]);
+        assert!(variations("path ~~ 'cfg'")[0].1.is_empty());
         assert_eq!(
             variations("(text has 'a b')")[0].1,
             ["text has 'a b' /i", "text has 'a b' /n"]
@@ -1434,6 +1462,23 @@ mod tests {
         let steps = variations("lang = rust and (text has 'a' or text has 'b')");
         assert_eq!(steps[1].0, "(text has 'a' or text has 'b')");
         assert!(steps[1].1.is_empty(), "a group has no variations");
+    }
+
+    #[test]
+    fn the_fuzzy_steps() {
+        let step = |q: &str| parse(q, &SENSITIVE).unwrap().funnel.unwrap().steps;
+        let name = step("name ~~ 'cfg'");
+        assert_eq!(name[0].fuzzy, Some(Target::Name));
+        assert_eq!(
+            name[0].variations,
+            [Variation {
+                text: "path ~~ 'cfg'".to_string(),
+                target: Target::Path
+            }]
+        );
+        assert_eq!(step("path ~~ 'cfg'")[0].fuzzy, Some(Target::Path));
+        assert_eq!(step("name has 'cfg'")[0].fuzzy, None);
+        assert_eq!(step("text has 'x'")[0].variations[0].target, Target::Text);
     }
 
     #[test]

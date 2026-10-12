@@ -366,4 +366,6 @@ And for a task:
 - red tests may be committed on a task branch; `master` is always green
 - a spec fix found during the task is its own commit on the branch
 - the branch is merged into `master` only when the [definition of done](#definition-of-done) is met
+- as soon as the task is ready (the summary commit is done) and all the checks of the definition of done are green, the
+  agent merges the branch into `master` with `git merge --no-ff` (`Merge task N: <title>`), without waiting to be asked
 - a commit message says what and why in the imperative mood
