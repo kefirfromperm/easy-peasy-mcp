@@ -269,7 +269,7 @@ files: 4  lines: 4  matches: 8  result: r1  truncated: yes (max_matches)  next c
 #1 text has 'TODO'
 
 a.txt  [#1]  lines: 1  matches: 1
-1:⟦#1:TODO⟧
+1:TODO
 b.txt  [#1]  lines: 1  matches: 3
 c.txt  [#1]  lines: 1  matches: 2
 d/e.txt  [#1]  lines: 1  matches: 2
