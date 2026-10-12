@@ -714,6 +714,45 @@ mod tests {
     }
 
     #[test]
+    fn no_line_for_a_facet_without_values() {
+        let files = [found("src/a.rs")];
+        let facet = |name: &str, values: &[(&str, usize)]| facets::Facet {
+            name: name.to_string(),
+            values: values.iter().map(|(v, n)| ((*v).to_string(), *n)).collect(),
+        };
+        let response = Response {
+            detail: Detail::Facets,
+            blocks: BlockOptions::default(),
+            group_dirs: true,
+            group_repeated: 3,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
+            funnel: None,
+            hints: Vec::new(),
+            facets: vec![
+                facet("ext", &[("rs", 1)]),
+                facet("git", &[]),
+                facet("lang", &[("rust", 1)]),
+            ],
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits::default(),
+            result_id: None,
+            legend: &[],
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+        };
+        assert_eq!(
+            response.to_text(),
+            "files: 1  lines: 0  matches: 0\next:        rs 1\nlang:       rust 1\n"
+        );
+        assert!(facet("git", &[]).is_empty());
+    }
+
+    #[test]
     fn full_paths_without_groups() {
         let files = [found("Cargo.toml"), found("src/a.rs")];
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
