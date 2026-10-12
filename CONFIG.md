@@ -153,6 +153,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"         # relative | absolute
+omit = []                       # parts of the response left out, or "all"
 
 [escape]
 max_level = 3
@@ -434,6 +435,11 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `group_repeated`       | number      | `3`            |
 | `sort`                 | string      | `"relevance"`  |
 | `path_style`           | string      | `"relative"`   |
+| `omit`                 | list, or `"all"` | `[]`      |
+
+`omit`: `"all"` or a list of the parts of [OUTPUT.md](OUTPUT.md#omit), otherwise `invalid value for 'output.omit':
+"all" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers,
+gaps, indent, warnings) is expected`. `get_config` shows `omit = "all"` or the list.
 
 `cursor` and `file` of the request `output` are not keys: they are set per request. `output.file` in the config
 file is `invalid value for 'output.file': output.file is set per request`, in `update_config` `invalid_value` with

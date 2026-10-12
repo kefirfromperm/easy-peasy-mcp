@@ -78,6 +78,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E88.2 Other markers in a request
@@ -304,6 +305,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 ## E88.8 Invalid values in a request
@@ -391,6 +393,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 2. `find`

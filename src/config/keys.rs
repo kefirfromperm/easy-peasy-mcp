@@ -57,6 +57,7 @@ pub enum Key {
     GroupRepeated,
     Sort,
     PathStyle,
+    Omit,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -70,7 +71,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 57] = [
+    pub const ALL: [Key; 58] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -119,6 +120,7 @@ impl Key {
         Self::GroupRepeated,
         Self::Sort,
         Self::PathStyle,
+        Self::Omit,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -228,6 +230,7 @@ impl Key {
                 "path_style",
                 Type::Choice(&["relative", "absolute"]),
             ),
+            Self::Omit => ("output", "omit", Type::Omit),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -278,7 +281,7 @@ impl Key {
             Self::GitExcludes | Self::SkipGenerated | Self::Dedent | Self::GroupDirs => {
                 Value::Bool(true)
             }
-            Self::IgnorePaths | Self::Exclude => list(&[]),
+            Self::IgnorePaths | Self::Exclude | Self::Omit => list(&[]),
             Self::Markers => list(&["⟦", "⟧"]),
             Self::Facets => list(&["dir", "lang", "kind", "condition"]),
             Self::PathCase => Value::Text("native".to_string()),
@@ -374,6 +377,8 @@ pub enum Type {
     Markers,
     /// A list of the facets of `detail = facets`.
     Facets,
+    /// `"all"` or a list of the parts of `output.omit`.
+    Omit,
 }
 
 /// The facets of `detail = facets` (OUTPUT.md#facets).
@@ -406,6 +411,7 @@ impl Type {
             Self::GitBase => "\"auto\" or a branch, tag or commit is expected".to_string(),
             Self::Markers => "two non-empty strings are expected".to_string(),
             Self::Facets => format!("a list of facets ({}) is expected", FACETS.join(", ")),
+            Self::Omit => format!("{} is expected", omit_values()),
         }
     }
 
@@ -430,6 +436,7 @@ impl Type {
             Self::GitBase => "\"auto\" or a branch, tag or commit".to_string(),
             Self::Markers => "two non-empty strings".to_string(),
             Self::Facets => format!("a list of facets ({})", FACETS.join(", ")),
+            Self::Omit => omit_values(),
         }
     }
 
@@ -506,6 +513,11 @@ impl Type {
             Self::Facets => toml_strings(item)
                 .filter(|f| are_facets(f))
                 .map(Value::List),
+            Self::Omit => match item.as_str() {
+                Some("all") => Some(Value::Text("all".to_string())),
+                Some(_) => None,
+                None => toml_strings(item).filter(|p| are_parts(p)).map(Value::List),
+            },
             Self::Choice(values) => item
                 .as_str()
                 .filter(|v| values.contains(v))
@@ -568,6 +580,13 @@ impl Type {
             Self::Facets => json_strings(value)
                 .filter(|f| are_facets(f))
                 .map(Value::List),
+            Self::Omit => match value.as_str() {
+                Some("all") => Some(Value::Text("all".to_string())),
+                Some(_) => None,
+                None => json_strings(value)
+                    .filter(|p| are_parts(p))
+                    .map(Value::List),
+            },
             Self::Choice(values) => value
                 .as_str()
                 .filter(|v| values.contains(v))
@@ -598,6 +617,22 @@ impl Type {
                 .map(Value::Number),
         }
     }
+}
+
+/// What `output.omit` takes: `"all" or a list of parts (counts, ...)`.
+fn omit_values() -> String {
+    let parts: Vec<&str> = crate::output::omit::Part::ALL
+        .iter()
+        .map(|p| p.name())
+        .collect();
+    format!("\"all\" or a list of parts ({})", parts.join(", "))
+}
+
+/// Whether the strings are parts of `output.omit`.
+fn are_parts(items: &[String]) -> bool {
+    items
+        .iter()
+        .all(|p| crate::output::omit::Part::find(p).is_some())
 }
 
 /// Whether the strings are facets.
@@ -870,6 +905,46 @@ mod tests {
             Key::Detail.unimplemented(&Value::Text("facets".into())),
             None
         );
+    }
+
+    #[test]
+    fn omit_is_all_or_a_list_of_parts() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        assert_eq!(
+            Type::Omit.check_toml(&item("'all'")),
+            Ok(Value::Text("all".into()))
+        );
+        assert_eq!(
+            Type::Omit.check_toml(&item("['legend', 'gaps']")),
+            Ok(Value::List(vec!["legend".into(), "gaps".into()]))
+        );
+        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent, warnings) is expected";
+        for bad in ["'none'", "['colour']", "1"] {
+            assert_eq!(
+                Type::Omit.check_toml(&item(bad)),
+                Err(expected.into()),
+                "{bad}"
+            );
+        }
+        assert_eq!(Type::Omit.parse_json(&json!([])), Some(Value::List(vec![])));
+        assert_eq!(
+            Type::Omit.parse_json(&json!("all")),
+            Some(Value::Text("all".into()))
+        );
+        assert_eq!(Type::Omit.parse_json(&json!(["all"])), None);
+        assert_eq!(
+            Type::Omit
+                .check_json("output.omit", &json!("none"))
+                .unwrap_err()
+                .to_text(),
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent, warnings)\n"
+        );
+        assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
+        assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
     }
 
     #[test]

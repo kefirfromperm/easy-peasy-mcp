@@ -7,7 +7,9 @@ use serde::ser::SerializeMap;
 use super::blocks::BlockLine;
 use super::lines::{columns, cut_line, starts_in};
 use super::listing::{Listed, Listing};
-use super::{BlockOptions, Change, Detail, Highlight, LOCATIONS, Response, display_found};
+use super::{
+    BlockOptions, Change, Detail, Highlight, LOCATIONS, Omit, Part, Response, display_found,
+};
 use crate::content::Content;
 use crate::query::Kind;
 use crate::query::ast::CondId;
@@ -172,7 +174,8 @@ struct Block {
 
 #[derive(Serialize)]
 struct Line {
-    n: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    n: Option<usize>,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     cut: bool,
     text: String,
@@ -187,6 +190,8 @@ struct Line {
 struct Fragment {
     col: [usize; 2],
     text: String,
+    /// Empty: `match_ids` is left out.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     ids: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     escape: Option<u8>,
@@ -218,16 +223,16 @@ impl Response<'_> {
     #[allow(clippy::too_many_lines)] // one field after another
     fn json(&self, full: bool) -> String {
         let (lines, matches) = self.totals();
-        let counted = self.detail >= Detail::Count;
+        let counted = self.detail >= Detail::Count && !self.omit.has(Part::Counts);
         let listed = full && self.detail >= Detail::Files;
-        let legend = full && self.detail >= Detail::Facets;
+        let legend = full && self.detail >= Detail::Facets && !self.omit.has(Part::Legend);
         let repeated = self.repeated();
         let listing = self.listing(&repeated);
         let truncated_by = self.truncated_by(&listing);
         let document = Document {
             version: VERSION,
             exists: self.file_count() > 0,
-            result: self.result_id,
+            result: self.result_id.filter(|_| !self.omit.has(Part::Result)),
             detail_used: self
                 .budget
                 .filter(|b| b.lowered)
@@ -346,9 +351,22 @@ impl Response<'_> {
                 .and(found.score)
                 .map(crate::relevance::shown_score),
             truncated: listing.cut[index].then_some(true),
-            lines: found.matches.as_ref().map_or(0, |m| m.lines),
-            matches: found.matches.as_ref().map_or(0, |m| m.fragments.len()),
-            conditions: found.conditions.iter().map(ToString::to_string).collect(),
+            lines: found
+                .matches
+                .as_ref()
+                .filter(|_| !self.omit.has(Part::FileCounts))
+                .map_or(0, |m| m.lines),
+            matches: found
+                .matches
+                .as_ref()
+                .filter(|_| !self.omit.has(Part::FileCounts))
+                .map_or(0, |m| m.fragments.len()),
+            conditions: found
+                .conditions
+                .iter()
+                .filter(|_| !self.omit.has(Part::Conditions))
+                .map(ToString::to_string)
+                .collect(),
             path_fragments: found
                 .path_fragments
                 .as_ref()
@@ -362,6 +380,7 @@ impl Response<'_> {
                     self.highlight,
                     self.limits.max_line_length,
                     listing.until[index],
+                    self.omit,
                 ),
                 _ => Vec::new(),
             },
@@ -391,7 +410,8 @@ fn fragment(content: &Content, f: &super::Fragment, i: usize) -> Fragment {
     }
 }
 
-/// The blocks of the matched lines with their context, every fragment in the line where it starts.
+/// The blocks of the matched lines with their context, every fragment in the line where it starts; without the
+/// indentation and the line numbers which `omit` leaves out.
 fn blocks(
     content: &Content,
     fragments: &[super::Fragment],
@@ -399,23 +419,32 @@ fn blocks(
     highlight: Highlight<'_>,
     max_line_length: usize,
     until: Option<usize>,
+    omit: Omit,
 ) -> Vec<Block> {
     super::blocks::before(super::blocks::blocks(content, fragments, options), until)
         .into_iter()
         .map(|block| Block {
-            indent: block.indent,
+            indent: if omit.has(Part::Indent) {
+                0
+            } else {
+                block.indent
+            },
             lines: block
                 .lines
                 .into_iter()
                 .map(|line| {
-                    json_line(
+                    let mut line = json_line(
                         content,
                         fragments,
                         line,
                         block.indent,
                         highlight,
                         max_line_length,
-                    )
+                    );
+                    if omit.has(Part::LineNumbers) {
+                        line.n = None;
+                    }
+                    line
                 })
                 .collect(),
         })
@@ -436,7 +465,7 @@ fn json_line(
     let i = line.index;
     let (text, cut) = cut_line(content, fragments, i, indent, highlight, max_line_length);
     Line {
-        n: i + 1,
+        n: Some(i + 1),
         cut,
         text,
         matched: (highlight == Highlight::None && line.matched).then_some(true),
@@ -477,6 +506,7 @@ mod tests {
             Highlight::Columns,
             usize::MAX,
             None,
+            Omit::default(),
         ))
         .unwrap();
         assert_eq!(
@@ -493,6 +523,7 @@ mod tests {
             Highlight::Columns,
             usize::MAX,
             None,
+            Omit::default(),
         ))
         .unwrap();
         assert_eq!(
@@ -520,9 +551,10 @@ mod tests {
             Highlight::Columns,
             usize::MAX,
             None,
+            Omit::default(),
         );
         assert_eq!(blocks.len(), 2);
-        assert_eq!(blocks[1].lines[0].n, 4);
+        assert_eq!(blocks[1].lines[0].n, Some(4));
     }
 
     #[test]
@@ -564,6 +596,7 @@ mod tests {
             files: &files,
             warnings: &warnings,
             timed_out: true,
+            omit: crate::output::Omit::default(),
         }
         .to_json();
         let sep = std::path::MAIN_SEPARATOR;

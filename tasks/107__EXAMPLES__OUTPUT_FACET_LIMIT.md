@@ -59,6 +59,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E107.2 Fewer values in a request
@@ -163,6 +164,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 ## E107.5 An invalid value in a request

@@ -45,6 +45,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E109.2 More characters per token
@@ -174,6 +175,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 ## E109.5 An invalid value in a request

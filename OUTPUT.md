@@ -20,6 +20,7 @@ full.
 - [Budget](#budget)
 - [Facets](#facets)
 - [Compact output](#compact-output)
+- [Omit](#omit)
 - [Result ids](#result-ids)
 - [Batch](#batch)
 - [Output to a file](#output-to-a-file)
@@ -76,6 +77,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `group_repeated`       | number                                          | `3`        | a matched line repeated in this many files is printed once; `0` — off |
 | `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
 | `path_style`           | `relative`, `absolute`                          | `relative` | how paths are written                                     |
+| `omit`                 | list of parts, or `"all"`                       | `[]`       | parts of the response left out, see [Omit](#omit)         |
 | `cursor`               | string                                          | —          | continue a truncated response, see [Pagination](#pagination) |
 | `file`                 | a path, `true`, `false`                         | —          | write the response to a file and return a summary, see [Output to a file](#output-to-a-file) |
 
@@ -268,6 +270,9 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 - warnings at the end, prefixed with `warning:`
 
 ## Condition ids
+
+[Omit](#omit) can leave out the legend (`legend`), the conditions of the files (`conditions`) and the ids of the
+matches (`match_ids`).
 
 Every condition of the query has an id: `#1`, `#2`, ... in the order of appearance (only conditions without a label
 are numbered), or a label `@name` given in the query, see [QUERY.md](QUERY.md#labels-and-condition-ids).
@@ -534,7 +539,8 @@ explains the result, so it can be fixed in one step.
 
 `funnel = auto` adds it when the result is empty, or when the number of matched files is more than 10 times
 `max_files`. `always` adds it to every response with `count` detail or higher, `never` — never. The
-[hints](#hints) come with the funnel: `funnel = never` turns them off too.
+[hints](#hints) come with the funnel: `funnel = never` turns them off too, as does `omit = ["funnel"]`;
+`omit = ["hints"]` turns off only the hints.
 
 ### Steps
 
@@ -679,6 +685,7 @@ The hints of a huge result (more than 10 × `max_files` files) in detail:
   fitting; the list cut by the budget has a `next cursor`
 - `detail: files (budget 2000)` comes after the result id when the detail was lowered, `detail_used` after `result`;
   `truncated` / `truncated_by` name `budget` whenever a level after the first one is used
+- the response is estimated as it is written, without the parts left out by [omit](#omit), so more fits
 
 ```json
 { "query": "lang = rust and text has 'unwrap(' /c", "output": { "budget": 1500 } }
@@ -805,6 +812,83 @@ detail at all; `detail = files` still lists such a file. The counts are not chan
 - JSON: `"repeated": [{ "count": 37, "text": "use anyhow::Result;", "fragments": [...], "locations":
   ["src/main.rs:3", "src/config.rs:5", "src/eval/mod.rs:2"] }]` — `col` of the fragments counts in `text`, the
   locations are the first three
+
+## Omit
+
+`output.omit` leaves parts of the response out, so the agent pays only for what it reads. For a query with one
+condition the legend `#1 text has 'x'` repeats the request and every `[#1]` says nothing; line numbers are useless
+to an agent which only wants to know where a word occurs. The default `[]` leaves out nothing, `"all"` every part of
+the table: the bare grep-like output.
+
+| Part           | Text                                                          | JSON                                   |
+|----------------|---------------------------------------------------------------|----------------------------------------|
+| `counts`       | `files: N  lines: N  matches: N` of the header                | `counts`, `counts_exact`               |
+| `result`       | `result: r1` of the header                                    | `result`                               |
+| `legend`       | the legend lines                                              | `legend`                               |
+| `funnel`       | `funnel:` with its steps, and the hints                       | `funnel`, `hints`                      |
+| `hints`        | `hints:` with its lines                                       | `hints`                                |
+| `conditions`   | `[#1 #2]` after a path                                        | `conditions` of a file                 |
+| `file_counts`  | `lines: N  matches: N` after a path                           | `lines` and `matches` of a file        |
+| `match_ids`    | the ids and escape levels of a match: `⟦unwrap(⟧`, `@ 44..51` | `ids` and `escape` of a fragment       |
+| `line_numbers` | `42:` and `41-` before a line                                 | `n` of a line                          |
+| `gaps`         | `--` between blocks                                           | —                                      |
+| `indent`       | the `⇥N` line, the block stays dedented                       | `indent` of a block                    |
+| `warnings`     | the warning lines and the empty line before them              | `warnings`                             |
+
+```json
+{ "query": "text has 'unwrap('", "output": { "omit": "all" } }
+```
+
+```
+src/
+lib.rs
+let raw = read().⟦unwrap(⟧);
+parse(&text).⟦unwrap(⟧)
+main.rs
+let cfg = load().⟦unwrap(⟧);
+```
+
+The same request with the default `omit = []`:
+
+```
+files: 2  lines: 3  matches: 3  result: r1
+#1 text has 'unwrap('
+
+src/
+lib.rs  [#1]  lines: 2  matches: 2
+⇥4
+2:let raw = read().⟦#1:unwrap(⟧);
+--
+⇥4
+4:parse(&text).⟦#1:unwrap(⟧)
+main.rs  [#1]  lines: 1  matches: 1
+⇥4
+2:let cfg = load().⟦#1:unwrap(⟧);
+
+warning: binary_skipped (1): data.bin
+```
+
+- `omit` is a list of parts or `"all"`; it is a request option and a [configuration key](CONFIG.md#output): the list of
+  a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
+  own. Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of
+  parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent,
+  warnings)`; in `update_config` `invalid_value` with the same list in the hint
+- never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
+  truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
+  incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
+  (`detail_used`, `since`, `unchanged`); the paths and the lines themselves, which `detail` controls
+- the header line is written with the parts which are left, separated by two spaces as always, and is left out when
+  nothing is left of it; the empty line before the files is written only after something; the response of `detail =
+  count` without its counts and its result id is empty
+- `funnel` is the same as `funnel = never`: the hints come with the funnel; `hints` leaves out only the hints
+- `match_ids` takes the ids from every match: the markers and the columns of the lines, of the
+  [repeated lines](#repeated-lines) and of the [path fragments](#path-fragments), the fragments of JSON; with `auto`
+  the markers are counted without them. Lines with different ids are then the same repeated line
+- `line_numbers` with context lines: a matched line and a context line look the same, which the agent asked for;
+  without `gaps` the blocks follow each other
+- the parts are left out of the response before the [budget](#budget) estimates it, so more fits
+- a response written to a [file](#output-to-a-file) is written without them, and its summary has its header as it
+  is written
 
 ## Result ids
 

@@ -1,6 +1,6 @@
 # Task 134: Every part of the output optional: `output.omit`
 
-Status: not implemented
+Status: implemented, see [134__SUMMARY__OUTPUT_OMIT.md](134__SUMMARY__OUTPUT_OMIT.md)
 
 Depends on: task 105, task 108, task 113, task 123
 

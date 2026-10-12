@@ -87,6 +87,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E80.2 One line of context in a request
@@ -255,6 +256,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 ## E80.6 An invalid value in a request
@@ -334,6 +336,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 ```
 
 2. `find`

@@ -62,6 +62,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E90.2 Absolute paths in a request
@@ -204,6 +205,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "absolute"    # update
+omit = []    # default
 ```
 
 ## E90.6 An invalid value in a request

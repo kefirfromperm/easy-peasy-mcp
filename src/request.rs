@@ -522,7 +522,8 @@ mod tests {
             "error[invalid_option]: 'output.cursor' must be a string\n"
         );
         assert!(
-            text(&json!({ "output": { "cursr": "a" } })).ends_with(", path_style, cursor, file\n")
+            text(&json!({ "output": { "cursr": "a" } }))
+                .ends_with(", path_style, omit, cursor, file\n")
         );
     }
 

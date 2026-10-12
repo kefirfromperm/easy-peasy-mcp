@@ -82,6 +82,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 
 [escape]
 max_level = 3
@@ -580,6 +581,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 
 [escape]
 max_level = 3    # default
@@ -1052,6 +1054,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 ```
 
 ## E38.4 A root from the command line
@@ -1127,6 +1130,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 
 [escape]
 max_level = 3    # default
@@ -1667,6 +1671,7 @@ group_dirs = true    # default
 group_repeated = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
+omit = []    # default
 
 [escape]
 max_level = 3    # default
@@ -2186,6 +2191,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 
 [escape]
 max_level = 3
@@ -2706,6 +2712,7 @@ group_dirs = true
 group_repeated = 3
 sort = "relevance"
 path_style = "relative"
+omit = []
 
 [escape]
 max_level = 3

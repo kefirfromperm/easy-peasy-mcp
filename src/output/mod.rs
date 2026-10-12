@@ -17,6 +17,7 @@ mod json;
 mod lines;
 mod listing;
 mod meta;
+pub mod omit;
 mod repeated;
 mod sort;
 
@@ -27,6 +28,7 @@ use listing::{Listed, Listing};
 pub use sort::{Sort, sort_files};
 
 pub use lines::{Fragment, matched_lines, merge_identical};
+pub use omit::{Omit, Part};
 
 /// How much a response returns (OUTPUT.md#detail-levels).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -220,6 +222,8 @@ pub struct Response<'a> {
     pub warnings: &'a Warnings,
     /// The search was stopped by the timeout: `truncated: yes (timeout)`.
     pub timed_out: bool,
+    /// The parts left out (OUTPUT.md#omit).
+    pub omit: Omit,
 }
 
 /// The separator of output paths on this platform.
@@ -260,49 +264,25 @@ impl Response<'_> {
     pub fn to_text(&self) -> String {
         let repeated = self.repeated();
         let listing = self.listing(&repeated);
-        let truncated_by = self.truncated_by(&listing);
-        let mut timeout = if truncated_by.is_empty() {
+        let header = self.header(&listing);
+        let mut out = if header.is_empty() {
             String::new()
         } else {
-            format!("  truncated: yes ({})", truncated_by.join(", "))
+            format!("{header}\n")
         };
-        if let Some(cursor) = self.next_cursor(&listing) {
-            let _ = write!(timeout, "  next cursor: {cursor}");
-        }
         if self.detail == Detail::Exists {
-            let exists = if self.file_count() == 0 { "no" } else { "yes" };
-            let mut out = format!("exists: {exists}{timeout}\n");
             self.push_warnings(&mut out);
             return out;
         }
-        let (lines, matches) = self.totals();
-        let mut out = format!(
-            "files: {}  lines: {lines}  matches: {matches}",
-            self.file_count(),
-        );
-        if let Some(id) = self.result_id {
-            let _ = write!(out, "  result: {id}");
-        }
-        if let Some(budget) = self.budget.filter(|b| b.lowered) {
-            let _ = write!(
-                out,
-                "  detail: {} (budget {})",
-                self.detail.keyword(),
-                budget.tokens
-            );
-        }
-        if let Some(since) = &self.since {
-            let _ = write!(out, "  since: {}  unchanged: {}", since.id, since.unchanged);
-        }
-        out.push_str(&timeout);
-        out.push('\n');
         if self.file_count() == 0 || self.detail == Detail::Count {
             self.push_funnel(&mut out);
             self.push_warnings(&mut out);
             return out;
         }
-        for (id, text) in self.legend {
-            let _ = writeln!(out, "{id} {text}");
+        if !self.omit.has(Part::Legend) {
+            for (id, text) in self.legend {
+                let _ = writeln!(out, "{id} {text}");
+            }
         }
         self.push_funnel(&mut out);
         if self.detail == Detail::Facets {
@@ -317,7 +297,9 @@ impl Response<'_> {
             self.push_warnings(&mut out);
             return out;
         }
-        out.push('\n');
+        if !out.is_empty() {
+            out.push('\n');
+        }
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
         for (index, file) in self.listed().iter().enumerate().take(listing.shown) {
@@ -327,6 +309,55 @@ impl Response<'_> {
         }
         self.push_warnings(&mut out);
         out
+    }
+
+    /// The header line of the text format: `exists: yes`, or the counts, the result id, the detail lowered by the
+    /// budget and the differences of `since`; then the truncation and the next cursor. The parts left out are not
+    /// in it; empty when nothing is left.
+    #[must_use]
+    pub fn header_line(&self) -> String {
+        self.header(&self.listing(&self.repeated()))
+    }
+
+    /// The header line with the listing of the response.
+    fn header(&self, listing: &Listing) -> String {
+        let mut parts = Vec::new();
+        if self.detail == Detail::Exists {
+            let exists = if self.file_count() == 0 { "no" } else { "yes" };
+            parts.push(format!("exists: {exists}"));
+        } else {
+            if !self.omit.has(Part::Counts) {
+                let (lines, matches) = self.totals();
+                parts.push(format!(
+                    "files: {}  lines: {lines}  matches: {matches}",
+                    self.file_count()
+                ));
+            }
+            if let Some(id) = self.result_id.filter(|_| !self.omit.has(Part::Result)) {
+                parts.push(format!("result: {id}"));
+            }
+            if let Some(budget) = self.budget.filter(|b| b.lowered) {
+                parts.push(format!(
+                    "detail: {} (budget {})",
+                    self.detail.keyword(),
+                    budget.tokens
+                ));
+            }
+            if let Some(since) = &self.since {
+                parts.push(format!(
+                    "since: {}  unchanged: {}",
+                    since.id, since.unchanged
+                ));
+            }
+        }
+        let truncated_by = self.truncated_by(listing);
+        if !truncated_by.is_empty() {
+            parts.push(format!("truncated: yes ({})", truncated_by.join(", ")));
+        }
+        if let Some(cursor) = self.next_cursor(listing) {
+            parts.push(format!("next cursor: {cursor}"));
+        }
+        parts.join("  ")
     }
 
     /// The listed file `index`: its line (under its directory header when it differs from `current`; `(cut)` when a
@@ -360,11 +391,15 @@ impl Response<'_> {
         } else {
             out.push_str(&display_found(file));
         }
-        if !file.conditions.is_empty() {
+        if !file.conditions.is_empty() && !self.omit.has(Part::Conditions) {
             let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
             let _ = write!(out, "  [{}]", ids.join(" "));
         }
-        if let Some(m) = &file.matches {
+        if let Some(m) = file
+            .matches
+            .as_ref()
+            .filter(|_| !self.omit.has(Part::FileCounts))
+        {
             let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
         }
         if listing.cut[index] {
@@ -394,6 +429,7 @@ impl Response<'_> {
                 &blocks,
                 self.highlight,
                 self.limits.max_line_length,
+                self.omit,
             ));
         }
     }
@@ -563,8 +599,14 @@ impl Response<'_> {
         }
     }
 
+    /// The warnings at the end: after an empty line when something is written before them.
     fn push_warnings(&self, out: &mut String) {
-        out.push_str(&self.warnings_text());
+        let text = self.warnings_text();
+        if out.is_empty() {
+            out.push_str(text.trim_start_matches('\n'));
+        } else {
+            out.push_str(&text);
+        }
     }
 
     /// The warnings at the end of the text format: an empty line and a line per warning; empty without warnings.
@@ -581,6 +623,9 @@ impl Response<'_> {
     /// The warnings of the response: of the search, `marker_in_content` and `output_file_truncated` when the cap of a
     /// file cut the listing.
     fn all_warnings(&self) -> Cow<'_, Warnings> {
+        if self.omit.has(Part::Warnings) {
+            return Cow::Owned(Warnings::default());
+        }
         let mut warnings = self.marker_warnings();
         if self.limits.file_cap
             && self
@@ -762,6 +807,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
         .to_text();
         let s = SEP;
@@ -804,6 +850,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         };
         assert_eq!(
             response.to_text(),
@@ -836,6 +883,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
         .to_text();
         let s = SEP;
@@ -884,6 +932,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
         .to_text();
         let s = SEP;
@@ -919,6 +968,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
         .to_text();
         let s = SEP;
@@ -970,6 +1020,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
         .to_text();
         assert_eq!(
@@ -1016,6 +1067,7 @@ mod tests {
                 files: &files,
                 warnings: &Warnings::default(),
                 timed_out: false,
+                omit: crate::output::Omit::default(),
             }
             .to_text()
         };
@@ -1069,6 +1121,7 @@ mod tests {
                 files: &files,
                 warnings: &Warnings::default(),
                 timed_out,
+                omit: Omit::default(),
             }
             .to_text()
         };
@@ -1106,6 +1159,7 @@ mod tests {
             files: &[],
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         }
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
@@ -1143,6 +1197,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
+            omit: crate::output::Omit::default(),
         };
         let listing = Listing::without_lines(response.listed(), &response.limits);
         let cursor = response.next_cursor(&listing)?;

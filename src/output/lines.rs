@@ -5,6 +5,7 @@ use std::ops::Range;
 
 use super::Highlight;
 use super::blocks::Block;
+use super::omit::{Omit, Part as OmitPart};
 use crate::content::Content;
 use crate::query::ast::CondId;
 
@@ -69,21 +70,23 @@ pub(super) fn lines_of(content: &Content, fragments: &[Fragment]) -> Vec<usize> 
 }
 
 /// The blocks as `N:text` for a matched line and `N-text` for a context line in the highlight style, `--` between
-/// blocks.
+/// blocks, `⇥N` before a dedented block; without the line numbers, the gaps and the `⇥N` lines which `omit` leaves
+/// out.
 pub fn render(
     content: &Content,
     fragments: &[Fragment],
     blocks: &[Block],
     highlight: Highlight<'_>,
     max_line_length: usize,
+    omit: Omit,
 ) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
     for (i, block) in blocks.iter().enumerate() {
-        if i > 0 {
+        if i > 0 && !omit.has(OmitPart::Gaps) {
             out.push_str("--\n");
         }
-        if block.indent > 0 {
+        if block.indent > 0 && !omit.has(OmitPart::Indent) {
             let _ = writeln!(out, "⇥{}", block.indent);
         }
         let plain = match highlight {
@@ -93,8 +96,10 @@ pub fn render(
             _ => Vec::new(),
         };
         for line in &block.lines {
-            let separator = if line.matched { ':' } else { '-' };
-            let _ = write!(out, "{}{separator}", line.index + 1);
+            if !omit.has(OmitPart::LineNumbers) {
+                let separator = if line.matched { ':' } else { '-' };
+                let _ = write!(out, "{}{separator}", line.index + 1);
+            }
             let style = if plain.contains(&line.index) {
                 Highlight::None
             } else {
@@ -263,8 +268,11 @@ pub fn columns_text(content: &Content, fragments: &[Fragment], i: usize) -> Opti
                 let _ = write!(out, "{}", at.end);
             }
         }
-        let ids: Vec<String> = f.ids.iter().map(|(_, id)| id.to_string()).collect();
-        let _ = write!(out, " {}", ids.join(","));
+        // a fragment without ids: `match_ids` is left out
+        if !f.ids.is_empty() {
+            let ids: Vec<String> = f.ids.iter().map(|(_, id)| id.to_string()).collect();
+            let _ = write!(out, " {}", ids.join(","));
+        }
         if let Some(level) = f.escape {
             let _ = write!(out, "/e{level}");
         }
@@ -348,12 +356,16 @@ fn write_window(
     }) {
         if part.range.start >= window.start {
             out.push_str(&text[pos..part.range.start]);
-            let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
-            let _ = write!(out, "{open}{}", ids.join(","));
-            for level in &part.escapes {
-                let _ = write!(out, "/e{level}");
+            out.push_str(open);
+            // a part without ids and levels: `match_ids` is left out
+            if !part.ids.is_empty() || !part.escapes.is_empty() {
+                let ids: Vec<String> = part.ids.iter().map(|(_, id)| id.to_string()).collect();
+                out.push_str(&ids.join(","));
+                for level in &part.escapes {
+                    let _ = write!(out, "/e{level}");
+                }
+                out.push(':');
             }
-            out.push(':');
             pos = part.range.start;
         }
         if part.range.end <= line_end + 1 {
@@ -520,6 +532,7 @@ mod tests {
             &blocks,
             Highlight::Markers("⟦", "⟧"),
             usize::MAX,
+            super::super::omit::Omit::default(),
         )
     }
 
@@ -554,11 +567,25 @@ mod tests {
         let blocks =
             super::super::blocks::blocks(&c, &fragments, &super::super::BlockOptions::default());
         assert_eq!(
-            render(&c, &fragments, &blocks, Highlight::Columns, usize::MAX),
+            render(
+                &c,
+                &fragments,
+                &blocks,
+                Highlight::Columns,
+                usize::MAX,
+                Omit::default()
+            ),
             "1:é = x x\n  @ 5..6 #1,#3  @ 7..8 #2/e0\n2:ab\n  @ 1..3:3 #1\n3:cd\n"
         );
         assert_eq!(
-            render(&c, &fragments, &blocks, Highlight::None, usize::MAX),
+            render(
+                &c,
+                &fragments,
+                &blocks,
+                Highlight::None,
+                usize::MAX,
+                Omit::default()
+            ),
             "1:é = x x\n2:ab\n3:cd\n"
         );
     }
@@ -636,6 +663,41 @@ mod tests {
     }
 
     #[test]
+    fn without_line_numbers_gaps_and_indentation() {
+        use super::super::omit::Omit;
+        let c = Content::from_bytes(b"  one two\nthree\nfour\n  five two\n");
+        let text = c.text();
+        let two = text.find("two").unwrap();
+        let five = text.find("five").unwrap();
+        let fragments = vec![frag(two..two + 3, &[]), frag(five + 5..five + 8, &[1])];
+        let blocks = super::super::blocks::blocks(
+            &c,
+            &fragments,
+            &super::super::BlockOptions {
+                dedent: true,
+                ..super::super::BlockOptions::default()
+            },
+        );
+        let render_omit = |omit: Omit| {
+            render(
+                &c,
+                &fragments,
+                &blocks,
+                Highlight::Markers("⟦", "⟧"),
+                usize::MAX,
+                omit,
+            )
+        };
+        assert_eq!(
+            render_omit(Omit::default()),
+            "⇥2\n1:one ⟦two⟧\n--\n⇥2\n4:five ⟦#1:two⟧\n",
+            "a fragment without ids has a marker without them"
+        );
+        let all = Omit::from_parts(&[OmitPart::LineNumbers, OmitPart::Gaps, OmitPart::Indent]);
+        assert_eq!(render_omit(all), "one ⟦two⟧\nfive ⟦#1:two⟧\n");
+    }
+
+    #[test]
     fn overlapping_parts_merge_with_all_ids() {
         let c = Content::from_bytes(b"abcdef\n");
         let fragments = vec![frag(1..4, &[2]), frag(2..5, &[1])];
@@ -653,7 +715,14 @@ mod tests {
     fn render_auto(c: &Content, fragments: &[Fragment], max: usize) -> String {
         let blocks =
             super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
-        render(c, fragments, &blocks, Highlight::Auto("⟦", "⟧"), max)
+        render(
+            c,
+            fragments,
+            &blocks,
+            Highlight::Auto("⟦", "⟧"),
+            max,
+            super::super::omit::Omit::default(),
+        )
     }
 
     #[test]
