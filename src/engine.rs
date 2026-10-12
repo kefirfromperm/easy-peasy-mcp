@@ -1036,16 +1036,15 @@ struct Run {
     _lease: Option<Lease>,
 }
 
-/// How the fragments are shown: `auto` is markers in text and columns in JSON.
+/// How the fragments are shown: `auto` is markers which don't outgrow the line in text and columns in JSON.
 fn highlight(settings: &Settings, json: bool) -> Highlight<'_> {
     let markers = settings.list(Key::Markers);
-    let markers = Highlight::Markers(&markers[0], &markers[1]);
     match settings.text(Key::Highlight) {
         "none" => Highlight::None,
         "columns" => Highlight::Columns,
-        "markers" => markers,
+        "markers" => Highlight::Markers(&markers[0], &markers[1]),
         _ if json => Highlight::Columns,
-        _ => markers,
+        _ => Highlight::Auto(&markers[0], &markers[1]),
     }
 }
 

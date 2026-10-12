@@ -52,6 +52,18 @@ pub enum Highlight<'a> {
     Columns,
     /// The opening and the closing marker inside the lines.
     Markers(&'a str, &'a str),
+    /// `auto` in text: the markers, except in the lines whose markers would add more characters than they have.
+    Auto(&'a str, &'a str),
+}
+
+impl<'a> Highlight<'a> {
+    /// The opening and the closing marker of `markers` and `auto`.
+    pub fn markers(self) -> Option<[&'a str; 2]> {
+        match self {
+            Self::Markers(open, close) | Self::Auto(open, close) => Some([open, close]),
+            Self::None | Self::Columns => None,
+        }
+    }
 }
 
 /// The limits of the listed files, lines and output (OUTPUT.md#limits-and-truncation).
@@ -392,7 +404,7 @@ impl Response<'_> {
         }
         let content = Content::from_text(shown);
         match self.highlight {
-            Highlight::Markers(..) => {
+            Highlight::Markers(..) | Highlight::Auto(..) => {
                 let _ = writeln!(
                     out,
                     "  path: {}",
@@ -549,9 +561,9 @@ impl Response<'_> {
     }
 
     /// The warnings of the search and, in `lines` detail with markers, `marker_in_content` for the files with a
-    /// matched line which contains a marker.
+    /// matched line which contains a marker; with `auto` a line written without markers doesn't count.
     fn all_warnings(&self) -> Cow<'_, Warnings> {
-        let Highlight::Markers(open, close) = self.highlight else {
+        let Some([open, close]) = self.highlight.markers() else {
             return Cow::Borrowed(self.warnings);
         };
         if self.detail != Detail::Lines {
@@ -562,8 +574,21 @@ impl Response<'_> {
             let Some(m) = &file.matches else {
                 continue;
             };
+            let plain = if let Highlight::Auto(..) = self.highlight {
+                let blocks = blocks::blocks(&m.content, &m.fragments, &self.blocks);
+                lines::plain_lines_of(
+                    &m.content,
+                    &m.fragments,
+                    &blocks,
+                    [open, close],
+                    self.limits.max_line_length,
+                )
+            } else {
+                Vec::new()
+            };
             let marked = lines::lines_of(&m.content, &m.fragments)
                 .into_iter()
+                .filter(|i| !plain.contains(i))
                 .any(|i| {
                     let line = m.content.line(i);
                     line.contains(open) || line.contains(close)
