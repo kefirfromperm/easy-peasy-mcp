@@ -14,6 +14,7 @@ QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. 
   name ~ '*.rs'                  wildcard on the file name: * ? ** [abc] [!abc] {a,b}
   path ~ 'src/**/*.ts'           wildcard on the path relative to the working dir, / separator
   text has 'TODO'                content contains; also: = starts ends, =~ regex (Rust syntax)
+  text starts '#!'               text is the whole file; line(text starts '## ') = a line starts with it
   size > 1M  modified > -7d  created  accessed  type = dir  empty
   lang = rust   kind in (source, test)   git = changed|branch|staged|untracked
   name ~~ 'cfgldr'               fuzzy file name (also path ~~)

@@ -921,6 +921,10 @@ git = branch and kind in (source, test) and text has 'TODO'
 - `name ~ '*.rs' and text has 'a' or text has 'b'` — `and` binds tighter than `or`, use brackets.
 - `text has 'a' and text has 'b'` means anywhere in the file, `line(text has 'a' and text has 'b')` means the same
   line.
+- `text starts '#!'` means the file starts with `#!`, `line(text starts '## ')` means a line starts with `## `:
+  outside `line()` `text` is the whole file content, so `=`, `starts`, `ends` and `not` apply to the whole file, see
+  [Condition scope](#condition-scope). `name ~ '*.md' and text starts '## '` finds only Markdown files whose first
+  line is a `## ` heading.
 - Inside raw strings `` `...` `` there are no escapes: `` `\n` `` is two characters. For a line break in `=`, `has`,
   `starts`, `ends` use `'\n'`; in a regex `` `\n` `` works, because the regex itself understands `\n`.
 - `.` in a regex matches any character; ``name =~ `.rs$` `` also matches `furs`. Use `name ~ '*.rs'` or

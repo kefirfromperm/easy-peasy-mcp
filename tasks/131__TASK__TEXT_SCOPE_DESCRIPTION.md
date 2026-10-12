@@ -1,6 +1,6 @@
 # Task 131: The file and the line scope of `text` in the tool description
 
-Status: not implemented
+Status: implemented, see [131__SUMMARY__TEXT_SCOPE_DESCRIPTION.md](131__SUMMARY__TEXT_SCOPE_DESCRIPTION.md)
 
 Depends on: task 117
 
