@@ -27,7 +27,6 @@ A spec change first (its own commit; OUTPUT.md, CONFIG.md, TOOLS.md, the tool de
   |-------------------|---------------------------------------------------|---------------------------------------|
   | `counts`          | `files: N  lines: N  matches: N` of the header    | `counts`, `counts_exact`              |
   | `result`          | `result: r1`                                      | `result`                              |
-  | `truncation`      | `truncated: yes (...)`, `next cursor: ...`        | `truncated`, `truncated_by`, `next_cursor` |
   | `legend`          | the legend lines                                  | `legend`                              |
   | `funnel`          | `funnel:` and its steps                           | `funnel`                              |
   | `hints`           | `hints:` and its lines                            | `hints`                               |
@@ -41,6 +40,10 @@ A spec change first (its own commit; OUTPUT.md, CONFIG.md, TOOLS.md, the tool de
 
   the final names and the JSON fields are fixed in the spec step; every part of OUTPUT.md which can be left out
   without breaking the format gets a name, the ones above at least
+- `omit = "all"`: every part of the list, the bare grep-like output; a string other than `"all"` is
+  `invalid_value`
+- `line_numbers` can be left out with context lines: a context line and a matched line may then look the same, which
+  the agent asked for; the spec says so
 - an unknown part is `invalid_value` with the list of the parts as the hint
 - the existing switches keep working; `omit = ["funnel"]` and `funnel = never` are the same
 - the budget estimates the response without the omitted parts
@@ -48,17 +51,10 @@ A spec change first (its own commit; OUTPUT.md, CONFIG.md, TOOLS.md, the tool de
 ## Out of scope
 
 - `version` and `exists` of JSON: the frame of the response, always written
+- the truncation: `truncated: yes (...)` and `next cursor: ...` (JSON `truncated`, `truncated_by`, `next_cursor`) are
+  always written when something was cut, also with `omit = "all"`, so an incomplete result never looks complete
 - the paths of the files and the matched lines themselves: what the response is for (use `detail`)
 - reordering parts or new short forms of the header
-
-## Open questions for the spec step
-
-- `truncation` and `warnings` tell the agent that the result is incomplete or the search had problems: should
-  omitting them still keep `truncated: yes` when a limit or the timeout cut the result, or is the agent's request
-  final?
-- `line_numbers` without `match_ids` / `highlight`: a context line and a matched line look the same; allowed, or does
-  omitting `line_numbers` need `context = 0`?
-- a preset like `omit = "all"` for the bare grep-like output
 
 ## Spec
 
@@ -71,6 +67,8 @@ A spec change first (its own commit; OUTPUT.md, CONFIG.md, TOOLS.md, the tool de
 `134__EXAMPLES__OUTPUT_OMIT.md` covers:
 
 - every part left out alone, in text and JSON
+- `omit = "all"`, and the truncation kept with it
+- `line_numbers` left out with context lines
 - the bare output: everything which can be left out, against the default response of the same query
 - `omit` from the config, from `update_config` and per query of `queries`
 - `omit` with the budget: more fits
