@@ -520,6 +520,7 @@ mod tests {
             &blocks,
             Highlight::Markers("⟦", "⟧"),
             usize::MAX,
+            super::super::omit::Omit::default(),
         )
     }
 
@@ -636,6 +637,31 @@ mod tests {
     }
 
     #[test]
+    fn without_line_numbers_gaps_and_indentation() {
+        use super::super::omit::{Omit, Part};
+        let c = Content::from_bytes(b"  one two\nthree\nfour\n  five two\n");
+        let text = c.text();
+        let two = text.find("two").unwrap();
+        let five = text.find("five").unwrap();
+        let fragments = vec![frag(two..two + 3, &[]), frag(five + 5..five + 8, &[1])];
+        let blocks =
+            super::super::blocks::blocks(&c, &fragments, &super::super::BlockOptions {
+                dedent: true,
+                ..super::super::BlockOptions::default()
+            });
+        let render_omit = |omit: Omit| {
+            render(&c, &fragments, &blocks, Highlight::Markers("⟦", "⟧"), usize::MAX, omit)
+        };
+        assert_eq!(
+            render_omit(Omit::default()),
+            "⇥2\n1:one ⟦two⟧\n--\n⇥2\n4:five ⟦#1:two⟧\n",
+            "a fragment without ids has a marker without them"
+        );
+        let all = Omit::from_parts(&[Part::LineNumbers, Part::Gaps, Part::Indent]);
+        assert_eq!(render_omit(all), "one ⟦two⟧\nfive ⟦#1:two⟧\n");
+    }
+
+    #[test]
     fn overlapping_parts_merge_with_all_ids() {
         let c = Content::from_bytes(b"abcdef\n");
         let fragments = vec![frag(1..4, &[2]), frag(2..5, &[1])];
@@ -653,7 +679,7 @@ mod tests {
     fn render_auto(c: &Content, fragments: &[Fragment], max: usize) -> String {
         let blocks =
             super::super::blocks::blocks(c, fragments, &super::super::BlockOptions::default());
-        render(c, fragments, &blocks, Highlight::Auto("⟦", "⟧"), max)
+        render(c, fragments, &blocks, Highlight::Auto("⟦", "⟧"), max, super::super::omit::Omit::default())
     }
 
     #[test]

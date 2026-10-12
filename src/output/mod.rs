@@ -17,6 +17,7 @@ mod json;
 mod lines;
 mod listing;
 mod meta;
+pub mod omit;
 mod repeated;
 mod sort;
 

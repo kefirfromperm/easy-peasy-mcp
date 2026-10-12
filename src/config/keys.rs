@@ -873,6 +873,39 @@ mod tests {
     }
 
     #[test]
+    fn omit_is_all_or_a_list_of_parts() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        assert_eq!(
+            Type::Omit.check_toml(&item("'all'")),
+            Ok(Value::Text("all".into()))
+        );
+        assert_eq!(
+            Type::Omit.check_toml(&item("['legend', 'gaps']")),
+            Ok(Value::List(vec!["legend".into(), "gaps".into()]))
+        );
+        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent, warnings) is expected";
+        for bad in ["'none'", "['colour']", "1"] {
+            assert_eq!(Type::Omit.check_toml(&item(bad)), Err(expected.into()), "{bad}");
+        }
+        assert_eq!(Type::Omit.parse_json(&json!([])), Some(Value::List(vec![])));
+        assert_eq!(Type::Omit.parse_json(&json!("all")), Some(Value::Text("all".into())));
+        assert_eq!(Type::Omit.parse_json(&json!(["all"])), None);
+        assert_eq!(
+            Type::Omit
+                .check_json("output.omit", &json!("none"))
+                .unwrap_err()
+                .to_text(),
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent, warnings)\n"
+        );
+        assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
+        assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
+    }
+
+    #[test]
     fn positive_numbers() {
         use serde_json::json;
         let item = |text: &str| {
