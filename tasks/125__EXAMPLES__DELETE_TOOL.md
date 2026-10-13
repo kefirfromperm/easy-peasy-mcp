@@ -470,7 +470,7 @@ logs/old.log
 Fixture: `delete`
 
 After the find `data` becomes a symlink to a directory outside of the fixture: the path of the result leads out of
-the allowed root, so it is skipped.
+the allowed root, so it is skipped. Nothing of the selection was done: `isError` is true.
 
 ```text command
 easy-peasy-mcp --allow-write
@@ -502,7 +502,7 @@ symlink data -> ../outside
 ```json request delete
 {"result": "r1"}
 ```
-```text response
+```text error
 deleted: 0  skipped: 1
 
 warning: permission_denied (1): data/x.txt
@@ -564,7 +564,7 @@ easy-peasy-mcp --allow-write
 {"query": "name ~ '*.log'", "permanent": true}
 ```
 ```text response
-deleted: 2
+deleted: 2  permanent
 
 logs/
 app.log
@@ -588,7 +588,7 @@ a.zip
 Fixture: `delete`
 
 `EASY_PEASY_TEST_TRASH=none` is the test hook of a file system without a trash: the files are skipped, not deleted
-permanently; `permanent` deletes them.
+permanently (nothing done: `isError` is true); `permanent` deletes them.
 
 ```text env
 EASY_PEASY_TEST_TRASH=none
@@ -602,7 +602,7 @@ easy-peasy-mcp --allow-write
 ```json request delete
 {"query": "name ~ '*.log'"}
 ```
-```text response
+```text error
 deleted: 0  skipped: 2
 
 warning: trash_unavailable (2): logs/app.log, logs/old.log
@@ -614,7 +614,7 @@ warning: trash_unavailable (2): logs/app.log, logs/old.log
 {"query": "name ~ '*.log'", "permanent": true}
 ```
 ```text response
-deleted: 2
+deleted: 2  permanent
 
 logs/
 app.log

@@ -497,7 +497,8 @@ An unknown field is `invalid_option` with the expected fields, like in `find`.
 - an entry of a result which changed since the result (another size or modification time) or no longer exists is
   skipped with `file_changed`, never acted on
 - every path is checked against `server.allowed_roots` when the tool acts on it: its directory is canonicalized, its
-  name is not resolved; outside of the roots it is skipped with `permission_denied`
+  name is not resolved; outside of the roots it is skipped with `permission_denied`; an allowed root itself is never
+  changed (with nested roots it is inside another one), it is skipped with `permission_denied` too
 - a member of an archive can't be changed: it is skipped with `archive_member`
 - symlinks are acted on themselves, never followed; a directory (`type = dir`) is acted on as a whole tree
 - when the search of `query` stops at the timeout, nothing is changed: the response has no entries and the `timeout`
@@ -530,15 +531,17 @@ warning: file_changed (1): src/main.rs
 ```
 
 - the header: the count of the tool (`deleted: N`, also `deleted: 0`), then `skipped: N` (the entries skipped with a
-  warning) and `failed: N` (the entries which failed) when they are not 0, then `dry run` for a dry run
+  warning) and `failed: N` (the entries which failed) when they are not 0, then `permanent` for `permanent: true`, then
+  `dry run` for a dry run
 - the entries in path order, grouped by directory like `find` with `output.group_dirs`
   ([OUTPUT.md](OUTPUT.md#directory-groups)), directories ending with the separator; the paths are written like the
   paths of `find`; an empty selection has no entries part
 - an entry which fails (permission, busy, vanished, ...) doesn't stop the others: it is listed with the kind of the
   error of the operating system, `old.rs  failed: permission denied`
 - the skipped entries are only in the warnings ([OUTPUT.md](OUTPUT.md#warnings)), with their codes
-- `isError` is true only when nothing was done: at least one entry failed and none was acted on; skipped entries and
-  an empty selection are not errors
+- `isError` is true when nothing was done of a selection with entries: every entry was skipped or failed, or the
+  timeout stopped the call before the first one; an empty selection is not an error, a call which did something
+  isn't either
 - the timeout of the request (`timeout`, else `server.timeout`, counted from the arrival of the call) and a
   cancellation stop between entries: the response lists what was done, with the `timeout` warning after a timeout; a
   cancelled call gets no response, see [Cancellation](#cancellation)
@@ -561,9 +564,9 @@ With `output.format = "json"` (`group_dirs` doesn't apply, the paths are full):
 }
 ```
 
-Empty and default values are omitted: no `skipped` and `failed` when 0, no `dry_run` when false, no `files` and
-`warnings` when there are none. With `format = "json"` an error is the JSON document of
-[OUTPUT.md](OUTPUT.md#errors).
+Empty and default values are omitted: no `skipped` and `failed` when 0, no `permanent` and `dry_run` when false
+(`"permanent": true` comes before `dry_run`), no `files` and `warnings` when there are none. With `format = "json"` an
+error is the JSON document of [OUTPUT.md](OUTPUT.md#errors).
 
 ## Results
 
