@@ -646,7 +646,7 @@ conflict. The error lists the conflicting entries in path order, at most 10, the
 like in the response, the targets like their entries:
 
 ```
-error[rename_conflict]: 3 files have conflicting targets; nothing was changed
+error[rename_conflict]: targets conflict; nothing was changed
   src/a.ts -> src/a.tsx: exists
   src/b.ts -> out/x.ts: the same target as another file
   src/c.ts -> out/x.ts: the same target as another file
