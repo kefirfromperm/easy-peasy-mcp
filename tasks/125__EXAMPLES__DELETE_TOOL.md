@@ -189,8 +189,8 @@ files: 2  lines: 2  matches: 2  result: r1
 #1 text has 'TODO remove'
 
 src/
-legacy.rs  [#1]
-old.rs  [#1]
+legacy.rs  [#1]  lines: 1  matches: 1
+old.rs  [#1]  lines: 1  matches: 1
 
 warning: binary_skipped (1): logs/a.zip
 ```
