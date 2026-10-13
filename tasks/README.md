@@ -248,3 +248,11 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | # | Task | Depends on | Status |
 |---|------|------------|--------|
 | 135 | [One walk for the queries of a batch](135__TASK__BATCH_SHARED_WALK.md) | 113, 133, 134 | ⬜ |
+
+## Output from use
+
+| # | Task | Depends on | Status |
+|---|------|------------|--------|
+| 136 | [Counts per file and per line: `output.count`](136__TASK__COUNT_LEVELS.md) | 79, 134 | ⬜ |
+| 137 | [An absolute working directory written once](137__TASK__WORKING_DIR_ONCE.md) | 85, 90, 134 | ⬜ |
+| 138 | [All the locations of a repeated line](138__TASK__REPEATED_LOCATIONS.md) | 86, 134 | ⬜ |
