@@ -1,6 +1,6 @@
 # Task 125: `delete` tool
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 111, task 115, task 120
 
