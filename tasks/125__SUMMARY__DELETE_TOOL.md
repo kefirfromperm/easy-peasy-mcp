@@ -15,13 +15,13 @@ ground for `rename` and `copy` (tasks 126, 127).
   `traversal`, `kinds`, `languages`, `version`, evaluated like a `find` request); `expect` fails with
   `count_mismatch` before anything changes; entries inside a selected directory go with it; result entries whose size
   or modification time changed, or which vanished, are skipped with `file_changed`; paths outside of the allowed roots
-  (canonical directory, name not resolved) with `permission_denied`; archive members with `archive_member`; symlinks
+  (canonical directory, name not resolved) and an allowed root itself with `permission_denied`; archive members with `archive_member`; symlinks
   are acted on themselves; a query which times out changes nothing
 - **Dry run** ([TOOLS.md#dry-run](../TOOLS.md#dry-run)): the same response with `dry run` in the header
 - **Response** ([TOOLS.md#response-of-a-write-tool](../TOOLS.md#response-of-a-write-tool)): `deleted: N  skipped: N
-  failed: N  dry run`, the entries grouped like `find` (`output.group_dirs`), failed entries with the kind of their
-  error, the warnings; the JSON format with `output.format = "json"`; `isError` only when something failed and nothing
-  was done; the deadline and the cancellation stop between entries
+  failed: N  permanent  dry run`, the entries grouped like `find` (`output.group_dirs`), failed entries with the kind of their
+  error, the warnings; the JSON format with `output.format = "json"`; `isError` when nothing of a selection with entries was
+  done (every entry skipped or failed, or the timeout before the first); the deadline and the cancellation stop between entries
 - **delete** ([TOOLS.md#delete](../TOOLS.md#delete)): the trash of the system through the `trash` crate,
   `permanent: true` deletes (a directory recursively), no trash → `trash_unavailable`, never a silent permanent delete
 - new codes: errors `write_disabled`, `count_mismatch`; warnings `file_changed`, `archive_member`,
@@ -44,6 +44,11 @@ A request flows: `mcp` → `Engine::call_with("delete")` → `write::parse` → 
 `write::act` → `Outcome::to_text` / `to_json`.
 
 ## Deviations from the plan
+
+- after a comparison with two other implementations of the task (made in parallel with other search tools), two of
+  their rules were taken: `isError` for a selection of which nothing was done, also when every entry was skipped (it
+  was: only when something failed), and `permanent` in the header and the JSON; and one more safeguard: an allowed
+  root itself is never changed (`write::may_change`)
 
 - the spec example of the write response got the empty line after the header (amended in the spec commit)
 - the usage line of the binary names `--allow-write`, so the usage in five earlier examples was updated

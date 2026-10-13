@@ -255,6 +255,9 @@ pub(crate) struct Outcome {
     pub skipped: usize,
     pub warnings: Warnings,
     pub dry_run: bool,
+    pub permanent: bool,
+    /// The number of entries of the selection.
+    pub selected: usize,
 }
 
 /// How a write tool acts on the entries.
@@ -266,12 +269,20 @@ pub(crate) struct Act<'a> {
     /// The operation on a checked path (its directory canonical).
     pub operation: &'a dyn Fn(&Path) -> Result<(), TrashError>,
     pub dry_run: bool,
+    pub permanent: bool,
+}
+
+/// Whether a canonical path may be changed: inside an allowed root and not an allowed root itself.
+pub(crate) fn may_change(path: &Path, roots: &[PathBuf]) -> bool {
+    roots.iter().any(|root| path.starts_with(root)) && !roots.iter().any(|root| path == root)
 }
 
 /// Acts on the entries in their order, skipping the ones which can't be changed, until the call must stop.
 pub(crate) fn act(entries: &[Entry], how: &Act<'_>) -> Outcome {
     let mut outcome = Outcome {
         dry_run: how.dry_run,
+        permanent: how.permanent,
+        selected: entries.len(),
         ..Outcome::default()
     };
     for entry in entries {
@@ -345,9 +356,9 @@ impl Outcome {
         self.acted.len() - self.done()
     }
 
-    /// `isError`: something failed and nothing was done.
+    /// `isError`: the selection has entries and none of them was done.
     pub(crate) fn is_error(&self) -> bool {
-        self.failed() > 0 && self.done() == 0
+        self.selected > 0 && self.done() == 0
     }
 
     /// The text format: the header with the count named `verb`, the entries, the warnings.
@@ -358,6 +369,9 @@ impl Outcome {
         }
         if self.failed() > 0 {
             let _ = write!(out, "  failed: {}", self.failed());
+        }
+        if self.permanent {
+            out.push_str("  permanent");
         }
         if self.dry_run {
             out.push_str("  dry run");
@@ -404,6 +418,9 @@ impl Outcome {
         }
         if self.failed() > 0 {
             doc.insert("failed".into(), json!(self.failed()));
+        }
+        if self.permanent {
+            doc.insert("permanent".into(), json!(true));
         }
         if self.dry_run {
             doc.insert("dry_run".into(), json!(true));
@@ -531,6 +548,7 @@ mod tests {
                     error: Some("permission denied".into()),
                 },
             ],
+            selected: 3,
             ..Outcome::default()
         };
         outcome
@@ -556,5 +574,47 @@ mod tests {
         };
         assert_eq!(empty.to_text("deleted", true), "deleted: 0  dry run\n");
         assert!(!empty.is_error());
+    }
+
+    #[test]
+    fn nothing_done_of_a_selection_is_an_error() {
+        let mut skipped = Outcome {
+            skipped: 2,
+            selected: 2,
+            permanent: true,
+            ..Outcome::default()
+        };
+        skipped
+            .warnings
+            .add(WarningCode::TrashUnavailable, PathBuf::from("a.log"), false);
+        assert!(skipped.is_error());
+        assert!(
+            skipped
+                .to_text("deleted", true)
+                .starts_with("deleted: 0  skipped: 2  permanent\n")
+        );
+        let json: Value = serde_json::from_str(&skipped.to_json("deleted")).unwrap();
+        assert_eq!(json["permanent"], json!(true));
+        let done = Outcome {
+            acted: vec![Acted {
+                shown: PathBuf::from("a.log"),
+                is_dir: false,
+                error: None,
+            }],
+            skipped: 1,
+            selected: 2,
+            ..Outcome::default()
+        };
+        assert!(!done.is_error());
+    }
+
+    #[test]
+    fn an_allowed_root_itself_is_never_changed() {
+        let roots = [PathBuf::from("/p"), PathBuf::from("/p/q")];
+        assert!(may_change(Path::new("/p/a.txt"), &roots));
+        assert!(may_change(Path::new("/p/q/b"), &roots));
+        assert!(!may_change(Path::new("/p/q"), &roots));
+        assert!(!may_change(Path::new("/p"), &roots));
+        assert!(!may_change(Path::new("/other/a.txt"), &roots));
     }
 }

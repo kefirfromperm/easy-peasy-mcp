@@ -310,6 +310,8 @@ impl Engine {
         };
         let mut outcome = write::Outcome {
             dry_run: write.dry_run,
+            permanent: write.permanent,
+            selected: entries.len(),
             ..write::Outcome::default()
         };
         if timed_out {
@@ -322,7 +324,7 @@ impl Engine {
                 deadline.is_some_and(|d| std::time::Instant::now() >= d)
                     || progress.is_some_and(|p| p.is_cancelled())
             };
-            let allowed = |path: &Path| settings.is_allowed(path);
+            let allowed = |path: &Path| write::may_change(path, &settings.allowed_roots);
             let roots = settings.allowed_roots.clone();
             let trash = |path: &Path| self.options.trash.put(path, &roots);
             let operation: &dyn Fn(&Path) -> Result<(), TrashError> =
@@ -334,6 +336,7 @@ impl Engine {
                     stop: &stop,
                     operation,
                     dry_run: write.dry_run,
+                    permanent: write.permanent,
                 },
             );
         }
