@@ -190,7 +190,7 @@ Fixture: `dirs`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -198,6 +198,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+allow_write = false
 result_cache = 50
 output_dir = '<output_dir>'
 max_output_file_size = "100M"
@@ -226,7 +227,7 @@ default_dirs = ['api']    # was ['.']
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -234,6 +235,7 @@ default_dirs = ['api']    # update
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default
@@ -775,7 +777,7 @@ error[invalid_value]: invalid value for 'server.default_dirs'
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -783,6 +785,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+allow_write = false
 result_cache = 50
 output_dir = '<output_dir>'
 max_output_file_size = "100M"
@@ -809,7 +812,7 @@ easy-peasy-mcp --config conf/dirs.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -817,6 +820,7 @@ default_dirs = ['web']    # file: conf/dirs.toml
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default

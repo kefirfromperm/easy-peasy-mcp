@@ -22,7 +22,7 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -30,6 +30,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+allow_write = false
 result_cache = 50
 output_dir = '<output_dir>'
 max_output_file_size = "100M"
@@ -521,7 +522,7 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0
@@ -552,7 +553,7 @@ Fixture: `get-config`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -560,6 +561,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default

@@ -175,6 +175,15 @@ Fixture: `small-rust`
   fixture, so its default `server.output_dir` is `<output_dir>`
 - a `text file <path>` (or `json file <path>`) block after a response is the exact content of the file `<path>` of
   `<output_dir>` after that request, compared like a response
+- a `text setup` block in an example (not in its fixture section) changes the fixture between the requests before
+  and after it, with the actions of the fixture setup and `remove <path>` (removes a file, a symlink or a directory
+  tree), e.g. to change a file after a `find`
+- the examples never touch the trash of the machine: they run with the trash test hook of the library, which moves
+  what a write tool puts into the trash into the directory `trash` next to the fixture directory (created when
+  needed), at its path relative to its allowed root; a startup example passes the directory in
+  `EASY_PEASY_TEST_TRASH`, the value `none` is a file system without a trash. A `text trash` block after a response is
+  the content of that directory after that request: every entry on its own line, sorted by path, a directory ending
+  with `/`, a symlink as `<path> -> <target>`; an empty block is an empty trash
 - a line `` Slow reads: `2s` `` in an example makes every read of a file's content take that long (a test hook of the
   library, cut short at the deadline of the request), so a timeout can be shown without depending on the machine; a
   startup example passes it to the binary in `EASY_PEASY_TEST_SLOW_READS` (milliseconds)
