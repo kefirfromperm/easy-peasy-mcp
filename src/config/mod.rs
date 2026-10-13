@@ -1514,14 +1514,14 @@ mod tests {
             ..Settings::defaults(Path::new("/"))
         };
         let first = format!(
-            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size\n",
+            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size\n",
             env!("CARGO_PKG_VERSION")
         );
         // the examples show every section in full; here the start of it
         let all = get_config(&settings, &Value::Null).unwrap();
         assert!(
             all.starts_with(&format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nresult_cache = 50\noutput_dir = '/out'\nmax_output_file_size = \"100M\"\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nallow_write = false\nresult_cache = 50\noutput_dir = '/out'\nmax_output_file_size = \"100M\"\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
             )),
             "{all}"
         );
@@ -1532,7 +1532,7 @@ mod tests {
             )
             .unwrap(),
             format!(
-                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\nresult_cache = 50    # default\noutput_dir = '/out'    # default\nmax_output_file_size = \"100M\"    # default\n"
+                "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]    # cli\ndefault_dirs = ['.']    # default\ntimeout = \"30s\"    # default\nthreads = 0    # default\nallow_update = true    # default\nallow_write = false    # default\nresult_cache = 50    # default\noutput_dir = '/out'    # default\nmax_output_file_size = \"100M\"    # default\n"
             )
         );
         assert!(

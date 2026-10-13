@@ -5,7 +5,7 @@ mod common;
 use std::fmt::Write as _;
 
 use common::{Example, Fixture, load_examples, setup_fixture};
-use easy_peasy_mcp::{Engine, EngineOptions};
+use easy_peasy_mcp::{Engine, EngineOptions, Trash};
 
 /// Whether an example was skipped because its fixture can't be set up on this machine.
 enum Skipped {
@@ -52,6 +52,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
     if example.platform.is_none() {
         options.native_case_insensitive = false;
     }
+    // the trash test hook (AGENTS.md): the examples never touch the trash of the machine
+    let trash = dir.temp().join("trash");
+    options.trash = Trash::Dir(trash.clone());
     let engine = Engine::new(options);
 
     let mut blocks = example.blocks.iter().peekable();
@@ -59,6 +62,13 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
     while let Some(block) = blocks.next() {
         if let Some(checked) = common::check_file(example, block, &fixture_path, &output_dir) {
             checked.map_err(|e| format!("step {step}: {e}"))?;
+            continue;
+        }
+        if let Some(checked) = common::check_trash(block, &trash) {
+            checked.map_err(|e| format!("step {step}: {e}"))?;
+            continue;
+        }
+        if common::run_example_setup(block, &dir.root).is_some() {
             continue;
         }
         let Some(tool) = block.info.strip_prefix("json request") else {

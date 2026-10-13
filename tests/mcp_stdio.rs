@@ -266,27 +266,31 @@ fn tools_are_the_spec_text() {
     let spec = std::fs::read_to_string(common::repo_root().join("TOOLS.md")).unwrap();
     let blocks = fenced_blocks(&spec);
     let dir = fixture();
-    let mut server = McpServer::spawn(&mut server_command(&dir.root, dir.temp()));
+    // the write tools are listed only with --allow-write
+    for (args, count) in [(&[][..], 3), (&["--allow-write"][..], 4)] {
+        let mut server =
+            McpServer::spawn(server_command(&dir.root, dir.temp()).args(args.iter().copied()));
 
-    let init = server.initialize();
-    let mut expected: Value =
-        serde_json::from_str(spec_block(&blocks, &["Transport"], "json")).unwrap();
-    expected["serverInfo"]["version"] = json!(env!("CARGO_PKG_VERSION"));
-    for key in ["capabilities", "serverInfo", "instructions"] {
-        assert_eq!(init["result"][key], expected[key], "{key}");
-    }
+        let init = server.initialize();
+        let mut expected: Value =
+            serde_json::from_str(spec_block(&blocks, &["Transport"], "json")).unwrap();
+        expected["serverInfo"]["version"] = json!(env!("CARGO_PKG_VERSION"));
+        for key in ["capabilities", "serverInfo", "instructions"] {
+            assert_eq!(init["result"][key], expected[key], "{key}");
+        }
 
-    let list = server.request(2, "tools/list", &json!({}));
-    let tools = list["result"]["tools"].as_array().expect("tools");
-    assert_eq!(tools.len(), 3);
-    for tool in tools {
-        let name = tool["name"].as_str().unwrap();
-        let expected = json!({
-            "name": name,
-            "description": spec_block(&blocks, &["Tools", name, "Description"], ""),
-            "inputSchema": serde_json::from_str::<Value>(spec_block(&blocks, &["Tools", name, "Input schema"], "json")).unwrap(),
-            "annotations": spec_annotations(&spec, name),
-        });
-        assert_eq!(tool, &expected, "{name}");
+        let list = server.request(2, "tools/list", &json!({}));
+        let tools = list["result"]["tools"].as_array().expect("tools");
+        assert_eq!(tools.len(), count, "{args:?}");
+        for tool in tools {
+            let name = tool["name"].as_str().unwrap();
+            let expected = json!({
+                "name": name,
+                "description": spec_block(&blocks, &["Tools", name, "Description"], ""),
+                "inputSchema": serde_json::from_str::<Value>(spec_block(&blocks, &["Tools", name, "Input schema"], "json")).unwrap(),
+                "annotations": spec_annotations(&spec, name),
+            });
+            assert_eq!(tool, &expected, "{name}");
+        }
     }
 }
