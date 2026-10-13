@@ -221,7 +221,7 @@ pub fn get_config_schema() -> Value {
 /// The description of the `update_config` tool (`TOOLS.md#update_config`).
 pub const UPDATE_CONFIG_DESCRIPTION: &str = "\
 Changes the search server configuration in memory until the server stops: any value except the read-only ones of
-server (allowed_roots, allow_update, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.
+server (allowed_roots, allow_update, allow_write, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.
 \"output.context = 2\" or \"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value
 is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.";
 
@@ -236,4 +236,100 @@ pub fn update_config_schema() -> Value {
             "reset": { "type": "array", "items": { "type": "string" }, "description": "Keys like 'output.context', or ['all']." }
         }
     })
+}
+
+/// The description of the `delete` tool (`TOOLS.md#delete`).
+pub const DELETE_DESCRIPTION: &str = r#"Deletes files: moves them to the trash of the system (Trash, Recycle Bin), so a mistake can be undone. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, not only the shown ones
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+A directory is deleted with everything in it. Symlinks are deleted themselves, never followed.
+expect = N: fails without changing anything unless the selection has N files.
+dry_run = true: lists what would be deleted and changes nothing. Use it for a selection you haven't seen.
+permanent = true: deletes instead of moving to the trash. It can't be undone."#;
+
+/// The input schema of the `delete` tool (`TOOLS.md#delete`).
+const DELETE_SCHEMA: &str = r#"{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "result": { "type": "string", "description": "Result id of find, e.g. 'r12': all its files. Instead of query." },
+    "query": { "type": "string", "description": "Query like in find: the files it matches. Instead of result." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    },
+    "expect": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless the selection has this many files." },
+    "dry_run": { "type": "boolean", "description": "List what would be deleted, change nothing." },
+    "permanent": { "type": "boolean", "description": "Delete instead of moving to the trash. Can't be undone." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max time of the call, e.g. '10s'. '0s': no limit." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "group_dirs": { "type": "boolean" }
+      }
+    }
+  }
+}"#;
+
+/// The input schema of the `delete` tool.
+#[must_use]
+pub fn delete_schema() -> Value {
+    serde_json::from_str(DELETE_SCHEMA).expect("the schema of delete is JSON")
 }

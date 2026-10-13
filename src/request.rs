@@ -303,7 +303,7 @@ pub fn file_target(value: &Value) -> Result<Option<FileTarget>, Report> {
 }
 
 /// The number of a result id `rN` of the field `within` or `since`.
-fn result_id(field: &str, value: &Value) -> Result<u64, Report> {
+pub(crate) fn result_id(field: &str, value: &Value) -> Result<u64, Report> {
     value
         .as_str()
         .and_then(|id| id.strip_prefix('r'))

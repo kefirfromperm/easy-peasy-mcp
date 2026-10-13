@@ -533,7 +533,7 @@ easy-peasy-mcp
       },
       {
         "name": "update_config",
-        "description": "Changes the search server configuration in memory until the server stops: any value except the read-only ones of\nserver (allowed_roots, allow_update, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.\n\"output.context = 2\" or \"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value\nis invalid, nothing changes. To change a value for one search only, pass it in the find request instead.",
+        "description": "Changes the search server configuration in memory until the server stops: any value except the read-only ones of\nserver (allowed_roots, allow_update, allow_write, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.\n\"output.context = 2\" or \"[output]\\ncontext = 2\\nmax_files = 30\". Lists are replaced, not merged. Atomic: if any value\nis invalid, nothing changes. To change a value for one search only, pass it in the find request instead.",
         "inputSchema": {
           "type": "object",
           "additionalProperties": false,

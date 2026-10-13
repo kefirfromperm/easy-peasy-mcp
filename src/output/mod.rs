@@ -740,7 +740,7 @@ fn split_found(file: &Found) -> (String, String) {
 }
 
 /// The directory header (ending with the separator; `./` for the working directory) and the file name.
-fn split(rel: &Path) -> (String, String) {
+pub(crate) fn split(rel: &Path) -> (String, String) {
     let parts = path_parts(rel);
     let (name, dirs) = parts
         .split_last()

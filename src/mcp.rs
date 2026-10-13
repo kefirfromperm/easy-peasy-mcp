@@ -40,6 +40,9 @@ impl Server {
         let Value::Object(update_config_schema) = description::update_config_schema() else {
             unreachable!("the schema is a JSON object")
         };
+        let Value::Object(delete_schema) = description::delete_schema() else {
+            unreachable!("the schema is a JSON object")
+        };
         vec![
             Tool::new("find", description::FIND_DESCRIPTION, schema)
                 .annotate(ToolAnnotations::new().read_only(true).open_world(false)),
@@ -58,6 +61,13 @@ impl Server {
                 ToolAnnotations::new()
                     .read_only(false)
                     .destructive(false)
+                    .idempotent(true)
+                    .open_world(false),
+            ),
+            Tool::new("delete", description::DELETE_DESCRIPTION, delete_schema).annotate(
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(true)
                     .idempotent(true)
                     .open_world(false),
             ),

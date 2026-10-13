@@ -1,6 +1,6 @@
 # Task 125: `delete` tool
 
-Status: not implemented
+Status: implemented, see [125__SUMMARY__DELETE_TOOL.md](125__SUMMARY__DELETE_TOOL.md)
 
 Depends on: task 111, task 115, task 120
 

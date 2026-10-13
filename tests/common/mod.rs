@@ -21,6 +21,8 @@ pub fn server_command(dir: &Path, home: &Path) -> Command {
         .env("HOME", home)
         .env("XDG_CONFIG_HOME", home)
         .env("APPDATA", home)
+        // the trash test hook: the tests never touch the trash of the machine
+        .env("EASY_PEASY_TEST_TRASH", home.join("trash"))
         .env_remove("EASY_PEASY_CONFIG");
     command
 }
@@ -662,6 +664,15 @@ fn run_setup(root: &Path, action: &str) {
             fs::create_dir_all(p.parent().unwrap()).unwrap();
             fs::write(p, bytes).unwrap();
         }
+        "remove" => {
+            let p = root.join(rest.trim());
+            let meta = fs::symlink_metadata(&p).expect("remove <path>: the path exists");
+            if meta.is_dir() {
+                fs::remove_dir_all(&p).unwrap();
+            } else {
+                fs::remove_file(&p).unwrap();
+            }
+        }
         "hide" => hide(&root.join(rest.trim())),
         "junction" => {
             let (link, target) = rest
@@ -690,6 +701,63 @@ fn run_setup(root: &Path, action: &str) {
             assert!(verb == "git!" || status.success(), "setup failed: {action}");
         }
         other => panic!("unknown setup action {other}"),
+    }
+}
+
+/// The actions of a `text setup` block inside an example, run on the fixture `root` between its requests; `None` for
+/// another block.
+pub fn run_example_setup(block: &Block, root: &Path) -> Option<()> {
+    if block.info != "text setup" {
+        return None;
+    }
+    for action in block.text.lines().filter(|l| !l.trim().is_empty()) {
+        run_setup(root, action);
+    }
+    Some(())
+}
+
+/// The check of a `text trash` block: the entries of the trash directory of the test hook, sorted by path, a
+/// directory with `/`, a symlink as `<path> -> <target>`; `None` for another block.
+pub fn check_trash(block: &Block, trash: &Path) -> Option<Result<(), String>> {
+    if block.info != "text trash" {
+        return None;
+    }
+    let mut entries = Vec::new();
+    list_trash(trash, trash, &mut entries);
+    entries.sort();
+    let actual: String = entries.iter().map(|e| e.clone() + "\n").collect();
+    Some(if actual == block.text {
+        Ok(())
+    } else {
+        Err(format!(
+            "the trash: expected:\n{}\nactual:\n{actual}",
+            block.text
+        ))
+    })
+}
+
+/// The entries below `dir` relative to `trash`, `/` separated.
+fn list_trash(trash: &Path, dir: &Path, entries: &mut Vec<String>) {
+    let Ok(read) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in read.filter_map(Result::ok) {
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(trash)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let meta = fs::symlink_metadata(&path).unwrap();
+        if meta.file_type().is_symlink() {
+            let target = fs::read_link(&path).unwrap();
+            entries.push(format!("{rel} -> {}", target.to_string_lossy()));
+        } else if meta.is_dir() {
+            entries.push(format!("{rel}/"));
+            list_trash(trash, &path, entries);
+        } else {
+            entries.push(rel);
+        }
     }
 }
 

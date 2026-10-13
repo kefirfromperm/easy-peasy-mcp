@@ -22,6 +22,9 @@ pub enum WarningCode {
     NotAGitRepo,
     GitBaseNotFound,
     OutputFileTruncated,
+    FileChanged,
+    ArchiveMember,
+    TrashUnavailable,
 }
 
 impl WarningCode {
@@ -41,6 +44,9 @@ impl WarningCode {
             Self::NotAGitRepo => "not_a_git_repo",
             Self::GitBaseNotFound => "git_base_not_found",
             Self::OutputFileTruncated => "output_file_truncated",
+            Self::FileChanged => "file_changed",
+            Self::ArchiveMember => "archive_member",
+            Self::TrashUnavailable => "trash_unavailable",
         }
     }
 }

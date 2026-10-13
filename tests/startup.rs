@@ -52,6 +52,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     for name in ["TMPDIR", "TMP", "TEMP"] {
         process.env(name, &temp);
     }
+    // the trash test hook (AGENTS.md): the examples never touch the trash of the machine
+    let trash = dir.temp().join("trash");
+    process.env("EASY_PEASY_TEST_TRASH", &trash);
     for (key, value) in &env {
         process.env(key, value);
     }
@@ -96,6 +99,7 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
         example,
         &fixture_path,
         &output_dir,
+        &trash,
     )
 }
 
@@ -106,6 +110,7 @@ fn run_session(
     example: &Example,
     fixture_path: &str,
     output_dir: &std::path::Path,
+    trash: &std::path::Path,
 ) -> Result<(), String> {
     let mut server = server;
     let Some(initialized) = server.response_to_initialize() else {
@@ -115,7 +120,7 @@ fn run_session(
     let mut exchange = server.into_exchange();
     exchange.slashed = common::slashed(example);
     exchange.record(initialized);
-    let result = run_blocks(&mut exchange, example, fixture_path, output_dir);
+    let result = run_blocks(&mut exchange, example, fixture_path, output_dir, trash);
     let _ = exchange.child.kill();
     let _ = exchange.child.wait();
     result
@@ -127,6 +132,7 @@ fn run_blocks(
     example: &Example,
     fixture_path: &str,
     output_dir: &std::path::Path,
+    trash: &std::path::Path,
 ) -> Result<(), String> {
     let output_path = output_dir.to_string_lossy().into_owned();
     let mut blocks = example.blocks.iter();
@@ -134,6 +140,13 @@ fn run_blocks(
     while let Some(block) = blocks.next() {
         if let Some(checked) = common::check_file(example, block, fixture_path, output_dir) {
             checked?;
+            continue;
+        }
+        if let Some(checked) = common::check_trash(block, trash) {
+            checked?;
+            continue;
+        }
+        if common::run_example_setup(block, std::path::Path::new(fixture_path)).is_some() {
             continue;
         }
         let parse = |text: &str| -> Result<Value, String> {

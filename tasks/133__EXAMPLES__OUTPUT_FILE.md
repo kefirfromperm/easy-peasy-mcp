@@ -485,7 +485,7 @@ easy-peasy-mcp --output-dir out
 ```
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -493,6 +493,7 @@ default_dirs = ['.']    # default
 timeout = "30s"    # default
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<fixture>/out'    # cli
 max_output_file_size = "100M"    # default
@@ -527,7 +528,7 @@ easy-peasy-mcp --config config.toml
 ```
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -535,6 +536,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+allow_write = false
 result_cache = 50
 output_dir = ''
 max_output_file_size = "100M"

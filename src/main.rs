@@ -8,8 +8,8 @@ use easy_peasy_mcp::{Engine, EngineOptions, SPEC_VERSION, config, mcp::Server};
 use rmcp::ServiceExt as _;
 
 const USAGE: &str = "usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] \
-[--output-dir <dir>]
-               [--log-level <level>] [--version]";
+[--allow-write]
+               [--output-dir <dir>] [--log-level <level>] [--version]";
 
 /// What the command line asks for.
 enum Command {
@@ -55,6 +55,7 @@ fn parse_args(args: &[String]) -> Result<Command, ArgError> {
                 cli.timeout = Some(timeout.clone());
             }
             "--no-update" if !cli.no_update => cli.no_update = true,
+            "--allow-write" if !cli.allow_write => cli.allow_write = true,
             "--output-dir" if cli.output_dir.is_none() => {
                 cli.output_dir = Some(args.next().ok_or(ArgError::Usage)?.clone());
             }
@@ -134,6 +135,13 @@ fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()>
     if env("EASY_PEASY_TEST_NATIVE_CASE").as_deref() == Some("sensitive") {
         options.native_case_insensitive = false;
     }
+    // the test hook of the startup examples (AGENTS.md): a directory instead of the trash of the system, `none` for a
+    // file system without a trash
+    options.trash = match env("EASY_PEASY_TEST_TRASH") {
+        Some(dir) if dir == "none" => easy_peasy_mcp::Trash::None,
+        Some(dir) => easy_peasy_mcp::Trash::Dir(PathBuf::from(dir)),
+        None => easy_peasy_mcp::Trash::System,
+    };
     let server = Server::new(Engine::new(options));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()

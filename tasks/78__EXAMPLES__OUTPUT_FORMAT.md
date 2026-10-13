@@ -52,7 +52,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
 format = "text"
@@ -399,7 +399,7 @@ format = "json"    # was "text"
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
 format = "json"    # update
@@ -510,7 +510,7 @@ easy-peasy-mcp --config conf/o.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
 format = "json"    # file: conf/o.toml

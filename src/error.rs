@@ -41,6 +41,8 @@ pub enum ErrorCode {
     OutputFileDisabled,
     OutputFileDenied,
     OutputFileFailed,
+    WriteDisabled,
+    CountMismatch,
     /// A cancelled request: its response is never sent (TOOLS.md#cancellation).
     Cancelled,
     NotImplemented,
@@ -86,6 +88,8 @@ impl ErrorCode {
             Self::OutputFileDisabled => "output_file_disabled",
             Self::OutputFileDenied => "output_file_denied",
             Self::OutputFileFailed => "output_file_failed",
+            Self::WriteDisabled => "write_disabled",
+            Self::CountMismatch => "count_mismatch",
             Self::Cancelled => "cancelled",
             Self::NotImplemented => "not_implemented",
         }

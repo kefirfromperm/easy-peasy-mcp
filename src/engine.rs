@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex, PoisonError, RwLock};
 use serde_json::{Value, json};
 
 use crate::batch;
-use crate::cache::{CachedFile, CachedResult, ResultCache};
+use crate::cache::{CachedFile, CachedResult, ResultCache, Stamp};
 use crate::config::{self, Key, Settings};
 use crate::content::DecodeOptions;
 use crate::cursor::{self, Cursor};
@@ -22,10 +22,12 @@ use crate::output::{
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
+use crate::recycle::{self, Trash, TrashError};
 use crate::relevance;
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, Progress, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
+use crate::write;
 
 /// Settings of an [`Engine`] which don't come from a request.
 #[derive(Debug, Clone)]
@@ -47,6 +49,8 @@ pub struct EngineOptions {
     /// A test hook: every read of a file's content takes this long, cut short at the deadline of the request.
     #[doc(hidden)]
     pub read_delay: Option<std::time::Duration>,
+    /// Where `delete` moves entries: the trash of the system, or a test hook.
+    pub trash: Trash,
 }
 
 impl EngineOptions {
@@ -57,6 +61,7 @@ impl EngineOptions {
             settings: config::Settings::defaults(&start_dir),
             native_case_insensitive: NATIVE_CASE_INSENSITIVE,
             read_delay: None,
+            trash: Trash::System,
             start_dir,
             home: None,
             git_global_excludes: true,
@@ -178,7 +183,7 @@ impl Drop for Lease {
 
 impl Engine {
     /// The names of the tools, in the order of `tools/list`.
-    pub const TOOLS: [&'static str; 3] = ["find", "get_config", "update_config"];
+    pub const TOOLS: [&'static str; 4] = ["find", "get_config", "update_config", "delete"];
 
     /// A new session.
     #[must_use]
@@ -192,12 +197,15 @@ impl Engine {
         }
     }
 
-    /// The tools of this session, in the order of `tools/list`: `update_config` only with `server.allow_update`.
+    /// The tools of this session, in the order of `tools/list`: `update_config` only with `server.allow_update`,
+    /// the write tools only with `server.allow_write`.
     #[must_use]
     pub fn tools(&self) -> Vec<&'static str> {
+        let settings = &self.options.settings;
         Self::TOOLS
             .into_iter()
-            .filter(|t| *t != "update_config" || self.options.settings.allow_update)
+            .filter(|t| *t != "update_config" || settings.allow_update)
+            .filter(|t| *t != "delete" || settings.allow_write)
             .collect()
     }
 
@@ -242,8 +250,105 @@ impl Engine {
                     arguments,
                 )))
             }
+            "delete" => Ok(self.delete(arguments, progress)),
             other => Err(UnknownTool(other.to_string())),
         }
+    }
+
+    /// The `delete` tool (TOOLS.md#delete): `write_disabled` without `server.allow_write`.
+    fn delete(&self, arguments: &Value, progress: Option<&Arc<Progress>>) -> ToolOutput {
+        let json = self.json_format(arguments);
+        let result = if self.options.settings.allow_write {
+            self.try_delete(arguments, progress, json)
+        } else {
+            Err(
+                Report::new(ErrorCode::WriteDisabled, "write tools are disabled")
+                    .hint("the configuration has server.allow_write = false"),
+            )
+        };
+        match result {
+            Ok(output) => output,
+            Err(report) if json => ToolOutput {
+                text: report.to_json(),
+                is_error: true,
+            },
+            Err(report) => ToolOutput::error(&report),
+        }
+    }
+
+    /// `delete` with writing allowed: the selection, `expect`, then every entry moved to the trash or deleted.
+    fn try_delete(
+        &self,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+        json: bool,
+    ) -> Result<ToolOutput, Report> {
+        let arrival = std::time::Instant::now();
+        let write = write::parse(arguments, &write::DELETE_FIELDS)?;
+        let settings = self
+            .settings()
+            .with(&write.request.config, &write.request.languages)
+            .map_err(|p| p.request_report())?;
+        let limit = write.request.timeout.or_else(|| settings.timeout());
+        let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
+        let (entries, timed_out) = match write.selection {
+            write::Selection::Result(id) => (result_entries(&self.kept(id)?), false),
+            write::Selection::Query => {
+                let run = self.run(&write.request, &settings, &write.find, arrival, progress)?;
+                if progress.is_some_and(|p| p.is_cancelled()) {
+                    return Err(Report::new(
+                        ErrorCode::Cancelled,
+                        "the request was cancelled",
+                    ));
+                }
+                let timed_out = run.result.timed_out;
+                (
+                    found_entries(&run.working_dirs, run.result.files),
+                    timed_out,
+                )
+            }
+        };
+        let mut outcome = write::Outcome {
+            dry_run: write.dry_run,
+            permanent: write.permanent,
+            selected: entries.len(),
+            ..write::Outcome::default()
+        };
+        if timed_out {
+            // nothing is changed when the selection is incomplete
+            outcome.warnings.add_global(WarningCode::Timeout);
+        } else {
+            write::check_expect(entries.len(), write.expect)?;
+            let entries = write::select(entries);
+            let stop = || {
+                deadline.is_some_and(|d| std::time::Instant::now() >= d)
+                    || progress.is_some_and(|p| p.is_cancelled())
+            };
+            let allowed = |path: &Path| write::may_change(path, &settings.allowed_roots);
+            let roots = settings.allowed_roots.clone();
+            let trash = |path: &Path| self.options.trash.put(path, &roots);
+            let operation: &dyn Fn(&Path) -> Result<(), TrashError> =
+                if write.permanent { &remove } else { &trash };
+            outcome = write::act(
+                &entries,
+                &write::Act {
+                    allowed: &allowed,
+                    stop: &stop,
+                    operation,
+                    dry_run: write.dry_run,
+                    permanent: write.permanent,
+                },
+            );
+        }
+        let text = if json {
+            outcome.to_json("deleted")
+        } else {
+            outcome.to_text("deleted", settings.bool(Key::GroupDirs))
+        };
+        Ok(ToolOutput {
+            text,
+            is_error: outcome.is_error(),
+        })
     }
 
     /// The `find` tool.
@@ -767,15 +872,25 @@ impl Engine {
     ) -> Option<String> {
         let cached = files
             .iter()
-            .map(|f| CachedFile {
-                root: f.root,
-                rel: working_dirs
+            .map(|f| {
+                let rel = working_dirs
                     .get(f.root)
                     .and_then(|(_, prefix)| f.rel.strip_prefix(prefix).ok())
                     .unwrap_or(&f.rel)
-                    .to_path_buf(),
-                member: f.member.clone(),
-                fingerprint: fingerprint(f),
+                    .to_path_buf();
+                // the state of the entry for the write tools, which skip a changed one
+                let stamp = match (&f.member, working_dirs.get(f.root)) {
+                    (None, Some((dir, _))) => Stamp::of(&dir.join(&rel)),
+                    _ => None,
+                };
+                CachedFile {
+                    root: f.root,
+                    rel,
+                    member: f.member.clone(),
+                    fingerprint: fingerprint(f),
+                    is_dir: f.is_dir,
+                    stamp,
+                }
             })
             .collect();
         self.results
@@ -846,6 +961,64 @@ impl Engine {
             .unwrap_or_else(PoisonError::into_inner)
             .clone()
     }
+}
+
+/// The entries of a kept result for a write tool: their paths in their working directories, their stamps.
+fn result_entries(kept: &CachedResult) -> Vec<write::Entry> {
+    kept.files
+        .iter()
+        .filter_map(|f| {
+            let (dir, prefix) = kept.working_dirs.get(f.root)?;
+            Some(write::Entry {
+                path: dir.join(&f.rel),
+                shown: prefix.join(&f.rel),
+                member: f.member.clone(),
+                is_dir: f.is_dir,
+                from_result: true,
+                stamp: f.stamp,
+            })
+        })
+        .collect()
+}
+
+/// The entries matched by the query of a write tool.
+fn found_entries(
+    working_dirs: &[(PathBuf, PathBuf)],
+    files: Vec<search::Found>,
+) -> Vec<write::Entry> {
+    files
+        .into_iter()
+        .filter_map(|f| {
+            let (dir, prefix) = working_dirs.get(f.root)?;
+            let rel = f.rel.strip_prefix(prefix).unwrap_or(&f.rel);
+            Some(write::Entry {
+                path: dir.join(rel),
+                member: f.member,
+                is_dir: f.is_dir,
+                from_result: false,
+                stamp: None,
+                shown: f.rel,
+            })
+        })
+        .collect()
+}
+
+/// Deletes the entry at `path` permanently: a directory with everything in it, a symlink itself.
+fn remove(path: &Path) -> Result<(), TrashError> {
+    let meta = std::fs::symlink_metadata(path).map_err(|e| recycle::failed(&e))?;
+    let removed = if meta.file_type().is_dir() {
+        std::fs::remove_dir_all(path)
+    } else {
+        // a symlink to a directory is a directory on Windows
+        std::fs::remove_file(path).or_else(|e| {
+            if cfg!(windows) && meta.file_type().is_symlink() {
+                std::fs::remove_dir(path)
+            } else {
+                Err(e)
+            }
+        })
+    };
+    removed.map_err(|e| recycle::failed(&e))
 }
 
 /// The search of a request with its files in the order of `output.sort`: ranked by relevance (its signals and the

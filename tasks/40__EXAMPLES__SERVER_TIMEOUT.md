@@ -65,7 +65,7 @@ Fixture: `timeout`
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']
@@ -73,6 +73,7 @@ default_dirs = ['.']
 timeout = "30s"
 threads = 0
 allow_update = true
+allow_write = false
 result_cache = 50
 output_dir = '<output_dir>'
 max_output_file_size = "100M"
@@ -103,7 +104,7 @@ timeout = "200ms"    # was "30s"
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -111,6 +112,7 @@ default_dirs = ['.']    # default
 timeout = "200ms"    # update
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default
@@ -648,7 +650,7 @@ easy-peasy-mcp --timeout 5s
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -656,6 +658,7 @@ default_dirs = ['.']    # default
 timeout = "5s"    # cli
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default
@@ -1156,7 +1159,7 @@ easy-peasy-mcp --config conf/t.toml
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -1164,6 +1167,7 @@ default_dirs = ['.']    # default
 timeout = "1m"    # file: conf/t.toml
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default
@@ -1664,7 +1668,7 @@ easy-peasy-mcp --config conf/t.toml --timeout 5s
 
 ```text response
 # easy-peasy-mcp <version>, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
 allowed_roots = ['<fixture>']    # default
@@ -1672,6 +1676,7 @@ default_dirs = ['.']    # default
 timeout = "5s"    # cli
 threads = 0    # default
 allow_update = true    # default
+allow_write = false    # default
 result_cache = 50    # default
 output_dir = '<output_dir>'    # default
 max_output_file_size = "100M"    # default
@@ -2179,6 +2184,6 @@ easy-peasy-mcp --timeout soon
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
-               [--log-level <level>] [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--allow-write]
+               [--output-dir <dir>] [--log-level <level>] [--version]
 ```
