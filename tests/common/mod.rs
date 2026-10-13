@@ -725,7 +725,7 @@ pub fn check_trash(block: &Block, trash: &Path) -> Option<Result<(), String>> {
     let mut entries = Vec::new();
     list_trash(trash, trash, &mut entries);
     entries.sort();
-    let actual: String = entries.iter().map(|e| format!("{e}\n")).collect();
+    let actual: String = entries.iter().map(|e| e.clone() + "\n").collect();
     Some(if actual == block.text {
         Ok(())
     } else {

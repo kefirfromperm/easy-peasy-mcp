@@ -21,12 +21,15 @@ mod output;
 mod output_file;
 mod paths;
 mod query;
+mod recycle;
 mod relevance;
 mod request;
 mod search;
 mod warning;
+mod write;
 
 pub use engine::{Engine, EngineOptions, ToolOutput, UnknownTool};
+pub use recycle::Trash;
 pub use search::Progress;
 
 /// The spec version this server implements (TOOLS.md#versioning).

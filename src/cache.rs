@@ -16,6 +16,30 @@ pub struct CachedFile {
     pub member: Option<String>,
     /// A hash of the matched lines.
     pub fingerprint: u64,
+    /// Whether it is a directory.
+    pub is_dir: bool,
+    /// Its size and modification time when the result was kept; `None` for a member of an archive or an entry
+    /// which couldn't be read.
+    pub stamp: Option<Stamp>,
+}
+
+/// The size and the modification time of an entry, not following a symlink: a write tool skips an entry of a result
+/// whose stamp changed (TOOLS.md#selection).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Stamp {
+    size: u64,
+    modified: Option<std::time::SystemTime>,
+}
+
+impl Stamp {
+    /// The stamp of the entry at `path`; `None` when it doesn't exist or can't be read.
+    pub fn of(path: &std::path::Path) -> Option<Self> {
+        let meta = std::fs::symlink_metadata(path).ok()?;
+        Some(Self {
+            size: meta.len(),
+            modified: meta.modified().ok(),
+        })
+    }
 }
 
 /// A kept result.

@@ -54,6 +54,7 @@ const SECTIONS: [(&str, &[&str]); 8] = [
             "timeout",
             "threads",
             "allow_update",
+            "allow_write",
             "result_cache",
             "output_dir",
             "max_output_file_size",
@@ -214,6 +215,8 @@ pub struct FileValues {
     pub allowed_roots: Option<(Vec<String>, usize)>,
     /// `server.allow_update`.
     pub allow_update: Option<bool>,
+    /// `server.allow_write`.
+    pub allow_write: Option<bool>,
     /// `server.output_dir` as written.
     pub output_dir: Option<String>,
     /// `server.max_output_file_size` as written.
@@ -240,6 +243,9 @@ pub struct Settings {
     /// `server.allow_update`: whether `update_config` is available.
     pub allow_update: bool,
     pub allow_update_source: Source,
+    /// `server.allow_write`: whether the write tools are available.
+    pub allow_write: bool,
+    pub allow_write_source: Source,
     /// `server.output_dir`: absolute, its existing part canonical; `None` for `""`, the option `output.file` off.
     pub output_dir: Option<PathBuf>,
     pub output_dir_source: Source,
@@ -261,6 +267,8 @@ impl Settings {
             allowed_roots_source: Source::Default,
             allow_update: true,
             allow_update_source: Source::Default,
+            allow_write: false,
+            allow_write_source: Source::Default,
             output_dir: Some(output_dir(
                 &std::env::temp_dir()
                     .join("easy-peasy-mcp")
@@ -309,6 +317,12 @@ impl Settings {
             settings.allow_update = allow_update;
             settings.allow_update_source = Source::File(file.path.clone());
         }
+        if let Some(file) = file
+            && let Some(allow_write) = file.values.allow_write
+        {
+            settings.allow_write = allow_write;
+            settings.allow_write_source = Source::File(file.path.clone());
+        }
         if let Some(file) = file {
             for (key, value) in &file.values.values {
                 settings.set(*key, value.clone(), Source::File(file.path.clone()));
@@ -340,6 +354,10 @@ impl Settings {
         if cli.no_update {
             settings.allow_update = false;
             settings.allow_update_source = Source::Cli;
+        }
+        if cli.allow_write {
+            settings.allow_write = true;
+            settings.allow_write_source = Source::Cli;
         }
         if let Some(dir) = &cli.output_dir {
             settings.output_dir = Some(dir)
@@ -560,6 +578,8 @@ pub struct CommandLine {
     pub timeout: Option<String>,
     /// `--no-update`.
     pub no_update: bool,
+    /// `--allow-write`.
+    pub allow_write: bool,
     /// `--output-dir`; `""` turns `output.file` off.
     pub output_dir: Option<String>,
 }
@@ -697,6 +717,19 @@ fn check(text: &str) -> Result<FileValues, (usize, String)> {
                 }
                 None => {
                     "invalid value for 'server.allow_update': true or false is expected".to_string()
+                }
+            },
+            Entry::Key {
+                section: "server",
+                key: "allow_write",
+                item,
+            } => match item.as_bool() {
+                Some(allow_write) => {
+                    values.allow_write = Some(allow_write);
+                    continue;
+                }
+                None => {
+                    "invalid value for 'server.allow_write': true or false is expected".to_string()
                 }
             },
             Entry::Key {
@@ -882,6 +915,10 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
                     format!("allow_update = {}", settings.allow_update),
                     &settings.allow_update_source,
                 )),
+                ("server", "allow_write") => lines.push((
+                    format!("allow_write = {}", settings.allow_write),
+                    &settings.allow_write_source,
+                )),
                 ("server", "output_dir") => lines.push((
                     format!(
                         "output_dir = {}",
@@ -956,7 +993,7 @@ const UPDATE_CONFIG_FIELDS: [&str; 2] = ["set", "reset"];
 const PER_REQUEST: &str = "output.file is set per request";
 
 /// The keys which only the config file and the command line set.
-const READ_ONLY: [(&str, &str, &str); 4] = [
+const READ_ONLY: [(&str, &str, &str); 5] = [
     (
         "server",
         "allowed_roots",
@@ -967,6 +1004,7 @@ const READ_ONLY: [(&str, &str, &str); 4] = [
         "allow_update",
         "allow_update is set only at start",
     ),
+    ("server", "allow_write", "allow_write is set only at start"),
     ("server", "output_dir", "output_dir is set only at start"),
     (
         "server",
@@ -1886,6 +1924,34 @@ mod tests {
         assert_eq!(
             e.to_string(),
             "/nonexistent/easy-peasy.toml: the config file doesn't exist"
+        );
+    }
+
+    #[test]
+    fn allow_write_from_the_file_and_the_command_line() {
+        let start = std::env::temp_dir();
+        let defaults = Settings::resolve(None, &CommandLine::default(), &start, None).unwrap();
+        assert!(!defaults.allow_write);
+        let values = check("[server]\nallow_write = true\n").unwrap();
+        assert_eq!(values.allow_write, Some(true));
+        let file = ConfigFile {
+            path: PathBuf::from("c.toml"),
+            values,
+        };
+        let settings =
+            Settings::resolve(Some(&file), &CommandLine::default(), &start, None).unwrap();
+        assert!(settings.allow_write);
+        assert_eq!(settings.allow_write_source, Source::File("c.toml".into()));
+        let cli = CommandLine {
+            allow_write: true,
+            ..CommandLine::default()
+        };
+        let settings = Settings::resolve(None, &cli, &start, None).unwrap();
+        assert!(settings.allow_write);
+        assert_eq!(settings.allow_write_source, Source::Cli);
+        assert_eq!(
+            check("[server]\nallow_write = 1\n").unwrap_err().1,
+            "invalid value for 'server.allow_write': true or false is expected"
         );
     }
 }

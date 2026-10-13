@@ -38,6 +38,7 @@ lz4_flex = { version = "0.14.0", default-features = false, features = ["std", "s
 zip = { version = "9.0.1", default-features = false, features = ["deflate-flate2-zlib-rs", "bzip2", "deflate64", "lzma", "xz"] }
 tar = "0.4.46"
 sevenz-rust2 = { version = "0.23.0", default-features = false, features = ["bzip2", "ppmd"] }
+trash = "5.2.9"
 
 # the volume serial number and the file index which identify a file on Windows
 [target.'cfg(windows)'.dependencies]
