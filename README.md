@@ -30,8 +30,8 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
   relevance, funnel, budget, facets, compact output, result ids, batches, output to a file
 - [CONFIG.md](CONFIG.md) — config file, command line, allowed roots, defaults, ignore files, encodings, archives,
   kinds, git, languages and comment syntax, platforms, `get_config` and `update_config`
-- [TOOLS.md](TOOLS.md) — MCP side: stdio transport, versioning, tool descriptions and input schemas, results, errors,
-  timeout, progress, cancellation
+- [TOOLS.md](TOOLS.md) — MCP side: stdio transport, versioning, tool descriptions and input schemas, write tools,
+  results, errors, timeout, progress, cancellation
 
 ## Commands
 
@@ -40,6 +40,7 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
 | `find`          | search files                                               | [TOOLS.md](TOOLS.md#find)          |
 | `get_config`    | the effective configuration                                | [TOOLS.md](TOOLS.md#get_config)    |
 | `update_config` | change the configuration until the server stops            | [TOOLS.md](TOOLS.md#update_config) |
+| `delete`        | move found files to the trash, or delete them; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#delete) |
 
 ## Request
 

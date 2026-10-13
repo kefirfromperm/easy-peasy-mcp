@@ -10,6 +10,8 @@ configuration in [CONFIG.md](CONFIG.md).
   - [find](#find)
   - [get_config](#get_config)
   - [update_config](#update_config)
+  - [delete](#delete)
+- [Write tools](#write-tools)
 - [Results](#results)
 - [Errors](#errors)
 - [Timeout](#timeout)
@@ -73,8 +75,10 @@ The spec version is an integer, it grows only on a breaking change.
 | `find`          | `readOnlyHint: true`, `openWorldHint: false`                        | search files                     |
 | `get_config`    | `readOnlyHint: true`, `openWorldHint: false`                        | the effective configuration      |
 | `update_config` | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | change the configuration in memory |
+| `delete`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: true`, `openWorldHint: false` | move files to the trash or delete them |
 
 `update_config` is not listed when `server.allow_update = false`; a call made anyway fails with `update_disabled`.
+`delete` is a [write tool](#write-tools): it is listed only when `server.allow_write = true`.
 `find` stays `readOnlyHint: true` with `output.file`: it writes only its own responses into `server.output_dir`, never
 the files it searches.
 
@@ -319,7 +323,7 @@ TOML, the same format as the config file, see [CONFIG.md](CONFIG.md#get_config).
 
 ```
 Changes the search server configuration in memory until the server stops: any value except the read-only ones of
-server (allowed_roots, allow_update, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.
+server (allowed_roots, allow_update, allow_write, output_dir, max_output_file_size). `set` is TOML like the config file, e.g.
 "output.context = 2" or "[output]\ncontext = 2\nmax_files = 30". Lists are replaced, not merged. Atomic: if any value
 is invalid, nothing changes. To change a value for one search only, pass it in the find request instead.
 ```
@@ -340,6 +344,226 @@ is invalid, nothing changes. To change a value for one search only, pass it in t
 #### Result
 
 TOML with the changed keys and their old values in comments, see [CONFIG.md](CONFIG.md#update_config).
+
+### delete
+
+#### Description
+
+```
+Deletes files: moves them to the trash of the system (Trash, Recycle Bin), so a mistake can be undone. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, not only the shown ones
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+A directory is deleted with everything in it. Symlinks are deleted themselves, never followed.
+expect = N: fails without changing anything unless the selection has N files.
+dry_run = true: lists what would be deleted and changes nothing. Use it for a selection you haven't seen.
+permanent = true: deletes instead of moving to the trash. It can't be undone.
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "result": { "type": "string", "description": "Result id of find, e.g. 'r12': all its files. Instead of query." },
+    "query": { "type": "string", "description": "Query like in find: the files it matches. Instead of result." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    },
+    "expect": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless the selection has this many files." },
+    "dry_run": { "type": "boolean", "description": "List what would be deleted, change nothing." },
+    "permanent": { "type": "boolean", "description": "Delete instead of moving to the trash. Can't be undone." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max time of the call, e.g. '10s'. '0s': no limit." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "group_dirs": { "type": "boolean" }
+      }
+    }
+  }
+}
+```
+
+`result` and `query` exclude each other, one of them is required; `dirs`, `traversal`, `kinds` and `languages` work
+only with `query`. The other fields are optional; `output.format` and `output.group_dirs` default to the
+configuration. The rules of the selection, the dry run and the response are in [Write tools](#write-tools).
+
+#### Result
+
+The [response of a write tool](#response-of-a-write-tool), counted as `deleted`.
+
+- the entries are moved to the trash of the system: the freedesktop trash on Linux, the Trash on macOS, the Recycle
+  Bin on Windows; a directory is moved as one item
+- `permanent: true` deletes them instead; a directory is removed recursively, without following the symlinks in it
+- where there is no trash (a file system without one, no home directory) the entry is skipped with
+  `trash_unavailable`, never deleted permanently without `permanent: true`
+- `permanent` must be a boolean: `'permanent' must be a boolean`
+
+## Write tools
+
+Tools which change files: `delete`. They share how they are enabled, how they select files, the dry run and the
+response.
+
+### Enabling
+
+- `server.allow_write` (default `false`, read-only: only the config file and `--allow-write` set it, see
+  [CONFIG.md](CONFIG.md#server)); `update_config` can't change it (`read_only`)
+- with `allow_write = false` the write tools are not listed in `tools/list`, and a call made anyway fails with
+  `error[write_disabled]: write tools are disabled`, hint `the configuration has server.allow_write = false`
+- the server instructions and the tools which only read don't change: `find` stays `readOnlyHint: true`
+
+### Selection
+
+Exactly one of:
+
+- `result: "r12"` — the files of a kept `find` result: all its matched entries, not only the shown ones, see
+  [OUTPUT.md](OUTPUT.md#result-ids); the paths are the ones of the result. A result id which is not like `r12` is
+  `'result' must be a result id like 'r12'`, an unknown or evicted one `result_expired` as for `within`; with
+  `server.result_cache = 0` only `query` works
+- `query` with `dirs`, `traversal`, `kinds`, `languages` and `version` — the same fields and meaning as in `find`; the
+  query is evaluated like a `find` request and selects all the entries it matches, by default files only (`type = dir`
+  selects directories, see [QUERY.md](QUERY.md#files-and-directories))
+
+Both are `error[invalid_option]: 'result' and 'query' exclude each other`; neither is
+`error[invalid_option]: 'result' or 'query' is required`, hint `pass the result id of a find, or a query`; `dirs`,
+`traversal`, `kinds` or `languages` with `result` is `error[invalid_option]: '<field>' works only with 'query'`.
+An unknown field is `invalid_option` with the expected fields, like in `find`.
+
+- `expect: N` — the call fails with `count_mismatch` when the selection has another number of entries, before
+  anything is changed: `error[count_mismatch]: the selection has 3 files, expected 2`, hint `nothing was changed;
+  check the selection with dry_run: true`. The number counts the selected entries as `files:` of `find` does, a
+  directory as one; a value which is not a whole number is `'expect' must be a whole number`
+- the entries are acted on in path order, each one at most once; an entry inside a selected directory goes with the
+  directory and is not acted on itself
+- an entry of a result which changed since the result (another size or modification time) or no longer exists is
+  skipped with `file_changed`, never acted on
+- every path is checked against `server.allowed_roots` when the tool acts on it: its directory is canonicalized, its
+  name is not resolved; outside of the roots it is skipped with `permission_denied`
+- a member of an archive can't be changed: it is skipped with `archive_member`
+- symlinks are acted on themselves, never followed; a directory (`type = dir`) is acted on as a whole tree
+- when the search of `query` stops at the timeout, nothing is changed: the response has no entries and the `timeout`
+  warning
+
+### Dry run
+
+- `dry_run: true` checks the selection like the real call (`expect`, changed files, archives, allowed roots) and
+  changes nothing; the response is the same as the real one, with `dry run` at the end of the header
+  (`"dry_run": true` in JSON). Whether the trash is available and whether an entry can be changed are known only when
+  acting
+- `dry_run` defaults to `false`; the tool description tells the agent to use it for a selection it hasn't seen
+- `dry_run` must be a boolean: `'dry_run' must be a boolean`
+
+### Response of a write tool
+
+The text format: a header with the counts, then the entries acted on, then the warnings, each part after an empty
+line:
+
+```
+deleted: 3  skipped: 1
+
+build/
+cache/
+src/
+legacy.rs
+old.rs
+
+warning: file_changed (1): src/main.rs
+```
+
+- the header: the count of the tool (`deleted: N`, also `deleted: 0`), then `skipped: N` (the entries skipped with a
+  warning) and `failed: N` (the entries which failed) when they are not 0, then `dry run` for a dry run
+- the entries in path order, grouped by directory like `find` with `output.group_dirs`
+  ([OUTPUT.md](OUTPUT.md#directory-groups)), directories ending with the separator; the paths are written like the
+  paths of `find`; an empty selection has no entries part
+- an entry which fails (permission, busy, vanished, ...) doesn't stop the others: it is listed with the kind of the
+  error of the operating system, `old.rs  failed: permission denied`
+- the skipped entries are only in the warnings ([OUTPUT.md](OUTPUT.md#warnings)), with their codes
+- `isError` is true only when nothing was done: at least one entry failed and none was acted on; skipped entries and
+  an empty selection are not errors
+- the timeout of the request (`timeout`, else `server.timeout`, counted from the arrival of the call) and a
+  cancellation stop between entries: the response lists what was done, with the `timeout` warning after a timeout; a
+  cancelled call gets no response, see [Cancellation](#cancellation)
+
+With `output.format = "json"` (`group_dirs` doesn't apply, the paths are full):
+
+```json
+{
+  "version": 1,
+  "deleted": 2,
+  "skipped": 1,
+  "failed": 1,
+  "dry_run": true,
+  "files": [
+    { "path": "build/cache/" },
+    { "path": "src/legacy.rs" },
+    { "path": "src/old.rs", "error": "permission denied" }
+  ],
+  "warnings": [ { "code": "file_changed", "count": 1, "paths": ["src/main.rs"] } ]
+}
+```
+
+Empty and default values are omitted: no `skipped` and `failed` when 0, no `dry_run` when false, no `files` and
+`warnings` when there are none. With `format = "json"` an error is the JSON document of
+[OUTPUT.md](OUTPUT.md#errors).
 
 ## Results
 

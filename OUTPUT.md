@@ -894,8 +894,13 @@ warning: binary_skipped (1): data.bin
 
 Every response with `count` detail or higher has a result id, e.g. `result: r12` in the header, unless
 `server.result_cache = 0`. The server keeps the last [`server.result_cache`](CONFIG.md#server) results in memory
-(default 50, until the server stops): the request, all matched files (not only the shown ones) and a fingerprint of
-their matched lines. The ids count the kept results: a response without an id doesn't use one.
+(default 50, until the server stops): the request, all matched files (not only the shown ones), a fingerprint of
+their matched lines and their size and modification time. The ids count the kept results: a response without an id
+doesn't use one.
+
+Besides `within` and `since`, the [write tools](TOOLS.md#write-tools) take a result id as their selection
+(`"result": "r12"`): they act on all its files, and skip with `file_changed` a file whose size or modification time
+differs from the kept ones or which no longer exists.
 
 ### Refine: `within`
 
@@ -1111,6 +1116,9 @@ Problems which don't make the request fail: the response is returned and lists t
 | `not_a_git_repo`       | the query has `git` conditions, but a file is outside of a repository      |
 | `git_base_not_found`   | `git.base` doesn't exist in the repository of a file: `git = branch` is `changed` there |
 | `output_file_truncated` | the response written to a file was cut by `server.max_output_file_size`, see [Output to a file](#output-to-a-file) |
+| `file_changed`         | a write tool: an entry of the result changed (size, modification time) or no longer exists since the result; it is skipped |
+| `archive_member`       | a write tool: an entry is a member of an archive, which can't be changed; it is skipped |
+| `trash_unavailable`    | `delete`: the file system of an entry has no trash; it is skipped, never deleted permanently without `permanent` |
 
 Unreadable entries (`permission_denied`): a directory which can't be listed is skipped with everything below it, also
 by `type = dir`; a file which can't be opened is skipped when the server opens it — for its content when the other
@@ -1183,11 +1191,13 @@ Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 | `invalid_option`    | an unknown field or option, a wrong value, or both `query` and `queries` |
 | `cursor_mismatch`   | the cursor belongs to another request                      |
 | `cursor_invalid`    | the cursor can't be decoded                                |
-| `result_expired`    | `within` / `since` refers to a result which is unknown or was evicted      |
+| `result_expired`    | `within` / `since` / `result` refers to a result which is unknown or was evicted |
 | `output_file_disabled` | `output.file` with `server.output_dir = ""`, see [Output to a file](#output-to-a-file) |
 | `output_file_denied` | `output.file` is outside of `server.output_dir`                           |
 | `output_file_failed` | the file of `output.file` can't be written                                |
 | `unsupported_version` | the requested `version` is not supported, see [TOOLS.md](TOOLS.md#versioning) |
+| `write_disabled`    | a write tool with `server.allow_write = false`: `write tools are disabled`, see [TOOLS.md](TOOLS.md#write-tools) |
+| `count_mismatch`    | the selection of a write tool has another number of entries than `expect`; nothing was changed |
 | `not_implemented`   | a valid feature of the spec which this server version doesn't implement yet: `error[not_implemented]: <feature> is not implemented yet`, with the position when the feature is in the query |
 
 ## Examples

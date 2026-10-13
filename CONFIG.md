@@ -51,7 +51,7 @@ language with the same name, the others stay.
 }
 ```
 
-Read-only values (`server.allowed_roots`, `server.allow_update`, `server.output_dir`,
+Read-only values (`server.allowed_roots`, `server.allow_update`, `server.allow_write`, `server.output_dir`,
 `server.max_output_file_size`) can be set only by the config file and the command line.
 
 ## Config file
@@ -102,6 +102,7 @@ default_dirs = ["."]            # working directories when the request has no `d
 timeout = "30s"
 threads = 0                     # 0: number of CPU cores
 allow_update = true             # whether `update_config` is available
+allow_write = false             # whether the write tools (`delete`) are available
 result_cache = 50               # results kept for `within` / `since`
 output_dir = "/tmp/easy-peasy-mcp"   # default: `easy-peasy-mcp` in the temp dir of the system; "": off
 max_output_file_size = "100M"   # cap of a response written to a file (`output.file`)
@@ -186,8 +187,8 @@ source = true
 ## Command line
 
 ```
-easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
-               [--log-level <level>] [--version]
+easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--allow-write]
+               [--output-dir <dir>] [--log-level <level>] [--version]
 ```
 
 | Argument         | Overrides                      | Example                                  |
@@ -196,6 +197,7 @@ easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-
 | `--root`         | `server.allowed_roots`, repeatable; replaces the list from the file | `--root ~/projects --root /srv/logs` |
 | `--timeout`      | `server.timeout`               | `--timeout 10s`                          |
 | `--no-update`    | `server.allow_update = false`  |                                          |
+| `--allow-write`  | `server.allow_write = true`    |                                          |
 | `--output-dir`   | `server.output_dir`; `""` — off | `--output-dir ~/.cache/easy-peasy`      |
 | `--log-level`    | log level to stderr: `error`, `warn` (default), `info`, `debug` | `--log-level debug` |
 | `--version`      | prints the server and the spec version and exits |                         |
@@ -227,6 +229,7 @@ Can't be changed by a request; only `timeout` and `default_dirs` are replaced fo
 | `timeout`       | duration         | `"30s"`  | no        | max time of one search, units `ms`, `s`, `m`; `"0s"` — no limit |
 | `threads`       | number           | `0`      | no        | search threads, `0` — number of CPU cores                    |
 | `allow_update`  | bool             | `true`   | yes       | `false` disables `update_config`                             |
+| `allow_write`   | bool             | `false`  | yes       | `true` enables the write tools (`delete`), see [TOOLS.md](TOOLS.md#write-tools) |
 | `result_cache`  | number           | `50`     | no        | results kept in memory for `within` and `since`, see [OUTPUT.md](OUTPUT.md#result-ids); `0` — off |
 | `output_dir`    | path             | `easy-peasy-mcp` in the temp dir | yes | where `output.file` writes responses, see [OUTPUT.md](OUTPUT.md#output-to-a-file); `""` — off |
 | `max_output_file_size` | size      | `"100M"` | yes       | cap of a response written to a file, counted like `max_output` |
@@ -258,7 +261,8 @@ An invalid `server.timeout` is `invalid value for 'server.timeout': a duration l
 m)` at start and the same hint for `invalid_value` of `update_config`; an invalid `--timeout` prints the usage.
 `get_config` shows the duration as written. An invalid `server.threads` is `invalid value for 'server.threads': a whole
 number is expected (0: the number of CPU cores)`, an invalid `server.allow_update` `invalid value for
-'server.allow_update': true or false is expected`, an invalid `server.result_cache` `invalid value for
+'server.allow_update': true or false is expected`, an invalid `server.allow_write` `invalid value for
+'server.allow_write': true or false is expected`, an invalid `server.result_cache` `invalid value for
 'server.result_cache': a whole number is expected (0: off)`.
 
 A root which doesn't exist stops the server with `the allowed root '<root>' doesn't exist` — after `<path>:<line>: `
@@ -693,7 +697,7 @@ Result:
 
 ```toml
 # easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0
@@ -719,7 +723,7 @@ comes from the config file and `max_file_size` from `update_config`:
 
 ```toml
 # easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
-# read-only: server.allowed_roots, server.allow_update, server.output_dir, server.max_output_file_size
+# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
 min_depth = 0    # default
@@ -748,7 +752,7 @@ of a list (paths, names, wildcards, ...) are written as TOML literal strings (`'
 escaping; a string with a `'` is a basic string.
 
 Sources: `default`, `file: <path>`, `cli`, `update`. `cli` appears only for the values the command line can set:
-`server.allowed_roots`, `server.timeout`, `server.allow_update`, `server.output_dir`. Values which are not set (e.g. `max_depth` without a
+`server.allowed_roots`, `server.timeout`, `server.allow_update`, `server.allow_write`, `server.output_dir`. Values which are not set (e.g. `max_depth` without a
 limit) are written as comments: `# max_depth =  (not set)`.
 
 An agent should call `get_config` once at the start to learn the allowed roots and limits instead of guessing.
@@ -837,9 +841,11 @@ Arguments which don't match the input schema are `invalid_option`, like in `find
 
 ## Security
 
-- The server only reads the allowed roots; it writes only responses, and only into `server.output_dir`
-  ([`output.file`](OUTPUT.md#output-to-a-file)). There is no command which writes, moves or deletes the files of the
-  roots, and `update_config` never writes the config file.
+- The server only reads the allowed roots unless `server.allow_write = true`; it writes responses only into
+  `server.output_dir` ([`output.file`](OUTPUT.md#output-to-a-file)), and `update_config` never writes the config file.
+- The write tools (`delete`) exist only with `server.allow_write = true`, which the agent can't set; they act only on
+  paths inside the allowed roots, checked when they act, never follow symlinks, and move files to the trash of the
+  system unless asked for `permanent`, see [TOOLS.md](TOOLS.md#write-tools).
 - `server.output_dir` and `server.max_output_file_size` can't be changed by the agent; a file of `output.file` is
   checked to be inside `server.output_dir` after canonicalization, `..` included.
 - `allowed_roots` can't be changed by the agent: neither `update_config` nor a request can widen them.
