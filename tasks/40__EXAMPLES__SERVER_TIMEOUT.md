@@ -2184,6 +2184,6 @@ easy-peasy-mcp --timeout soon
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
-               [--log-level <level>] [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--allow-write]
+               [--output-dir <dir>] [--log-level <level>] [--version]
 ```

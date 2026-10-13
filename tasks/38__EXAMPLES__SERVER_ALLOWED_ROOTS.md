@@ -3207,8 +3207,8 @@ easy-peasy-mcp --root
 ```
 
 ```text stderr exit 2
-usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--output-dir <dir>]
-               [--log-level <level>] [--version]
+usage: easy-peasy-mcp [--config <path>] [--root <dir>]... [--timeout <duration>] [--no-update] [--allow-write]
+               [--output-dir <dir>] [--log-level <level>] [--version]
 ```
 
 ## E38.13 Read-only for update_config
