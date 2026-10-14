@@ -1476,8 +1476,8 @@ error[unknown_operator]: unknown operator 'contains'
   the whole query (a line break is one character)
 - a position at the end of the query (`unexpected_end`) is one `^` right after the last character
 - a position in another field of the request (`to` and `pattern` of `rename` and `copy`, the keys and templates of
-  `replace`) is shown the same way; in JSON the field is named after it (`"to": "..."`, `"replace": "..."`) instead
-  of `query`
+  `replace`, the references of `output.groups`) is shown the same way; in JSON the field is named after it (`"to":
+  "..."`, `"replace": "..."`, `"output.groups": "..."`) instead of `query`
 - the conflicts of `rename_conflict` and `copy_conflict`, one per line indented by two spaces, before the hint (JSON: `conflicts`), see
   [TOOLS.md](TOOLS.md#conflicts)
 - `  hint: ...` when there is a hint
