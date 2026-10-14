@@ -41,6 +41,7 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
 | `get_config`    | the effective configuration                                | [TOOLS.md](TOOLS.md#get_config)    |
 | `update_config` | change the configuration until the server stops            | [TOOLS.md](TOOLS.md#update_config) |
 | `delete`        | move found files to the trash, or delete them; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#delete) |
+| `rename`        | rename or move found files by a template; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#rename) |
 
 ## Request
 

@@ -690,7 +690,7 @@ fn validate_condition(
 }
 
 /// A regex of the query (QUERY.md#regex); the error is the hint of `invalid_regex`.
-fn user_regex(pattern: &str, case_insensitive: bool) -> Result<Regex, String> {
+pub(crate) fn user_regex(pattern: &str, case_insensitive: bool) -> Result<Regex, String> {
     regex::RegexBuilder::new(pattern)
         .case_insensitive(case_insensitive)
         .build()

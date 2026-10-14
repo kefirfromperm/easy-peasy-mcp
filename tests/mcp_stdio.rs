@@ -267,7 +267,7 @@ fn tools_are_the_spec_text() {
     let blocks = fenced_blocks(&spec);
     let dir = fixture();
     // the write tools are listed only with --allow-write
-    for (args, count) in [(&[][..], 3), (&["--allow-write"][..], 4)] {
+    for (args, count) in [(&[][..], 3), (&["--allow-write"][..], 5)] {
         let mut server =
             McpServer::spawn(server_command(&dir.root, dir.temp()).args(args.iter().copied()));
 

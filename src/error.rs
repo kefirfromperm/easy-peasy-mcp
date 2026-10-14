@@ -43,6 +43,8 @@ pub enum ErrorCode {
     OutputFileFailed,
     WriteDisabled,
     CountMismatch,
+    InvalidTemplate,
+    RenameConflict,
     /// A cancelled request: its response is never sent (TOOLS.md#cancellation).
     Cancelled,
     NotImplemented,
@@ -90,6 +92,8 @@ impl ErrorCode {
             Self::OutputFileFailed => "output_file_failed",
             Self::WriteDisabled => "write_disabled",
             Self::CountMismatch => "count_mismatch",
+            Self::InvalidTemplate => "invalid_template",
+            Self::RenameConflict => "rename_conflict",
             Self::Cancelled => "cancelled",
             Self::NotImplemented => "not_implemented",
         }
@@ -133,10 +137,18 @@ impl QueryError {
     /// The report for this error in `query`.
     #[must_use]
     pub fn into_report(self, query: &str) -> Report {
+        self.into_field_report("query", query)
+    }
+
+    /// The report for this error in the request field `field` (`query`, `to`, `pattern`) whose text is `text`.
+    #[must_use]
+    pub fn into_field_report(self, field: &'static str, text: &str) -> Report {
         Report {
             code: self.code,
             message: self.message,
-            position: Some((query.to_string(), self.span)),
+            position: Some((text.to_string(), self.span)),
+            field,
+            details: None,
             hint: self.hint,
         }
     }
@@ -147,9 +159,22 @@ impl QueryError {
 pub struct Report {
     pub code: ErrorCode,
     pub message: String,
-    /// The query and the byte range of the error in it.
+    /// The text of the field and the byte range of the error in it.
     pub position: Option<(String, Range<usize>)>,
+    /// The name of the field of the position in JSON: `query`, `to`, `pattern`.
+    pub field: &'static str,
+    /// The conflicts of `rename_conflict`.
+    pub details: Option<Box<Details>>,
     pub hint: Option<String>,
+}
+
+/// More of a report: lines after the message and the position, before the hint, and the same in a JSON field after
+/// `message`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Details {
+    pub lines: Vec<String>,
+    pub name: &'static str,
+    pub value: serde_json::Value,
 }
 
 impl Report {
@@ -159,6 +184,8 @@ impl Report {
             code,
             message: message.into(),
             position: None,
+            field: "query",
+            details: None,
             hint: None,
         }
     }
@@ -170,6 +197,18 @@ impl Report {
         self
     }
 
+    /// Adds lines before the hint and the JSON field `name` with the same information.
+    #[must_use]
+    pub fn details(
+        mut self,
+        lines: Vec<String>,
+        name: &'static str,
+        value: serde_json::Value,
+    ) -> Self {
+        self.details = Some(Box::new(Details { lines, name, value }));
+        self
+    }
+
     /// `not_implemented` for a feature outside of the query.
     pub fn not_implemented(feature: &str) -> Self {
         Self::new(
@@ -178,20 +217,24 @@ impl Report {
         )
     }
 
-    /// The JSON format of OUTPUT.md#errors, compact: `{"error": {code, message, query, position, hint}}`; `col` of
-    /// the position is 1-based in characters from the start of the query, `len` in characters, at least 1.
+    /// The JSON format of OUTPUT.md#errors, compact: `{"error": {code, message, query, position, hint}}`, the field of
+    /// the position named after it; `col` of the position is 1-based in characters from the start of the field, `len`
+    /// in characters, at least 1.
     #[must_use]
     pub fn to_json(&self) -> String {
         let mut error = serde_json::Map::new();
         error.insert("code".into(), self.code.as_str().into());
         error.insert("message".into(), self.message.clone().into());
+        if let Some(details) = &self.details {
+            error.insert(details.name.into(), details.value.clone());
+        }
         if let Some((query, span)) = &self.position {
             let col = query[..span.start].chars().count() + 1;
             let len = query[span.start..span.end.max(span.start)]
                 .chars()
                 .count()
                 .max(1);
-            error.insert("query".into(), query.clone().into());
+            error.insert(self.field.into(), query.clone().into());
             error.insert(
                 "position".into(),
                 serde_json::json!({ "col": col, "len": len }),
@@ -222,6 +265,11 @@ impl Report {
             out.push_str("  ");
             out.push_str(&" ".repeat(col));
             out.push_str(&"^".repeat(len));
+            out.push('\n');
+        }
+        for line in self.details.iter().flat_map(|d| &d.lines) {
+            out.push_str("  ");
+            out.push_str(line);
             out.push('\n');
         }
         if let Some(hint) = &self.hint {
@@ -284,6 +332,36 @@ mod tests {
             "{}",
             report.to_text()
         );
+    }
+
+    #[test]
+    fn a_position_in_another_field_and_lines_before_the_hint() {
+        let report = QueryError::new(ErrorCode::InvalidTemplate, "unknown placeholder 'x'", 6..9)
+            .into_field_report("to", "{dir}/{x}");
+        assert_eq!(
+            report.to_text(),
+            "error[invalid_template]: unknown placeholder 'x'\n  {dir}/{x}\n        ^^^\n"
+        );
+        let json: serde_json::Value = serde_json::from_str(&report.to_json()).unwrap();
+        assert_eq!(json["error"]["to"], "{dir}/{x}");
+        assert_eq!(
+            json["error"]["position"],
+            serde_json::json!({"col": 7, "len": 3})
+        );
+        assert!(json["error"].get("query").is_none());
+        let report = Report::new(ErrorCode::RenameConflict, "targets conflict")
+            .details(
+                vec!["a -> b: exists".into()],
+                "conflicts",
+                serde_json::json!([{"path": "a"}]),
+            )
+            .hint("h");
+        assert_eq!(
+            report.to_text(),
+            "error[rename_conflict]: targets conflict\n  a -> b: exists\n  hint: h\n"
+        );
+        let json: serde_json::Value = serde_json::from_str(&report.to_json()).unwrap();
+        assert_eq!(json["error"]["conflicts"][0]["path"], "a");
     }
 
     #[test]

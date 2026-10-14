@@ -11,6 +11,7 @@ configuration in [CONFIG.md](CONFIG.md).
   - [get_config](#get_config)
   - [update_config](#update_config)
   - [delete](#delete)
+  - [rename](#rename)
 - [Write tools](#write-tools)
 - [Results](#results)
 - [Errors](#errors)
@@ -76,9 +77,10 @@ The spec version is an integer, it grows only on a breaking change.
 | `get_config`    | `readOnlyHint: true`, `openWorldHint: false`                        | the effective configuration      |
 | `update_config` | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | change the configuration in memory |
 | `delete`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: true`, `openWorldHint: false` | move files to the trash or delete them |
+| `rename`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: false` | rename or move files |
 
 `update_config` is not listed when `server.allow_update = false`; a call made anyway fails with `update_disabled`.
-`delete` is a [write tool](#write-tools): it is listed only when `server.allow_write = true`.
+`delete` and `rename` are [write tools](#write-tools): they are listed only when `server.allow_write = true`.
 `find` stays `readOnlyHint: true` with `output.file`: it writes only its own responses into `server.output_dir`, never
 the files it searches.
 
@@ -458,9 +460,245 @@ The [response of a write tool](#response-of-a-write-tool), counted as `deleted`.
   `trash_unavailable`, never deleted permanently without `permanent: true`
 - `permanent` must be a boolean: `'permanent' must be a boolean`
 
+### rename
+
+#### Description
+
+```
+Renames or moves files: every file gets a new path made from a template. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, not only the shown ones
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+to = "...": the new path, relative to the working directory, / as the separator. Placeholders:
+  {dir} {name} {stem} {ext} {path}   parts of the old path: src/a.test.ts = src, a.test.ts, a.test, ts, src/a.test.ts
+  {1} {2} {word}                     groups of pattern; {{ and }} are braces
+  e.g. "{dir}/{stem}.tsx", "archive/{path}"
+pattern = "regex": must match the whole old path, e.g. "src/(.*)_test\.rs" with to = "tests/{1}.rs".
+  A file which doesn't match is skipped with a warning.
+Missing directories are created. A directory is moved with everything in it. Symlinks are moved themselves.
+on_conflict: a target which exists, two files to one target, a target which is another selected file:
+  "fail" (default): nothing is renamed, the error lists them; "skip": those files are skipped;
+  "overwrite": an existing file is moved to the trash and replaced, a directory never.
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+expect = N: fails without changing anything unless the selection has N files.
+dry_run = true: lists what would be renamed and changes nothing. Use it for a selection you haven't seen.
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["to"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "result": { "type": "string", "description": "Result id of find, e.g. 'r12': all its files. Instead of query." },
+    "query": { "type": "string", "description": "Query like in find: the files it matches. Instead of result." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    },
+    "to": { "type": "string", "minLength": 1, "description": "The new path, relative to the working directory: {dir} {name} {stem} {ext} {path}, groups {1} {word} of pattern." },
+    "pattern": { "type": "string", "description": "Regex on the old path, the whole path must match; its groups are {1}, {2}, {name} in to." },
+    "on_conflict": { "enum": ["fail", "skip", "overwrite"], "description": "A target which exists or collides. Default: fail." },
+    "expect": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless the selection has this many files." },
+    "dry_run": { "type": "boolean", "description": "List what would be renamed, change nothing." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max time of the call, e.g. '10s'. '0s': no limit." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "group_dirs": { "type": "boolean" }
+      }
+    }
+  }
+}
+```
+
+
+`to` is required; `result` and `query` exclude each other, one of them is required; `dirs`, `traversal`, `kinds` and
+`languages` work only with `query`. The other fields are optional; `output.format` and `output.group_dirs` default to
+the configuration. The rules of the selection, the dry run and the response are in [Write tools](#write-tools).
+
+#### The target
+
+`to` is a template of the new path of every selected entry, relative to the working directory of the entry (of a
+result: the working directory of its `find`), with `/` as the separator on every platform. Its placeholders are the
+parts of the old path relative to the working directory:
+
+| Placeholder | Value                                          | `src/app/main.test.ts` | `README` | `.gitignore` |
+|-------------|------------------------------------------------|------------------------|----------|--------------|
+| `{dir}`     | the directory; empty in the working directory  | `src/app`              |          |              |
+| `{name}`    | the name                                       | `main.test.ts`         | `README` | `.gitignore` |
+| `{stem}`    | the name without the last extension            | `main.test`            | `README` | `.gitignore` |
+| `{ext}`     | the last extension without the dot, or empty   | `ts`                   |          |              |
+| `{path}`    | the whole path                                 | `src/app/main.test.ts` | `README` | `.gitignore` |
+
+- a name which starts with a dot and has no other dot has no extension; a directory has the same placeholders
+- `{{` and `}}` are literal braces
+- `pattern` — a regex ([Rust syntax](QUERY.md#regex), like `=~`) on the old path relative to the working directory,
+  with `/`: the whole path must match (`^` and `$` are implied), case-sensitive unless it has `(?i)`; its groups are
+  `{1}`, `{2}`, ... and its named groups `{word}` in `to`; a group which didn't take part in the match is empty. An
+  entry whose path doesn't match is skipped with `pattern_mismatch`
+- after the placeholders are replaced, empty segments and `.` are dropped and `..` removes the segment before it,
+  without following symlinks: `{dir}/{stem}.tsx` in the working directory is `main.tsx`. A target which is empty
+  after that is skipped with `invalid_target`
+- a target outside of the allowed roots or an allowed root itself is skipped with `permission_denied` (the part of
+  it which exists is canonicalized); `..` may leave the working directory as long as the target stays inside
+- a target which is the old path is not renamed: the entry is listed as `unchanged`
+- the missing directories of a target are created (not in a dry run)
+
+Errors of the template and the pattern, before anything is changed, with the position in the field like the errors of
+a query ([OUTPUT.md](OUTPUT.md#errors)):
+
+| Error              | Example `to`       | Message                         | Hint                                                     |
+|--------------------|--------------------|---------------------------------|----------------------------------------------------------|
+| `invalid_template` | `{dir}/{base}.ts`  | `unknown placeholder 'base'`    | `the placeholders are dir, name, stem, ext, path` and `; the groups of 'pattern' are 1, 2, word`, or `; groups need a 'pattern'` |
+| `invalid_template` | `{3}.rs`           | `the group 3 doesn't exist`     | the same                                                 |
+| `invalid_template` | `{}.rs`            | `empty placeholder`             | the same                                                 |
+| `invalid_template` | `{name.bak`        | `unclosed '{'`                  | `write '{{' for a brace`                                 |
+| `invalid_template` | `name}.bak`        | `unmatched '}'`                 | `write '}}' for a brace`                                 |
+| `invalid_template` | `/tmp/{name}`      | `the target must be relative`   | `the target is relative to the working directory`        |
+| `invalid_template` | `archive/`         | `the target ends with '/'`      | `end it with a name, e.g. 'archive/{name}'`              |
+| `invalid_regex`    | `pattern = "(a"`   | `invalid regex`                 | the error of the regex, as for `=~`                      |
+
+The position of an unknown placeholder or group is the placeholder with its braces, of an unclosed `{` from it to the
+end, of `}` and `/` the character; a regex error marks the whole pattern. In JSON the field of the position is `to` or
+`pattern` instead of `query`. `to` which is not a non-empty string is `'to' must be a non-empty string`, `pattern`
+which is not a string `'pattern' must be a string`, a named group with the name of a placeholder
+`the group 'name' of 'pattern' has the name of a placeholder` (all `invalid_option`); without `to`:
+`error[invalid_option]: 'to' is required`, hint `the new path, e.g. '{dir}/{stem}.bak'`.
+
+#### Conflicts
+
+The whole plan is checked before anything changes. An entry conflicts when its target:
+
+| Reason        | Text                                  | When                                                                 |
+|---------------|---------------------------------------|----------------------------------------------------------------------|
+| `exists`      | `exists`                              | something exists at the target (a symlink is not followed) which is not an entry of the selection |
+| `same_target` | `the same target as another file`     | another entry of the selection has the same target                   |
+| `selected`    | `the target is another selected file` | the target is the old path of another entry of the selection         |
+| `directory`   | `a directory is never replaced`       | with `overwrite`: the target is a directory, or the entry is a directory and the target exists |
+
+`on_conflict` (default `fail`; another value is `'on_conflict' must be one of: fail, skip, overwrite`):
+
+- `fail`: a conflict fails the call with `rename_conflict`, nothing is renamed, also in a dry run
+- `skip`: the conflicting entries are skipped with `target_conflict`, the others are renamed
+- `overwrite`: an `exists` conflict with a file or a symlink is resolved: the existing entry is moved to the trash
+  (like `delete`) and the entry takes its place, listed as `replaced`; the other conflicts fail the call like `fail`
+
+The entries skipped before (archive members, changed files, `pattern_mismatch`, ...) and the unchanged ones don't
+conflict. The error lists the conflicting entries in path order, at most 10, then `… N more`; the paths are written
+like in the response, the targets like their entries:
+
+```
+error[rename_conflict]: targets conflict; nothing was changed
+  src/a.ts -> src/a.tsx: exists
+  src/b.ts -> out/x.ts: the same target as another file
+  src/c.ts -> out/x.ts: the same target as another file
+  hint: on_conflict = "skip" renames the other files, "overwrite" replaces the existing ones
+```
+
+With `overwrite` the hint is `on_conflict = "skip" renames the other files`. In JSON the error has every conflict,
+after `message`: `"conflicts": [{"path": "src/a.ts", "to": "src/a.tsx", "reason": "exists"}, ...]`.
+
+#### Result
+
+The [response of a write tool](#response-of-a-write-tool), counted as `renamed`, with `unchanged: N` after it when
+it is not 0. Every entry is written as `<old> -> <target>`, the target as the path of the entry would be written: from
+the working directory, with its prefix in the response (`dirs: ["src"]`: `src/a.ts -> src/b.ts`), a directory ending
+with the separator; then `  replaced` for a replaced target, or the entry is `<old>  unchanged`:
+
+```
+renamed: 2  unchanged: 1
+
+src/
+a.ts -> src/a.tsx
+b.ts -> src/b.tsx  replaced
+c.tsx  unchanged
+```
+
+- the entries are renamed in path order; within one file system with an atomic rename, across file systems (the
+  operating system refuses the rename) by a copy, then the source is deleted permanently; a failed copy is removed and
+  leaves the source untouched
+- a symlink is moved itself; a relative symlink keeps its text, so it may point elsewhere after the move
+- a target which appeared after the check (it exists when the entry is renamed, without `overwrite`) is skipped with
+  `target_conflict`, never replaced
+- with `overwrite`, where there is no trash for the existing target the entry is skipped with `trash_unavailable`
+- an unchanged entry counts as done for `isError`
+- JSON: `"renamed"`, then `"unchanged"` when not 0; every entry has `"to"` after `"path"`, `"replaced": true` for a
+  replaced target, an unchanged entry `"unchanged": true` instead of `"to"`
+
+```json
+{
+  "version": 1,
+  "renamed": 2,
+  "unchanged": 1,
+  "files": [
+    { "path": "src/a.ts", "to": "src/a.tsx" },
+    { "path": "src/b.ts", "to": "src/b.tsx", "replaced": true },
+    { "path": "src/c.tsx", "unchanged": true }
+  ]
+}
+```
+
 ## Write tools
 
-Tools which change files: `delete`. They share how they are enabled, how they select files, the dry run and the
+Tools which change files: `delete`, `rename`. They share how they are enabled, how they select files, the dry run and the
 response.
 
 ### Enabling
@@ -530,7 +768,7 @@ old.rs
 warning: file_changed (1): src/main.rs
 ```
 
-- the header: the count of the tool (`deleted: N`, also `deleted: 0`), then `skipped: N` (the entries skipped with a
+- the header: the count of the tool (`deleted: N`, also `deleted: 0`; `rename` adds `unchanged: N`), then `skipped: N` (the entries skipped with a
   warning) and `failed: N` (the entries which failed) when they are not 0, then `permanent` for `permanent: true`, then
   `dry run` for a dry run
 - the entries in path order, grouped by directory like `find` with `output.group_dirs`

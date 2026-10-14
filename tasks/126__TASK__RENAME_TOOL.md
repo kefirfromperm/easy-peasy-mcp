@@ -1,6 +1,6 @@
 # Task 126: `rename` tool
 
-Status: not implemented
+Status: implemented, see [126__SUMMARY__RENAME_TOOL.md](126__SUMMARY__RENAME_TOOL.md)
 
 Depends on: task 125
 

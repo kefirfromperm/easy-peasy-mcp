@@ -25,6 +25,9 @@ pub enum WarningCode {
     FileChanged,
     ArchiveMember,
     TrashUnavailable,
+    PatternMismatch,
+    InvalidTarget,
+    TargetConflict,
 }
 
 impl WarningCode {
@@ -47,6 +50,9 @@ impl WarningCode {
             Self::FileChanged => "file_changed",
             Self::ArchiveMember => "archive_member",
             Self::TrashUnavailable => "trash_unavailable",
+            Self::PatternMismatch => "pattern_mismatch",
+            Self::InvalidTarget => "invalid_target",
+            Self::TargetConflict => "target_conflict",
         }
     }
 }
