@@ -253,6 +253,7 @@ dedent = true
 blank_context = false
 group_dirs = true
 group_repeated = 3
+repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []

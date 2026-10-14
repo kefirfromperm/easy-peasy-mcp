@@ -4969,6 +4969,7 @@ dedent = true    # file: config.toml
 blank_context = false    # file: config.toml
 group_dirs = true    # file: config.toml
 group_repeated = 3    # file: config.toml
+repeated_locations = 3    # default
 sort = "relevance"    # file: config.toml
 path_style = "relative"    # file: config.toml
 omit = []    # default

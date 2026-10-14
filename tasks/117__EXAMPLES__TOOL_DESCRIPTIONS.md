@@ -323,6 +323,11 @@ easy-peasy-mcp
                   "type": "integer",
                   "minimum": 0
                 },
+                "repeated_locations": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "The locations written for a repeated line; 0: all of them."
+                },
                 "sort": {
                   "type": "string",
                   "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$"
@@ -355,6 +360,7 @@ easy-peasy-mcp
                           "line_counts",
                           "gaps",
                           "indent",
+                          "locations",
                           "warnings"
                         ]
                       }

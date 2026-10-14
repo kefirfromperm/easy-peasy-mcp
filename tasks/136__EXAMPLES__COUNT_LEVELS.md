@@ -771,6 +771,7 @@ dedent = true    # default
 blank_context = false    # default
 group_dirs = true    # default
 group_repeated = 3    # default
+repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
@@ -929,5 +930,5 @@ error[invalid_value]: invalid value for 'output.count_by'
 {"query": "text has 'unwrap('", "output": {"omit": ["line_count"]}}
 ```
 ```text error
-error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings)
+error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings)
 ```

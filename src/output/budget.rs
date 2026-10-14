@@ -197,6 +197,7 @@ mod tests {
             },
             group_dirs: false,
             group_repeated: 0,
+            repeated_locations: 3,
             highlight: Highlight::Markers("[", "]"),
             time_zone: jiff::tz::TimeZone::UTC,
             limits: Limits::default(),
