@@ -8,8 +8,8 @@ use super::blocks::BlockLine;
 use super::lines::{columns, cut_line, starts_in};
 use super::listing::{Listed, Listing};
 use super::{
-    BlockOptions, Change, CountBy, Detail, Highlight, LOCATIONS, Omit, Part, Response,
-    display_found, display_path,
+    BlockOptions, Change, CountBy, Detail, Highlight, Omit, Part, Response, display_found,
+    display_path,
 };
 use crate::content::Content;
 use crate::query::Kind;
@@ -94,6 +94,7 @@ struct Repeated {
     text: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     fragments: Vec<Fragment>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     locations: Vec<String>,
 }
 
@@ -261,6 +262,7 @@ impl Response<'_> {
         let listed = full && self.lists();
         let legend = full && self.detail >= Detail::Facets && !self.omit.has(Part::Legend);
         let repeated = self.repeated();
+        let (written, _) = self.written_locations(&repeated);
         let listing = self.listing(&repeated);
         let truncated_by = self.truncated_by(&listing);
         let document = Document {
@@ -300,8 +302,9 @@ impl Response<'_> {
             repeated: repeated
                 .lines
                 .iter()
+                .zip(&written)
                 .filter(|_| full)
-                .map(|line| {
+                .map(|(line, &count)| {
                     let shown = json_line(
                         &line.content,
                         &line.fragments,
@@ -317,7 +320,11 @@ impl Response<'_> {
                         count: line.files.len(),
                         text: shown.text,
                         fragments: shown.fragments,
-                        locations: self.locations(line).into_iter().take(LOCATIONS).collect(),
+                        locations: if self.omit.has(Part::Locations) {
+                            Vec::new()
+                        } else {
+                            self.locations(line, count)
+                        },
                     }
                 })
                 .collect(),
@@ -682,6 +689,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Columns,
             time_zone: jiff::tz::TimeZone::UTC,
             page: super::super::Page::default(),

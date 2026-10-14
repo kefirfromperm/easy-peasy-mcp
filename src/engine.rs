@@ -884,6 +884,10 @@ impl Engine {
             count_by: count_by(settings),
             group_dirs: settings.bool(Key::GroupDirs),
             group_repeated: settings.whole(Key::GroupRepeated),
+            repeated_locations: match settings.whole(Key::RepeatedLocations) {
+                0 => usize::MAX,
+                n => n,
+            },
             highlight: highlight(settings, json),
             time_zone: self.options.time_zone.clone(),
             page,

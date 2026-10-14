@@ -221,6 +221,8 @@ pub struct Response<'a> {
     pub group_dirs: bool,
     /// A matched line in this many files is printed once (`lines` detail); `0`: off.
     pub group_repeated: usize,
+    /// The locations written for a repeated line; `usize::MAX`: all.
+    pub repeated_locations: usize,
     /// How the fragments are shown.
     pub highlight: Highlight<'a>,
     /// The time zone of the dates of `meta`.
@@ -258,9 +260,6 @@ pub struct Response<'a> {
 
 /// The separator of output paths on this platform.
 const SEP: char = std::path::MAIN_SEPARATOR;
-
-/// The locations printed for a repeated line.
-const LOCATIONS: usize = 3;
 
 impl Response<'_> {
     /// The matched lines and the fragments of all files.
@@ -642,7 +641,11 @@ impl Response<'_> {
         if self.lists() && self.files.len() - self.page_start() > self.limits.max_files {
             by.push("max_files");
         }
-        by.extend(listing.truncated_by.iter().map(|&limit| {
+        let mut listed = listing.truncated_by.clone();
+        if !listed.contains(&"max_output") && self.written_locations(&self.repeated()).1 {
+            listed.push("max_output");
+        }
+        by.extend(listed.iter().map(|&limit| {
             if limit == "max_output" && self.limits.file_cap {
                 "max_output_file_size"
             } else {
@@ -696,32 +699,61 @@ impl Response<'_> {
             return;
         }
         out.push_str("repeated:\n");
-        for line in &repeated.lines {
-            let _ = writeln!(
+        let (written, _) = self.written_locations(repeated);
+        for (line, &count) in repeated.lines.iter().zip(&written) {
+            let _ = write!(
                 out,
-                "  ×{} {}    {}",
+                "  ×{} {}",
                 line.files.len(),
                 lines::shown_line(&line.content, &line.fragments, 0, 0, self.highlight),
-                self.locations(line).join(", ")
             );
+            if !self.omit.has(Part::Locations) {
+                let mut locations = self.locations(line, count);
+                if count < line.files.len() {
+                    locations.push(format!("… {} more", line.files.len() - count));
+                }
+                let _ = write!(out, "    {}", locations.join(", "));
+            }
+            out.push('\n');
             if self.highlight == Highlight::Columns {
                 lines::push_columns(out, &line.content, &line.fragments, 0);
             }
         }
     }
 
-    /// The first three locations of a repeated line, `path:line`, and `… M more`.
-    fn locations(&self, line: &repeated::RepeatedLine) -> Vec<String> {
-        let mut out: Vec<String> = line
-            .files
+    /// The first `count` locations of a repeated line, `path:line`.
+    fn locations(&self, line: &repeated::RepeatedLine, count: usize) -> Vec<String> {
+        line.files
             .iter()
-            .take(LOCATIONS)
+            .take(count)
             .map(|&(file, i)| format!("{}:{}", self.location_path(&self.files[file]), i + 1))
+            .collect()
+    }
+
+    /// How many locations of every repeated line are written: at most `repeated_locations`, and while the characters
+    /// of the locations and of the `, ` between them stay within `max_output`; whether `max_output` cut them.
+    fn written_locations(&self, repeated: &repeated::Repeated) -> (Vec<usize>, bool) {
+        let mut used = 0_usize;
+        let mut cut = false;
+        let written = repeated
+            .lines
+            .iter()
+            .map(|line| {
+                let wanted = line.files.len().min(self.repeated_locations);
+                if cut {
+                    return 0;
+                }
+                for (n, location) in self.locations(line, wanted).iter().enumerate() {
+                    used += location.chars().count() + if n == 0 { 0 } else { 2 };
+                    if used > self.limits.max_output {
+                        cut = true;
+                        return n;
+                    }
+                }
+                wanted
+            })
             .collect();
-        if line.files.len() > LOCATIONS {
-            out.push(format!("… {} more", line.files.len() - LOCATIONS));
-        }
-        out
+        (written, cut)
     }
 
     fn push_funnel(&self, out: &mut String) {
@@ -934,6 +966,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -975,6 +1008,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -1014,6 +1048,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: false,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -1065,6 +1100,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -1103,6 +1139,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -1158,6 +1195,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -1235,12 +1273,18 @@ mod tests {
     #[test]
     fn the_locations_of_a_repeated_line() {
         let head = "files: 4  lines: 4  matches: 4\n\nrepeated:\n  ×4 use ⟦#1:x⟧;";
-        assert_eq!(repeated_text(2, usize::MAX, &[]), format!("{head}    a:1, b:1, … 2 more\n"));
+        assert_eq!(
+            repeated_text(2, usize::MAX, &[]),
+            format!("{head}    a:1, b:1, … 2 more\n")
+        );
         assert_eq!(
             repeated_text(usize::MAX, usize::MAX, &[]),
             format!("{head}    a:1, b:1, c:1, d:1\n")
         );
-        assert_eq!(repeated_text(usize::MAX, usize::MAX, &[Part::Locations]), format!("{head}\n"));
+        assert_eq!(
+            repeated_text(usize::MAX, usize::MAX, &[Part::Locations]),
+            format!("{head}\n")
+        );
         // "a:1, b:1" is 8 characters
         assert_eq!(
             repeated_text(usize::MAX, 8, &[]),
@@ -1277,6 +1321,7 @@ mod tests {
                 blocks: BlockOptions::default(),
                 group_dirs: false,
                 group_repeated: 3,
+                repeated_locations: 3,
                 highlight,
                 time_zone: jiff::tz::TimeZone::UTC,
                 page: Page::default(),
@@ -1330,6 +1375,7 @@ mod tests {
                 blocks: BlockOptions::default(),
                 group_dirs: false,
                 group_repeated: 3,
+                repeated_locations: 3,
                 highlight: Highlight::Markers("⟦", "⟧"),
                 time_zone: jiff::tz::TimeZone::UTC,
                 page: Page::default(),
@@ -1373,6 +1419,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),
@@ -1405,6 +1452,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page {
@@ -1466,6 +1514,7 @@ mod tests {
             blocks: BlockOptions::default(),
             group_dirs: false,
             group_repeated: 3,
+            repeated_locations: 3,
             highlight: Highlight::Markers("⟦", "⟧"),
             time_zone: jiff::tz::TimeZone::UTC,
             page: Page::default(),

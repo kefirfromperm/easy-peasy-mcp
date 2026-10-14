@@ -56,6 +56,7 @@ pub enum Key {
     BlankContext,
     GroupDirs,
     GroupRepeated,
+    RepeatedLocations,
     Sort,
     PathStyle,
     Omit,
@@ -72,7 +73,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 59] = [
+    pub const ALL: [Key; 60] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -120,6 +121,7 @@ impl Key {
         Self::BlankContext,
         Self::GroupDirs,
         Self::GroupRepeated,
+        Self::RepeatedLocations,
         Self::Sort,
         Self::PathStyle,
         Self::Omit,
@@ -217,6 +219,9 @@ impl Key {
             Self::MaxOutput => ("output", "max_output", Type::AtLeast(100)),
             Self::GroupDirs => ("output", "group_dirs", Type::Bool),
             Self::GroupRepeated => ("output", "group_repeated", Type::Whole(Some("0: off"))),
+            Self::RepeatedLocations => {
+                ("output", "repeated_locations", Type::Whole(Some("0: all")))
+            }
             Self::Sort => (
                 "output",
                 "sort",
@@ -267,7 +272,7 @@ impl Key {
             Self::MaxOutputPerFile => Value::Whole(4000),
             Self::MaxOutput => Value::Whole(40000),
             Self::MaxMatches => Value::Whole(1000),
-            Self::MaxLevel | Self::GroupRepeated => Value::Whole(3),
+            Self::MaxLevel | Self::GroupRepeated | Self::RepeatedLocations => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::CharsPerToken => Value::Number(4.0),
             Self::GeneratedMarkers => list(&crate::search::DEFAULT_MARKERS),

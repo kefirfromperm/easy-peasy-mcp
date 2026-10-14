@@ -111,6 +111,7 @@ const SECTIONS: [(&str, &[&str]); 8] = [
             "blank_context",
             "group_dirs",
             "group_repeated",
+            "repeated_locations",
             "sort",
             "path_style",
             "omit",

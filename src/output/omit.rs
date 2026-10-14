@@ -19,12 +19,13 @@ pub enum Part {
     LineCounts,
     Gaps,
     Indent,
+    Locations,
     Warnings,
 }
 
 impl Part {
     /// All parts in the order of the spec.
-    pub const ALL: [Part; 15] = [
+    pub const ALL: [Part; 16] = [
         Self::Counts,
         Self::Result,
         Self::Dir,
@@ -39,6 +40,7 @@ impl Part {
         Self::LineCounts,
         Self::Gaps,
         Self::Indent,
+        Self::Locations,
         Self::Warnings,
     ];
 
@@ -60,6 +62,7 @@ impl Part {
             Self::LineCounts => "line_counts",
             Self::Gaps => "gaps",
             Self::Indent => "indent",
+            Self::Locations => "locations",
             Self::Warnings => "warnings",
         }
     }
