@@ -50,6 +50,7 @@ easy-peasy-mcp --allow-write
 ```text response
 deleted: 1  dry run
 
+./
 a.tmp
 ```
 
@@ -69,6 +70,7 @@ easy-peasy-mcp --allow-write
 ```text response
 deleted: 1
 
+./
 link.tmp
 ```
 ```text trash
@@ -106,6 +108,7 @@ easy-peasy-mcp --allow-write
 ```text response
 deleted: 2  dry run
 
+./
 a.tmp
 link.tmp
 ```
@@ -118,5 +121,6 @@ link.tmp
 ```text response
 deleted: 1  dry run
 
+./
 old.tmp/
 ```
