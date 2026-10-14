@@ -549,8 +549,8 @@ b.rs  [@ser #1 #2 #3]  lines: 1  matches: 2
   Identical shown matches are one, as always
 - the ids of a shown match are the references of the list it belongs to, in the order of the legend, a sub-group
   after its condition: in `@ser` of the example both the `serde` and the `serde_json` match have only `@ser`; the
-  [spec 2 rule](#defaults-of-spec-2) writes the ids only when the list has more than one reference. A shown fragment
-  of a `text =~` condition keeps its sub-groups in JSON
+  [spec 2 rule](#defaults-of-spec-2) writes the ids only when the list has more than one reference, also when the
+  legend has one condition. A shown fragment of a `text =~` condition keeps its sub-groups in JSON
 - in `lines` detail only the lines with shown matches are written, with their context; the
   [repeated lines](#repeated-lines), the [long lines](#long-lines) and the [highlight](#highlight) work on the shown
   matches. With [`path_fragments`](#path-fragments) only the path fragments of the groups of the list are shown
@@ -1151,8 +1151,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   warning which is not about entries (`"timeout": 0`); the summary of a [file](#output-to-a-file) has the text line only. A `timeout` is never
   hidden: the header has `truncated: yes (timeout)`, and the line names the code
 - rules of parts which carry nothing in a search: `legend`, `conditions` and `match_ids` are written only when the
-  legend has more than one condition (with one, the agent wrote it, and every `[#1]` and `#1:` repeats it), and
-  `match_ids` also only when [`groups`](#shown-groups) is empty or has more than one reference; `gaps`
+  legend has more than one condition (with one, the agent wrote it, and every `[#1]` and `#1:` repeats it), with
+  [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
   only with context lines (`before` or `after` above 0) or without `line_numbers` (the line numbers show the gaps)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
