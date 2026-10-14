@@ -247,7 +247,8 @@ Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
 A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
-A directory is deleted with everything in it. Symlinks are deleted themselves, never followed.
+The query selects files only, like find: type = dir selects directories, deleted with everything in them;
+  type = link symlinks, deleted themselves, never followed.
 expect = N: fails without changing anything unless the selection has N files.
 dry_run = true: lists what would be deleted and changes nothing. Use it for a selection you haven't seen.
 permanent = true: deletes instead of moving to the trash. It can't be undone."#;
@@ -348,7 +349,8 @@ to = "...": the new path, relative to the working directory, / as the separator.
   e.g. "{dir}/{stem}.tsx", "archive/{path}"
 pattern = "regex": must match the whole old path, e.g. "src/(.*)_test\.rs" with to = "tests/{1}.rs".
   A file which doesn't match is skipped with a warning.
-Missing directories are created. A directory is moved with everything in it. Symlinks are moved themselves.
+Missing directories are created. The query selects files only, like find: type = dir selects directories, moved
+  with everything in them; type = link symlinks, moved themselves.
 on_conflict: a target which exists, two files to one target, a target which is another selected file:
   "fail" (default): nothing is renamed, the error lists them; "skip": those files are skipped;
   "overwrite": an existing file is moved to the trash and replaced, a directory never.
@@ -455,7 +457,8 @@ to = "...": the path of the copy, relative to the working directory, / as the se
   e.g. "{dir}/{stem}.bak.{ext}", "backup/{path}"
 pattern = "regex": must match the whole old path, e.g. "src/(.*)\.rs" with to = "old/{1}.rs".
   A file which doesn't match is skipped with a warning.
-Missing directories are created. A directory is copied with everything in it. Symlinks are copied as symlinks.
+Missing directories are created. The query selects files only, like find: type = dir selects directories, copied
+  with everything in them; type = link symlinks, copied as symlinks.
 The content, the modification time and the permissions are kept; a failed copy leaves nothing behind.
 on_conflict: a target which exists, two files to one target, a target which is another selected file:
   "fail" (default): nothing is copied, the error lists them; "skip": those files are skipped;

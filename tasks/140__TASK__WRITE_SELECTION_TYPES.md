@@ -1,6 +1,6 @@
 # Task 140: The write tools say how to select directories and symlinks
 
-Status: not implemented
+Status: implemented, see [140__SUMMARY__WRITE_SELECTION_TYPES.md](140__SUMMARY__WRITE_SELECTION_TYPES.md)
 
 Depends on: task 125
 
