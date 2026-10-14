@@ -259,3 +259,5 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 139 | [A dry run header which can't be read as done](139__TASK__DRY_RUN_HEADER.md) | 125 | ✅ |
 | 140 | [The write tools say how to select directories and symlinks](140__TASK__WRITE_SELECTION_TYPES.md) | 125 | ✅ |
 | 141 | [Useful output by default: the default of `output.omit`](141__TASK__OUTPUT_DEFAULTS.md) | 134 | ✅ |
+| 142 | [The number of files of a repeated line](142__TASK__REPEATED_COUNT.md) | 86, 138 | ⬜ |
+| 143 | [The legend rule counts the conditions an agent wrote](143__TASK__CONDITIONS_RULE.md) | 141 | ⬜ |
