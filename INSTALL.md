@@ -6,6 +6,7 @@ starts it, nothing listens on the network. Install it, register it in an MCP cli
 - [Install scripts](#install-scripts)
 - [By hand](#by-hand)
 - [Register in an MCP client](#register-in-an-mcp-client)
+- [Write tools](#write-tools)
 - [Config file](#config-file)
 - [Update and uninstall](#update-and-uninstall)
 
@@ -120,6 +121,42 @@ If the install directory is not in the `PATH` the client sees, write the full pa
 To check the registration, ask the agent to call `get_config`: the first line is the server version, then the
 allowed roots and the defaults.
 
+## Write tools
+
+By default the server only reads: the agent gets `find`, `get_config` and `update_config`. The write tools `delete`,
+`rename`, `copy` and `replace` act on the files a `find` query selects; they are off until you turn them on with
+`--allow-write` (or `allow_write = true` in the [config file](#config-file)). The agent can't turn them on itself.
+
+```sh
+claude mcp add easy-peasy -- easy-peasy-mcp --root ~/projects --allow-write
+```
+
+```json
+{
+  "mcpServers": {
+    "easy-peasy": {
+      "command": "easy-peasy-mcp",
+      "args": ["--root", "~/projects", "--allow-write"]
+    }
+  }
+}
+```
+
+An MCP client which was registered without the flag needs it added and a restart; `get_config` then shows
+`allow_write = true` and `tools/list` the four tools.
+
+What they do, so you know what you allow:
+
+- they change only files inside the allowed roots, never an allowed root itself, and never follow symlinks
+- `delete`, and `rename` / `copy` with `on_conflict = "overwrite"`, move files to the trash of the system (the
+  freedesktop trash on Linux, the Trash on macOS, the Recycle Bin on Windows), so a mistake can be undone; an entry
+  on a file system without a trash is skipped, never deleted for good, unless the agent asks for `permanent: true`
+- `dry_run: true` shows what would be done without changing anything, and `expect: N` makes a call fail unchanged
+  when the selection has another number of files; the descriptions of the tools tell the agent to use them
+- `replace` keeps the encoding, the BOM, the line breaks and the permissions of a file
+
+The details are in [TOOLS.md](TOOLS.md#write-tools).
+
 ## Config file
 
 Optional. Instead of command line arguments the roots and the defaults of every request can be kept in a TOML file:
@@ -133,6 +170,7 @@ Optional. Instead of command line arguments the roots and the defaults of every 
 ```toml
 [server]
 allowed_roots = ["~/projects"]
+# allow_write = true            # the write tools: delete, rename, copy, replace
 
 [traversal]
 exclude = ["**/target/**", "**/node_modules/**"]
