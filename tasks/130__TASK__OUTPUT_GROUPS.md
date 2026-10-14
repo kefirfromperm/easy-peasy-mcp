@@ -1,6 +1,6 @@
 # Task 130: Output limited to groups
 
-Status: not implemented
+Status: implemented, see [130__SUMMARY__OUTPUT_GROUPS.md](130__SUMMARY__OUTPUT_GROUPS.md)
 
 Depends on: task 128
 

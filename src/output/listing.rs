@@ -206,7 +206,8 @@ fn first_over(
 }
 
 /// The lines of the blocks of the fragments before the line `until` with their characters as they are shown: after
-/// the dedent and the cut of long lines, without the line numbers and markers.
+/// the dedent and the cut of long lines, without the line numbers and markers; with `only_match` the lines of every
+/// match with the characters of the match in them.
 fn shown_lines(
     content: &Content,
     fragments: &[Fragment],
@@ -214,6 +215,22 @@ fn shown_lines(
     limits: &Limits,
     until: Option<usize>,
 ) -> Vec<(usize, usize)> {
+    if options.only_match {
+        // the lines of the matches as they are written (OUTPUT.md#only-the-matches)
+        return fragments
+            .iter()
+            .flat_map(|f| {
+                let first = content.line_of(f.range.start);
+                (first..=last_line(content, f)).map(move |i| {
+                    let (start, end) = content.line_range(i);
+                    let from = f.range.start.max(start).min(end);
+                    let to = f.range.end.min(end).max(from);
+                    (i, content.text()[from..to].chars().count())
+                })
+            })
+            .filter(|(i, _)| until.is_none_or(|until| *i < until))
+            .collect();
+    }
     before(blocks(content, fragments, options), until)
         .iter()
         .flat_map(|block| {
@@ -498,6 +515,26 @@ mod tests {
         );
         assert_eq!(listed_lines(&listing, &files[1..]), [vec![0]]);
         assert_eq!(listing.until, [Some(2)]);
+    }
+
+    #[test]
+    fn only_the_characters_of_the_matches() {
+        // every line has one match of one character and five characters in all
+        let files = [file("a bbb\na bbb\na bbb\n")];
+        let limits = Limits {
+            max_output_per_file: 2,
+            ..Limits::default()
+        };
+        let lines = |only_match| {
+            let options = BlockOptions {
+                only_match,
+                ..BlockOptions::default()
+            };
+            let listing = Listing::new(&files, &Repeated::default(), &limits, Some(&options), 0);
+            (listed_lines(&listing, &files), listing.until)
+        };
+        assert_eq!(lines(true), (vec![vec![0, 1]], vec![Some(2)]));
+        assert_eq!(lines(false), (vec![vec![]], vec![Some(0)]));
     }
 
     #[test]

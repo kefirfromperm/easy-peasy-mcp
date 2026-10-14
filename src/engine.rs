@@ -28,6 +28,7 @@ use crate::rename;
 use crate::replace;
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, Progress, SearchOptions};
+use crate::shown::Shown;
 use crate::warning::{WarningCode, Warnings};
 use crate::write;
 
@@ -332,7 +333,14 @@ impl Engine {
         let (entries, timed_out) = match write.selection {
             write::Selection::Result(id) => (result_entries(&self.kept(id)?), false),
             write::Selection::Query => {
-                let run = self.run(&write.request, &settings, &write.find, arrival, progress)?;
+                let run = self.run(
+                    &write.request,
+                    &settings,
+                    &write.find,
+                    arrival,
+                    progress,
+                    false,
+                )?;
                 if progress.is_some_and(|p| p.is_cancelled()) {
                     return Err(Report::new(
                         ErrorCode::Cancelled,
@@ -488,7 +496,7 @@ impl Engine {
         let rules = replace::compile(&spec, &query)?;
         let limit = request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
-        let mut run = self.run(&request, &settings, &find, arrival, progress)?;
+        let mut run = self.run(&request, &settings, &find, arrival, progress, false)?;
         if progress.is_some_and(|p| p.is_cancelled()) {
             return Err(Report::new(
                 ErrorCode::Cancelled,
@@ -698,7 +706,7 @@ impl Engine {
             .as_ref()
             .map(|file| target(&settings, file))
             .transpose()?;
-        let run = self.run(&request, &settings, arguments, arrival, progress)?;
+        let run = self.run(&request, &settings, arguments, arrival, progress, true)?;
         if progress.is_some_and(|p| p.is_cancelled()) {
             // no response is sent and no result is kept for a cancelled request
             return Err(Report::new(
@@ -753,6 +761,7 @@ impl Engine {
         arguments: &Value,
         arrival: std::time::Instant,
         progress: Option<&Arc<Progress>>,
+        groups: bool,
     ) -> Result<Run, Report> {
         let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let limit = request.timeout.or_else(|| settings.timeout());
@@ -766,6 +775,12 @@ impl Engine {
         let parse = self.parse_options(settings, Arc::clone(&languages));
         let query =
             query::parse(&request.query, &parse).map_err(|e| e.into_report(&request.query))?;
+        // `output.groups` of `find`; the write tools work on all the matches of their query
+        let shown = if groups {
+            Shown::of(&query, settings.list(Key::Groups))?
+        } else {
+            None
+        };
         let (page, cursor_totals) = page(arguments, request.cursor.as_deref())?;
         let mut search =
             self.search_options(settings, deadline, parse.case_insensitive_paths, languages);
@@ -794,10 +809,15 @@ impl Engine {
             &mut search,
             within.as_ref().map(|r| r.files.as_slice()),
         );
+        if let Some(shown) = &shown {
+            shown.apply(&mut result.files);
+        }
+        // the totals of a cursor are the shown ones
         if cursor_totals.is_some_and(|totals| totals != totals_of(&result.files)) {
             result.warnings.add_global(WarningCode::ResultsChanged);
         }
         Ok(Run {
+            references: shown.as_ref().map(Shown::references),
             query,
             parse,
             search,
@@ -824,6 +844,7 @@ impl Engine {
         in_file: bool,
     ) -> (String, Head, Option<String>) {
         let Run {
+            references,
             query,
             parse,
             search,
@@ -869,6 +890,7 @@ impl Engine {
             spec,
             query.legend.len(),
             blocks.before + blocks.after > 0,
+            references,
         );
         let hints = if shown.is_some() && !omit.has(Part::Hints) {
             let cx = hints::Context {
@@ -906,7 +928,12 @@ impl Engine {
             detail,
             count_by: count_by(settings),
             group_dirs: settings.bool(Key::GroupDirs),
-            group_repeated: settings.whole(Key::GroupRepeated),
+            // the matches of `only_match` are not grouped
+            group_repeated: if blocks.only_match {
+                0
+            } else {
+                settings.whole(Key::GroupRepeated)
+            },
             repeated_locations: match settings.whole(Key::RepeatedLocations) {
                 0 => usize::MAX,
                 n => n,
@@ -1778,6 +1805,8 @@ fn target(settings: &Settings, file: &FileTarget) -> Result<Target, Report> {
 
 /// A search of a request, before its response.
 struct Run {
+    /// The number of references of `output.groups`, when it is set.
+    references: Option<usize>,
     query: query::Query,
     parse: ParseOptions,
     search: SearchOptions,
@@ -1808,12 +1837,20 @@ fn highlight(settings: &Settings, json: bool) -> Highlight<'_> {
 
 /// How the matched lines are put into blocks: `before` and `after` default to `context`.
 fn block_options(settings: &Settings) -> BlockOptions {
+    // the matches of `only_match` have no context and keep their indentation (OUTPUT.md#only-the-matches)
+    if settings.bool(Key::OnlyMatch) {
+        return BlockOptions {
+            only_match: true,
+            ..BlockOptions::default()
+        };
+    }
     let context = settings.whole(Key::Context);
     BlockOptions {
         before: settings.opt_whole(Key::Before).unwrap_or(context),
         after: settings.opt_whole(Key::After).unwrap_or(context),
         blank_context: settings.bool(Key::BlankContext),
         dedent: settings.bool(Key::Dedent),
+        only_match: false,
     }
 }
 

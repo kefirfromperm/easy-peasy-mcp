@@ -140,6 +140,8 @@ context = 0
 # before = 0                    # not set: equal to `context`
 # after = 0                     # not set: equal to `context`
 path_fragments = false
+groups = []                     # the group references whose matches are shown; []: all
+only_match = false              # true: the matches instead of their lines (grep -o)
 highlight = "auto"              # auto | none | columns | markers
 markers = ["⟦", "⟧"]
 max_files = 100
@@ -428,6 +430,8 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `before`               | number      | `context`      |
 | `after`                | number      | `context`      |
 | `path_fragments`       | bool        | `false`        |
+| `groups`               | list        | `[]`           |
+| `only_match`           | bool        | `false`        |
 | `highlight`            | string      | `"auto"`       |
 | `markers`              | two strings | `["⟦", "⟧"]`   |
 | `max_files`            | number      | `100`          |
@@ -452,6 +456,10 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected`. `get_config` shows `omit = "all"` or
 the list, the default of the current spec version. `show` takes the same values (`invalid value for 'output.show'`),
 see [OUTPUT.md](OUTPUT.md#defaults-of-spec-2).
+
+`groups`: a list of [group references](QUERY.md#group-references), otherwise `invalid value for 'output.groups': a
+list of group references is expected`; a configured list applies to every query, a reference which a query doesn't
+have is its `unknown_group` error, see [OUTPUT.md](OUTPUT.md#shown-groups).
 
 `cursor` and `file` of the request `output` are not keys: they are set per request. `output.file` in the config
 file is `invalid value for 'output.file': output.file is set per request`, in `update_config` `invalid_value` with

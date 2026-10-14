@@ -138,6 +138,88 @@ pub fn render(
     out
 }
 
+/// The fragments one after another, every line of one as `N:text` in the highlight style, without the line numbers
+/// which `omit` leaves out (OUTPUT.md#only-the-matches): `markers` wraps a match with its ids, `auto` too unless the
+/// markers outgrow it or it has no ids, `columns` adds its columns.
+pub fn render_matches(
+    content: &Content,
+    fragments: &[Fragment],
+    highlight: Highlight<'_>,
+    omit: Omit,
+) -> String {
+    let mut out = String::new();
+    for f in fragments {
+        let parts = merge_overlapping(std::slice::from_ref(f));
+        let style = match highlight {
+            Highlight::Auto(open, close) => {
+                let plain = match_text(content, &parts, f, None).chars().count();
+                let marked = match_text(content, &parts, f, Some([open, close]))
+                    .chars()
+                    .count();
+                if f.ids.is_empty() && f.escape.is_none() || outgrown(plain, marked) {
+                    Highlight::None
+                } else {
+                    highlight
+                }
+            }
+            _ => highlight,
+        };
+        for (i, text) in match_lines(content, &parts, f, style.markers()) {
+            if !omit.has(OmitPart::LineNumbers) {
+                let _ = write!(out, "{}:", i + 1);
+            }
+            out.push_str(&text);
+            out.push('\n');
+        }
+        if highlight == Highlight::Columns {
+            push_columns(
+                &mut out,
+                content,
+                std::slice::from_ref(f),
+                content.line_of(f.range.start),
+            );
+        }
+    }
+    out
+}
+
+/// The lines of a fragment with their 0-based indexes: the parts of the lines it covers, marked with `markers`.
+fn match_lines(
+    content: &Content,
+    parts: &[Part],
+    f: &Fragment,
+    markers: Option<[&str; 2]>,
+) -> Vec<(usize, String)> {
+    let first = content.line_of(f.range.start);
+    let last = content.line_of(f.range.end.saturating_sub(1).max(f.range.start));
+    (first..=last)
+        .map(|i| {
+            let (start, end) = content.line_range(i);
+            let window =
+                f.range.start.max(start)..f.range.end.min(end).max(f.range.start.max(start));
+            let mut text = String::new();
+            match markers {
+                Some(markers) => write_window(&mut text, content, parts, window, end, markers),
+                None => text.push_str(&content.text()[window]),
+            }
+            (i, text)
+        })
+        .collect()
+}
+
+/// The text of a fragment as it is written, its lines joined.
+fn match_text(
+    content: &Content,
+    parts: &[Part],
+    f: &Fragment,
+    markers: Option<[&str; 2]>,
+) -> String {
+    match_lines(content, parts, f, markers)
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect()
+}
+
 /// The line with the 0-based index `i` without its first `skip` bytes, with the markers of the fragments for
 /// `markers` and for `auto` unless they outgrow it, as it is otherwise.
 pub fn shown_line(
@@ -581,6 +663,56 @@ mod tests {
             escape: Some(level),
             ..frag(range, &[id])
         }
+    }
+
+    #[test]
+    fn only_the_matches() {
+        let c = Content::from_bytes(b"let a = bb;\nx\nyz");
+        let fragments = vec![frag(4..5, &[1]), frag(8..10, &[2]), frag(12..15, &[1])];
+        let omit = super::super::omit::Omit::default();
+        let markers = Highlight::Markers("⟦", "⟧");
+        assert_eq!(
+            render_matches(&c, &fragments, markers, omit),
+            "1:⟦#1:a⟧\n1:⟦#2:bb⟧\n2:⟦#1:x\n3:y⟧\n"
+        );
+        assert_eq!(
+            render_matches(&c, &fragments, Highlight::None, omit),
+            "1:a\n1:bb\n2:x\n3:y\n"
+        );
+        // auto: the markers outgrow the short matches
+        assert_eq!(
+            render_matches(&c, &fragments, Highlight::Auto("⟦", "⟧"), omit),
+            "1:a\n1:bb\n2:x\n3:y\n"
+        );
+        assert_eq!(
+            render_matches(&c, &fragments[..1], Highlight::Columns, omit),
+            "1:a\n  @ 5..6 #1\n"
+        );
+        let numbers = super::super::omit::Omit::from_parts(&[OmitPart::LineNumbers]);
+        assert_eq!(
+            render_matches(&c, &fragments[..2], Highlight::None, numbers),
+            "a\nbb\n"
+        );
+    }
+
+    #[test]
+    fn only_the_matches_with_auto() {
+        let c = Content::from_bytes(b"let a = bb;");
+        let auto = Highlight::Auto("⟦", "⟧");
+        let omit = super::super::omit::Omit::default();
+        assert_eq!(
+            render_matches(&c, &[frag(0..10, &[1])], auto, omit),
+            "1:⟦#1:let a = bb⟧\n"
+        );
+        // a match without ids has nothing to mark with auto, `markers` marks it
+        assert_eq!(
+            render_matches(&c, &[frag(0..10, &[])], auto, omit),
+            "1:let a = bb\n"
+        );
+        assert_eq!(
+            render_matches(&c, &[frag(0..10, &[])], Highlight::Markers("⟦", "⟧"), omit),
+            "1:⟦let a = bb⟧\n"
+        );
     }
 
     #[test]

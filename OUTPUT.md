@@ -13,6 +13,7 @@ full. The examples are written for spec version 1, which writes every part of th
 - [Response](#response)
 - [Condition ids](#condition-ids)
 - [Fragments](#fragments)
+- [Shown groups](#shown-groups)
 - [Highlight](#highlight)
 - [Limits and truncation](#limits-and-truncation)
 - [Pagination](#pagination)
@@ -64,6 +65,8 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `before`               | number                                          | `context`  | lines before (`grep -B`)                                  |
 | `after`                | number                                          | `context`  | lines after (`grep -A`)                                   |
 | `path_fragments`       | `true`, `false`                                 | `false`    | return fragments of `path` and `name` conditions          |
+| `groups`               | list of [group references](QUERY.md#group-references) | `[]` | show only the matches of these groups, see [Shown groups](#shown-groups) |
+| `only_match`           | `true`, `false`                                 | `false`    | write the matches instead of their lines (`grep -o`), see [Only the matches](#only-the-matches) |
 | `highlight`            | `auto`, `none`, `columns`, `markers`            | `auto`     | how matches are marked, see [Highlight](#highlight)       |
 | `markers`              | two strings                                     | `["⟦", "⟧"]` | opening and closing marker of `highlight = markers`     |
 | `max_files`            | number                                          | `100`      | max files in the response                                 |
@@ -200,6 +203,7 @@ Per file
 | `conditions`     | `files`, `lines` | ids of the conditions which made the file match, see [File conditions](#file-conditions) |
 | `path_fragments` | with `path_fragments` | fragments of `path` / `name` conditions                        |
 | `blocks`         | `lines`          | matched lines with context, see [Fragments](#fragments)             |
+| `fragments`      | `lines` with `only_match` | the matches instead of `blocks`, see [Only the matches](#only-the-matches) |
 
 #### Paths
 
@@ -513,6 +517,101 @@ A minified line with `max_line_length: 64` keeps `(64 − 6) / 2 = 29` character
 { "n": 1, "cut": true, "text": "…var a=require(\"./x\");var b=a.unwrap();var c=require(\"./y\");var d…",
   "fragments": [ { "col": [18342, 18348], "text": "unwrap", "ids": ["#1"] } ] }
 ```
+
+## Shown groups
+
+`groups` lists the [groups](QUERY.md#groups) of the query whose matches the agent wants to see, as
+[group references](QUERY.md#group-references): `@ser`, `#2`, `@def.fname`. The other conditions still decide which
+files match, their matches are not shown:
+
+```json
+{ "query": "(text has 'serde' or text has 'serde_json') @ser and text has 'apple'", "output": { "groups": ["@ser"] } }
+```
+
+```
+files: 2  lines: 2  matches: 3  result: r1
+@ser (text has 'serde' or text has 'serde_json')
+#1 text has 'serde'
+#2 text has 'serde_json'
+#3 text has 'apple'
+
+src/
+a.rs  [@ser #1 #3]  lines: 1  matches: 1
+1:use ⟦serde⟧::Deserialize;
+b.rs  [@ser #1 #2 #3]  lines: 1  matches: 2
+1:use ⟦serde_json⟧::Value;
+```
+
+- the shown matches of a file are its fragments whose ids have a whole group of the list (`@name`, `#3`: a
+  condition, `line( ... )`, `near( ... )` or a bracket group), and for a sub-group (`@def.1`, `@def.fname`) its text
+  in every fragment of its `text =~` condition: the sub-group becomes a match of its own, with the `col`, `n` and `to`
+  of the sub-group; a sub-group which didn't take part in the match gives nothing, an empty one an empty match.
+  Identical shown matches are one, as always
+- the ids of a shown match are the references of the list it belongs to, in the order of the legend, a sub-group
+  after its condition: in `@ser` of the example both the `serde` and the `serde_json` match have only `@ser`; the
+  [spec 2 rule](#defaults-of-spec-2) writes the ids only when the list has more than one reference, also when the
+  legend has one condition. A shown fragment of a `text =~` condition keeps its sub-groups in JSON
+- in `lines` detail only the lines with shown matches are written, with their context; the
+  [repeated lines](#repeated-lines), the [long lines](#long-lines) and the [highlight](#highlight) work on the shown
+  matches. With [`path_fragments`](#path-fragments) only the path fragments of the groups of the list are shown
+- the counts: `lines` and `matches` of the header and of every file count the shown matches, also in `count` detail
+  and with `count_by`; `files` is the number of matched files, as without `groups`. A matched file without a shown
+  match is listed in `files` and `lines` detail without its counts and its lines
+- the order of the files ([`sort`](#relevance), `matches` too) is the one without `groups`
+- the limits work on the shown matches: `max_lines` and `max_matches` count the shown lines and matches,
+  `max_matches_per_file` the shown matches of a file; the [budget](#budget) estimates the response with them and the
+  [cursor](#pagination) continues them: its totals are the shown ones
+- the [result id](#result-ids) keeps the files with their shown lines, so `since` compares what was shown
+- the empty list shows every match, as without `groups`. A list in the [configuration](CONFIG.md#output) applies to
+  every query; the list of a request replaces it, and every query of a [batch](#batch) can have its own
+- errors: a value which is not a list of strings is `invalid_option`: `'output.groups' must be a list of group
+  references`; a reference which the query doesn't have is `unknown_group` (QUERY.md#group-references), with the
+  position in the reference, in JSON the field `output.groups` with the reference as its text. The references are
+  checked in the order of the list, the first unknown one is reported
+
+```
+error[unknown_group]: unknown group '@x'
+  @x
+  ^^
+  hint: the groups of the query: @ser, #1, #2, #3
+```
+
+### Only the matches
+
+`only_match = true` writes the shown matches (every match without `groups`) instead of their lines, one per line
+with its line number, like `grep -o`:
+
+```json
+{ "query": "text =~ `fn\\s+(?<fname>\\w+)\\(` @def", "output": { "groups": ["@def.fname"], "only_match": true } }
+```
+
+```
+files: 1  lines: 2  matches: 2  result: r1
+
+./
+lib.rs  lines: 2  matches: 2
+1:load_config
+5:parse
+```
+
+- the matches of a file in the order of their start, at the same start the shorter one first; several matches in
+  one line are written one after another, every one with the number of the line
+- no context lines, no `--` and no `⇥N`: `context`, `before`, `after` and `dedent` don't apply, and
+  `max_line_length` doesn't cut a match
+- the highlight: `none` writes the match as it is; `columns` as it is, followed by its columns as after a line
+  (`  @ 8..19 @def.fname`); `markers` wraps it with its ids: `1:⟦@def.fname:load_config⟧`, and `auto` too, unless
+  the markers outgrow the match or it has no ids (`match_ids` left out, or the [spec 2 rule](#defaults-of-spec-2)):
+  then it is written as it is
+- a multiline match is written in its lines, every one with its number; its markers open in the first line and close
+  in the last one
+- the limits: `max_lines` counts the lines of the written matches, `max_matches` and `max_matches_per_file` the
+  matches, `max_output_per_file` and `max_output` the characters of the matches as they are written, without the
+  line numbers and the markers. The [repeated lines](#repeated-lines) are not grouped
+- JSON: a file has `fragments` instead of `blocks`: every match as a [fragment](#fragments) with the `n` of its line
+  first, `{ "n": 1, "col": [8, 19], "text": "load_config", "ids": ["@def.fname"] }`; with `highlight = none`
+  `{ "n", "text" }`, with `markers` `{ "n", "text" }` with the markers in the text. [Omit](#omit): `line_numbers`
+  leaves out `n`, `match_ids` the `ids` and the `escape`
+- `only_match` changes only `lines` detail; it is a request option and a [configuration key](CONFIG.md#output)
 
 ## Highlight
 
@@ -1052,7 +1151,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   warning which is not about entries (`"timeout": 0`); the summary of a [file](#output-to-a-file) has the text line only. A `timeout` is never
   hidden: the header has `truncated: yes (timeout)`, and the line names the code
 - rules of parts which carry nothing in a search: `legend`, `conditions` and `match_ids` are written only when the
-  legend has more than one condition (with one, the agent wrote it, and every `[#1]` and `#1:` repeats it); `gaps`
+  legend has more than one condition (with one, the agent wrote it, and every `[#1]` and `#1:` repeats it), with
+  [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
   only with context lines (`before` or `after` above 0) or without `line_numbers` (the line numbers show the gaps)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
@@ -1376,8 +1476,8 @@ error[unknown_operator]: unknown operator 'contains'
   the whole query (a line break is one character)
 - a position at the end of the query (`unexpected_end`) is one `^` right after the last character
 - a position in another field of the request (`to` and `pattern` of `rename` and `copy`, the keys and templates of
-  `replace`) is shown the same way; in JSON the field is named after it (`"to": "..."`, `"replace": "..."`) instead
-  of `query`
+  `replace`, the references of `output.groups`) is shown the same way; in JSON the field is named after it (`"to":
+  "..."`, `"replace": "..."`, `"output.groups": "..."`) instead of `query`
 - the conflicts of `rename_conflict` and `copy_conflict`, one per line indented by two spaces, before the hint (JSON: `conflicts`), see
   [TOOLS.md](TOOLS.md#conflicts)
 - `  hint: ...` when there is a hint

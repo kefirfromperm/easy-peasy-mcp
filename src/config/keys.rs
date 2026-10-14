@@ -43,6 +43,8 @@ pub enum Key {
     Before,
     After,
     PathFragments,
+    Groups,
+    OnlyMatch,
     Highlight,
     Markers,
     MaxFiles,
@@ -74,7 +76,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 61] = [
+    pub const ALL: [Key; 63] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -109,6 +111,8 @@ impl Key {
         Self::Before,
         Self::After,
         Self::PathFragments,
+        Self::Groups,
+        Self::OnlyMatch,
         Self::Highlight,
         Self::Markers,
         Self::MaxFiles,
@@ -195,6 +199,8 @@ impl Key {
             Self::Dedent => ("output", "dedent", Type::Bool),
             Self::BlankContext => ("output", "blank_context", Type::Bool),
             Self::PathFragments => ("output", "path_fragments", Type::Bool),
+            Self::Groups => ("output", "groups", Type::GroupRefs),
+            Self::OnlyMatch => ("output", "only_match", Type::Bool),
             Self::Meta => ("output", "meta", Type::Bool),
             Self::Facets => ("output", "facets", Type::Facets),
             Self::Budget => ("output", "budget", Type::OptAtLeast(100)),
@@ -291,12 +297,13 @@ impl Key {
             | Self::Hidden
             | Self::BlankContext
             | Self::PathFragments
+            | Self::OnlyMatch
             | Self::Meta => Value::Bool(false),
             Self::IgnoreFiles => list(&[".gitignore", ".ignore", ".aiignore"]),
             Self::GitExcludes | Self::SkipGenerated | Self::Dedent | Self::GroupDirs => {
                 Value::Bool(true)
             }
-            Self::IgnorePaths | Self::Exclude | Self::Show => list(&[]),
+            Self::IgnorePaths | Self::Exclude | Self::Show | Self::Groups => list(&[]),
             Self::Omit => list(&["warnings"]),
             Self::Markers => list(&["⟦", "⟧"]),
             Self::Facets => list(&["dir", "lang", "kind", "condition"]),
@@ -405,6 +412,8 @@ pub enum Type {
     Facets,
     /// `"all"` or a list of the parts of `output.omit`.
     Omit,
+    /// A list of group references of `output.groups`, checked against the query of a request.
+    GroupRefs,
 }
 
 /// The facets of `detail = facets` (OUTPUT.md#facets).
@@ -438,6 +447,7 @@ impl Type {
             Self::Markers => "two non-empty strings are expected".to_string(),
             Self::Facets => format!("a list of facets ({}) is expected", FACETS.join(", ")),
             Self::Omit => format!("{} is expected", omit_values()),
+            Self::GroupRefs => "a list of group references is expected".to_string(),
         }
     }
 
@@ -463,6 +473,7 @@ impl Type {
             Self::Markers => "two non-empty strings".to_string(),
             Self::Facets => format!("a list of facets ({})", FACETS.join(", ")),
             Self::Omit => omit_values(),
+            Self::GroupRefs => "a list of group references".to_string(),
         }
     }
 
@@ -529,7 +540,9 @@ impl Type {
                 .as_str()
                 .filter(|t| super::parse_duration(t).is_some())
                 .map(|t| Value::Text(t.to_string())),
-            Self::List(_) | Self::Wildcards => toml_strings(item).map(Value::List),
+            Self::List(_) | Self::Wildcards | Self::GroupRefs => {
+                toml_strings(item).map(Value::List)
+            }
             Self::NonEmptyList(_) => toml_strings(item)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
@@ -596,7 +609,9 @@ impl Type {
                 .as_str()
                 .filter(|t| super::parse_duration(t).is_some())
                 .map(|t| Value::Text(t.to_string())),
-            Self::List(_) | Self::Wildcards => json_strings(value).map(Value::List),
+            Self::List(_) | Self::Wildcards | Self::GroupRefs => {
+                json_strings(value).map(Value::List)
+            }
             Self::NonEmptyList(_) => json_strings(value)
                 .filter(|items| !items.is_empty())
                 .map(Value::List),
@@ -858,6 +873,18 @@ mod tests {
             "a whole number is expected (0: off)"
         );
         assert_eq!(Type::List("paths").must_be(), "a list of strings");
+        assert_eq!(Type::GroupRefs.must_be(), "a list of group references");
+        assert_eq!(
+            Type::GroupRefs.expected(),
+            "a list of group references is expected"
+        );
+        assert_eq!(
+            Type::GroupRefs.parse_json(&json!(["@a", "#2"])),
+            Some(Value::List(vec!["@a".into(), "#2".into()]))
+        );
+        assert_eq!(Type::GroupRefs.parse_toml(&item("'@a'")), None);
+        assert_eq!(Key::Groups.default_value(), Value::List(vec![]));
+        assert_eq!(Key::OnlyMatch.default_value(), Value::Bool(false));
         let case = Type::Choice(&["native", "sensitive"]);
         assert_eq!(
             case.check_toml(&item("'sensitive'")),

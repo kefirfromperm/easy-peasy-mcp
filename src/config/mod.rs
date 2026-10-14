@@ -97,6 +97,8 @@ const SECTIONS: [(&str, &[&str]); 8] = [
             "before",
             "after",
             "path_fragments",
+            "groups",
+            "only_match",
             "highlight",
             "markers",
             "max_files",

@@ -61,6 +61,8 @@ context = 0
 # before =  (not set)
 # after =  (not set)
 path_fragments = false
+groups = []
+only_match = false
 highlight = "auto"
 markers = ['⟦', '⟧']
 max_files = 100
@@ -291,6 +293,8 @@ context = 0    # default
 # before =  (not set)    # default
 # after =  (not set)    # default
 path_fragments = true    # update
+groups = []    # default
+only_match = false    # default
 highlight = "auto"    # default
 markers = ['⟦', '⟧']    # default
 max_files = 100    # default
@@ -343,6 +347,8 @@ Fixture: `path-frags`
 ```toml conf/o.toml
 [output]
 path_fragments = true
+groups = []
+only_match = false
 ```
 
 ```text command
