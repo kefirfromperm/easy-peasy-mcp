@@ -131,6 +131,10 @@ fn start(config: Option<&Path>, cli: &config::CommandLine) -> anyhow::Result<()>
     options.read_delay = env("EASY_PEASY_TEST_SLOW_READS")
         .and_then(|ms| ms.parse().ok())
         .map(std::time::Duration::from_millis);
+    // the test hook of the startup examples (AGENTS.md): the current spec version the examples are written for
+    if let Some(spec) = env("EASY_PEASY_TEST_SPEC").and_then(|s| s.parse().ok()) {
+        options.spec = spec;
+    }
     // the test hook of the startup examples (AGENTS.md): they are written with the path case of Linux
     if env("EASY_PEASY_TEST_NATIVE_CASE").as_deref() == Some("sensitive") {
         options.native_case_insensitive = false;

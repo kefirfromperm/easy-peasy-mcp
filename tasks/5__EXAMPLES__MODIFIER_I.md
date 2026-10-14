@@ -1,5 +1,7 @@
 # Examples for task 5
 
+Spec: `1`
+
 The fixture `names` is described in [3__EXAMPLES__NAME_OPERATORS.md](3__EXAMPLES__NAME_OPERATORS.md).
 
 ## E5.1 `=` with `/i`

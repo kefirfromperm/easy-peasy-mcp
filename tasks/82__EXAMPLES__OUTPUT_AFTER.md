@@ -1,5 +1,7 @@
 # Examples for task 82
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `context` of task 80:
 `unwrap()` on the lines 3 and 9 of `src/config.rs`.
 
@@ -35,7 +37,7 @@ config.rs  [#1]  lines: 2  matches: 2
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -70,6 +72,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E82.2 Lines after in a request
@@ -159,7 +162,7 @@ config.rs  [#1]  lines: 2  matches: 2
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -194,6 +197,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E82.5 An invalid value in a request
@@ -241,7 +245,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -276,6 +280,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 2. `find`

@@ -156,7 +156,8 @@ group_repeated = 3
 repeated_locations = 3          # 0: all
 sort = "relevance"
 path_style = "relative"         # relative | absolute | in_dir
-omit = []                       # parts of the response left out, or "all"
+omit = ["warnings"]             # parts of the response left out, or "all"; spec 1: []
+show = []                       # parts of the response shown whatever omit says, or "all"
 
 [escape]
 max_level = 3
@@ -443,11 +444,14 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `repeated_locations`   | number      | `3`            |
 | `sort`                 | string      | `"relevance"`  |
 | `path_style`           | string      | `"relative"`   |
-| `omit`                 | list, or `"all"` | `[]`      |
+| `omit`                 | list, or `"all"` | `["warnings"]`, spec 1: `[]` |
+| `show`                 | list, or `"all"` | `[]`      |
 
 `omit`: `"all"` or a list of the parts of [OUTPUT.md](OUTPUT.md#omit), otherwise `invalid value for 'output.omit':
 "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups,
-line_numbers, line_counts, gaps, indent, locations, warnings) is expected`. `get_config` shows `omit = "all"` or the list.
+line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected`. `get_config` shows `omit = "all"` or
+the list, the default of the current spec version. `show` takes the same values (`invalid value for 'output.show'`),
+see [OUTPUT.md](OUTPUT.md#defaults-of-spec-2).
 
 `cursor` and `file` of the request `output` are not keys: they are set per request. `output.file` in the config
 file is `invalid value for 'output.file': output.file is set per request`, in `update_config` `invalid_value` with
@@ -700,7 +704,7 @@ Request — all fields are optional:
 Result:
 
 ```toml
-# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
+# easy-peasy-mcp 0.1.0, spec 2, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -726,7 +730,7 @@ With `"sources": true` (`{ "section": "traversal", "sources": true }`) every val
 comes from the config file and `max_file_size` from `update_config`:
 
 ```toml
-# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1
+# easy-peasy-mcp 0.1.0, spec 2, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]

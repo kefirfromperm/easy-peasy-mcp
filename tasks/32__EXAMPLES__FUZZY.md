@@ -1,5 +1,7 @@
 # Examples for task 32
 
+Spec: `1`
+
 ## Fixtures
 
 ### fuzzy

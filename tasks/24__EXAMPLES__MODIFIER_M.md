@@ -1,5 +1,7 @@
 # Examples for task 24
 
+Spec: `1`
+
 ## Fixtures
 
 ### tests_attr

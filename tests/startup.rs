@@ -62,6 +62,9 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<(), String> {
     if example.platform.is_none() {
         process.env("EASY_PEASY_TEST_NATIVE_CASE", "sensitive");
     }
+    if let Some(spec) = example.spec {
+        process.env("EASY_PEASY_TEST_SPEC", spec.to_string());
+    }
     if let Some(slow) = example.slow_reads {
         process.env("EASY_PEASY_TEST_SLOW_READS", slow.as_millis().to_string());
     }

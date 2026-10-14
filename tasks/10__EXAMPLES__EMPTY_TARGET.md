@@ -1,5 +1,7 @@
 # Examples for task 10
 
+Spec: `1`
+
 ## Fixtures
 
 ### empties

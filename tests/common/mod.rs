@@ -320,6 +320,8 @@ pub struct Example {
     pub platform: Option<String>,
     /// The duration of every read of a file's content, from a line `` Slow reads: `2s` ``.
     pub slow_reads: Option<std::time::Duration>,
+    /// The current spec version of the server, from a line `` Spec: `1` `` of the examples file (AGENTS.md).
+    pub spec: Option<u32>,
     pub blocks: Vec<Block>,
 }
 
@@ -379,6 +381,7 @@ pub fn load_examples() -> (Vec<Example>, Vec<Fixture>) {
     (examples, fixtures)
 }
 
+#[allow(clippy::too_many_lines)] // one arm per kind of line of an examples file
 fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mut Vec<Fixture>) {
     #[derive(PartialEq)]
     enum Section {
@@ -387,6 +390,7 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
         Example,
     }
     let mut section = Section::None;
+    let mut spec = None;
     let mut lines = text.lines();
     while let Some(line) = lines.next() {
         if let Some(title) = line.strip_prefix("## ") {
@@ -398,6 +402,7 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                     fixture: None,
                     platform: None,
                     slow_reads: None,
+                    spec,
                     blocks: Vec::new(),
                 });
                 section = Section::Example;
@@ -418,6 +423,13 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
                 .find(|f| &f.name == name)
                 .expect("the Now line comes after the tree block");
             fixture.now = Some(parse_datetime(date, time));
+        } else if let (Some(rest), Section::None) = (line.strip_prefix("Spec: "), &section) {
+            spec = Some(
+                rest.trim()
+                    .trim_matches('`')
+                    .parse()
+                    .expect("Spec: `<version>`"),
+            );
         } else if let Some(rest) = line.strip_prefix("Slow reads: ") {
             if section == Section::Example {
                 examples.last_mut().unwrap().slow_reads = Some(slow_reads(rest));

@@ -1,5 +1,7 @@
 # Examples for task 125
 
+Spec: `1`
+
 The `delete` tool and the shared rules of the write tools ([TOOLS.md](../TOOLS.md#write-tools)). The write tools
 need `server.allow_write = true`, which only the config file and the command line set, so most examples are startup
 examples with `--allow-write`. They never touch the trash of the machine: the test hook of the library moves the
@@ -98,7 +100,7 @@ easy-peasy-mcp --allow-write
 {"section": "server", "sources": true}
 ```
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -141,7 +143,7 @@ easy-peasy-mcp --config config.toml
 {"section": "server", "sources": true}
 ```
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]

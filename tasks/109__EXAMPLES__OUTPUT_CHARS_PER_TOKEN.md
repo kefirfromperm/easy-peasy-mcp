@@ -1,5 +1,7 @@
 # Examples for task 109
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `huge` of task 104
 with `group_repeated = 0` and `sort = "path asc"`: the lines make 712 characters, the list of the files 524 (see the
 examples of task 108).
@@ -13,7 +15,7 @@ Fixture: `huge`
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -48,6 +50,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E109.2 More characters per token
@@ -145,7 +148,7 @@ chars_per_token = 3.5    # was 4
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -180,6 +183,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E109.5 An invalid value in a request

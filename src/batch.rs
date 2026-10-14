@@ -59,7 +59,7 @@ pub fn label(item: &Value, index: usize) -> String {
 /// # Errors
 ///
 /// `invalid_option`: an unknown field, a `label` or `query` which is not a string.
-pub fn item_arguments(shared: &Value, item: &Value) -> Result<Value, Report> {
+pub fn item_arguments(shared: &Value, item: &Value, spec: u32) -> Result<Value, Report> {
     let empty = Map::new();
     let fields = item.as_object().unwrap_or(&empty);
     if let Some(unknown) = fields.keys().find(|k| !ITEM_FIELDS.contains(&k.as_str())) {
@@ -92,7 +92,14 @@ pub fn item_arguments(shared: &Value, item: &Value) -> Result<Value, Report> {
             ("label", _, _) => {}
             ("traversal" | "output", Some(Value::Object(shared)), Value::Object(own)) => {
                 for (key, value) in own {
-                    shared.insert(key.clone(), value.clone());
+                    // spec 2: the `omit` of an item is added to the shared one (OUTPUT.md#defaults-of-spec-2)
+                    let merged = match (key.as_str(), shared.get(key)) {
+                        ("omit", Some(before)) if spec >= 2 && name == "output" => {
+                            omit_union(before, value)
+                        }
+                        _ => value.clone(),
+                    };
+                    shared.insert(key.clone(), merged);
                 }
             }
             _ => {
@@ -103,20 +110,39 @@ pub fn item_arguments(shared: &Value, item: &Value) -> Result<Value, Report> {
     Ok(Value::Object(arguments))
 }
 
+/// Two values of `omit`: `"all"` when one of them is, the parts of both lists otherwise; a wrong one as it is, for
+/// the check of the request.
+fn omit_union(before: &Value, own: &Value) -> Value {
+    match (before, own) {
+        (Value::Array(a), Value::Array(b)) => {
+            let mut parts = a.clone();
+            parts.extend(b.iter().filter(|p| !a.contains(p)).cloned());
+            Value::Array(parts)
+        }
+        (Value::String(all), Value::Array(_)) if all == "all" => before.clone(),
+        _ => own.clone(),
+    }
+}
+
+/// A JSON document without its `"version"`, the first field: the rest after the opening brace.
+fn without_version(document: &str) -> &str {
+    document
+        .strip_prefix("{\"version\":")
+        .and_then(|rest| rest.split_once(','))
+        .map_or(document, |(_, rest)| rest)
+}
+
 /// The response of a batch: in JSON `{"version":1,"queries":[...]}` with every query's response (without `version`)
 /// or its error after its `label`; in the text format the sections `== label ==  <response>`.
 #[must_use]
-pub fn response(sections: &[(String, Result<String, Report>)], json: bool) -> String {
+pub fn response(sections: &[(String, Result<String, Report>)], json: bool, version: u32) -> String {
     if json {
         let items: Vec<String> = sections
             .iter()
             .map(|(label, result)| {
                 let label = serde_json::to_string(label).expect("a string serializes");
                 let body = match result {
-                    Ok(text) => text
-                        .strip_prefix("{\"version\":1,")
-                        .unwrap_or(text)
-                        .to_string(),
+                    Ok(text) => without_version(text).to_string(),
                     Err(report) => report
                         .to_json()
                         .strip_prefix('{')
@@ -126,7 +152,10 @@ pub fn response(sections: &[(String, Result<String, Report>)], json: bool) -> St
                 format!("{{\"label\":{label},{body}")
             })
             .collect();
-        return format!("{{\"version\":1,\"queries\":[{}]}}", items.join(","));
+        return format!(
+            "{{\"version\":{version},\"queries\":[{}]}}",
+            items.join(",")
+        );
     }
     sections
         .iter()
@@ -147,6 +176,7 @@ pub fn summary(
     sections: &[(String, Result<Head, Report>)],
     json: bool,
     written: &Written,
+    version: u32,
 ) -> String {
     if json {
         let items: Vec<String> = sections
@@ -154,10 +184,7 @@ pub fn summary(
             .map(|(label, result)| {
                 let label = serde_json::to_string(label).expect("a string serializes");
                 let body = match result {
-                    Ok(Head::Json(fields)) => fields
-                        .strip_prefix("{\"version\":1,")
-                        .unwrap_or(fields)
-                        .to_string(),
+                    Ok(Head::Json(fields)) => without_version(fields).to_string(),
                     // a JSON batch has JSON heads
                     Ok(Head::Text { .. }) => "}".to_string(),
                     Err(report) => report
@@ -169,7 +196,10 @@ pub fn summary(
                 format!("{{\"label\":{label},{body}")
             })
             .collect();
-        let document = format!("{{\"version\":1,\"queries\":[{}]}}", items.join(","));
+        let document = format!(
+            "{{\"version\":{version},\"queries\":[{}]}}",
+            items.join(",")
+        );
         return output_file::with_file(&document, written);
     }
     let mut out = String::new();
@@ -255,7 +285,7 @@ mod tests {
             "output": { "detail": "count" }
         });
         assert_eq!(
-            item_arguments(&shared, &item).unwrap(),
+            item_arguments(&shared, &item, 1).unwrap(),
             json!({
                 "query": "lang = rust",
                 "dirs": ["src"],
@@ -264,13 +294,13 @@ mod tests {
             })
         );
         assert_eq!(
-            item_arguments(&shared, &json!({ "label": 1, "query": "x" }))
+            item_arguments(&shared, &json!({ "label": 1, "query": "x" }), 1)
                 .unwrap_err()
                 .to_text(),
             "error[invalid_option]: 'label' must be a string\n"
         );
         assert_eq!(
-            item_arguments(&shared, &json!({ "label": "x" }))
+            item_arguments(&shared, &json!({ "label": "x" }), 1)
                 .unwrap_err()
                 .to_text(),
             "error[invalid_option]: 'query' must be a string\n"

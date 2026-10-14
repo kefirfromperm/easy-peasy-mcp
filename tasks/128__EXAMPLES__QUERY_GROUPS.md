@@ -1,5 +1,7 @@
 # Examples for task 128
 
+Spec: `1`
+
 Groups of the query ([QUERY.md#groups](../QUERY.md#groups)): a label after a bracket, the capture groups of a `text =~`
 condition as sub-groups in the JSON format.
 

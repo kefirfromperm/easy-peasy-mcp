@@ -1,5 +1,7 @@
 # Examples for task 34
 
+Spec: `1`
+
 The examples of this task are startup examples (AGENTS.md): they run the binary with a command line, environment and
 config files.
 

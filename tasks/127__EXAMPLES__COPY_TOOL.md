@@ -1,5 +1,7 @@
 # Examples for task 127
 
+Spec: `1`
+
 The `copy` tool ([TOOLS.md](../TOOLS.md#copy)). It is a write tool: the selection, `expect`, `dry_run`, the skipped
 entries and the response follow the shared rules of task 125, the target and the conflicts the ones of task 126, so
 these examples are about what is copied. Most are startup examples with `--allow-write`; a replaced file goes to the

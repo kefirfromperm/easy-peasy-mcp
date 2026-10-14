@@ -1,5 +1,7 @@
 # Examples for task 101
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The examples use the fixture `sorting` of task 92: `a.txt` (one
 `TODO`), `b.txt` (three), `c.txt` and `d/e.txt` (two each), the fixture `detail` of task 79: `src/a.rs` and
 `src/b.rs` with two lines with `TODO` each, and the fixture `output-limits` of task 99: `a.txt` with three lines of 49,

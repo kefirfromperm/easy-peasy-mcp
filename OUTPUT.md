@@ -5,7 +5,8 @@ defaults of the options in [CONFIG.md](CONFIG.md#output).
 
 To stay short, most examples leave out the result id and show `dedent = false` and `group_dirs = false`. The
 [Text format](#text-format) and [JSON format](#json-format) sections show the output with the default options in
-full.
+full. The examples are written for spec version 1, which writes every part of the response; the current spec version
+2 leaves some parts out by default, see [Defaults of spec 2](#defaults-of-spec-2).
 
 - [Options](#options)
 - [Detail levels](#detail-levels)
@@ -79,7 +80,8 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `repeated_locations`   | number                                          | `3`        | the locations written for a repeated line; `0` — all of them, see [Repeated lines](#repeated-lines) |
 | `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
 | `path_style`           | `relative`, `absolute`, `in_dir`                | `relative` | how paths are written, see [Paths](#paths)                |
-| `omit`                 | list of parts, or `"all"`                       | `[]`       | parts of the response left out, see [Omit](#omit)         |
+| `omit`                 | list of parts, or `"all"`                       | `["warnings"]` | parts of the response left out, see [Omit](#omit); spec 1: `[]` |
+| `show`                 | list of parts, or `"all"`                       | `[]`       | parts of the response shown whatever `omit` says, see [Defaults of spec 2](#defaults-of-spec-2) |
 | `cursor`               | string                                          | —          | continue a truncated response, see [Pagination](#pagination) |
 | `file`                 | a path, `true`, `false`                         | —          | write the response to a file and return a summary, see [Output to a file](#output-to-a-file) |
 
@@ -175,6 +177,7 @@ Top level
 | `next_cursor`   | `files`, `lines`, `count` with `count_by` | cursor for the next page, only if truncated |
 | `legend`        | `facets`, `files`, `lines` | condition id → condition text, if at least one file matches, see [Condition ids](#condition-ids) |
 | `warnings`      | all                | problems which didn't make the request fail, see [Warnings](#warnings) |
+| `left_out`      | all, spec 2        | the warnings left out with their numbers, see [Defaults of spec 2](#defaults-of-spec-2) |
 | `files`         | `files`, `lines`, `count` with `count_by` | the matched files                           |
 
 Per file
@@ -953,8 +956,9 @@ detail at all; `detail = files` still lists such a file. The counts are not chan
 
 `output.omit` leaves parts of the response out, so the agent pays only for what it reads. For a query with one
 condition the legend `#1 text has 'x'` repeats the request and every `[#1]` says nothing; line numbers are useless
-to an agent which only wants to know where a word occurs. The default `[]` leaves out nothing, `"all"` every part of
-the table: the bare grep-like output.
+to an agent which only wants to know where a word occurs. `"all"` leaves out every part of the table: the bare
+grep-like output. The defaults leave out the parts which are rarely read, see [Defaults of spec 2](#defaults-of-spec-2);
+in spec 1 the default `[]` leaves out nothing.
 
 | Part           | Text                                                          | JSON                                   |
 |----------------|---------------------------------------------------------------|----------------------------------------|
@@ -974,6 +978,7 @@ the table: the bare grep-like output.
 | `indent`       | the `⇥N` line, the block stays dedented                       | `indent` of a block                    |
 | `locations`    | the locations of a [repeated line](#repeated-lines)           | `locations` of a repeated line         |
 | `warnings`     | the warning lines and the empty line before them              | `warnings`                             |
+| `left_out`     | spec 2: the line `warnings left out: ...` of the omitted warnings | `left_out`                         |
 
 ```json
 { "query": "text has 'unwrap('", "output": { "omit": "all" } }
@@ -988,7 +993,7 @@ main.rs
 let cfg = load().⟦unwrap(⟧);
 ```
 
-The same request with the default `omit = []`:
+The same request with `show = "all"`, every part, as with the defaults of spec 1:
 
 ```
 files: 2  lines: 3  matches: 3  result: r1
@@ -1010,9 +1015,10 @@ warning: binary_skipped (1): data.bin
 
 - `omit` is a list of parts or `"all"`; it is a request option and a [configuration key](CONFIG.md#output): the list of
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
-  own. Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of
-  parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers,
-  line_counts, gaps, indent, locations, warnings)`; in `update_config` `invalid_value` with the same list in the hint
+  own; in spec 2 the list of a request is added to the configured one, see [Defaults of spec 2](#defaults-of-spec-2).
+  Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of parts
+  (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts,
+  gaps, indent, locations, warnings, left_out)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
   incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
@@ -1032,6 +1038,47 @@ warning: binary_skipped (1): data.bin
 - the parts are left out of the response before the [budget](#budget) estimates it, so more fits
 - a response written to a [file](#output-to-a-file) is written without them, and its summary has its header as it
   is written
+
+### Defaults of spec 2
+
+A plain `find` gets the parts the agent reads and pays nothing for the others. In spec 2 (the current one):
+
+- the built-in default of `omit` is `["warnings"]`: the warnings are about entries which were not searched (binary,
+  undecodable, too big, unreadable files) and repeat on every search of a repository with such files
+- the line `warnings left out: binary_skipped (28), decode_errors (2)` (the part `left_out`) says which warnings were
+  left out, the codes with their numbers of entries in the order of the warnings, after an empty line at the end of
+  the response, where the warnings would be; it is written whenever there are warnings and `warnings` is left out.
+  In JSON `"left_out": { "warnings": { "binary_skipped": 28, "decode_errors": 2 } }` at the end, `0` for a
+  warning which is not about entries (`"timeout": 0`); the summary of a [file](#output-to-a-file) has the text line only. A `timeout` is never
+  hidden: the header has `truncated: yes (timeout)`, and the line names the code
+- rules of parts which carry nothing in a search: `legend`, `conditions` and `match_ids` are written only when the
+  legend has more than one condition (with one, the agent wrote it, and every `[#1]` and `#1:` repeats it); `gaps`
+  only with context lines (`before` or `after` above 0) or without `line_numbers` (the line numbers show the gaps)
+- `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
+  part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
+  `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`
+- the `omit` of a request (and of a [batch](#batch) item) is added to the configured one instead of replacing it:
+  `omit = ["legend"]` keeps the warnings left out; `show` takes parts back. In spec 1 it replaces the configured one
+- `"version": 1` in a request keeps the defaults of spec 1: `omit = []` when the configuration doesn't set it, no
+  rules, no `left_out`, the request `omit` replaces the configured one; a configured `omit` applies to both versions
+
+The request of the example above with the defaults of spec 2:
+
+```
+files: 2  lines: 3  matches: 3  result: r1
+
+src/
+lib.rs  lines: 2  matches: 2
+⇥4
+2:let raw = read().⟦unwrap(⟧);
+⇥4
+4:parse(&text).⟦unwrap(⟧)
+main.rs  lines: 1  matches: 1
+⇥4
+2:let cfg = load().⟦unwrap(⟧);
+
+warnings left out: binary_skipped (1)
+```
 
 ## Result ids
 
@@ -1276,7 +1323,8 @@ opened and gets no warning.
 Warnings of the same code are grouped, with the number of entries and at most 3 example paths in path order, in the
 order of the table above. In the text format every group is one line at the end of the response, after an empty
 line: `warning: <code> (<count>): <path>, <path>, <path>`, and `, … N more` when more entries have the warning;
-directories end with the separator. A warning which is not about entries (`timeout`) is just `warning: <code>`. A
+directories end with the separator. Spec 2 leaves the warnings out by default and writes the line `warnings left
+out: ...` instead, see [Defaults of spec 2](#defaults-of-spec-2). A warning which is not about entries (`timeout`) is just `warning: <code>`. A
 response without files has the empty line and the warnings after its header and legend.
 
 ```json

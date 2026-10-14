@@ -1,5 +1,7 @@
 # Examples for task 84
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value.
 
 ## Fixtures
@@ -53,7 +55,7 @@ config.rs  [#1 #2]  lines: 2  matches: 2
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -88,6 +90,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E84.2 Of the whole block, context lines too
@@ -225,7 +228,7 @@ config.rs  [#1 #2]  lines: 2  matches: 2
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -260,6 +263,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E84.7 An invalid value in a request
@@ -307,7 +311,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -342,6 +346,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 2. `find`

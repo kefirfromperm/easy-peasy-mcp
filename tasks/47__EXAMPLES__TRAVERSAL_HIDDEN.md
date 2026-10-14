@@ -1,5 +1,7 @@
 # Examples for task 47
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). Hidden means a name starting with `.` here; the
 hidden flags of macOS and Windows come with tasks 119–120.
 
@@ -40,7 +42,7 @@ visible.txt  [#1]
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -130,7 +132,7 @@ files: 1  lines: 0  matches: 0  result: r1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -197,7 +199,7 @@ easy-peasy-mcp --config conf/h.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]

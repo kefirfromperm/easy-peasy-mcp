@@ -60,6 +60,7 @@ pub enum Key {
     Sort,
     PathStyle,
     Omit,
+    Show,
     MaxLevel,
     FuzzyMinScore,
     GeneratedMarkers,
@@ -73,7 +74,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 60] = [
+    pub const ALL: [Key; 61] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -125,6 +126,7 @@ impl Key {
         Self::Sort,
         Self::PathStyle,
         Self::Omit,
+        Self::Show,
         Self::MaxLevel,
         Self::FuzzyMinScore,
         Self::GeneratedMarkers,
@@ -243,6 +245,7 @@ impl Key {
                 Type::Choice(&["relative", "absolute", "in_dir"]),
             ),
             Self::Omit => ("output", "omit", Type::Omit),
+            Self::Show => ("output", "show", Type::Omit),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
             Self::FuzzyMinScore => ("query", "fuzzy_min_score", Type::Score),
             Self::GeneratedMarkers => ("kinds", "generated_markers", Type::List("strings")),
@@ -293,7 +296,8 @@ impl Key {
             Self::GitExcludes | Self::SkipGenerated | Self::Dedent | Self::GroupDirs => {
                 Value::Bool(true)
             }
-            Self::IgnorePaths | Self::Exclude | Self::Omit => list(&[]),
+            Self::IgnorePaths | Self::Exclude | Self::Show => list(&[]),
+            Self::Omit => list(&["warnings"]),
             Self::Markers => list(&["⟦", "⟧"]),
             Self::Facets => list(&["dir", "lang", "kind", "condition"]),
             Self::PathCase => Value::Text("native".to_string()),
@@ -309,6 +313,15 @@ impl Key {
             Self::Detail => Value::Text("lines".to_string()),
             Self::CountBy => Value::Text("total".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
+        }
+    }
+
+    /// The built-in default of the spec version `spec`: the default of `omit` is `[]` in spec 1 (OUTPUT.md#omit).
+    #[must_use]
+    pub fn default_for(self, spec: u32) -> Value {
+        match self {
+            Self::Omit if spec < 2 => Value::List(Vec::new()),
+            _ => self.default_value(),
         }
     }
 
@@ -935,7 +948,7 @@ mod tests {
             Type::Omit.check_toml(&item("['legend', 'gaps']")),
             Ok(Value::List(vec!["legend".into(), "gaps".into()]))
         );
-        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings) is expected";
+        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected";
         for bad in ["'none'", "['colour']", "1"] {
             assert_eq!(
                 Type::Omit.check_toml(&item(bad)),
@@ -954,9 +967,9 @@ mod tests {
                 .check_json("output.omit", &json!("none"))
                 .unwrap_err()
                 .to_text(),
-            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings)\n"
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)\n"
         );
-        assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
+        assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
     }
 
@@ -971,6 +984,20 @@ mod tests {
         );
         let at = |key| Key::ALL.iter().position(|k| *k == key);
         assert_eq!(at(Key::CountBy), at(Key::Detail).map(|i| i + 1));
+    }
+
+    #[test]
+    fn show_after_omit_and_the_default_of_omit_per_spec() {
+        let at = |key| Key::ALL.iter().position(|k| *k == key);
+        assert_eq!(at(Key::Show), at(Key::Omit).map(|i| i + 1));
+        assert_eq!(Key::Show.default_value(), Value::List(vec![]));
+        assert_eq!(
+            Key::Omit.default_value(),
+            Value::List(vec!["warnings".into()])
+        );
+        assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
+        assert_eq!(Key::Omit.default_for(2), Key::Omit.default_value());
+        assert_eq!(Key::Detail.default_for(1), Key::Detail.default_value());
     }
 
     #[test]

@@ -215,6 +215,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
     }
 

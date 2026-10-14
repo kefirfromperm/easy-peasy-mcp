@@ -1,5 +1,7 @@
 # Examples for task 129
 
+Spec: `1`
+
 The `replace` tool ([TOOLS.md](../TOOLS.md#replace)). It is a write tool: the selection, `expect`, `dry_run`, the
 skipped entries and the response follow the shared rules of task 125, so these examples are about what is replaced and
 how a file is written. They are startup examples with `--allow-write`, except the one without it; a step with `find`

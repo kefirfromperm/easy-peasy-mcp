@@ -1,5 +1,7 @@
 # Examples for task 90
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value. The
 examples use the fixture `path-frags` of task 89: `docs/guide.md`, `src/config.rs`, `src/config_loader.rs`.
 `<fixture>` is the canonical path of the fixture directory, the working directory of the server.
@@ -30,7 +32,7 @@ config_loader.rs  [#1]
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -65,6 +67,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E90.2 Absolute paths in a request
@@ -175,7 +178,7 @@ config_loader.rs  [#1]
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -210,6 +213,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "absolute"    # update
 omit = []    # default
+show = []    # default
 ```
 
 ## E90.6 An invalid value in a request

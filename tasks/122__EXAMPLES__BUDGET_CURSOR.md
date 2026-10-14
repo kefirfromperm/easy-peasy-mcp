@@ -1,5 +1,7 @@
 # Examples for task 122
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The examples use the fixture `spec-output-many` of task 121: 37 Rust
 files under `src/`; with `sort = "path asc"` they are listed in path order. The budget lists the files which fit at
 level 4 (`detail = files`) and the next cursor starts at the first file not listed, so the pages list every file once.

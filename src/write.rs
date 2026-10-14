@@ -554,10 +554,10 @@ impl Outcome {
         out
     }
 
-    /// The JSON format, compact; empty and default values omitted.
-    pub(crate) fn to_json(&self, verb: &str) -> String {
+    /// The JSON format of the spec version `version`, compact; empty and default values omitted.
+    pub(crate) fn to_json(&self, verb: &str, version: u32) -> String {
         let mut doc = Map::new();
-        doc.insert("version".into(), json!(crate::SPEC_VERSION));
+        doc.insert("version".into(), json!(version));
         doc.insert(verb.into(), json!(self.done() - self.unchanged()));
         if self.max_lines.is_some() {
             doc.insert("matches".into(), json!(self.matches()));
@@ -760,7 +760,7 @@ mod tests {
             )
         );
         assert!(!outcome.is_error());
-        let json: Value = serde_json::from_str(&outcome.to_json("deleted")).unwrap();
+        let json: Value = serde_json::from_str(&outcome.to_json("deleted", 1)).unwrap();
         assert_eq!(json["failed"], json!(1));
         assert_eq!(json["files"][1]["error"], json!("permission denied"));
         outcome.acted.remove(0);
@@ -790,7 +790,7 @@ mod tests {
                 .to_text("deleted", true)
                 .starts_with("deleted: 0  skipped: 2  permanent\n")
         );
-        let json: Value = serde_json::from_str(&skipped.to_json("deleted")).unwrap();
+        let json: Value = serde_json::from_str(&skipped.to_json("deleted", 1)).unwrap();
         assert_eq!(json["permanent"], json!(true));
         let done = Outcome {
             acted: vec![Acted {
@@ -835,7 +835,7 @@ mod tests {
                 "renamed: 2  unchanged: 1\n\nsrc{sep}\na.ts -> src{sep}a.tsx\nb.ts -> src{sep}b.tsx  replaced\nc.tsx  unchanged\n"
             )
         );
-        let json: Value = serde_json::from_str(&outcome.to_json("renamed")).unwrap();
+        let json: Value = serde_json::from_str(&outcome.to_json("renamed", 1)).unwrap();
         assert_eq!(json["renamed"], json!(2));
         assert_eq!(json["unchanged"], json!(1));
         assert_eq!(json["files"][1]["replaced"], json!(true));
@@ -888,7 +888,7 @@ mod tests {
             outcome.to_text("replaced", false),
             "replaced: 2  matches: 3  unchanged: 1\n\nx.txt  matches: 2\n-2:a\n-3:b\n+2:A\ny.txt  matches: 1\n-2:a\nz.txt  unchanged\n… 2 more lines\n"
         );
-        let json: Value = serde_json::from_str(&outcome.to_json("replaced")).unwrap();
+        let json: Value = serde_json::from_str(&outcome.to_json("replaced", 1)).unwrap();
         assert_eq!(json["matches"], json!(3));
         assert_eq!(
             json["files"][1],

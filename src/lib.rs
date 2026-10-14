@@ -35,5 +35,5 @@ pub use engine::{Engine, EngineOptions, ToolOutput, UnknownTool};
 pub use recycle::Trash;
 pub use search::Progress;
 
-/// The spec version this server implements (TOOLS.md#versioning).
-pub const SPEC_VERSION: u32 = 1;
+/// The current spec version of this server (TOOLS.md#versioning).
+pub const SPEC_VERSION: u32 = 2;

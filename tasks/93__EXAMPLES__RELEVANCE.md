@@ -1,5 +1,7 @@
 # Examples for task 93
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. Every example searches one directory of the fixture whose files differ
 in one signal only, so the order doesn't depend on the weights; the path order is the opposite.
 

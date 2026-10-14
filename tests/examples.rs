@@ -48,6 +48,10 @@ fn run_example(example: &Example, fixtures: &[Fixture]) -> Result<Skipped, Strin
         .now
         .map(|secs| jiff::Timestamp::from_second(secs).expect("a valid now"));
     options.read_delay = example.slow_reads;
+    // the spec version the examples file is written for (AGENTS.md)
+    if let Some(spec) = example.spec {
+        options.spec = spec;
+    }
     // the examples are written with the Linux path case unless they are marked with a platform (AGENTS.md)
     if example.platform.is_none() {
         options.native_case_insensitive = false;

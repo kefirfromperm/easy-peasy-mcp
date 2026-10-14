@@ -1,5 +1,7 @@
 # Examples for task 111
 
+Spec: `1`
+
 The examples use the fixture `funnel` of task 102: `src/a.rs` (`fn parse_query() {}`), `src/b.rs`
 (`fn other() {}`), `docs/c.md`, `tools/d.py`, eleven `many/*.txt`.
 

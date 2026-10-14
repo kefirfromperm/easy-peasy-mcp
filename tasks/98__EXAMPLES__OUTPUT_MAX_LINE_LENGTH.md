@@ -1,5 +1,7 @@
 # Examples for task 98
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value.
 
 ## Fixtures
@@ -48,7 +50,7 @@ notes.txt  [#1]  lines: 3  matches: 5
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -83,6 +85,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E98.2 Windows around the fragments
@@ -235,7 +238,7 @@ notes.txt  [#1]  lines: 3  matches: 5
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -270,6 +273,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E98.7 An invalid value in a request

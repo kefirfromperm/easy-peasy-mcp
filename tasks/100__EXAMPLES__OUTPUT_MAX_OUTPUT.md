@@ -1,5 +1,7 @@
 # Examples for task 100
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value. Most
 examples use the fixture `output-limits` of task 99: `a.txt` with three lines of 49, 50 and 50 characters, `b.txt`
 with one of 12, a `TODO` in each line.
@@ -24,7 +26,7 @@ Fixture: `output-limits`
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -59,6 +61,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E100.2 The paths and lines which fit
@@ -189,7 +192,7 @@ a.txt  [#1]  lines: 3  matches: 3
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -224,6 +227,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E100.6 An invalid value in a request

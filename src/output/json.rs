@@ -16,9 +16,6 @@ use crate::query::Kind;
 use crate::query::ast::CondId;
 use crate::search::{Found, PathFragments};
 
-/// The version of the JSON response (TOOLS.md#versioning).
-const VERSION: u32 = 1;
-
 #[derive(Serialize)]
 struct Document<'a> {
     version: u32,
@@ -59,6 +56,15 @@ struct Document<'a> {
     warnings: Vec<Warning>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     files: Vec<File>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    left_out: Option<LeftOut>,
+}
+
+/// The warnings left out with their numbers of entries, 0 for a warning which is not about entries
+/// (OUTPUT.md#defaults-of-spec-2).
+#[derive(Serialize)]
+struct LeftOut {
+    warnings: serde_json::Map<String, serde_json::Value>,
 }
 
 /// The facets: an object per facet in their order, with the limit of their values (OUTPUT.md#facets).
@@ -266,7 +272,7 @@ impl Response<'_> {
         let listing = self.listing(&repeated);
         let truncated_by = self.truncated_by(&listing);
         let document = Document {
-            version: VERSION,
+            version: self.spec,
             exists: self.file_count() > 0,
             result: self.result_id.filter(|_| !self.omit.has(Part::Result)),
             dirs: self.json_dirs(),
@@ -360,6 +366,15 @@ impl Response<'_> {
                     .collect()
             } else {
                 Vec::new()
+            },
+            left_out: {
+                let left_out = self.left_out();
+                (full && !left_out.is_empty()).then(|| LeftOut {
+                    warnings: left_out
+                        .into_iter()
+                        .map(|(code, count)| (code.to_string(), count.unwrap_or(0).into()))
+                        .collect(),
+                })
             },
         };
         serde_json::to_string(&document).expect("the response serializes")
@@ -707,6 +722,7 @@ mod tests {
             timed_out: true,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_json();
         let sep = std::path::MAIN_SEPARATOR;

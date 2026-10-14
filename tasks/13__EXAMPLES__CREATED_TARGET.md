@@ -1,5 +1,7 @@
 # Examples for task 13
 
+Spec: `1`
+
 Creation dates can't be set portably, so the examples use conditions which are true for any creation date of the
 fixture files: they are created when the test runs. The fixture `flat` is described in
 [2__EXAMPLES__EMPTY_QUERY.md](2__EXAMPLES__EMPTY_QUERY.md). A file system without creation dates is covered by

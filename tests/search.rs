@@ -8,6 +8,8 @@ use serde_json::json;
 fn engine(root: &std::path::Path) -> Engine {
     let mut options = EngineOptions::new(root.to_path_buf());
     options.git_global_excludes = false;
+    // the responses are written for spec 1, every part of them
+    options.spec = 1;
     Engine::new(options)
 }
 

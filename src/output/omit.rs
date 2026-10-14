@@ -21,11 +21,12 @@ pub enum Part {
     Indent,
     Locations,
     Warnings,
+    LeftOut,
 }
 
 impl Part {
     /// All parts in the order of the spec.
-    pub const ALL: [Part; 16] = [
+    pub const ALL: [Part; 17] = [
         Self::Counts,
         Self::Result,
         Self::Dir,
@@ -42,6 +43,7 @@ impl Part {
         Self::Indent,
         Self::Locations,
         Self::Warnings,
+        Self::LeftOut,
     ];
 
     /// The name in `output.omit`.
@@ -64,6 +66,7 @@ impl Part {
             Self::Indent => "indent",
             Self::Locations => "locations",
             Self::Warnings => "warnings",
+            Self::LeftOut => "left_out",
         }
     }
 
@@ -76,14 +79,14 @@ impl Part {
 
 /// The parts a response leaves out; none by default.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Omit(u16);
+pub struct Omit(u32);
 
 impl Omit {
     /// The parts of a checked value of `output.omit`: `"all"`, or a list of names.
     #[must_use]
     pub fn from_value(value: &KeyValue) -> Self {
         match value {
-            KeyValue::Text(all) if all == "all" => Self::from_parts(&Part::ALL),
+            KeyValue::Text(all) if all == "all" => Self::all(),
             KeyValue::List(names) => Self::from_parts(
                 &names
                     .iter()
@@ -97,13 +100,49 @@ impl Omit {
     /// The set of these parts.
     #[must_use]
     pub fn from_parts(parts: &[Part]) -> Self {
-        Self(parts.iter().fold(0, |set, p| set | 1 << *p as u16))
+        Self(parts.iter().fold(0, |set, p| set | 1 << *p as u32))
     }
 
     /// Whether the part is left out.
     #[must_use]
     pub fn has(self, part: Part) -> bool {
-        self.0 & (1 << part as u16) != 0
+        self.0 & (1 << part as u32) != 0
+    }
+
+    /// Every part.
+    #[must_use]
+    pub fn all() -> Self {
+        Self::from_parts(&Part::ALL)
+    }
+
+    /// The parts of both.
+    #[must_use]
+    pub fn union(self, other: Self) -> Self {
+        Self(self.0 | other.0)
+    }
+
+    /// The parts a response of the spec version `spec` leaves out (OUTPUT.md#defaults-of-spec-2): these, in spec 2
+    /// also the parts of its rules — the legend, the conditions and the ids of the matches with at most one
+    /// `condition`, the gaps without `context` lines while the line numbers are written — except the parts of `show`;
+    /// spec 1 has no line of the omitted warnings.
+    #[must_use]
+    pub fn effective(self, show: Self, spec: u32, conditions: usize, context: bool) -> Self {
+        let mut omit = self;
+        if spec >= 2 {
+            if conditions <= 1 {
+                omit = omit.union(Self::from_parts(&[
+                    Part::Legend,
+                    Part::Conditions,
+                    Part::MatchIds,
+                ]));
+            }
+            if !context && !omit.has(Part::LineNumbers) {
+                omit = omit.union(Self::from_parts(&[Part::Gaps]));
+            }
+        } else {
+            omit = omit.union(Self::from_parts(&[Part::LeftOut]));
+        }
+        Self(omit.0 & !show.0)
     }
 }
 
@@ -114,14 +153,15 @@ mod tests {
 
     #[test]
     fn parts_by_name() {
-        assert_eq!(Part::ALL.len(), 16);
+        assert_eq!(Part::ALL.len(), 17);
+        assert_eq!(Part::find("left_out"), Some(Part::LeftOut));
         assert_eq!(Part::find("dir"), Some(Part::Dir));
         assert_eq!(Part::find("match_ids"), Some(Part::MatchIds));
         assert_eq!(Part::find("colour"), None);
         assert_eq!(Part::LineNumbers.name(), "line_numbers");
         assert_eq!(
             Part::ALL.map(Part::name).join(", "),
-            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings"
+            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out"
         );
         assert_eq!(Part::find("line_counts"), Some(Part::LineCounts));
     }
@@ -136,5 +176,39 @@ mod tests {
         assert!(some.has(Part::Legend) && some.has(Part::Gaps));
         assert!(!some.has(Part::Counts));
         assert_eq!(Omit::default(), none);
+    }
+
+    #[test]
+    fn the_rules_of_spec_2_and_show() {
+        let none = Omit::default();
+        let parts = Omit::from_parts;
+        // one condition, no context lines
+        let one = none.effective(none, 2, 1, false);
+        for part in [Part::Legend, Part::Conditions, Part::MatchIds, Part::Gaps] {
+            assert!(one.has(part), "{part:?}");
+        }
+        assert!(!one.has(Part::Warnings) && !one.has(Part::LeftOut));
+        // several conditions, context lines
+        let several = none.effective(none, 2, 2, true);
+        assert!(Part::ALL.iter().all(|p| !several.has(*p)));
+        // without line numbers the gaps stay
+        assert!(
+            !parts(&[Part::LineNumbers])
+                .effective(none, 2, 2, false)
+                .has(Part::Gaps)
+        );
+        // show wins over omit and the rules
+        let shown =
+            parts(&[Part::Warnings]).effective(parts(&[Part::Warnings, Part::Legend]), 2, 1, false);
+        assert!(
+            !shown.has(Part::Warnings) && !shown.has(Part::Legend) && shown.has(Part::Conditions)
+        );
+        assert_eq!(none.effective(Omit::all(), 2, 1, false), none);
+        // spec 1: no rules, no line of the omitted warnings
+        assert_eq!(none.effective(none, 1, 1, false), parts(&[Part::LeftOut]));
+        assert_eq!(
+            parts(&[Part::Legend]).union(parts(&[Part::Gaps])),
+            parts(&[Part::Legend, Part::Gaps])
+        );
     }
 }

@@ -1,5 +1,7 @@
 # Examples for task 78
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md); `Slow reads` is the test hook of AGENTS.md. A JSON
 response is compared as a JSON value: the blocks are indented for reading, the server writes the document without
 whitespace.
@@ -51,7 +53,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -86,6 +88,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E78.2 JSON in a request
@@ -400,7 +403,7 @@ format = "json"    # was "text"
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -435,6 +438,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E78.10 Text in a request when the session is JSON
@@ -513,7 +517,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -548,6 +552,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 2. `find`

@@ -1,5 +1,7 @@
 # Examples for task 121
 
+Spec: `1`
+
 The request and response examples of the spec, as tests: every example names the file and the section it
 reproduces — README.md and TOOLS.md (E121.1–E121.19), QUERY.md (E121.20–E121.49), OUTPUT.md (E121.50–E121.99) and
 CONFIG.md (E121.100–E121.119). Startup examples run the binary for the command line, the config files and the
@@ -1192,7 +1194,7 @@ easy-peasy-mcp
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "# easy-peasy-mcp *, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size\n\n[server]\nallowed_roots = ['*']\ndefault_dirs = ['.']\n*"}], "isError": false}}
+{"jsonrpc": "2.0", "id": 3, "result": {"content": [{"type": "text", "text": "# easy-peasy-mcp *, spec 1, supported specs: 1, 2\n# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size\n\n[server]\nallowed_roots = ['*']\ndefault_dirs = ['.']\n*"}], "isError": false}}
 ```
 
 4. Count ← `files: 14  lines: 52  matches: 57  result: r1`
@@ -4726,7 +4728,7 @@ easy-peasy-mcp --root ~/projects
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -4783,7 +4785,7 @@ easy-peasy-mcp --timeout 10s --no-update --log-level debug
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -4909,7 +4911,7 @@ easy-peasy-mcp --config config.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -4973,6 +4975,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # file: config.toml
 path_style = "relative"    # file: config.toml
 omit = []    # default
+show = []    # default
 
 [escape]
 max_level = 3    # file: config.toml
@@ -5607,7 +5610,7 @@ max_file_size = "50M"    # was "10M"
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -5666,7 +5669,7 @@ max_file_size = "50M"    # was "10M"
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -5900,7 +5903,7 @@ easy-peasy-mcp --config config.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -5970,7 +5973,7 @@ easy-peasy-mcp --config config.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -5992,7 +5995,7 @@ max_output_file_size = "100M"
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -6138,7 +6141,7 @@ easy-peasy-mcp --config conf\legacy.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]

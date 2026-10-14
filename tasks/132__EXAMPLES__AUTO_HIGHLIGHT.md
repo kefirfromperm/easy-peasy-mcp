@@ -1,5 +1,7 @@
 # Examples for task 132
 
+Spec: `1`
+
 `highlight = auto` in the text format writes a matched line without markers when its markers would add more
 characters than the line has (OUTPUT.md#highlight).
 

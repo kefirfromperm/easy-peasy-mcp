@@ -1,5 +1,7 @@
 # Examples for task 72
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md).
 
 ## Fixtures

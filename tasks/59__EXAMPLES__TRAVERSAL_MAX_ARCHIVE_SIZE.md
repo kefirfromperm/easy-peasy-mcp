@@ -1,5 +1,7 @@
 # Examples for task 59
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `archives` of task 58:
 `logs/a.zip` has the members `inner/zip.log` (36 bytes) and `inner/nested.zip` (an archive), `logs/broken.zip` is
 not a zip archive.
@@ -32,7 +34,7 @@ warning: archive_error (1): logs/broken.zip
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -115,7 +117,7 @@ warning: archive_too_big (1): logs/a.zip
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -183,7 +185,7 @@ easy-peasy-mcp --config conf/m.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]

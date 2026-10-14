@@ -1,5 +1,7 @@
 # Examples for task 37
 
+Spec: `1`
+
 Startup examples (AGENTS.md). What the server logs is not a contract, so the examples show the responses on stdout
 and the usage errors; an end-to-end test checks the log lines on stderr.
 

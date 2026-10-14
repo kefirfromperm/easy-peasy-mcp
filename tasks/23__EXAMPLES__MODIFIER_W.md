@@ -1,5 +1,7 @@
 # Examples for task 23
 
+Spec: `1`
+
 ## Fixtures
 
 ### words

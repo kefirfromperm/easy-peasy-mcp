@@ -4,10 +4,10 @@ use serde_json::{Value, json};
 
 /// The `instructions` of `initialize`.
 pub const INSTRUCTIONS: &str = "File search: find + grep in one query. Call get_config first to learn allowed roots and \
-defaults. Spec version 1.";
+defaults. Spec version 2.";
 
 /// The description of the `find` tool: the cheat sheet of TOOLS.md#find.
-pub const FIND_DESCRIPTION: &str = r#"Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
+pub const FIND_DESCRIPTION: &str = r#"Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 2.
 Call get_config once first to learn the allowed roots and defaults.
 
 QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. Empty query = all files.
@@ -30,9 +30,10 @@ Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 OUTPUT: output.detail = exists | count | facets | files | lines (default); output.context = N lines around.
 output.count_by = file | line with detail = count: the counts of every file, or of every matched line too.
 output.budget = N tokens: the server picks the richest detail which fits. By default files are sorted by relevance.
-Text response with the default options: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match,
-[#1 @x] matched conditions, ⇥N removed indentation; empty or huge results come with a funnel and hints how to fix
-the query. output.omit = ['legend', 'line_numbers', ...] or 'all' leaves those parts out.
+Text response: "42:" matched line, "41-" context line, "--" gap between blocks of context, ⟦text⟧ a match, ⇥N removed
+indentation; with several conditions a legend, [#1 @x] matched conditions and ⟦ids:text⟧; empty or huge results come
+with a funnel and hints how to fix the query. Warnings are left out by default ("warnings left out: ...").
+output.omit = ['line_numbers', ...] or 'all' leaves more parts out, output.show = ['warnings', ...] or 'all' adds them.
 If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
@@ -136,10 +137,17 @@ const FIND_SCHEMA: &str = r##"{
         "path_style": { "enum": ["relative", "absolute", "in_dir"], "description": "in_dir: the working directory written once, the paths relative to it." },
         "omit": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings", "left_out"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to leave out, or \"all\"."
+        },
+        "show": {
+          "anyOf": [
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings", "left_out"] } },
+            { "enum": ["all"] }
+          ],
+          "description": "Parts of the response to show whatever omit says, or \"all\"."
         },
         "cursor": { "type": "string" },
         "file": {
@@ -242,7 +250,7 @@ pub fn update_config_schema() -> Value {
 }
 
 /// The description of the `delete` tool (`TOOLS.md#delete`).
-pub const DELETE_DESCRIPTION: &str = r#"Deletes files: moves them to the trash of the system (Trash, Recycle Bin), so a mistake can be undone. Spec version 1.
+pub const DELETE_DESCRIPTION: &str = r#"Deletes files: moves them to the trash of the system (Trash, Recycle Bin), so a mistake can be undone. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -339,7 +347,7 @@ pub fn delete_schema() -> Value {
 }
 
 /// The description of the `rename` tool (`TOOLS.md#rename`).
-pub const RENAME_DESCRIPTION: &str = r#"Renames or moves files: every file gets a new path made from a template. Spec version 1.
+pub const RENAME_DESCRIPTION: &str = r#"Renames or moves files: every file gets a new path made from a template. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -447,7 +455,7 @@ pub fn rename_schema() -> Value {
 }
 
 /// The description of the `copy` tool (`TOOLS.md#copy`).
-pub const COPY_DESCRIPTION: &str = r#"Copies files: every file gets a copy at a path made from a template. Spec version 1.
+pub const COPY_DESCRIPTION: &str = r#"Copies files: every file gets a copy at a path made from a template. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -482,7 +490,7 @@ pub fn copy_schema() -> Value {
 }
 
 /// The description of the `replace` tool (`TOOLS.md#replace`).
-pub const REPLACE_DESCRIPTION: &str = r#"Replaces text in files: the matches of a group of the query get a new text made from a template. Spec version 1.
+pub const REPLACE_DESCRIPTION: &str = r#"Replaces text in files: the matches of a group of the query get a new text made from a template. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, searched again with the query of that find
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find

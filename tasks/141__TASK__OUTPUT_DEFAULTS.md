@@ -1,6 +1,6 @@
 # Task 141: Useful output by default: the default of `output.omit`
 
-Status: not implemented
+Status: implemented, see [141__SUMMARY__OUTPUT_DEFAULTS.md](141__SUMMARY__OUTPUT_DEFAULTS.md)
 
 Depends on: task 134
 

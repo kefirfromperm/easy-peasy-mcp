@@ -1,5 +1,7 @@
 # Examples for task 62
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `fuzzy` of task 32; the
 scores of `cfgldr`: `config-loader.rs` and `config_loader.rs` 0.70, `ConfigLoader.java` 0.64,
 `scaffold_bigolder.ts` 0.40.
@@ -31,7 +33,7 @@ config_loader.rs  [#1 #2]
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [query]
@@ -111,7 +113,7 @@ config_loader.rs  [#1]
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [query]
@@ -165,7 +167,7 @@ easy-peasy-mcp --config conf/q.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [query]
