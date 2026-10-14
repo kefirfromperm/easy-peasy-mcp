@@ -1,6 +1,6 @@
 # Task 127: `copy` tool
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 126
 
