@@ -1042,7 +1042,7 @@ Errors of `replace`, before anything is changed (`invalid_option` unless named):
 | `invalid_option` | `@src` of `(name ~ '*.rs') @src` | `the group '@src' has no text condition` | `replace changes the text of files; rename changes their names` |
 | `invalid_option` | `expect_matches` not a whole number | `'expect_matches' must be a whole number` | |
 
-The keys are checked in the order of the request. The position of `unknown_group` is the key; in JSON the field of
+The keys are checked in the order of their names (a JSON object has no order). The position of `unknown_group` is the key; in JSON the field of
 the position is `replace` with the key as its text. `expect_matches: N` fails the call with `count_mismatch` when the
 files which are not skipped have another number of matches to replace, before anything is written:
 `error[count_mismatch]: the selection has 5 matches, expected 4`, hint
