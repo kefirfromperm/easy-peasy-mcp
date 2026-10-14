@@ -1234,7 +1234,7 @@ fn write_output(
     let text = if json {
         outcome.to_json(verb, version)
     } else {
-        outcome.to_text(verb, settings.bool(Key::GroupDirs))
+        outcome.to_text(verb, settings.bool(Key::GroupDirs), version)
     };
     ToolOutput {
         text,

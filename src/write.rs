@@ -463,9 +463,16 @@ impl Outcome {
         self.selected > 0 && self.done() == 0
     }
 
-    /// The text format: the header with the count named `verb`, the entries, the warnings.
-    pub(crate) fn to_text(&self, verb: &str, group_dirs: bool) -> String {
-        let mut out = format!("{verb}: {}", self.done() - self.unchanged());
+    /// The text format of the spec version `spec`: the header with the count named `verb` (`deleted`), the entries,
+    /// the warnings. In spec 2 the header of a dry run starts with `dry run  would delete:` (TOOLS.md#dry-run).
+    pub(crate) fn to_text(&self, verb: &str, group_dirs: bool, spec: u32) -> String {
+        let count = self.done() - self.unchanged();
+        let ahead = self.dry_run && spec >= 2;
+        let mut out = if ahead {
+            format!("dry run  would {}: {count}", infinitive(verb))
+        } else {
+            format!("{verb}: {count}")
+        };
         if self.max_lines.is_some() {
             let _ = write!(out, "  matches: {}", self.matches());
         }
@@ -481,7 +488,7 @@ impl Outcome {
         if self.permanent {
             out.push_str("  permanent");
         }
-        if self.dry_run {
+        if self.dry_run && !ahead {
             out.push_str("  dry run");
         }
         out.push('\n');
@@ -648,6 +655,14 @@ impl Outcome {
     }
 }
 
+/// The verb of a count of a write tool: `deleted` → `delete`, `copied` → `copy`.
+fn infinitive(count: &str) -> String {
+    match count.strip_suffix("ied") {
+        Some(stem) => format!("{stem}y"),
+        None => count.strip_suffix('d').unwrap_or(count).to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -770,9 +785,19 @@ mod tests {
             ..Outcome::default()
         };
         assert_eq!(empty.to_text("deleted", true, 1), "deleted: 0  dry run\n");
-        assert_eq!(empty.to_text("deleted", true, 2), "dry run  would delete: 0\n");
-        for (count, verb) in [("renamed", "rename"), ("copied", "copy"), ("replaced", "replace")] {
-            assert_eq!(empty.to_text(count, true, 2), format!("dry run  would {verb}: 0\n"));
+        assert_eq!(
+            empty.to_text("deleted", true, 2),
+            "dry run  would delete: 0\n"
+        );
+        for (count, verb) in [
+            ("renamed", "rename"),
+            ("copied", "copy"),
+            ("replaced", "replace"),
+        ] {
+            assert_eq!(
+                empty.to_text(count, true, 2),
+                format!("dry run  would {verb}: 0\n")
+            );
         }
         assert!(!empty.is_error());
     }
