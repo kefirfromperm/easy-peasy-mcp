@@ -754,7 +754,7 @@ mod tests {
         outcome.skipped = 1;
         let sep = std::path::MAIN_SEPARATOR;
         assert_eq!(
-            outcome.to_text("deleted", true),
+            outcome.to_text("deleted", true, 1),
             format!(
                 "deleted: 1  skipped: 1  failed: 1\n\nsrc{sep}\na.rs\nb.rs  failed: permission denied\n\nwarning: file_changed (1): c.rs\n"
             )
@@ -769,7 +769,11 @@ mod tests {
             dry_run: true,
             ..Outcome::default()
         };
-        assert_eq!(empty.to_text("deleted", true), "deleted: 0  dry run\n");
+        assert_eq!(empty.to_text("deleted", true, 1), "deleted: 0  dry run\n");
+        assert_eq!(empty.to_text("deleted", true, 2), "dry run  would delete: 0\n");
+        for (count, verb) in [("renamed", "rename"), ("copied", "copy"), ("replaced", "replace")] {
+            assert_eq!(empty.to_text(count, true, 2), format!("dry run  would {verb}: 0\n"));
+        }
         assert!(!empty.is_error());
     }
 
@@ -787,7 +791,7 @@ mod tests {
         assert!(skipped.is_error());
         assert!(
             skipped
-                .to_text("deleted", true)
+                .to_text("deleted", true, 1)
                 .starts_with("deleted: 0  skipped: 2  permanent\n")
         );
         let json: Value = serde_json::from_str(&skipped.to_json("deleted", 1)).unwrap();
@@ -830,7 +834,7 @@ mod tests {
         };
         let sep = std::path::MAIN_SEPARATOR;
         assert_eq!(
-            outcome.to_text("renamed", true),
+            outcome.to_text("renamed", true, 1),
             format!(
                 "renamed: 2  unchanged: 1\n\nsrc{sep}\na.ts -> src{sep}a.tsx\nb.ts -> src{sep}b.tsx  replaced\nc.tsx  unchanged\n"
             )
@@ -885,7 +889,7 @@ mod tests {
             ..Outcome::default()
         };
         assert_eq!(
-            outcome.to_text("replaced", false),
+            outcome.to_text("replaced", false, 1),
             "replaced: 2  matches: 3  unchanged: 1\n\nx.txt  matches: 2\n-2:a\n-3:b\n+2:A\ny.txt  matches: 1\n-2:a\nz.txt  unchanged\n… 2 more lines\n"
         );
         let json: Value = serde_json::from_str(&outcome.to_json("replaced", 1)).unwrap();
