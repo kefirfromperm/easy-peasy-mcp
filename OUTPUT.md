@@ -275,7 +275,8 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 matches (`match_ids`).
 
 Every condition of the query has an id: `#1`, `#2`, ... in the order of appearance (only conditions without a label
-are numbered), or a label `@name` given in the query, see [QUERY.md](QUERY.md#labels-and-condition-ids).
+are numbered), or a label `@name` given in the query, see [QUERY.md](QUERY.md#labels-and-condition-ids). A bracket
+with a label, a [group](QUERY.md#groups), has its label as its id.
 
 The `legend` maps the ids of all conditions of the query to their text as written in the query, without labels: the
 tokens of the condition with their original spelling (keyword case, quotes, escapes), where any whitespace, line
@@ -287,7 +288,7 @@ there are no ids to explain.
 ### File conditions
 
 `conditions` of a file lists the ids of the conditions which **made the file match**, at the file level: simple file
-scope conditions, `line( ... )` groups and `near( ... )`. It shows which branch of `or` / `xor` has matched:
+scope conditions, `line( ... )` groups, `near( ... )` and bracket groups. It shows which branch of `or` / `xor` has matched:
 
 ```
 name ~ '*.rs' and (text has '.unwrap()' @unwrap or text has '.expect(' @expect)
@@ -304,6 +305,7 @@ Which conditions made the file match, from the top of the query down:
 
 - the whole query is true, so it contributes
 - a true `and` which contributes — all its parts contribute
+- a true bracket group which contributes — it is listed, and its inside contributes
 - a true `or` / `xor` which contributes — only its true parts contribute
 - `not` — nothing under it contributes: for `not text has 'license' @lic` the file is returned because `@lic` is
   false, so `@lic` is not listed; a file which matches only through `not` has an empty list
@@ -317,7 +319,7 @@ A condition which is true, but in a branch which didn't make the file match, is 
 A small `README.md` with `TODO` inside is listed with `[@md]` only: `@todo` is true, but its branch is false because
 of `@big`. The same rule decides which conditions produce fragments.
 
-Conditions inside `line( ... )` and `near( ... )` are not listed per file — they are true or false for a line, see
+Conditions and bracket groups inside `line( ... )` and `near( ... )` are not listed per file — they are true or false for a line, see
 fragments.
 
 ### Fragment ids
@@ -335,6 +337,7 @@ A fragment is a matched part of a line, or of several lines for a multiline matc
 | `ids`    | the conditions which produced it                                                         |
 | `escape` | the escape level (`0` — unescaped), only for conditions with `/e`                       |
 | `to`     | only for multiline matches: `{ "n": 58, "col": 12 }` — the line and the exclusive end column; `col` of the fragment then ends at the end of its first line, the fragment is in the first line |
+| `groups` | only for `text =~` conditions with capture groups: the [sub-groups](QUERY.md#regex-groups) which took part in the match, see below |
 
 Which conditions produce fragments
 
@@ -346,12 +349,32 @@ Which conditions produce fragments
   produces one fragment which is the whole line, with the id of the group
 - inside `near( ... )`: the fragments get the id of the inner condition and the id of `near`; which lines are
   reported depends on the `report` option of `near`, see [QUERY.md](QUERY.md#proximity)
+- inside a bracket group `( ... ) @name`: the fragments of the conditions inside it get its id too, before their ids,
+  e.g. `["@ser", "#1"]`; the ids of a fragment are in the order of appearance in the query
 - conditions under `not` never produce fragments: there is nothing to show for a missing match
 - `size`, dates, `type`, `empty`, `lang`, `kind`, `git`, `len` never produce fragments
 - `path` and `name` conditions produce `path_fragments` only with the `path_fragments` option
 
 Several conditions can match the same text. Overlapping fragments are all reported; identical ones (the same text and
 escape level) are merged into one fragment with all ids.
+
+### Sub-groups
+
+The `groups` of a fragment of a `text =~` condition are its capture groups which took part in the match, in the order
+of their numbers. A group is `{ "col", "text", "ids" }` like a fragment: `col` in the characters of the line where the
+group starts, with `"n"` of that line before `col` when it is not the line of the fragment, `to` when it ends in
+another line; `ids` are its [references](QUERY.md#group-references): the number and, for a named group, the name, for
+every id of the fragment which is a `text =~` condition. An empty group has `col` with the same start and end and the
+text `""`.
+
+```json
+{ "n": 3, "text": "pub fn load_config(path: &Path) -> Config {",
+  "fragments": [ { "col": [5, 20], "text": "fn load_config(", "ids": ["@def"],
+    "groups": [ { "col": [8, 19], "text": "load_config", "ids": ["@def.1", "@def.fname"] } ] } ] }
+```
+
+The text format doesn't show the sub-groups. They are listed only where the fragments are: with `highlight = columns`
+(and `auto`) in JSON, also in the fragments of the [repeated lines](#repeated-lines).
 
 ### Path fragments
 
@@ -829,7 +852,8 @@ the table: the bare grep-like output.
 | `hints`        | `hints:` with its lines                                       | `hints`                                |
 | `conditions`   | `[#1 #2]` after a path                                        | `conditions` of a file                 |
 | `file_counts`  | `lines: N  matches: N` after a path                           | `lines` and `matches` of a file        |
-| `match_ids`    | the ids and escape levels of a match: `⟦unwrap(⟧`, `@ 44..51` | `ids` and `escape` of a fragment       |
+| `match_ids`    | the ids and escape levels of a match: `⟦unwrap(⟧`, `@ 44..51` | `ids` and `escape` of a fragment, `ids` of its groups |
+| `groups`       | —                                                             | `groups` of a fragment                 |
 | `line_numbers` | `42:` and `41-` before a line                                 | `n` of a line                          |
 | `gaps`         | `--` between blocks                                           | —                                      |
 | `indent`       | the `⇥N` line, the block stays dedented                       | `indent` of a block                    |
@@ -871,8 +895,8 @@ warning: binary_skipped (1): data.bin
 - `omit` is a list of parts or `"all"`; it is a request option and a [configuration key](CONFIG.md#output): the list of
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
   own. Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of
-  parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent,
-  warnings)`; in `update_config` `invalid_value` with the same list in the hint
+  parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps,
+  indent, warnings)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
   incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
