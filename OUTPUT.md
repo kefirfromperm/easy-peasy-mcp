@@ -1048,7 +1048,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
 - the line `warnings left out: binary_skipped (28), decode_errors (2)` (the part `left_out`) says which warnings were
   left out, the codes with their numbers of entries in the order of the warnings, after an empty line at the end of
   the response, where the warnings would be; it is written whenever there are warnings and `warnings` is left out.
-  In JSON `"left_out": { "warnings": { "binary_skipped": 28, "decode_errors": 2 } }` at the end. A `timeout` is never
+  In JSON `"left_out": { "warnings": { "binary_skipped": 28, "decode_errors": 2 } }` at the end, `0` for a
+  warning which is not about entries (`"timeout": 0`); the summary of a [file](#output-to-a-file) has the text line only. A `timeout` is never
   hidden: the header has `truncated: yes (timeout)`, and the line names the code
 - rules of parts which carry nothing in a search: `legend`, `conditions` and `match_ids` are written only when the
   legend has more than one condition (with one, the agent wrote it, and every `[#1]` and `#1:` repeats it); `gaps`
