@@ -1685,6 +1685,28 @@ fn file_id(_path: &Path, _metadata: &std::fs::Metadata) -> Option<FileId> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn path_fragments_without_their_working_directory() {
+        let fragment = |range: std::ops::Range<usize>| Fragment {
+            range,
+            ids: Vec::new(),
+            escape: None,
+            groups: Vec::new(),
+        };
+        let inside = PathFragments {
+            path: "src/cache.rs".to_string(),
+            fragments: vec![fragment(4, 9)],
+        };
+        let prefix = Path::new("../work/agent-1");
+        let shown = inside.clone().shown(prefix, false);
+        assert_ne!(shown, inside);
+        assert_eq!(shown.unshown(prefix), inside.clone().shown(Path::new(""), false));
+        assert_eq!(
+            inside.clone().shown(Path::new(""), false).unshown(Path::new("")),
+            inside.shown(Path::new(""), false)
+        );
+    }
+
     use super::*;
 
     #[test]
