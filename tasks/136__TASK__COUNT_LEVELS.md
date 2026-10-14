@@ -1,6 +1,6 @@
 # Task 136: Counts per file and per line: `output.count`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 79, task 134
 
