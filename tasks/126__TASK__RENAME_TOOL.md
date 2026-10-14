@@ -1,6 +1,6 @@
 # Task 126: `rename` tool
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 125
 
