@@ -76,6 +76,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `blank_context`        | `true`, `false`                                 | `false`    | keep empty context lines                                  |
 | `group_dirs`           | `true`, `false`                                 | `true`     | text format: group files under directory headers          |
 | `group_repeated`       | number                                          | `3`        | a matched line repeated in this many files is printed once; `0` — off |
+| `repeated_locations`   | number                                          | `3`        | the locations written for a repeated line; `0` — all of them, see [Repeated lines](#repeated-lines) |
 | `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
 | `path_style`           | `relative`, `absolute`, `in_dir`                | `relative` | how paths are written, see [Paths](#paths)                |
 | `omit`                 | list of parts, or `"all"`                       | `[]`       | parts of the response left out, see [Omit](#omit)         |
@@ -868,7 +869,7 @@ Values are sorted by count, more than `facet_limit` values end with `… 5 more 
 ## Compact output
 
 Options which save tokens. `dedent`, `blank_context` and `group_dirs` lose no information; `group_repeated` shows
-only a few locations of a repeated line. `group_dirs` changes only the text format, the others change both formats.
+only a few locations of a repeated line, `repeated_locations` how many. `group_dirs` changes only the text format, the others change both formats.
 
 ### Dedent
 
@@ -918,8 +919,8 @@ JSON paths are always full.
 ### Repeated lines
 
 A matched line which is identical (ignoring leading and trailing whitespace, with the same condition ids) in at least
-`group_repeated` files is printed once in a `repeated` section before the files, with the number of files and a few
-locations:
+`group_repeated` files is printed once in a `repeated` section before the files, with the number of files and the
+first `repeated_locations` locations:
 
 ```
 ...
@@ -932,12 +933,21 @@ detail at all; `detail = files` still lists such a file. The counts are not chan
 
 - the section comes after the legend (and the funnel) and its empty line, only in `lines` detail
 - a line is `  ×N <line>    <locations>`: `N` the number of files, the line without its leading and trailing
-  whitespace and with its markers, after four spaces `path:line` of the first three files in the order of the files
-  and `, … M more`; the lines are ordered by `N`, more first, then by their first file
+  whitespace and with its markers, after four spaces `path:line` of the first `repeated_locations` files (`0`: all of
+  them) in the order of the files, separated by `, `, and `, … M more` when some are left out; the lines are ordered
+  by `N`, more first, then by their first file
+- an agent which needs every place of a line, to edit them all, sets `repeated_locations = 0`: the locations of all the
+  files in one line, at a fraction of the tokens of `group_repeated = 0`, which writes the line under every file
+- the locations count in `max_output` on their own: the characters of the written locations and their separators,
+  in the order of the lines; the location which would go over and the next ones are left out (`… M more`, after the
+  first line which is cut only `… N more`) and `truncated_by` names `max_output`. They are not paged: the cursor
+  continues the files; `line(text = '<the line>')` with `detail = files` lists all the files of a line. The
+  [budget](#budget) estimates the whole response, the locations with it
 - a line touched by a multiline match is not grouped; the context of a repeated line goes with it
 - JSON: `"repeated": [{ "count": 37, "text": "use anyhow::Result;", "fragments": [...], "locations":
   ["src/main.rs:3", "src/config.rs:5", "src/eval/mod.rs:2"] }]` — `col` of the fragments counts in `text`, the
-  locations are the first three
+  locations are the ones written in the text format, `count` is the number of all the files
+- [omit](#omit): `locations` leaves out the locations, the line and `×N` stay (JSON `locations`)
 
 ## Omit
 
@@ -962,6 +972,7 @@ the table: the bare grep-like output.
 | `line_counts`  | `: 2` of `42: 2` of `count_by = line`                          | `matches` of `matched_lines`           |
 | `gaps`         | `--` between blocks                                           | —                                      |
 | `indent`       | the `⇥N` line, the block stays dedented                       | `indent` of a block                    |
+| `locations`    | the locations of a [repeated line](#repeated-lines)           | `locations` of a repeated line         |
 | `warnings`     | the warning lines and the empty line before them              | `warnings`                             |
 
 ```json
@@ -1001,7 +1012,7 @@ warning: binary_skipped (1): data.bin
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
   own. Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of
   parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers,
-  line_counts, gaps, indent, warnings)`; in `update_config` `invalid_value` with the same list in the hint
+  line_counts, gaps, indent, locations, warnings)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
   incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
