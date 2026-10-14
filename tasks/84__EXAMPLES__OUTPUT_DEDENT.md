@@ -59,6 +59,7 @@ config.rs  [#1 #2]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -229,6 +230,7 @@ config.rs  [#1 #2]  lines: 2  matches: 2
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default
@@ -309,6 +311,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default

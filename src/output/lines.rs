@@ -295,6 +295,19 @@ pub fn columns_text(content: &Content, fragments: &[Fragment], i: usize) -> Opti
     (!out.is_empty()).then_some(out)
 }
 
+/// The lines touched by the fragments with the number of fragments which start in each, so a line a multiline
+/// fragment only continues into has 0 (OUTPUT.md#counts-per-file-and-per-line).
+pub(super) fn line_counts(content: &Content, fragments: &[Fragment]) -> Vec<(usize, usize)> {
+    let mut starts = std::collections::HashMap::new();
+    for f in fragments {
+        *starts.entry(content.line_of(f.range.start)).or_insert(0) += 1;
+    }
+    lines_of(content, fragments)
+        .into_iter()
+        .map(|i| (i, starts.get(&i).copied().unwrap_or(0)))
+        .collect()
+}
+
 /// Whether the fragment starts in the line `i`.
 pub(super) fn starts_in(content: &Content, f: &Fragment, i: usize) -> bool {
     let (_, end) = content.line_range(i);

@@ -45,6 +45,29 @@ pub enum Detail {
     Lines,
 }
 
+/// The grain of the counts of `detail = count` (OUTPUT.md#counts-per-file-and-per-line).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CountBy {
+    /// The totals.
+    Total,
+    /// The totals and the counts of every file.
+    File,
+    /// The totals, the counts of every file and of its matched lines.
+    Line,
+}
+
+impl CountBy {
+    /// The value as written in the configuration.
+    #[must_use]
+    pub fn keyword(self) -> &'static str {
+        match self {
+            Self::Total => "total",
+            Self::File => "file",
+            Self::Line => "line",
+        }
+    }
+}
+
 /// How the fragments are shown in the lines (OUTPUT.md#highlight); `auto` is resolved by the format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Highlight<'a> {
@@ -141,6 +164,8 @@ pub struct BudgetUse {
     pub tokens: usize,
     /// Whether the detail is lower than the requested one.
     pub lowered: bool,
+    /// The `count_by` lower than the requested one, if it is.
+    pub count_by: Option<CountBy>,
 }
 
 /// The change of a listed file to the result of `since` (OUTPUT.md#changes-since).
@@ -188,6 +213,8 @@ pub struct Since {
 pub struct Response<'a> {
     /// How much it returns.
     pub detail: Detail,
+    /// The grain of the counts in `count` detail.
+    pub count_by: CountBy,
     /// How the matched lines of a file are put into blocks.
     pub blocks: BlockOptions,
     /// Text: files under directory headers, with paths relative to them.
@@ -274,12 +301,12 @@ impl Response<'_> {
             self.push_warnings(&mut out);
             return out;
         }
-        if self.file_count() == 0 || self.detail == Detail::Count {
+        if self.file_count() == 0 || !self.lists() && self.detail == Detail::Count {
             self.push_funnel(&mut out);
             self.push_warnings(&mut out);
             return out;
         }
-        if !self.omit.has(Part::Legend) {
+        if !self.omit.has(Part::Legend) && self.detail != Detail::Count {
             for (id, text) in self.legend {
                 let _ = writeln!(out, "{id} {text}");
             }
@@ -343,6 +370,13 @@ impl Response<'_> {
                     budget.tokens
                 ));
             }
+            if let Some((count_by, budget)) = self.budget.and_then(|b| Some((b.count_by?, b))) {
+                parts.push(format!(
+                    "count by: {} (budget {})",
+                    count_by.keyword(),
+                    budget.tokens
+                ));
+            }
             if let Some(since) = &self.since {
                 parts.push(format!(
                     "since: {}  unchanged: {}",
@@ -391,7 +425,10 @@ impl Response<'_> {
         } else {
             out.push_str(&display_found(file));
         }
-        if !file.conditions.is_empty() && !self.omit.has(Part::Conditions) {
+        if !file.conditions.is_empty()
+            && !self.omit.has(Part::Conditions)
+            && self.detail != Detail::Count
+        {
             let ids: Vec<String> = file.conditions.iter().map(ToString::to_string).collect();
             let _ = write!(out, "  [{}]", ids.join(" "));
         }
@@ -419,6 +456,10 @@ impl Response<'_> {
             self.push_path_fragments(out, path, file.is_dir);
         }
         if let (Some(m), Listed::Lines(fragments)) = (&file.matches, &listing.files[index]) {
+            if self.detail == Detail::Count {
+                self.push_line_counts(out, &m.content, fragments);
+                return;
+            }
             let blocks = blocks::before(
                 blocks::blocks(&m.content, fragments, &self.blocks),
                 listing.until[index],
@@ -431,6 +472,28 @@ impl Response<'_> {
                 self.limits.max_line_length,
                 self.omit,
             ));
+        }
+    }
+
+    /// The counts of the listed lines of a file in `count_by = line`: `  42: 2`, without the parts left out.
+    fn push_line_counts(&self, out: &mut String, content: &Content, fragments: &[Fragment]) {
+        let numbers = !self.omit.has(Part::LineNumbers);
+        let counts = !self.omit.has(Part::LineCounts);
+        if !numbers && !counts {
+            return;
+        }
+        for (line, count) in lines::line_counts(content, fragments) {
+            out.push_str("  ");
+            if numbers {
+                let _ = write!(out, "{}", line + 1);
+            }
+            if numbers && counts {
+                out.push_str(": ");
+            }
+            if counts {
+                let _ = write!(out, "{count}");
+            }
+            out.push('\n');
         }
     }
 
@@ -461,9 +524,16 @@ impl Response<'_> {
         }
     }
 
-    /// The files which are listed: in `files` and `lines` detail the first `max_files` from the start of the page.
+    /// Whether the files are listed: in `files` and `lines` detail, in `count` detail with `count_by` other than
+    /// `total`.
+    fn lists(&self) -> bool {
+        self.detail >= Detail::Files
+            || self.detail == Detail::Count && self.count_by != CountBy::Total
+    }
+
+    /// The files which are listed: the first `max_files` from the start of the page.
     fn listed(&self) -> &[Found] {
-        if self.detail >= Detail::Files {
+        if self.lists() {
             let rest = &self.files[self.page_start()..];
             &rest[..rest.len().min(self.files_limit())]
         } else {
@@ -478,7 +548,7 @@ impl Response<'_> {
 
     /// Whether `max_files` leaves out files after the page.
     fn files_cut(&self) -> bool {
-        self.detail >= Detail::Files && self.files.len() - self.page_start() > self.files_limit()
+        self.lists() && self.files.len() - self.page_start() > self.files_limit()
     }
 
     /// The files listed at most: `max_files`, fewer within the budget.
@@ -514,9 +584,7 @@ impl Response<'_> {
     /// The limits which were hit, in the order of the limits table.
     fn truncated_by(&self, listing: &Listing) -> Vec<&'static str> {
         let mut by = Vec::new();
-        if self.detail >= Detail::Files
-            && self.files.len() - self.page_start() > self.limits.max_files
-        {
+        if self.lists() && self.files.len() - self.page_start() > self.limits.max_files {
             by.push("max_files");
         }
         by.extend(listing.truncated_by.iter().map(|&limit| {
@@ -542,7 +610,15 @@ impl Response<'_> {
                 self.listed(),
                 repeated,
                 &self.limits,
-                &self.blocks,
+                Some(&self.blocks),
+                self.page.fragment,
+            )
+        } else if self.detail == Detail::Count && self.count_by == CountBy::Line {
+            Listing::new(
+                self.listed(),
+                repeated,
+                &self.limits,
+                None,
                 self.page.fragment,
             )
         } else {
@@ -789,6 +865,7 @@ mod tests {
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -828,6 +905,7 @@ mod tests {
         };
         let response = Response {
             detail: Detail::Facets,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -865,6 +943,7 @@ mod tests {
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: false,
             group_repeated: 3,
@@ -914,6 +993,7 @@ mod tests {
         }];
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -950,6 +1030,7 @@ mod tests {
         let legend = [(CondId::Number(1), "type = dir".to_string())];
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -1003,6 +1084,7 @@ mod tests {
         let legend = [(CondId::Number(1), "text has 'x'".to_string())];
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -1051,6 +1133,7 @@ mod tests {
         let response = |highlight: Highlight| {
             Response {
                 detail: Detail::Lines,
+                count_by: CountBy::Total,
                 blocks: BlockOptions::default(),
                 group_dirs: false,
                 group_repeated: 3,
@@ -1102,6 +1185,7 @@ mod tests {
         let response = |max_files: usize, timed_out: bool| {
             Response {
                 detail: Detail::Files,
+                count_by: CountBy::Total,
                 blocks: BlockOptions::default(),
                 group_dirs: false,
                 group_repeated: 3,
@@ -1143,6 +1227,7 @@ mod tests {
     fn an_empty_result_has_only_the_header() {
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -1173,6 +1258,7 @@ mod tests {
         let legend = [(CondId::Number(1), "name ~ '*'".to_string())];
         let response = Response {
             detail: Detail::Files,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,
@@ -1208,6 +1294,67 @@ mod tests {
                 .expect("a cursor the server made")
                 .file,
         )
+    }
+
+    /// The text of `count_by = line` for a file with two matches in line 1 and a multiline match from line 3 to 4.
+    fn line_counts(omit: &[Part]) -> String {
+        let content = crate::content::Content::from_bytes(b"a x x\nb\nx\ny\n");
+        let fragment = |start: usize, end: usize| Fragment {
+            range: start..end,
+            ids: vec![(1, CondId::Number(1))],
+            escape: None,
+            groups: Vec::new(),
+        };
+        let fragments = vec![fragment(2, 3), fragment(4, 5), fragment(8, 11)];
+        let lines = matched_lines(&content, &fragments);
+        let files = [Found {
+            matches: Some(crate::search::FileMatches {
+                content,
+                fragments,
+                lines,
+            }),
+            ..found("f")
+        }];
+        let legend = [(CondId::Number(1), "text has 'x'".to_string())];
+        Response {
+            detail: Detail::Count,
+            count_by: CountBy::Line,
+            blocks: BlockOptions::default(),
+            group_dirs: false,
+            group_repeated: 3,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
+            funnel: None,
+            hints: Vec::new(),
+            facets: Vec::new(),
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits::default(),
+            result_id: None,
+            legend: &legend,
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+            omit: Omit::from_parts(omit),
+        }
+        .to_text()
+    }
+
+    #[test]
+    fn the_counts_of_the_lines() {
+        let head = "files: 1  lines: 3  matches: 3\n\nf  lines: 3  matches: 3\n";
+        assert_eq!(line_counts(&[]), format!("{head}  1: 2\n  3: 1\n  4: 0\n"));
+        assert_eq!(
+            line_counts(&[Part::LineNumbers]),
+            format!("{head}  2\n  1\n  0\n")
+        );
+        assert_eq!(
+            line_counts(&[Part::LineCounts]),
+            format!("{head}  1\n  3\n  4\n")
+        );
+        assert_eq!(line_counts(&[Part::LineNumbers, Part::LineCounts]), head);
     }
 
     #[test]

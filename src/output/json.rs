@@ -8,7 +8,8 @@ use super::blocks::BlockLine;
 use super::lines::{columns, cut_line, starts_in};
 use super::listing::{Listed, Listing};
 use super::{
-    BlockOptions, Change, Detail, Highlight, LOCATIONS, Omit, Part, Response, display_found,
+    BlockOptions, Change, CountBy, Detail, Highlight, LOCATIONS, Omit, Part, Response,
+    display_found,
 };
 use crate::content::Content;
 use crate::query::Kind;
@@ -26,6 +27,8 @@ struct Document<'a> {
     result: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail_used: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    count_by_used: Option<&'static str>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     funnel: Vec<FunnelStep<'a>>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -153,11 +156,22 @@ struct File {
     #[serde(skip_serializing_if = "is_zero")]
     matches: usize,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    matched_lines: Vec<LineCount>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     conditions: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     path_fragments: Vec<Fragment>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     blocks: Vec<Block>,
+}
+
+/// A matched line of `count_by = line` with its matches (OUTPUT.md#counts-per-file-and-per-line).
+#[derive(Serialize)]
+struct LineCount {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    n: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    matches: Option<usize>,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // the signature of `skip_serializing_if`
@@ -240,7 +254,7 @@ impl Response<'_> {
     fn json(&self, full: bool) -> String {
         let (lines, matches) = self.totals();
         let counted = self.detail >= Detail::Count && !self.omit.has(Part::Counts);
-        let listed = full && self.detail >= Detail::Files;
+        let listed = full && self.lists();
         let legend = full && self.detail >= Detail::Facets && !self.omit.has(Part::Legend);
         let repeated = self.repeated();
         let listing = self.listing(&repeated);
@@ -253,6 +267,7 @@ impl Response<'_> {
                 .budget
                 .filter(|b| b.lowered)
                 .map(|_| self.detail.keyword()),
+            count_by_used: self.budget.and_then(|b| b.count_by).map(CountBy::keyword),
             funnel: self
                 .funnel
                 .iter()
@@ -377,10 +392,16 @@ impl Response<'_> {
                 .as_ref()
                 .filter(|_| !self.omit.has(Part::FileCounts))
                 .map_or(0, |m| m.fragments.len()),
+            matched_lines: match (&found.matches, &listing.files[index]) {
+                (Some(m), Listed::Lines(fragments)) if self.detail == Detail::Count => {
+                    self.matched_lines(&m.content, fragments)
+                }
+                _ => Vec::new(),
+            },
             conditions: found
                 .conditions
                 .iter()
-                .filter(|_| !self.omit.has(Part::Conditions))
+                .filter(|_| !self.omit.has(Part::Conditions) && self.detail != Detail::Count)
                 .map(ToString::to_string)
                 .collect(),
             path_fragments: found
@@ -389,7 +410,7 @@ impl Response<'_> {
                 .map(path_fragments)
                 .unwrap_or_default(),
             blocks: match (&found.matches, &listing.files[index]) {
-                (Some(m), Listed::Lines(fragments)) => blocks(
+                (Some(m), Listed::Lines(fragments)) if self.detail == Detail::Lines => blocks(
                     &m.content,
                     fragments,
                     &self.blocks,
@@ -401,6 +422,25 @@ impl Response<'_> {
                 _ => Vec::new(),
             },
         }
+    }
+}
+
+impl Response<'_> {
+    /// The listed lines of a file with their matches in `count_by = line`, without the parts left out; none
+    /// without both.
+    fn matched_lines(&self, content: &Content, fragments: &[super::Fragment]) -> Vec<LineCount> {
+        let numbers = !self.omit.has(Part::LineNumbers);
+        let counts = !self.omit.has(Part::LineCounts);
+        if !numbers && !counts {
+            return Vec::new();
+        }
+        super::lines::line_counts(content, fragments)
+            .into_iter()
+            .map(|(line, count)| LineCount {
+                n: numbers.then_some(line + 1),
+                matches: counts.then_some(count),
+            })
+            .collect()
     }
 }
 
@@ -616,6 +656,7 @@ mod tests {
         }];
         let text = Response {
             detail: Detail::Lines,
+            count_by: CountBy::Total,
             blocks: BlockOptions::default(),
             group_dirs: true,
             group_repeated: 3,

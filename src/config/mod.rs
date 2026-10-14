@@ -86,6 +86,7 @@ const SECTIONS: [(&str, &[&str]); 8] = [
         &[
             "format",
             "detail",
+            "count_by",
             "budget",
             "chars_per_token",
             "funnel",

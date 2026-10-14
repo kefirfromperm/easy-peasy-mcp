@@ -1,6 +1,6 @@
-# Task 136: Counts per file and per line: `output.count`
+# Task 136: Counts per file and per line: `output.count_by`
 
-Status: not implemented
+Status: implemented, see [136__SUMMARY__COUNT_LEVELS.md](136__SUMMARY__COUNT_LEVELS.md)
 
 Depends on: task 79, task 134
 

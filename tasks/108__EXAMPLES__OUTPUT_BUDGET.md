@@ -61,6 +61,7 @@ a6.rs  [#1]  lines: 1  matches: 1
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -274,6 +275,7 @@ a6.rs  [#1]  lines: 1  matches: 1
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 budget = 140    # update
 chars_per_token = 4    # default
 funnel = "auto"    # default

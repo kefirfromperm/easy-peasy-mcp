@@ -31,6 +31,7 @@ pub enum Key {
     SkipGenerated,
     Format,
     Detail,
+    CountBy,
     Budget,
     CharsPerToken,
     Funnel,
@@ -71,7 +72,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 58] = [
+    pub const ALL: [Key; 59] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -94,6 +95,7 @@ impl Key {
         Self::SkipGenerated,
         Self::Format,
         Self::Detail,
+        Self::CountBy,
         Self::Budget,
         Self::CharsPerToken,
         Self::Funnel,
@@ -177,6 +179,11 @@ impl Key {
                 "output",
                 "detail",
                 Type::Choice(&["exists", "count", "facets", "files", "lines"]),
+            ),
+            Self::CountBy => (
+                "output",
+                "count_by",
+                Type::Choice(&["total", "file", "line"]),
             ),
             Self::Context => ("output", "context", Type::Whole(None)),
             Self::Before => ("output", "before", Type::OptWhole),
@@ -295,6 +302,7 @@ impl Key {
             Self::PathStyle => Value::Text("relative".to_string()),
             Self::Sort => Value::Text("relevance".to_string()),
             Self::Detail => Value::Text("lines".to_string()),
+            Self::CountBy => Value::Text("total".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
     }
@@ -922,7 +930,7 @@ mod tests {
             Type::Omit.check_toml(&item("['legend', 'gaps']")),
             Ok(Value::List(vec!["legend".into(), "gaps".into()]))
         );
-        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps, indent, warnings) is expected";
+        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings) is expected";
         for bad in ["'none'", "['colour']", "1"] {
             assert_eq!(
                 Type::Omit.check_toml(&item(bad)),
@@ -941,10 +949,23 @@ mod tests {
                 .check_json("output.omit", &json!("none"))
                 .unwrap_err()
                 .to_text(),
-            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps, indent, warnings)\n"
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings)\n"
         );
         assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
+    }
+
+    #[test]
+    fn count_by_after_detail() {
+        assert_eq!(Key::CountBy.name(), "count_by");
+        assert_eq!(Key::CountBy.section(), "output");
+        assert_eq!(Key::CountBy.default_value(), Value::Text("total".into()));
+        assert_eq!(
+            Key::CountBy.ty().expected(),
+            "expected one of: total, file, line"
+        );
+        let at = |key| Key::ALL.iter().position(|k| *k == key);
+        assert_eq!(at(Key::CountBy), at(Key::Detail).map(|i| i + 1));
     }
 
     #[test]

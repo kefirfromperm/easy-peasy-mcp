@@ -19,6 +19,7 @@ Fixture: `huge`
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -149,6 +150,7 @@ chars_per_token = 3.5    # was 4
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 3.5    # update
 funnel = "auto"    # default

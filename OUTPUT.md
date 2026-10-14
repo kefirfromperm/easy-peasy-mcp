@@ -51,6 +51,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 |------------------------|-------------------------------------------------|------------|-----------------------------------------------------------|
 | `format`               | `text`, `json`                                  | `text`     | response format                                           |
 | `detail`               | `exists`, `count`, `facets`, `files`, `lines`   | `lines`    | how much to return, see [Detail levels](#detail-levels)   |
+| `count_by`             | `total`, `file`, `line`                         | `total`    | the counts of `detail = count`, see [Counts per file and per line](#counts-per-file-and-per-line) |
 | `budget`               | number of tokens                                | not set    | fit the response into the budget, see [Budget](#budget)   |
 | `chars_per_token`      | number                                          | `4`        | how the budget converts characters to tokens, see [Budget](#budget) |
 | `funnel`               | `auto`, `always`, `never`                       | `auto`     | explain empty and huge results, see [Funnel](#funnel)     |
@@ -86,7 +87,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | Level    | Returns                                                          | Like                    |
 |----------|------------------------------------------------------------------|-------------------------|
 | `exists` | only whether at least one file matches; stops at the first match | `grep -q`               |
-| `count`  | totals: files, lines, matches                                    | `grep -c`, `find \| wc` |
+| `count`  | totals: files, lines, matches; with `count_by` also per file or per line | `grep -c`, `find \| wc` |
 | `facets` | totals + counts of files per directory, language, kind, condition | —                      |
 | `files`  | totals + the list of files with their counts and conditions      | `find`, `grep -l`       |
 | `lines`  | totals + files + matched lines with fragments and context        | `grep -n -C`            |
@@ -94,6 +95,55 @@ except `cursor` and `file`, which have no default and are not configuration keys
 Use the smallest level which answers the question: `exists` and `count` are cheap in tokens, `exists` is also the
 fastest. A typical way to the exact place: `facets` to see where the matches are, then `files` in the right
 directory, then `lines` for a few files. Or just set a [budget](#budget) and let the server choose.
+
+### Counts per file and per line
+
+`count_by` sets the grain of the counts of `detail = count`, so the agent pays only for the grain it needs:
+
+| `count_by` | Returns                                                         | Like                       |
+|------------|-----------------------------------------------------------------|----------------------------|
+| `total`    | the totals (the default)                                        | `grep -c \| sum`, `wc -l`  |
+| `file`     | the totals, then every matched file with its counts             | `grep -c`                  |
+| `line`     | as `file`, and under every file its matched lines with their counts | `grep -n -o \| uniq -c` |
+
+```json
+{ "query": "text has 'unwrap('", "output": { "detail": "count", "count_by": "line" } }
+```
+
+```
+files: 2  lines: 3  matches: 4  result: r1
+
+src/
+lib.rs  lines: 2  matches: 3
+  2: 2
+  4: 1
+main.rs  lines: 1  matches: 1
+  2: 1
+```
+
+- `file`: the header, the funnel and the hints as in `count` detail, an empty line, then the files as in `files`
+  detail without their conditions: in the order of `sort`, under [directory headers](#directory-groups) with
+  `group_dirs`, with their counts, `(cut)`, the encoding and, with `meta` and `path_fragments`, their metadata and
+  path fragments; no legend, no conditions are listed. `count_by = file` is the same as `detail = files` with
+  `omit = ["legend", "conditions"]`
+- `line`: under every file its matched lines, one per line, indented by two spaces: `  42: 2`, the line number and
+  the number of matches which start in the line. A line touched only by a multiline match which starts in an
+  earlier line has `0`: `  211: 0`; the counts of the lines of a file add up to its `matches`. No text of the lines,
+  no context, no [repeated lines](#repeated-lines)
+- JSON: the files as in `files` detail without `conditions`; with `line` every file has `"matched_lines": [{ "n": 42,
+  "matches": 2 }, ...]` after `matches`, `matches` also when it is 0
+- the limits apply as in `files` and `lines` detail: `max_files` and `max_output` cut the list of files, with `line`
+  also `max_lines`, `max_matches` and `max_matches_per_file` (a cut file gets `(cut)`); a line shows the matches
+  which are listed. There is no text, so `max_output` counts the paths of the files only, and `max_line_length` and
+  `max_output_per_file` don't apply. The totals are always the real ones; a cut list has a `next cursor`
+- the [budget](#budget) of `count` detail with `count_by = file` or `line` lowers it step by step: `line` to `file`,
+  then the list of files cut to the budget, then `total`, see [Budget](#budget)
+- `within` and `since` work as with every result with `count` detail or higher; with `since` the files are the
+  differences, written with their marks as in `files` detail, see [Changes](#changes-since)
+- the other details ignore `count_by`
+- [omit](#omit): `counts` leaves out the totals, `file_counts` the counts of a file (with `file` the paths alone are
+  left), `line_numbers` the line numbers of the lines (`  2`), `line_counts` their counts (`  42`): with
+  `line_counts` the lines are the list of the matched line numbers; without both the lines are not written
 
 ## Response
 
@@ -107,6 +157,7 @@ Top level
 | `exists`        | all                | `true` if at least one file matches                                |
 | `result`        | `count` and higher | id of this result, see [Result ids](#result-ids); absent if `server.result_cache = 0` |
 | `detail_used`   | `count` and higher | only if the [budget](#budget) lowered the detail level              |
+| `count_by_used` | `count`            | only if the [budget](#budget) lowered `count_by`                    |
 | `funnel`        | `count` and higher | see [Funnel](#funnel)                                              |
 | `hints`         | `count` and higher | see [Funnel](#funnel)                                              |
 | `facets`        | `facets`           | see [Facets](#facets)                                              |
@@ -119,10 +170,10 @@ Top level
 | `counts_exact`  | `count` and higher | `false` if the search was stopped by the timeout, counts are lower bounds |
 | `truncated`     | all                | `true` if any limit or the timeout was hit, see [Limits](#limits-and-truncation) |
 | `truncated_by`  | all                | which limits were hit, e.g. `["max_files"]`                        |
-| `next_cursor`   | `files`, `lines`   | cursor for the next page, only if truncated                        |
+| `next_cursor`   | `files`, `lines`, `count` with `count_by` | cursor for the next page, only if truncated |
 | `legend`        | `facets`, `files`, `lines` | condition id → condition text, if at least one file matches, see [Condition ids](#condition-ids) |
 | `warnings`      | all                | problems which didn't make the request fail, see [Warnings](#warnings) |
-| `files`         | `files`, `lines`   | the matched files                                                  |
+| `files`         | `files`, `lines`, `count` with `count_by` | the matched files                           |
 
 Per file
 
@@ -139,6 +190,7 @@ Per file
 | `truncated`      | `files`, `lines` | `true` if a per file limit cut the file's lines                     |
 | `lines`          | `files`, `lines` | number of matched lines in the file                                 |
 | `matches`        | `files`, `lines` | number of fragments in the file                                     |
+| `matched_lines`  | `count` with `count_by = line` | the matched lines with their matches, see [Counts per file and per line](#counts-per-file-and-per-line) |
 | `conditions`     | `files`, `lines` | ids of the conditions which made the file match, see [File conditions](#file-conditions) |
 | `path_fragments` | with `path_fragments` | fragments of `path` / `name` conditions                        |
 | `blocks`         | `lines`          | matched lines with context, see [Fragments](#fragments)             |
@@ -253,7 +305,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
 ```
 
 - the header line: totals, `result: r1`, `detail: files (budget 2000)` when the [budget](#budget) lowered the
-  detail, `since: r12  unchanged: 10` with [`since`](#changes-since), and `truncated: yes (...)`, `next cursor: ...`
+  detail (`count by: file (budget 2000)` when it lowered `count_by`), `since: r12  unchanged: 10` with [`since`](#changes-since), and `truncated: yes (...)`, `next cursor: ...`
   when something was cut; with `detail = exists` the header is `exists: yes` or `exists: no`, after a timeout also
   `truncated: yes (timeout)`
 - the legend: one condition per line
@@ -482,7 +534,8 @@ When a limit is hit:
 - `truncated` is `true`, `truncated_by` names the limits in the order of the table; the text header has
   `truncated: yes (max_files, timeout)` after the result id
 - the limits of the listed files, lines and output only apply where they are listed: `max_files` and `max_output`
-  in `files` and `lines` detail, the others in `lines` detail
+  in `files` and `lines` detail, the others in `lines` detail; in `count` detail with `count_by` see
+  [Counts per file and per line](#counts-per-file-and-per-line)
 - `max_lines` and `max_matches` count the matched lines and the fragments listed under the files, in the order of
   the files, not the [repeated lines](#repeated-lines); a file whose lines are all cut is still listed with its
   counts, without lines; a multiline fragment is listed only with all its lines
@@ -709,6 +762,12 @@ The hints of a huge result (more than 10 × `max_files` files) in detail:
 - `detail: files (budget 2000)` comes after the result id when the detail was lowered, `detail_used` after `result`;
   `truncated` / `truncated_by` name `budget` whenever a level after the first one is used
 - the response is estimated as it is written, without the parts left out by [omit](#omit), so more fits
+- the `count` level of a lowered detail is the totals, whatever `count_by` is
+- a requested `count` detail with `count_by = file` or `line` has its own levels: as requested, `count_by = file`
+  (from `line`), the list of files cut to the budget with a cursor if at least 10 files (or all of them) fit,
+  `count_by = total`; a lowered `count_by` is written `count by: file (budget 2000)` after the result id, in JSON
+  `"count_by_used": "file"` after `result`, and `truncated` / `truncated_by` name `budget` whenever a level after
+  the first one is used
 
 ```json
 { "query": "lang = rust and text has 'unwrap(' /c", "output": { "budget": 1500 } }
@@ -854,7 +913,8 @@ the table: the bare grep-like output.
 | `file_counts`  | `lines: N  matches: N` after a path                           | `lines` and `matches` of a file        |
 | `match_ids`    | the ids and escape levels of a match: `⟦unwrap(⟧`, `@ 44..51` | `ids` and `escape` of a fragment, `ids` of its groups |
 | `groups`       | —                                                             | `groups` of a fragment                 |
-| `line_numbers` | `42:` and `41-` before a line                                 | `n` of a line                          |
+| `line_numbers` | `42:` and `41-` before a line, `42` of `42: 2` of `count_by = line` | `n` of a line                    |
+| `line_counts`  | `: 2` of `42: 2` of `count_by = line`                          | `matches` of `matched_lines`           |
 | `gaps`         | `--` between blocks                                           | —                                      |
 | `indent`       | the `⇥N` line, the block stays dedented                       | `indent` of a block                    |
 | `warnings`     | the warning lines and the empty line before them              | `warnings`                             |
@@ -895,12 +955,13 @@ warning: binary_skipped (1): data.bin
 - `omit` is a list of parts or `"all"`; it is a request option and a [configuration key](CONFIG.md#output): the list of
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
   own. Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of
-  parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps,
-  indent, warnings)`; in `update_config` `invalid_value` with the same list in the hint
+  parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers,
+  line_counts, gaps, indent, warnings)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
   incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
-  (`detail_used`, `since`, `unchanged`); the paths and the lines themselves, which `detail` controls
+  (`detail_used`, `count_by_used`, `since`, `unchanged`); the paths and the lines themselves, which `detail`
+  controls
 - the header line is written with the parts which are left, separated by two spaces as always, and is left out when
   nothing is left of it; the empty line before the files is written only after something; the response of `detail =
   count` without its counts and its result id is empty
@@ -910,6 +971,8 @@ warning: binary_skipped (1): data.bin
   the markers are counted without them. Lines with different ids are then the same repeated line
 - `line_numbers` with context lines: a matched line and a context line look the same, which the agent asked for;
   without `gaps` the blocks follow each other
+- `count_by = line`: a line without its number and its count is not written; JSON: `matched_lines` without both is
+  left out
 - the parts are left out of the response before the [budget](#budget) estimates it, so more fits
 - a response written to a [file](#output-to-a-file) is written without them, and its summary has its header as it
   is written
@@ -1101,7 +1164,7 @@ The tool returns the summary of the response instead of the response:
 - `<path>` is the absolute canonical path of the file, so the agent can read it whatever its working directory is;
   `lines` counts the lines of the file (a last line without a line break too), `bytes` its size
 - JSON: the fields of the response which the text header has, and its warnings, then `file`, `lines` and `bytes`:
-  `version`, `exists`, `result`, `detail_used`, `since`, `unchanged`, `counts`, `counts_exact`, `truncated`,
+  `version`, `exists`, `result`, `detail_used`, `count_by_used`, `since`, `unchanged`, `counts`, `counts_exact`, `truncated`,
   `truncated_by`, `next_cursor`, `warnings`, `file`, `lines`, `bytes`
 
 ```json

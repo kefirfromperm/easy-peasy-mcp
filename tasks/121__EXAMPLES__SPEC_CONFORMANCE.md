@@ -4944,6 +4944,7 @@ skip_generated = true    # file: config.toml
 [output]
 format = "text"    # file: config.toml
 detail = "lines"    # file: config.toml
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # file: config.toml
 funnel = "auto"    # file: config.toml

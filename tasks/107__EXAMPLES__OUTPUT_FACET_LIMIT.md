@@ -33,6 +33,7 @@ dir:        vendor/lib/ 6 · src/ 2 · tests/ 2 · docs/ 1
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -138,6 +139,7 @@ dir:        vendor/lib/ 6 · src/ 2 · tests/ 2 · … 1 more (1)
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default
