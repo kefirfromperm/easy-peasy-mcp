@@ -110,12 +110,32 @@ pub fn is_binary_content(bytes: &[u8], options: &DecodeOptions) -> bool {
 
 /// Decodes a file: by its BOM, otherwise by the options (CONFIG.md#encoding).
 pub fn decode(bytes: &[u8], options: &DecodeOptions) -> Decoded {
+    match decode_raw(bytes, options) {
+        None => Decoded::Binary,
+        Some(raw) => Decoded::Text {
+            content: Content::from_text(raw.text),
+            encoding: raw.encoding,
+            errors: raw.errors,
+        },
+    }
+}
+
+/// A text file decoded like `decode`, with its line breaks as they are, to be written back (TOOLS.md#writing).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Raw {
+    pub text: String,
+    pub encoding: Encoding,
+    /// The bytes of the BOM, empty without one.
+    pub bom: Vec<u8>,
+    /// Whether invalid bytes were replaced with `�`.
+    pub errors: bool,
+}
+
+/// Decodes a file like `decode` without normalizing its line breaks; `None` for a binary file.
+pub fn decode_raw(bytes: &[u8], options: &DecodeOptions) -> Option<Raw> {
     let (mut encoding, body) = match by_bom(bytes) {
         Some(found) => found,
-        None => match without_bom(bytes, options) {
-            Some(encoding) => (encoding, bytes),
-            None => return Decoded::Binary,
-        },
+        None => (without_bom(bytes, options)?, bytes),
     };
     if let Some(fallback) = options.fallback
         && options.encoding.is_none()
@@ -136,10 +156,49 @@ pub fn decode(bytes: &[u8], options: &DecodeOptions) -> Decoded {
         Encoding::Other(other) => whatwg(other, body),
         Encoding::Utf32Le | Encoding::Utf32Be => decode_utf32(body, encoding == Encoding::Utf32Le),
     };
-    Decoded::Text {
-        content: Content::from_text(text),
+    Some(Raw {
+        text,
         encoding,
+        bom: bytes[..bytes.len() - body.len()].to_vec(),
         errors,
+    })
+}
+
+/// The bytes of `text` in `encoding`, without a BOM; `None` when the encoding can't write one of its characters.
+pub fn encode(text: &str, encoding: Encoding) -> Option<Vec<u8>> {
+    let units = |big_endian: bool| -> Vec<u8> {
+        text.encode_utf16()
+            .flat_map(|u| {
+                if big_endian {
+                    u.to_be_bytes()
+                } else {
+                    u.to_le_bytes()
+                }
+            })
+            .collect()
+    };
+    let points = |big_endian: bool| -> Vec<u8> {
+        text.chars()
+            .flat_map(|c| {
+                let c = u32::from(c);
+                if big_endian {
+                    c.to_be_bytes()
+                } else {
+                    c.to_le_bytes()
+                }
+            })
+            .collect()
+    };
+    match encoding {
+        Encoding::Utf8 => Some(text.as_bytes().to_vec()),
+        Encoding::Utf16Le => Some(units(false)),
+        Encoding::Utf16Be => Some(units(true)),
+        Encoding::Utf32Le => Some(points(false)),
+        Encoding::Utf32Be => Some(points(true)),
+        Encoding::Other(other) => {
+            let (bytes, used, unmappable) = other.encode(text);
+            (used == other && !unmappable).then(|| bytes.into_owned())
+        }
     }
 }
 

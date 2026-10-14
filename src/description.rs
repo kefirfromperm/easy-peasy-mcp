@@ -474,3 +474,125 @@ pub fn copy_schema() -> Value {
         Value::from("List what would be copied, change nothing.");
     schema
 }
+
+/// The description of the `replace` tool (`TOOLS.md#replace`).
+pub const REPLACE_DESCRIPTION: &str = r#"Replaces text in files: the matches of a group of the query get a new text made from a template. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, searched again with the query of that find
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+replace = {"@old": "template"}: the matches of the group @old are replaced; a group is a condition, line( ... ),
+  near( ... ) or ( ... ) @name of the query. The other conditions only select the files.
+  {@old} the match, {@old.1} {@old.fname} the groups of a =~ regex; {{ and }} are braces
+  e.g. query "text =~ `fn (?<f>\w+)_old\(` @def", replace {"@def": "fn {@def.f}_new("}
+Only the matches which made the file match are replaced: in line( ... ) and near( ... ) the matched lines;
+  matches skipped by /c stay. /n writes the new text in the naming style of each match: 'parse query' /n to
+  'build request' turns parseQuery into buildRequest, PARSE_QUERY into BUILD_REQUEST. /e escapes it like the match.
+The encoding, the BOM, the line breaks and the permissions of a file are kept.
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+expect = N: fails without changing anything unless the selection has N files; expect_matches = N: N matches.
+dry_run = true: shows the changed lines and writes nothing. Use it for a selection you haven't seen."#;
+
+/// The input schema of the `replace` tool (`TOOLS.md#replace`).
+const REPLACE_SCHEMA: &str = r#"{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["replace"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "result": { "type": "string", "description": "Result id of find, e.g. 'r12': all its files. Instead of query." },
+    "query": { "type": "string", "description": "Query like in find: the files it matches. Instead of result." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    },
+    "replace": {
+      "type": "object", "minProperties": 1,
+      "description": "Group of the query -> template of the new text, e.g. {\"@old\": \"new_{@old.1}\"}.",
+      "additionalProperties": {
+        "anyOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["template"],
+            "properties": {
+              "template": { "type": "string" },
+              "naming": { "type": "boolean", "description": "false: a /n match gets the template as it is." }
+            }
+          }
+        ]
+      }
+    },
+    "expect": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless the selection has this many files." },
+    "expect_matches": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless this many matches are replaced." },
+    "dry_run": { "type": "boolean", "description": "Show the changed lines, write nothing." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max time of the call, e.g. '10s'. '0s': no limit." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "group_dirs": { "type": "boolean" },
+        "max_lines": { "type": "integer", "minimum": 1, "description": "Max changed lines shown." }
+      }
+    }
+  }
+}"#;
+
+/// The input schema of the `replace` tool (`TOOLS.md#replace`).
+#[must_use]
+pub fn replace_schema() -> Value {
+    serde_json::from_str(REPLACE_SCHEMA).expect("the schema of replace is JSON")
+}

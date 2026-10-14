@@ -50,8 +50,8 @@ pub(crate) const RENAME_FIELDS: [&str; 14] = [
 /// The fields which select files together with `query`.
 const QUERY_FIELDS: [&str; 4] = ["dirs", "traversal", "kinds", "languages"];
 
-/// The fields of `output` of a write tool.
-const OUTPUT_FIELDS: [&str; 2] = ["format", "group_dirs"];
+/// The fields of `output` of `delete`, `rename` and `copy`.
+pub(crate) const OUTPUT_FIELDS: [&str; 2] = ["format", "group_dirs"];
 
 /// What a write tool acts on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,8 +77,12 @@ pub(crate) struct WriteRequest {
     pub permanent: bool,
 }
 
-/// Checks the arguments of a write tool with the fields `fields`.
-pub(crate) fn parse(arguments: &Value, fields: &[&str]) -> Result<WriteRequest, Report> {
+/// Checks the arguments of a write tool with the fields `fields` and the fields `output_fields` of its `output`.
+pub(crate) fn parse(
+    arguments: &Value,
+    fields: &[&str],
+    output_fields: &[&str],
+) -> Result<WriteRequest, Report> {
     let empty = Map::new();
     let object = match arguments {
         Value::Null => &empty,
@@ -138,7 +142,7 @@ pub(crate) fn parse(arguments: &Value, fields: &[&str]) -> Result<WriteRequest, 
     };
     let dry_run = flag("dry_run")?;
     let permanent = flag("permanent")?;
-    let mut output = output_fields(object.get("output"))?;
+    let mut output = output_object(object.get("output"), output_fields)?;
     // the selection is all the matched entries in path order, without the funnel
     output.insert("detail".into(), json!("files"));
     output.insert("sort".into(), json!("path asc"));
@@ -170,14 +174,14 @@ pub(crate) fn parse(arguments: &Value, fields: &[&str]) -> Result<WriteRequest, 
     })
 }
 
-/// The `output` object of a write tool: only `format` and `group_dirs`.
-fn output_fields(output: Option<&Value>) -> Result<Map<String, Value>, Report> {
+/// The `output` object of a write tool with the fields `fields`.
+fn output_object(output: Option<&Value>, fields: &[&str]) -> Result<Map<String, Value>, Report> {
     match output {
         None => Ok(Map::new()),
         Some(Value::Object(output)) => {
-            if let Some(unknown) = output.keys().find(|k| !OUTPUT_FIELDS.contains(&k.as_str())) {
-                let expected = format!("expected one of: {}", OUTPUT_FIELDS.join(", "));
-                let hint = match did_you_mean(unknown, &OUTPUT_FIELDS) {
+            if let Some(unknown) = output.keys().find(|k| !fields.contains(&k.as_str())) {
+                let expected = format!("expected one of: {}", fields.join(", "));
+                let hint = match did_you_mean(unknown, fields) {
                     Some(close) => format!("did you mean '{close}'? {expected}"),
                     None => expected,
                 };
@@ -279,8 +283,12 @@ pub(crate) struct Acted {
     pub to: Option<PathBuf>,
     /// `rename`: an existing target was replaced.
     pub replaced: bool,
-    /// `rename`: the target is the old path.
+    /// `rename`: the target is the old path; `replace`: the file has no match or its text stays the same.
     pub unchanged: bool,
+    /// `replace`: the number of replaced matches of a changed file.
+    pub matches: Option<usize>,
+    /// `replace`: the changed lines.
+    pub changes: Vec<crate::replace::Change>,
 }
 
 impl Acted {
@@ -305,6 +313,8 @@ pub(crate) struct Outcome {
     pub permanent: bool,
     /// The number of entries of the selection.
     pub selected: usize,
+    /// `replace`: the most changed lines shown; `None` for the other tools.
+    pub max_lines: Option<usize>,
 }
 
 /// How a write tool acts on the entries.
@@ -438,6 +448,11 @@ impl Outcome {
         self.acted.iter().filter(|a| a.unchanged).count()
     }
 
+    /// `replace`: the matches replaced in the changed files.
+    fn matches(&self) -> usize {
+        self.acted.iter().filter_map(|a| a.matches).sum()
+    }
+
     /// The entries which failed.
     fn failed(&self) -> usize {
         self.acted.len() - self.done()
@@ -451,6 +466,9 @@ impl Outcome {
     /// The text format: the header with the count named `verb`, the entries, the warnings.
     pub(crate) fn to_text(&self, verb: &str, group_dirs: bool) -> String {
         let mut out = format!("{verb}: {}", self.done() - self.unchanged());
+        if self.max_lines.is_some() {
+            let _ = write!(out, "  matches: {}", self.matches());
+        }
         if self.unchanged() > 0 {
             let _ = write!(out, "  unchanged: {}", self.unchanged());
         }
@@ -469,6 +487,8 @@ impl Outcome {
         out.push('\n');
         if !self.acted.is_empty() {
             out.push('\n');
+            let mut lines = self.max_lines.unwrap_or(usize::MAX);
+            let mut more = 0;
             let mut current: Option<String> = None;
             for acted in &self.acted {
                 if group_dirs {
@@ -495,10 +515,36 @@ impl Outcome {
                 if acted.unchanged {
                     out.push_str("  unchanged");
                 }
+                if let Some(matches) = acted.matches {
+                    let _ = write!(out, "  matches: {matches}");
+                }
                 if let Some(error) = &acted.error {
                     let _ = write!(out, "  failed: {error}");
                 }
                 out.push('\n');
+                for change in &acted.changes {
+                    let old = change
+                        .old
+                        .iter()
+                        .enumerate()
+                        .map(|(i, l)| ('-', change.line + i, l));
+                    let new = change
+                        .new
+                        .iter()
+                        .enumerate()
+                        .map(|(i, l)| ('+', change.new_line + i, l));
+                    for (sign, n, line) in old.chain(new) {
+                        if lines == 0 {
+                            more += 1;
+                        } else {
+                            lines -= 1;
+                            let _ = writeln!(out, "{sign}{n}:{line}");
+                        }
+                    }
+                }
+            }
+            if more > 0 {
+                let _ = writeln!(out, "… {more} more lines");
             }
         }
         if !self.warnings.is_empty() {
@@ -513,6 +559,9 @@ impl Outcome {
         let mut doc = Map::new();
         doc.insert("version".into(), json!(crate::SPEC_VERSION));
         doc.insert(verb.into(), json!(self.done() - self.unchanged()));
+        if self.max_lines.is_some() {
+            doc.insert("matches".into(), json!(self.matches()));
+        }
         if self.unchanged() > 0 {
             doc.insert("unchanged".into(), json!(self.unchanged()));
         }
@@ -528,6 +577,8 @@ impl Outcome {
         if self.dry_run {
             doc.insert("dry_run".into(), json!(true));
         }
+        let mut lines = self.max_lines.unwrap_or(usize::MAX);
+        let mut more = 0;
         if !self.acted.is_empty() {
             let files: Vec<Value> = self
                 .acted
@@ -547,6 +598,29 @@ impl Outcome {
                     if acted.unchanged {
                         file.insert("unchanged".into(), json!(true));
                     }
+                    if let Some(matches) = acted.matches {
+                        file.insert("matches".into(), json!(matches));
+                    }
+                    let changes: Vec<Value> = acted
+                        .changes
+                        .iter()
+                        .filter_map(|change| {
+                            let mut take = |all: &[String]| -> Vec<String> {
+                                let shown = all.len().min(lines);
+                                lines -= shown;
+                                more += all.len() - shown;
+                                all[..shown].to_vec()
+                            };
+                            let old = take(&change.old);
+                            let new = take(&change.new);
+                            (!old.is_empty() || !new.is_empty()).then(|| {
+                                json!({ "line": change.line, "old": old, "new_line": change.new_line, "new": new })
+                            })
+                        })
+                        .collect();
+                    if !changes.is_empty() {
+                        file.insert("changes".into(), Value::Array(changes));
+                    }
                     if let Some(error) = &acted.error {
                         file.insert("error".into(), json!(error));
                     }
@@ -554,6 +628,9 @@ impl Outcome {
                 })
                 .collect();
             doc.insert("files".into(), Value::Array(files));
+        }
+        if more > 0 {
+            doc.insert("more_lines".into(), json!(more));
         }
         if !self.warnings.is_empty() {
             let warnings: Vec<Value> = self
@@ -589,7 +666,9 @@ mod tests {
     }
 
     fn text(arguments: &Value) -> String {
-        parse(arguments, &DELETE_FIELDS).unwrap_err().to_text()
+        parse(arguments, &DELETE_FIELDS, &OUTPUT_FIELDS)
+            .unwrap_err()
+            .to_text()
     }
 
     #[test]
@@ -622,7 +701,12 @@ mod tests {
             text(&json!({"query": "", "timeout": "x"})),
             "error[invalid_option]: 'timeout' must be a duration like \"10s\" (units ms, s, m)\n"
         );
-        let checked = parse(&json!({"result": "r3", "dry_run": true}), &DELETE_FIELDS).unwrap();
+        let checked = parse(
+            &json!({"result": "r3", "dry_run": true}),
+            &DELETE_FIELDS,
+            &OUTPUT_FIELDS,
+        )
+        .unwrap();
         assert_eq!(checked.selection, Selection::Result(3));
         assert!(checked.dry_run && !checked.permanent);
     }

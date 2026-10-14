@@ -70,6 +70,23 @@ fn escape_char(style: Style, c: char) -> Vec<String> {
     }
 }
 
+/// `text` escaped `level` times, every character in its first form (TOOLS.md#templates).
+pub fn escape_first(style: Style, text: &str, level: u8) -> String {
+    let mut out = text.to_string();
+    for _ in 0..level {
+        out = out
+            .chars()
+            .map(|c| {
+                escape_char(style, c)
+                    .into_iter()
+                    .next()
+                    .expect("a character has a form")
+            })
+            .collect();
+    }
+    out
+}
+
 /// The forms of `s` escaped once: every combination of the forms of its characters.
 fn escape_str(style: Style, s: &str) -> Vec<String> {
     s.chars().fold(vec![String::new()], |prefixes, c| {
@@ -119,6 +136,27 @@ pub fn pattern(style: Style, value: &str, levels: RangeInclusive<u8>) -> Option<
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_first_form_on_every_level() {
+        let value = r#""role": 'a b' <&>"#;
+        assert_eq!(escape_first(Style::Backslash, value, 0), value);
+        assert_eq!(
+            escape_first(Style::Backslash, value, 1),
+            r#"\"role\": 'a b' <&>"#
+        );
+        assert_eq!(
+            escape_first(Style::Backslash, value, 2),
+            r#"\\\"role\\\": 'a b' <&>"#
+        );
+        assert_eq!(escape_first(Style::QuoteDoubling, "it's", 2), "it''''s");
+        assert_eq!(
+            escape_first(Style::Xml, value, 1),
+            "&quot;role&quot;: &apos;a b&apos; &lt;&amp;&gt;"
+        );
+        assert_eq!(escape_first(Style::Url, "a b/é", 1), "a%20b%2F%C3%A9");
+        assert_eq!(escape_first(Style::Url, " ", 2), "%2520");
+    }
 
     fn sorted(style: Style, c: char, level: u8) -> Vec<String> {
         let mut f = forms(style, c, level).unwrap();

@@ -305,6 +305,10 @@ pub struct TextPattern {
     pub escape_levels: Vec<u8>,
     /// `=~` with capture groups: they are the sub-groups of the condition (QUERY.md#regex-groups).
     pub captures: bool,
+    /// `/n` without `/e`: `replace` writes the new text in the naming style of a match (TOOLS.md#templates).
+    pub naming: bool,
+    /// `/e`: the style of the escaped forms.
+    pub escape_style: Option<crate::query::escape::Style>,
 }
 
 impl TextPattern {
@@ -662,6 +666,34 @@ impl Filter {
         out
     }
 
+    /// The expressions right inside this one.
+    fn children(&self) -> Vec<&Filter> {
+        match self {
+            Self::And(items) | Self::Or(items) | Self::Xor(items) => items.iter().collect(),
+            Self::Not(inner) | Self::Line { inner, .. } | Self::Group { inner, .. } => {
+                vec![inner.as_ref()]
+            }
+            Self::Near { a, b, .. } => vec![a.as_ref(), b.as_ref()],
+            _ => Vec::new(),
+        }
+    }
+
+    /// The condition, `line`, `near` or bracket group with the id `id`.
+    pub fn find(&self, id: &CondId) -> Option<&Filter> {
+        if self.id().is_some_and(|(_, own)| own == id) {
+            return Some(self);
+        }
+        self.children().into_iter().find_map(|child| child.find(id))
+    }
+
+    /// Whether the expression has a `text` condition, `line( ... )` or `near( ... )`: it can match text.
+    pub fn has_text(&self) -> bool {
+        matches!(
+            self,
+            Self::Content { .. } | Self::Line { .. } | Self::Near { .. }
+        ) || self.children().into_iter().any(Filter::has_text)
+    }
+
     fn collect_groups(&self, orders: &[usize], out: &mut Vec<(usize, CondId)>) {
         match self {
             Self::And(items) | Self::Or(items) | Self::Xor(items) => {
@@ -897,6 +929,8 @@ mod tests {
             skip_comments: false,
             escape_levels: Vec::new(),
             captures: true,
+            naming: false,
+            escape_style: None,
         };
         assert_eq!(
             pattern.sub_groups("x fn load", 2),

@@ -1,7 +1,7 @@
 //! The query language (QUERY.md): text → tokens → syntax tree → condition ids and legend → compiled filter.
 
 pub mod ast;
-mod escape;
+pub mod escape;
 mod eval;
 mod fuzzy;
 mod lexer;
@@ -72,12 +72,9 @@ pub struct Query {
     pub narrowing: Narrowing,
     /// The capture groups of the `text =~` conditions which have some: the name of every group by its number,
     /// group 1 first (QUERY.md#regex-groups).
-    #[allow(dead_code)]
-    // read by the fields which refer to groups: `output.groups`, `replace` (tasks 129, 130)
     pub sub_groups: Vec<(CondId, Vec<Option<String>>)>,
 }
 
-#[allow(dead_code)] // the fields which refer to groups come with `output.groups` and `replace` (tasks 129, 130)
 impl Query {
     /// Checks a reference to a group of the query (QUERY.md#group-references): `unknown_group`, with the position in
     /// `reference`, when the query has no such group.
@@ -137,15 +134,22 @@ impl Query {
         let mut out = Vec::new();
         for (id, _) in &self.legend {
             out.push(id.to_string());
-            let subs = self.sub_groups.iter().find(|(regex, _)| regex == id);
-            for (i, name) in subs
-                .into_iter()
-                .flat_map(|(_, names)| names.iter().enumerate())
-            {
-                out.push(format!("{id}.{}", i + 1));
-                if let Some(name) = name {
-                    out.push(format!("{id}.{name}"));
-                }
+            out.extend(self.sub_group_names(id));
+        }
+        out
+    }
+
+    /// The references of the sub-groups of the condition `id` by their number and, when they have one, by their name.
+    pub fn sub_group_names(&self, id: &CondId) -> Vec<String> {
+        let mut out = Vec::new();
+        let subs = self.sub_groups.iter().find(|(regex, _)| regex == id);
+        for (i, name) in subs
+            .into_iter()
+            .flat_map(|(_, names)| names.iter().enumerate())
+        {
+            out.push(format!("{id}.{}", i + 1));
+            if let Some(name) = name {
+                out.push(format!("{id}.{name}"));
             }
         }
         out
@@ -1353,6 +1357,8 @@ fn content_pattern(c: &Condition, max_escape_level: usize) -> Option<TextPattern
             skip_comments,
             escape_levels: Vec::new(),
             captures,
+            naming: false,
+            escape_style: None,
         });
     }
     let escape = c.modifiers.iter().find_map(|m| {
@@ -1361,6 +1367,7 @@ fn content_pattern(c: &Condition, max_escape_level: usize) -> Option<TextPattern
         let levels = escape_levels("", levels, max_escape_level).expect("levels are validated");
         Some((style, levels))
     });
+    let escape_style = escape.as_ref().map(|(style, _)| *style);
     let (escaped, escape_levels) = match escape {
         Some((style, levels)) => (
             escape::pattern(style, &s.value, levels.clone())?,
@@ -1383,6 +1390,8 @@ fn content_pattern(c: &Condition, max_escape_level: usize) -> Option<TextPattern
         skip_comments,
         escape_levels,
         captures: false,
+        naming: has("n") && escape_style.is_none(),
+        escape_style,
     })
 }
 
