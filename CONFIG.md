@@ -128,6 +128,7 @@ skip_generated = true
 [output]
 format = "text"                 # text | json
 detail = "lines"                # exists | count | facets | files | lines
+count_by = "total"              # total | file | line: the counts of detail = count
 # budget = 2000                 # not set: no token budget
 chars_per_token = 4
 funnel = "auto"                 # auto | always | never
@@ -413,6 +414,7 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 |------------------------|-------------|----------------|
 | `format`               | string      | `"text"`       |
 | `detail`               | string      | `"lines"`      |
+| `count_by`             | string      | `"total"`      |
 | `budget`               | number      | not set        |
 | `chars_per_token`      | number      | `4`            |
 | `funnel`               | string      | `"auto"`       |
@@ -443,7 +445,7 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 
 `omit`: `"all"` or a list of the parts of [OUTPUT.md](OUTPUT.md#omit), otherwise `invalid value for 'output.omit':
 "all" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups,
-line_numbers, gaps, indent, warnings) is expected`. `get_config` shows `omit = "all"` or the list.
+line_numbers, line_counts, gaps, indent, warnings) is expected`. `get_config` shows `omit = "all"` or the list.
 
 `cursor` and `file` of the request `output` are not keys: they are set per request. `output.file` in the config
 file is `invalid value for 'output.file': output.file is set per request`, in `update_config` `invalid_value` with
