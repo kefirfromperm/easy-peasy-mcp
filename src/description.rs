@@ -440,3 +440,37 @@ const RENAME_SCHEMA: &str = r#"{
 pub fn rename_schema() -> Value {
     serde_json::from_str(RENAME_SCHEMA).expect("the schema of rename is JSON")
 }
+
+/// The description of the `copy` tool (`TOOLS.md#copy`).
+pub const COPY_DESCRIPTION: &str = r#"Copies files: every file gets a copy at a path made from a template. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, not only the shown ones
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+to = "...": the path of the copy, relative to the working directory, / as the separator. Placeholders:
+  {dir} {name} {stem} {ext} {path}   parts of the old path: src/a.test.ts = src, a.test.ts, a.test, ts, src/a.test.ts
+  {1} {2} {word}                     groups of pattern; {{ and }} are braces
+  e.g. "{dir}/{stem}.bak.{ext}", "backup/{path}"
+pattern = "regex": must match the whole old path, e.g. "src/(.*)\.rs" with to = "old/{1}.rs".
+  A file which doesn't match is skipped with a warning.
+Missing directories are created. A directory is copied with everything in it. Symlinks are copied as symlinks.
+The content, the modification time and the permissions are kept; a failed copy leaves nothing behind.
+on_conflict: a target which exists, two files to one target, a target which is another selected file:
+  "fail" (default): nothing is copied, the error lists them; "skip": those files are skipped;
+  "overwrite": an existing file is moved to the trash and replaced, a directory never.
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+expect = N: fails without changing anything unless the selection has N files.
+dry_run = true: lists what would be copied and changes nothing. Use it for a selection you haven't seen."#;
+
+/// The input schema of the `copy` tool (`TOOLS.md#copy`): the one of `rename` with its own descriptions of `to` and
+/// `dry_run`.
+#[must_use]
+pub fn copy_schema() -> Value {
+    let mut schema = rename_schema();
+    let properties = &mut schema["properties"];
+    properties["to"]["description"] = Value::from(
+        "The path of the copy, relative to the working directory: {dir} {name} {stem} {ext} {path}, groups {1} {word} of pattern.",
+    );
+    properties["dry_run"]["description"] =
+        Value::from("List what would be copied, change nothing.");
+    schema
+}

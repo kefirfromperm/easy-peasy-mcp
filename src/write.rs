@@ -29,7 +29,7 @@ pub(crate) const DELETE_FIELDS: [&str; 12] = [
     "output",
 ];
 
-/// The fields of `rename`, in the order of its input schema.
+/// The fields of `rename` and of `copy`, in the order of their input schemas.
 pub(crate) const RENAME_FIELDS: [&str; 14] = [
     "version",
     "result",
