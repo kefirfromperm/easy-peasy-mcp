@@ -131,7 +131,7 @@ main.rs  lines: 1  matches: 1
   earlier line has `0`: `  211: 0`; the counts of the lines of a file add up to its `matches`. No text of the lines,
   no context, no [repeated lines](#repeated-lines)
 - JSON: the files as in `files` detail without `conditions`; with `line` every file has `"matched_lines": [{ "n": 42,
-  "matches": 2 }, ...]` after `matches`
+  "matches": 2 }, ...]` after `matches`, `matches` also when it is 0
 - the limits apply as in `files` and `lines` detail: `max_files` and `max_output` cut the list of files, with `line`
   also `max_lines`, `max_matches` and `max_matches_per_file` (a cut file gets `(cut)`); a line shows the matches
   which are listed. There is no text, so `max_output` counts the paths of the files only, and `max_line_length` and
