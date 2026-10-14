@@ -270,11 +270,13 @@ pub enum NodeKind {
     Group(Box<Expr>),
 }
 
-/// The id of a condition: `#1` or `@label` (QUERY.md#labels-and-condition-ids).
+/// The id of a condition: `#1` or `@label` (QUERY.md#labels-and-condition-ids); or the reference of a sub-group of
+/// a regex, `@def.fname`, the id of its matches shown by `output.groups` (OUTPUT.md#shown-groups).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CondId {
     Number(u32),
     Label(String),
+    Sub(String),
 }
 
 impl fmt::Display for CondId {
@@ -282,6 +284,7 @@ impl fmt::Display for CondId {
         match self {
             Self::Number(n) => write!(f, "#{n}"),
             Self::Label(l) => write!(f, "@{l}"),
+            Self::Sub(reference) => f.write_str(reference),
         }
     }
 }
@@ -299,6 +302,17 @@ pub enum SubGroup {
 pub struct GroupRef {
     pub id: CondId,
     pub sub: Option<SubGroup>,
+}
+
+impl fmt::Display for GroupRef {
+    /// The reference as the matches of the sub-groups list it: `@def`, `@def.1`, `@def.fname`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &self.sub {
+            None => write!(f, "{}", self.id),
+            Some(SubGroup::Number(n)) => write!(f, "{}.{n}", self.id),
+            Some(SubGroup::Name(name)) => write!(f, "{}.{name}", self.id),
+        }
+    }
 }
 
 /// A condition, a `line( ... )`, a `near( ... )` or a bracket group: everything which gets a condition id.

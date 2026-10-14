@@ -516,6 +516,15 @@ impl Response<'_> {
                 self.push_line_counts(out, &m.content, fragments);
                 return;
             }
+            if self.blocks.only_match {
+                out.push_str(&lines::render_matches(
+                    &m.content,
+                    fragments,
+                    self.highlight,
+                    self.omit,
+                ));
+                return;
+            }
             let blocks = blocks::before(
                 blocks::blocks(&m.content, fragments, &self.blocks),
                 listing.until[index],

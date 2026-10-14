@@ -16,6 +16,9 @@ pub struct BlockOptions {
     pub blank_context: bool,
     /// Remove the common leading whitespace of every block.
     pub dedent: bool,
+    /// Write the matches instead of their lines (OUTPUT.md#only-the-matches); the blocks are then made without
+    /// context and dedent.
+    pub only_match: bool,
 }
 
 /// A line of a block: its 0-based index in the content and whether it is matched (or context).
@@ -242,6 +245,7 @@ mod tests {
             after: 0,
             blank_context: true,
             dedent: true,
+            only_match: false,
         };
         assert_eq!(
             blocks(&indented, &ac[1..], &context)[0].indent,

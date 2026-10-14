@@ -174,6 +174,28 @@ struct File {
     path_fragments: Vec<Fragment>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     blocks: Vec<Block>,
+    /// The matches of `only_match` instead of the blocks (OUTPUT.md#only-the-matches).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    fragments: Vec<Match>,
+}
+
+/// A match of `only_match`: the number of its line, then the fields of a fragment, or the text alone with `none` and
+/// `markers` (OUTPUT.md#only-the-matches).
+#[derive(Serialize)]
+struct Match {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    n: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    col: Option<[usize; 2]>,
+    text: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    escape: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    to: Option<To>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    groups: Vec<Group>,
 }
 
 /// A matched line of `count_by = line` with its matches (OUTPUT.md#counts-per-file-and-per-line).
@@ -444,8 +466,19 @@ impl Response<'_> {
                 .as_ref()
                 .map(path_fragments)
                 .unwrap_or_default(),
+            fragments: match (&found.matches, &listing.files[index]) {
+                (Some(m), Listed::Lines(fragments))
+                    if self.detail == Detail::Lines && self.blocks.only_match =>
+                {
+                    matches(&m.content, fragments, self.highlight, self.omit)
+                }
+                _ => Vec::new(),
+            },
             blocks: match (&found.matches, &listing.files[index]) {
-                (Some(m), Listed::Lines(fragments)) if self.detail == Detail::Lines => blocks(
+                (Some(m), Listed::Lines(fragments))
+                    if self.detail == Detail::Lines && !self.blocks.only_match =>
+                {
+                    blocks(
                     &m.content,
                     fragments,
                     &self.blocks,
@@ -453,7 +486,8 @@ impl Response<'_> {
                     self.limits.max_line_length,
                     listing.until[index],
                     self.omit,
-                ),
+                    )
+                }
                 _ => Vec::new(),
             },
         }
@@ -529,6 +563,49 @@ fn fragment(content: &Content, f: &super::Fragment, i: usize) -> Fragment {
             })
             .collect(),
     }
+}
+
+/// The matches of `only_match` in the highlight style, without the line numbers which `omit` leaves out.
+fn matches(
+    content: &Content,
+    fragments: &[super::Fragment],
+    highlight: Highlight<'_>,
+    omit: Omit,
+) -> Vec<Match> {
+    fragments
+        .iter()
+        .map(|f| {
+            let i = content.line_of(f.range.start);
+            let n = (!omit.has(Part::LineNumbers)).then_some(i + 1);
+            if highlight == Highlight::Columns {
+                let fragment = fragment(content, f, i);
+                return Match {
+                    n,
+                    col: Some(fragment.col),
+                    text: fragment.text,
+                    ids: fragment.ids,
+                    escape: fragment.escape,
+                    to: fragment.to,
+                    groups: fragment.groups,
+                };
+            }
+            let text = super::lines::render_matches(
+                content,
+                std::slice::from_ref(f),
+                highlight,
+                Omit::from_parts(&[Part::LineNumbers]),
+            );
+            Match {
+                n,
+                col: None,
+                text: text.strip_suffix('\n').unwrap_or(&text).to_string(),
+                ids: Vec::new(),
+                escape: None,
+                to: None,
+                groups: Vec::new(),
+            }
+        })
+        .collect()
 }
 
 /// The blocks of the matched lines with their context, every fragment in the line where it starts; without the

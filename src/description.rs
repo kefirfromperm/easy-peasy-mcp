@@ -34,6 +34,8 @@ Text response: "42:" matched line, "41-" context line, "--" gap between blocks o
 indentation; with several conditions a legend, [#1 @x] matched conditions and ⟦ids:text⟧; empty or huge results come
 with a funnel and hints how to fix the query. Warnings are left out by default ("warnings left out: ...").
 output.omit = ['line_numbers', ...] or 'all' leaves more parts out, output.show = ['warnings', ...] or 'all' adds them.
+output.groups = ['@x', '#2', '@re.name'] shows only the matches of these groups (also a capture group of =~);
+output.only_match = true writes only the matched text, like grep -o.
 If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
@@ -119,6 +121,8 @@ const FIND_SCHEMA: &str = r##"{
         "before": { "type": "integer", "minimum": 0 },
         "after": { "type": "integer", "minimum": 0 },
         "path_fragments": { "type": "boolean" },
+        "groups": { "type": "array", "items": { "type": "string" }, "description": "Group references (@ser, #2, @def.fname): show only their matches." },
+        "only_match": { "type": "boolean", "description": "Write the matches instead of their lines, like grep -o." },
         "highlight": { "enum": ["auto", "none", "columns", "markers"] },
         "markers": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
         "max_files": { "type": "integer", "minimum": 1 },

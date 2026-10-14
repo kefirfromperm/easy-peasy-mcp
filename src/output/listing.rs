@@ -206,7 +206,8 @@ fn first_over(
 }
 
 /// The lines of the blocks of the fragments before the line `until` with their characters as they are shown: after
-/// the dedent and the cut of long lines, without the line numbers and markers.
+/// the dedent and the cut of long lines, without the line numbers and markers; with `only_match` the lines of every
+/// match with the characters of the match in them.
 fn shown_lines(
     content: &Content,
     fragments: &[Fragment],
@@ -214,6 +215,22 @@ fn shown_lines(
     limits: &Limits,
     until: Option<usize>,
 ) -> Vec<(usize, usize)> {
+    if options.only_match {
+        // the lines of the matches as they are written (OUTPUT.md#only-the-matches)
+        return fragments
+            .iter()
+            .flat_map(|f| {
+                let first = content.line_of(f.range.start);
+                (first..=last_line(content, f)).map(move |i| {
+                    let (start, end) = content.line_range(i);
+                    let from = f.range.start.max(start).min(end);
+                    let to = f.range.end.min(end).max(from);
+                    (i, content.text()[from..to].chars().count())
+                })
+            })
+            .filter(|(i, _)| until.is_none_or(|until| *i < until))
+            .collect();
+    }
     before(blocks(content, fragments, options), until)
         .iter()
         .flat_map(|block| {
