@@ -111,14 +111,14 @@ mod tests {
 
     #[test]
     fn parts_by_name() {
-        assert_eq!(Part::ALL.len(), 15);
+        assert_eq!(Part::ALL.len(), 16);
         assert_eq!(Part::find("dir"), Some(Part::Dir));
         assert_eq!(Part::find("match_ids"), Some(Part::MatchIds));
         assert_eq!(Part::find("colour"), None);
         assert_eq!(Part::LineNumbers.name(), "line_numbers");
         assert_eq!(
             Part::ALL.map(Part::name).join(", "),
-            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings"
+            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings"
         );
         assert_eq!(Part::find("line_counts"), Some(Part::LineCounts));
     }

@@ -1183,6 +1183,75 @@ mod tests {
         );
     }
 
+    /// The repeated line `use x;` of four files with `repeated_locations`, `max_output` and the parts left out.
+    fn repeated_text(locations: usize, max_output: usize, omit: &[Part]) -> String {
+        let files: Vec<Found> = ["a", "b", "c", "d"]
+            .iter()
+            .map(|name| Found {
+                matches: Some(crate::search::FileMatches {
+                    content: crate::content::Content::from_bytes(b"use x;\n"),
+                    fragments: vec![Fragment {
+                        range: 4..5,
+                        ids: vec![(1, CondId::Number(1))],
+                        escape: None,
+                        groups: Vec::new(),
+                    }],
+                    lines: 1,
+                }),
+                ..found(name)
+            })
+            .collect();
+        Response {
+            detail: Detail::Lines,
+            count_by: CountBy::Total,
+            blocks: BlockOptions::default(),
+            group_dirs: true,
+            group_repeated: 3,
+            repeated_locations: locations,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
+            funnel: None,
+            hints: Vec::new(),
+            facets: Vec::new(),
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits {
+                max_output,
+                ..Limits::default()
+            },
+            result_id: None,
+            legend: &[],
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+            omit: Omit::from_parts(omit),
+            in_dirs: None,
+        }
+        .to_text()
+    }
+
+    #[test]
+    fn the_locations_of_a_repeated_line() {
+        let head = "files: 4  lines: 4  matches: 4\n\nrepeated:\n  ×4 use ⟦#1:x⟧;";
+        assert_eq!(repeated_text(2, usize::MAX, &[]), format!("{head}    a:1, b:1, … 2 more\n"));
+        assert_eq!(
+            repeated_text(usize::MAX, usize::MAX, &[]),
+            format!("{head}    a:1, b:1, c:1, d:1\n")
+        );
+        assert_eq!(repeated_text(usize::MAX, usize::MAX, &[Part::Locations]), format!("{head}\n"));
+        // "a:1, b:1" is 8 characters
+        assert_eq!(
+            repeated_text(usize::MAX, 8, &[]),
+            "files: 4  lines: 4  matches: 4  truncated: yes (max_output)\n\nrepeated:\n  ×4 use ⟦#1:x⟧;    a:1, b:1, … 2 more\n"
+        );
+        assert_eq!(
+            repeated_text(usize::MAX, 2, &[]),
+            "files: 4  lines: 4  matches: 4  truncated: yes (max_output)\n\nrepeated:\n  ×4 use ⟦#1:x⟧;    … 4 more\n"
+        );
+    }
+
     #[test]
     fn a_marker_in_a_matched_line_is_a_warning() {
         let content = crate::content::Content::from_bytes("a ⟧ b\nc\n".as_bytes());
