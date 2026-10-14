@@ -22,8 +22,9 @@ use crate::output::{
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
-use crate::recycle::{self, Trash, TrashError};
+use crate::recycle::{Trash, TrashError};
 use crate::relevance;
+use crate::rename;
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, Progress, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
@@ -183,7 +184,8 @@ impl Drop for Lease {
 
 impl Engine {
     /// The names of the tools, in the order of `tools/list`.
-    pub const TOOLS: [&'static str; 4] = ["find", "get_config", "update_config", "delete"];
+    pub const TOOLS: [&'static str; 5] =
+        ["find", "get_config", "update_config", "delete", "rename"];
 
     /// A new session.
     #[must_use]
@@ -205,7 +207,7 @@ impl Engine {
         Self::TOOLS
             .into_iter()
             .filter(|t| *t != "update_config" || settings.allow_update)
-            .filter(|t| *t != "delete" || settings.allow_write)
+            .filter(|t| !WRITE_TOOLS.contains(t) || settings.allow_write)
             .collect()
     }
 
@@ -250,16 +252,26 @@ impl Engine {
                     arguments,
                 )))
             }
-            "delete" => Ok(self.delete(arguments, progress)),
+            "delete" => {
+                Ok(self.write_tool(arguments, |json| self.try_delete(arguments, progress, json)))
+            }
+            "rename" => {
+                Ok(self.write_tool(arguments, |json| self.try_rename(arguments, progress, json)))
+            }
             other => Err(UnknownTool(other.to_string())),
         }
     }
 
-    /// The `delete` tool (TOOLS.md#delete): `write_disabled` without `server.allow_write`.
-    fn delete(&self, arguments: &Value, progress: Option<&Arc<Progress>>) -> ToolOutput {
+    /// A write tool (TOOLS.md#write-tools): `write_disabled` without `server.allow_write`, the errors in the format
+    /// of the request.
+    fn write_tool(
+        &self,
+        arguments: &Value,
+        call: impl FnOnce(bool) -> Result<ToolOutput, Report>,
+    ) -> ToolOutput {
         let json = self.json_format(arguments);
         let result = if self.options.settings.allow_write {
-            self.try_delete(arguments, progress, json)
+            call(json)
         } else {
             Err(
                 Report::new(ErrorCode::WriteDisabled, "write tools are disabled")
@@ -276,15 +288,14 @@ impl Engine {
         }
     }
 
-    /// `delete` with writing allowed: the selection, `expect`, then every entry moved to the trash or deleted.
-    fn try_delete(
+    /// The selection of a write tool: its settings, its deadline, its entries, whether the search of the query
+    /// stopped at the timeout (then nothing is changed).
+    fn selection(
         &self,
-        arguments: &Value,
+        write: &write::WriteRequest,
+        arrival: std::time::Instant,
         progress: Option<&Arc<Progress>>,
-        json: bool,
-    ) -> Result<ToolOutput, Report> {
-        let arrival = std::time::Instant::now();
-        let write = write::parse(arguments, &write::DELETE_FIELDS)?;
+    ) -> Result<Selected, Report> {
         let settings = self
             .settings()
             .with(&write.request.config, &write.request.languages)
@@ -308,27 +319,50 @@ impl Engine {
                 )
             }
         };
+        Ok(Selected {
+            settings,
+            deadline,
+            entries,
+            timed_out,
+        })
+    }
+
+    /// `delete` with writing allowed: the selection, `expect`, then every entry moved to the trash or deleted.
+    fn try_delete(
+        &self,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+        json: bool,
+    ) -> Result<ToolOutput, Report> {
+        let arrival = std::time::Instant::now();
+        let write = write::parse(arguments, &write::DELETE_FIELDS)?;
+        let Selected {
+            settings,
+            deadline,
+            entries,
+            timed_out,
+        } = self.selection(&write, arrival, progress)?;
         let mut outcome = write::Outcome {
             dry_run: write.dry_run,
             permanent: write.permanent,
-            selected: entries.len(),
             ..write::Outcome::default()
         };
         if timed_out {
             // nothing is changed when the selection is incomplete
+            outcome.selected = entries.len();
             outcome.warnings.add_global(WarningCode::Timeout);
         } else {
             write::check_expect(entries.len(), write.expect)?;
             let entries = write::select(entries);
-            let stop = || {
-                deadline.is_some_and(|d| std::time::Instant::now() >= d)
-                    || progress.is_some_and(|p| p.is_cancelled())
-            };
+            let stop = || stopped(deadline, progress);
             let allowed = |path: &Path| write::may_change(path, &settings.allowed_roots);
             let roots = settings.allowed_roots.clone();
             let trash = |path: &Path| self.options.trash.put(path, &roots);
-            let operation: &dyn Fn(&Path) -> Result<(), TrashError> =
-                if write.permanent { &remove } else { &trash };
+            let operation: &dyn Fn(&Path) -> Result<(), TrashError> = if write.permanent {
+                &write::remove
+            } else {
+                &trash
+            };
             outcome = write::act(
                 &entries,
                 &write::Act {
@@ -340,15 +374,52 @@ impl Engine {
                 },
             );
         }
-        let text = if json {
-            outcome.to_json("deleted")
+        Ok(write_output(&outcome, "deleted", &settings, json))
+    }
+
+    /// `rename` with writing allowed: the selection, `expect`, the plan and its conflicts, then the renames.
+    fn try_rename(
+        &self,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+        json: bool,
+    ) -> Result<ToolOutput, Report> {
+        let arrival = std::time::Instant::now();
+        let write = write::parse(arguments, &write::RENAME_FIELDS)?;
+        let request = rename::parse(arguments)?;
+        let Selected {
+            settings,
+            deadline,
+            entries,
+            timed_out,
+        } = self.selection(&write, arrival, progress)?;
+        let outcome = if timed_out {
+            // nothing is changed when the selection is incomplete
+            let mut outcome = write::Outcome {
+                dry_run: write.dry_run,
+                selected: entries.len(),
+                ..write::Outcome::default()
+            };
+            outcome.warnings.add_global(WarningCode::Timeout);
+            outcome
         } else {
-            outcome.to_text("deleted", settings.bool(Key::GroupDirs))
+            write::check_expect(entries.len(), write.expect)?;
+            let entries = write::select(entries);
+            let stop = || stopped(deadline, progress);
+            let roots = &settings.allowed_roots;
+            let trash = |path: &Path| self.options.trash.put(path, roots);
+            rename::rename(
+                &entries,
+                &request,
+                &rename::How {
+                    roots,
+                    stop: &stop,
+                    trash: &trash,
+                    dry_run: write.dry_run,
+                },
+            )?
         };
-        Ok(ToolOutput {
-            text,
-            is_error: outcome.is_error(),
-        })
+        Ok(write_output(&outcome, "renamed", &settings, json))
     }
 
     /// The `find` tool.
@@ -963,6 +1034,41 @@ impl Engine {
     }
 }
 
+/// The tools which change files (TOOLS.md#write-tools).
+const WRITE_TOOLS: [&str; 2] = ["delete", "rename"];
+
+/// The selection of a write tool, see [`Engine::selection`].
+struct Selected {
+    settings: Settings,
+    deadline: Option<std::time::Instant>,
+    entries: Vec<write::Entry>,
+    timed_out: bool,
+}
+
+/// Whether a write tool must stop: its deadline passed or it was cancelled.
+fn stopped(deadline: Option<std::time::Instant>, progress: Option<&Arc<Progress>>) -> bool {
+    deadline.is_some_and(|d| std::time::Instant::now() >= d)
+        || progress.is_some_and(|p| p.is_cancelled())
+}
+
+/// The response of a write tool whose count is named `verb`.
+fn write_output(
+    outcome: &write::Outcome,
+    verb: &str,
+    settings: &Settings,
+    json: bool,
+) -> ToolOutput {
+    let text = if json {
+        outcome.to_json(verb)
+    } else {
+        outcome.to_text(verb, settings.bool(Key::GroupDirs))
+    };
+    ToolOutput {
+        text,
+        is_error: outcome.is_error(),
+    }
+}
+
 /// The entries of a kept result for a write tool: their paths in their working directories, their stamps.
 fn result_entries(kept: &CachedResult) -> Vec<write::Entry> {
     kept.files
@@ -971,7 +1077,9 @@ fn result_entries(kept: &CachedResult) -> Vec<write::Entry> {
             let (dir, prefix) = kept.working_dirs.get(f.root)?;
             Some(write::Entry {
                 path: dir.join(&f.rel),
+                dir: dir.clone(),
                 shown: prefix.join(&f.rel),
+                prefix: prefix.clone(),
                 member: f.member.clone(),
                 is_dir: f.is_dir,
                 from_result: true,
@@ -993,6 +1101,8 @@ fn found_entries(
             let rel = f.rel.strip_prefix(prefix).unwrap_or(&f.rel);
             Some(write::Entry {
                 path: dir.join(rel),
+                dir: dir.clone(),
+                prefix: prefix.clone(),
                 member: f.member,
                 is_dir: f.is_dir,
                 from_result: false,
@@ -1001,24 +1111,6 @@ fn found_entries(
             })
         })
         .collect()
-}
-
-/// Deletes the entry at `path` permanently: a directory with everything in it, a symlink itself.
-fn remove(path: &Path) -> Result<(), TrashError> {
-    let meta = std::fs::symlink_metadata(path).map_err(|e| recycle::failed(&e))?;
-    let removed = if meta.file_type().is_dir() {
-        std::fs::remove_dir_all(path)
-    } else {
-        // a symlink to a directory is a directory on Windows
-        std::fs::remove_file(path).or_else(|e| {
-            if cfg!(windows) && meta.file_type().is_symlink() {
-                std::fs::remove_dir(path)
-            } else {
-                Err(e)
-            }
-        })
-    };
-    removed.map_err(|e| recycle::failed(&e))
 }
 
 /// The search of a request with its files in the order of `output.sort`: ranked by relevance (its signals and the

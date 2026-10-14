@@ -29,6 +29,24 @@ pub(crate) const DELETE_FIELDS: [&str; 12] = [
     "output",
 ];
 
+/// The fields of `rename`, in the order of its input schema.
+pub(crate) const RENAME_FIELDS: [&str; 14] = [
+    "version",
+    "result",
+    "query",
+    "dirs",
+    "traversal",
+    "kinds",
+    "languages",
+    "to",
+    "pattern",
+    "on_conflict",
+    "expect",
+    "dry_run",
+    "timeout",
+    "output",
+];
+
 /// The fields which select files together with `query`.
 const QUERY_FIELDS: [&str; 4] = ["dirs", "traversal", "kinds", "languages"];
 
@@ -197,8 +215,12 @@ fn unknown_field(unknown: &str, fields: &[&str]) -> Report {
 pub(crate) struct Entry {
     /// The path in the file system: its working directory and its path in it.
     pub path: PathBuf,
-    /// The path as `find` shows it.
+    /// The working directory.
+    pub dir: PathBuf,
+    /// The path as `find` shows it: the prefix of the working directory and the path in it.
     pub shown: PathBuf,
+    /// The prefix of the working directory in `shown`.
+    pub prefix: PathBuf,
     /// The path of a member of an archive.
     pub member: Option<String>,
     pub is_dir: bool,
@@ -239,13 +261,38 @@ pub(crate) fn select(mut entries: Vec<Entry>) -> Vec<Entry> {
         .collect()
 }
 
+impl Entry {
+    /// The path relative to the working directory.
+    pub(crate) fn rel(&self) -> &Path {
+        self.shown.strip_prefix(&self.prefix).unwrap_or(&self.shown)
+    }
+}
+
 /// An entry acted on, or which failed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Acted {
     pub shown: PathBuf,
     pub is_dir: bool,
     /// The kind of the error of a failed entry.
     pub error: Option<String>,
+    /// `rename`: the target as it is shown.
+    pub to: Option<PathBuf>,
+    /// `rename`: an existing target was replaced.
+    pub replaced: bool,
+    /// `rename`: the target is the old path.
+    pub unchanged: bool,
+}
+
+impl Acted {
+    /// A done or failed entry without a target.
+    pub(crate) fn of(entry: &Entry, error: Option<String>) -> Self {
+        Self {
+            shown: entry.shown.clone(),
+            is_dir: entry.is_dir,
+            error,
+            ..Self::default()
+        }
+    }
 }
 
 /// What a write tool did.
@@ -277,6 +324,44 @@ pub(crate) fn may_change(path: &Path, roots: &[PathBuf]) -> bool {
     roots.iter().any(|root| path.starts_with(root)) && !roots.iter().any(|root| path == root)
 }
 
+/// The checks of an entry before it is changed: its checked path (`None` when it no longer exists), or the warning
+/// it is skipped with.
+pub(crate) fn check(
+    entry: &Entry,
+    allowed: &dyn Fn(&Path) -> bool,
+) -> Result<Option<PathBuf>, WarningCode> {
+    if entry.member.is_some() {
+        return Err(WarningCode::ArchiveMember);
+    }
+    let checked = checked_path(&entry.path);
+    if checked.as_deref().is_some_and(|p| !allowed(p)) {
+        return Err(WarningCode::PermissionDenied);
+    }
+    if entry.from_result && (entry.stamp.is_none() || Stamp::of(&entry.path) != entry.stamp) {
+        return Err(WarningCode::FileChanged);
+    }
+    Ok(checked)
+}
+
+/// The error of an entry which no longer exists.
+pub(crate) fn not_found() -> String {
+    std::io::ErrorKind::NotFound.to_string()
+}
+
+impl Outcome {
+    /// Skips an entry with the warning `code`.
+    pub(crate) fn skip(&mut self, entry: &Entry, code: WarningCode) {
+        match &entry.member {
+            Some(member) => {
+                self.warnings
+                    .add_member(code, entry.shown.clone(), member.clone());
+            }
+            None => self.warnings.add(code, entry.shown.clone(), entry.is_dir),
+        }
+        self.skipped += 1;
+    }
+}
+
 /// Acts on the entries in their order, skipping the ones which can't be changed, until the call must stop.
 pub(crate) fn act(entries: &[Entry], how: &Act<'_>) -> Outcome {
     let mut outcome = Outcome {
@@ -290,55 +375,52 @@ pub(crate) fn act(entries: &[Entry], how: &Act<'_>) -> Outcome {
             outcome.warnings.add_global(WarningCode::Timeout);
             break;
         }
-        let skip = |outcome: &mut Outcome, code| {
-            outcome
-                .warnings
-                .add(code, entry.shown.clone(), entry.is_dir);
-            outcome.skipped += 1;
+        let checked = match check(entry, how.allowed) {
+            Ok(checked) => checked,
+            Err(code) => {
+                outcome.skip(entry, code);
+                continue;
+            }
         };
-        if let Some(member) = &entry.member {
-            outcome.warnings.add_member(
-                WarningCode::ArchiveMember,
-                entry.shown.clone(),
-                member.clone(),
-            );
-            outcome.skipped += 1;
-            continue;
-        }
-        let checked = checked_path(&entry.path);
-        if checked.as_deref().is_some_and(|p| !(how.allowed)(p)) {
-            skip(&mut outcome, WarningCode::PermissionDenied);
-            continue;
-        }
-        if entry.from_result && (entry.stamp.is_none() || Stamp::of(&entry.path) != entry.stamp) {
-            skip(&mut outcome, WarningCode::FileChanged);
-            continue;
-        }
         let done = match checked {
-            None => Err(TrashError::Failed(std::io::ErrorKind::NotFound.to_string())),
+            None => Err(TrashError::Failed(not_found())),
             Some(_) if how.dry_run => Ok(()),
             Some(path) => (how.operation)(&path),
         };
         let error = match done {
             Ok(()) => None,
             Err(TrashError::Unavailable) => {
-                skip(&mut outcome, WarningCode::TrashUnavailable);
+                outcome.skip(entry, WarningCode::TrashUnavailable);
                 continue;
             }
             Err(TrashError::Failed(error)) => Some(error),
         };
-        outcome.acted.push(Acted {
-            shown: entry.shown.clone(),
-            is_dir: entry.is_dir,
-            error,
-        });
+        outcome.acted.push(Acted::of(entry, error));
     }
     outcome
 }
 
+/// Deletes the entry at `path` permanently: a directory with everything in it, a symlink itself.
+pub(crate) fn remove(path: &Path) -> Result<(), TrashError> {
+    let meta = std::fs::symlink_metadata(path).map_err(|e| crate::recycle::failed(&e))?;
+    let removed = if meta.file_type().is_dir() {
+        std::fs::remove_dir_all(path)
+    } else {
+        // a symlink to a directory is a directory on Windows
+        std::fs::remove_file(path).or_else(|e| {
+            if cfg!(windows) && meta.file_type().is_symlink() {
+                std::fs::remove_dir(path)
+            } else {
+                Err(e)
+            }
+        })
+    };
+    removed.map_err(|e| crate::recycle::failed(&e))
+}
+
 /// The path of an existing entry with its directory canonical and its name not resolved: a symlink is the link
 /// itself; `None` when it doesn't exist.
-fn checked_path(path: &Path) -> Option<PathBuf> {
+pub(crate) fn checked_path(path: &Path) -> Option<PathBuf> {
     std::fs::symlink_metadata(path).ok()?;
     let name = path.file_name()?;
     let parent = crate::paths::canonicalize(path.parent()?).ok()?;
@@ -346,9 +428,14 @@ fn checked_path(path: &Path) -> Option<PathBuf> {
 }
 
 impl Outcome {
-    /// The entries acted on without an error.
+    /// The entries acted on without an error, the unchanged ones too.
     fn done(&self) -> usize {
         self.acted.iter().filter(|a| a.error.is_none()).count()
+    }
+
+    /// The unchanged entries of `rename`.
+    fn unchanged(&self) -> usize {
+        self.acted.iter().filter(|a| a.unchanged).count()
     }
 
     /// The entries which failed.
@@ -363,7 +450,10 @@ impl Outcome {
 
     /// The text format: the header with the count named `verb`, the entries, the warnings.
     pub(crate) fn to_text(&self, verb: &str, group_dirs: bool) -> String {
-        let mut out = format!("{verb}: {}", self.done());
+        let mut out = format!("{verb}: {}", self.done() - self.unchanged());
+        if self.unchanged() > 0 {
+            let _ = write!(out, "  unchanged: {}", self.unchanged());
+        }
         if self.skipped > 0 {
             let _ = write!(out, "  skipped: {}", self.skipped);
         }
@@ -395,6 +485,16 @@ impl Outcome {
                 } else {
                     out.push_str(&display_path(&acted.shown, acted.is_dir));
                 }
+                if let Some(to) = &acted.to {
+                    out.push_str(" -> ");
+                    out.push_str(&display_path(to, acted.is_dir));
+                }
+                if acted.replaced {
+                    out.push_str("  replaced");
+                }
+                if acted.unchanged {
+                    out.push_str("  unchanged");
+                }
                 if let Some(error) = &acted.error {
                     let _ = write!(out, "  failed: {error}");
                 }
@@ -412,7 +512,10 @@ impl Outcome {
     pub(crate) fn to_json(&self, verb: &str) -> String {
         let mut doc = Map::new();
         doc.insert("version".into(), json!(crate::SPEC_VERSION));
-        doc.insert(verb.into(), json!(self.done()));
+        doc.insert(verb.into(), json!(self.done() - self.unchanged()));
+        if self.unchanged() > 0 {
+            doc.insert("unchanged".into(), json!(self.unchanged()));
+        }
         if self.skipped > 0 {
             doc.insert("skipped".into(), json!(self.skipped));
         }
@@ -435,6 +538,15 @@ impl Outcome {
                         "path".into(),
                         json!(display_path(&acted.shown, acted.is_dir)),
                     );
+                    if let Some(to) = &acted.to {
+                        file.insert("to".into(), json!(display_path(to, acted.is_dir)));
+                    }
+                    if acted.replaced {
+                        file.insert("replaced".into(), json!(true));
+                    }
+                    if acted.unchanged {
+                        file.insert("unchanged".into(), json!(true));
+                    }
                     if let Some(error) = &acted.error {
                         file.insert("error".into(), json!(error));
                     }
@@ -466,7 +578,9 @@ mod tests {
     fn entry(path: &str, is_dir: bool) -> Entry {
         Entry {
             path: PathBuf::from("/w").join(path),
+            dir: PathBuf::from("/w"),
             shown: PathBuf::from(path),
+            prefix: PathBuf::new(),
             member: None,
             is_dir,
             from_result: false,
@@ -539,13 +653,12 @@ mod tests {
             acted: vec![
                 Acted {
                     shown: PathBuf::from("src/a.rs"),
-                    is_dir: false,
-                    error: None,
+                    ..Acted::default()
                 },
                 Acted {
                     shown: PathBuf::from("src/b.rs"),
-                    is_dir: false,
                     error: Some("permission denied".into()),
+                    ..Acted::default()
                 },
             ],
             selected: 3,
@@ -598,14 +711,61 @@ mod tests {
         let done = Outcome {
             acted: vec![Acted {
                 shown: PathBuf::from("a.log"),
-                is_dir: false,
-                error: None,
+                ..Acted::default()
             }],
             skipped: 1,
             selected: 2,
             ..Outcome::default()
         };
         assert!(!done.is_error());
+    }
+
+    #[test]
+    fn targets_replaced_and_unchanged_entries() {
+        let outcome = Outcome {
+            acted: vec![
+                Acted {
+                    shown: PathBuf::from("src/a.ts"),
+                    to: Some(PathBuf::from("src/a.tsx")),
+                    ..Acted::default()
+                },
+                Acted {
+                    shown: PathBuf::from("src/b.ts"),
+                    to: Some(PathBuf::from("src/b.tsx")),
+                    replaced: true,
+                    ..Acted::default()
+                },
+                Acted {
+                    shown: PathBuf::from("src/c.tsx"),
+                    unchanged: true,
+                    ..Acted::default()
+                },
+            ],
+            selected: 3,
+            ..Outcome::default()
+        };
+        let sep = std::path::MAIN_SEPARATOR;
+        assert_eq!(
+            outcome.to_text("renamed", true),
+            format!(
+                "renamed: 2  unchanged: 1\n\nsrc{sep}\na.ts -> src{sep}a.tsx\nb.ts -> src{sep}b.tsx  replaced\nc.tsx  unchanged\n"
+            )
+        );
+        let json: Value = serde_json::from_str(&outcome.to_json("renamed")).unwrap();
+        assert_eq!(json["renamed"], json!(2));
+        assert_eq!(json["unchanged"], json!(1));
+        assert_eq!(json["files"][1]["replaced"], json!(true));
+        assert_eq!(
+            json["files"][2],
+            json!({"path": format!("src{sep}c.tsx"), "unchanged": true})
+        );
+        let only_unchanged = Outcome {
+            acted: vec![outcome.acted[2].clone()],
+            skipped: 1,
+            selected: 2,
+            ..Outcome::default()
+        };
+        assert!(!only_unchanged.is_error());
     }
 
     #[test]

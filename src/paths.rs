@@ -40,7 +40,7 @@ pub fn canonical_prefix(path: &Path) -> PathBuf {
 }
 
 /// A path with `.` and `..` resolved without the file system; `..` at the root stays there.
-fn normalize(path: &Path) -> PathBuf {
+pub(crate) fn normalize(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
         match component {

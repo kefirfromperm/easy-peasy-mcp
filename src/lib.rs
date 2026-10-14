@@ -23,8 +23,10 @@ mod paths;
 mod query;
 mod recycle;
 mod relevance;
+mod rename;
 mod request;
 mod search;
+mod template;
 mod warning;
 mod write;
 
