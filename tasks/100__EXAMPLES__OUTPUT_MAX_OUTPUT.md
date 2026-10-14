@@ -30,6 +30,7 @@ Fixture: `output-limits`
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -193,6 +194,7 @@ a.txt  [#1]  lines: 3  matches: 3
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default

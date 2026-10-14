@@ -57,6 +57,7 @@ small.rs  [#1]
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -240,6 +241,7 @@ small.rs  [#1]  file 512B 2026-10-07 18:22 rust source 0.93
 [output]
 format = "text"    # default
 detail = "lines"    # default
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default

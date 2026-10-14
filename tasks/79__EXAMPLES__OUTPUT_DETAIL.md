@@ -49,6 +49,7 @@ b.rs  [#1]  lines: 2  matches: 2
 [output]
 format = "text"
 detail = "lines"
+count_by = "total"
 # budget =  (not set)
 chars_per_token = 4
 funnel = "auto"
@@ -213,6 +214,7 @@ files: 2  lines: 4  matches: 4  result: r1
 [output]
 format = "text"    # default
 detail = "count"    # update
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default
@@ -293,6 +295,7 @@ easy-peasy-mcp --config conf/o.toml
 [output]
 format = "text"    # default
 detail = "files"    # file: conf/o.toml
+count_by = "total"    # default
 # budget =  (not set)    # default
 chars_per_token = 4    # default
 funnel = "auto"    # default
