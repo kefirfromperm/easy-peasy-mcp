@@ -53,6 +53,10 @@ pub struct EngineOptions {
     pub read_delay: Option<std::time::Duration>,
     /// Where `delete` moves entries: the trash of the system, or a test hook.
     pub trash: Trash,
+    /// The current spec version: the one of a request without `version`; a test hook runs the examples of spec 1
+    /// with `1` (AGENTS.md).
+    #[doc(hidden)]
+    pub spec: u32,
 }
 
 impl EngineOptions {
@@ -69,6 +73,7 @@ impl EngineOptions {
             git_global_excludes: true,
             now: None,
             time_zone: jiff::tz::TimeZone::system(),
+            spec: crate::SPEC_VERSION,
         }
     }
 }
@@ -197,7 +202,14 @@ impl Engine {
 
     /// A new session.
     #[must_use]
-    pub fn new(options: EngineOptions) -> Self {
+    pub fn new(mut options: EngineOptions) -> Self {
+        // the built-in defaults are the ones of the current spec version
+        for key in Key::ALL {
+            if *options.settings.source(key) == config::Source::Default {
+                let value = key.default_for(options.spec);
+                options.settings.set(key, value, config::Source::Default);
+            }
+        }
         Self {
             settings: RwLock::new(options.settings.clone()),
             options,
@@ -244,6 +256,7 @@ impl Engine {
             "get_config" => Ok(ToolOutput::from(config::get_config(
                 &self.settings(),
                 arguments,
+                self.options.spec,
             ))),
             "update_config" if !self.options.settings.allow_update => Ok(ToolOutput::error(
                 &Report::new(ErrorCode::UpdateDisabled, "update_config is disabled")
@@ -350,6 +363,7 @@ impl Engine {
     ) -> Result<ToolOutput, Report> {
         let arrival = std::time::Instant::now();
         let write = write::parse(arguments, &write::DELETE_FIELDS, &write::OUTPUT_FIELDS)?;
+        let version = self.spec_of(&write.request);
         let Selected {
             settings,
             deadline,
@@ -388,7 +402,7 @@ impl Engine {
                 },
             );
         }
-        Ok(write_output(&outcome, "deleted", &settings, json))
+        Ok(write_output(&outcome, "deleted", &settings, json, version))
     }
 
     /// `rename` or `copy` with writing allowed: the selection, `expect`, the plan and its conflicts, then the renames
@@ -402,6 +416,7 @@ impl Engine {
     ) -> Result<ToolOutput, Report> {
         let arrival = std::time::Instant::now();
         let write = write::parse(arguments, &write::RENAME_FIELDS, &write::OUTPUT_FIELDS)?;
+        let version = self.spec_of(&write.request);
         let request = rename::parse(arguments)?;
         let Selected {
             settings,
@@ -436,7 +451,13 @@ impl Engine {
                 },
             )?
         };
-        Ok(write_output(&outcome, mode.count(), &settings, json))
+        Ok(write_output(
+            &outcome,
+            mode.count(),
+            &settings,
+            json,
+            version,
+        ))
     }
 
     /// `replace` with writing allowed: the groups of `replace` checked against the query, the selection with its
@@ -449,6 +470,7 @@ impl Engine {
     ) -> Result<ToolOutput, Report> {
         let arrival = std::time::Instant::now();
         let write = write::parse(arguments, &replace::REPLACE_FIELDS, &replace::OUTPUT_FIELDS)?;
+        let version = self.spec_of(&write.request);
         let spec = replace::parse(arguments)?;
         let (find, request, kept) = match write.selection {
             write::Selection::Query => (write.find.clone(), write.request.clone(), None),
@@ -459,10 +481,7 @@ impl Engine {
                 (find, request, Some(kept))
             }
         };
-        let settings = self
-            .settings()
-            .with(&request.config, &request.languages)
-            .map_err(|p| p.request_report())?;
+        let settings = self.request_settings(&request)?;
         let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let query = query::parse(&request.query, &self.parse_options(&settings, languages))
             .map_err(|e| e.into_report(&request.query))?;
@@ -518,7 +537,7 @@ impl Engine {
                 },
             )?
         };
-        Ok(write_output(&outcome, "replaced", &settings, json))
+        Ok(write_output(&outcome, "replaced", &settings, json, version))
     }
 
     /// The `find` tool.
@@ -566,10 +585,7 @@ impl Engine {
             .and_then(|output| output.remove("file"));
         let checked = batch::items(arguments).and_then(|items| {
             let request = request::parse(&shared)?;
-            let settings = self
-                .settings()
-                .with(&request.config, &request.languages)
-                .map_err(|p| p.request_report())?;
+            let settings = self.request_settings(&request)?;
             let target = match shared_file.as_ref().map(request::file_target).transpose()? {
                 Some(Some(file)) => Some(target(&settings, &file)?),
                 _ => None,
@@ -616,11 +632,13 @@ impl Engine {
                 budget.as_mut().map(|b| b.next(index).max(100)),
                 output.as_mut().map(|o| o.next(index).max(100)),
             );
-            let result = batch::item_arguments(&shared, item).and_then(|mut args| {
-                let parts = (!own_file(item)).then_some(parts);
-                set_item_output(&mut args, item, json, parts);
-                self.try_find(&args, progress, target.is_some())
-            });
+            let result = batch::item_arguments(&shared, item, self.spec_of(&request)).and_then(
+                |mut args| {
+                    let parts = (!own_file(item)).then_some(parts);
+                    set_item_output(&mut args, item, json, parts);
+                    self.try_find(&args, progress, target.is_some())
+                },
+            );
             let used = result
                 .as_ref()
                 .map_or(0, |answer| answer.text.chars().count());
@@ -639,14 +657,15 @@ impl Engine {
         }
         let is_error = sections.iter().all(|(_, result)| result.is_err());
         let (texts, heads) = answers(sections);
-        let text = batch::response(&texts, json);
+        let version = self.spec_of(&request);
+        let text = batch::response(&texts, json, version);
         // nothing is written when all the queries fail
         let Some(target) = target.filter(|_| !is_error) else {
             return ToolOutput { text, is_error };
         };
         match output_file::write(&self.file_path(target, None, json), &text) {
             Ok(written) => ToolOutput {
-                text: batch::summary(&heads, json, &written),
+                text: batch::summary(&heads, json, &written, version),
                 is_error: false,
             },
             Err(report) => fail(&report),
@@ -672,10 +691,7 @@ impl Engine {
     ) -> Result<Answer, Report> {
         let arrival = std::time::Instant::now();
         let request = request::parse(arguments)?;
-        let settings = self
-            .settings()
-            .with(&request.config, &request.languages)
-            .map_err(|p| p.request_report())?;
+        let settings = self.request_settings(&request)?;
         // the path is checked before the search
         let target = request
             .file
@@ -846,7 +862,14 @@ impl Engine {
             max_files,
         )
         .filter(|_| search.funnel);
-        let omit = omit(settings);
+        let spec = self.spec_of(request);
+        let blocks = block_options(settings);
+        let omit = omit(settings).effective(
+            Omit::from_value(settings.value(Key::Show)),
+            spec,
+            query.legend.len(),
+            blocks.before + blocks.after > 0,
+        );
         let hints = if shown.is_some() && !omit.has(Part::Hints) {
             let cx = hints::Context {
                 working_dirs: &working_dirs,
@@ -898,7 +921,7 @@ impl Engine {
             budget: None,
             since,
             limits,
-            blocks: block_options(settings),
+            blocks,
             result_id: result_id.as_deref(),
             legend: &query.legend,
             files: &files,
@@ -906,6 +929,7 @@ impl Engine {
             timed_out,
             omit,
             in_dirs: in_dirs.as_deref(),
+            spec,
         };
         let (text, response) = match budget {
             Some(budget) => {
@@ -1139,6 +1163,41 @@ impl Engine {
     }
 
     /// A snapshot of the session settings.
+    /// The spec version of a request: its `version`, or the current one.
+    fn spec_of(&self, request: &request::Request) -> u32 {
+        request.version.unwrap_or(self.options.spec)
+    }
+
+    /// The settings of a find request: its values over the ones of the session, with the built-in defaults of its
+    /// spec version; in spec 2 its `omit` is added to the configured one (OUTPUT.md#defaults-of-spec-2).
+    fn request_settings(&self, request: &request::Request) -> Result<Settings, Report> {
+        let spec = self.spec_of(request);
+        let mut base = self.settings();
+        for key in Key::ALL {
+            if *base.source(key) == config::Source::Default {
+                base.set(key, key.default_for(spec), config::Source::Default);
+            }
+        }
+        let mut values = request.config.clone();
+        if spec >= 2 {
+            let configured = Omit::from_value(base.value(Key::Omit));
+            for (key, value) in &mut values {
+                if *key == Key::Omit {
+                    let merged = Omit::from_value(value).union(configured);
+                    *value = config::KeyValue::List(
+                        Part::ALL
+                            .iter()
+                            .filter(|p| merged.has(**p))
+                            .map(|p| p.name().to_string())
+                            .collect(),
+                    );
+                }
+            }
+        }
+        base.with(&values, &request.languages)
+            .map_err(|p| p.request_report())
+    }
+
     fn settings(&self) -> Settings {
         self.settings
             .read()
@@ -1170,9 +1229,10 @@ fn write_output(
     verb: &str,
     settings: &Settings,
     json: bool,
+    version: u32,
 ) -> ToolOutput {
     let text = if json {
-        outcome.to_json(verb)
+        outcome.to_json(verb, version)
     } else {
         outcome.to_text(verb, settings.bool(Key::GroupDirs))
     };

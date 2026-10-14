@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
-use crate::SPEC_VERSION;
 use crate::error::{ErrorCode, Report};
 use crate::query::did_you_mean;
 
@@ -115,6 +114,7 @@ const SECTIONS: [(&str, &[&str]); 8] = [
             "sort",
             "path_style",
             "omit",
+            "show",
         ],
     ),
     ("escape", &["max_level"]),
@@ -856,9 +856,32 @@ fn check_language_conflicts(
 /// The fields of `get_config`, in the order of its input schema.
 const GET_CONFIG_FIELDS: [&str; 2] = ["section", "sources"];
 
+/// The comment lines at the start of `get_config`: the server version, the current and the supported spec versions,
+/// the read-only keys.
+fn header(spec: u32) -> String {
+    format!(
+        "# easy-peasy-mcp {}, spec {spec}, supported specs: {}\n# read-only: {}\n",
+        env!("CARGO_PKG_VERSION"),
+        crate::request::SPEC_VERSIONS
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", "),
+        READ_ONLY
+            .iter()
+            .map(|(s, k, _)| format!("{s}.{k}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
+}
+
 /// The `get_config` tool (`CONFIG.md#get_config`): the effective configuration as TOML. The first line names the server
 /// and the spec versions, the second the read-only keys; the sections with their implemented keys follow.
-pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<String, Report> {
+pub(crate) fn get_config(
+    settings: &Settings,
+    arguments: &Value,
+    spec: u32,
+) -> Result<String, Report> {
     let object = arguments_object(arguments, &GET_CONFIG_FIELDS)?;
     let section = match object.get("section") {
         None => None,
@@ -886,15 +909,7 @@ pub(crate) fn get_config(settings: &Settings, arguments: &Value) -> Result<Strin
             ));
         }
     };
-    let mut out = format!(
-        "# easy-peasy-mcp {}, spec {SPEC_VERSION}, supported specs: {SPEC_VERSION}\n# read-only: {}\n",
-        env!("CARGO_PKG_VERSION"),
-        READ_ONLY
-            .iter()
-            .map(|(s, k, _)| format!("{s}.{k}"))
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
+    let mut out = header(spec);
     for (name, keys) in SECTIONS {
         if section.is_some_and(|s| s != name) {
             continue;
@@ -1554,11 +1569,11 @@ mod tests {
             ..Settings::defaults(Path::new("/"))
         };
         let first = format!(
-            "# easy-peasy-mcp {}, spec 1, supported specs: 1\n# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size\n",
+            "# easy-peasy-mcp {}, spec 1, supported specs: 1, 2\n# read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size\n",
             env!("CARGO_PKG_VERSION")
         );
         // the examples show every section in full; here the start of it
-        let all = get_config(&settings, &Value::Null).unwrap();
+        let all = get_config(&settings, &Value::Null, 1).unwrap();
         assert!(
             all.starts_with(&format!(
                 "{first}\n[server]\nallowed_roots = ['/a', \"/it's\"]\ndefault_dirs = ['.']\ntimeout = \"30s\"\nthreads = 0\nallow_update = true\nallow_write = false\nresult_cache = 50\noutput_dir = '/out'\nmax_output_file_size = \"100M\"\n\n[traversal]\nmin_depth = 0\n# max_depth =  (not set)\n"
@@ -1568,7 +1583,8 @@ mod tests {
         assert_eq!(
             get_config(
                 &settings,
-                &serde_json::json!({ "sources": true, "section": "server" })
+                &serde_json::json!({ "sources": true, "section": "server" }),
+                1
             )
             .unwrap(),
             format!(
@@ -1576,11 +1592,11 @@ mod tests {
             )
         );
         assert!(
-            get_config(&settings, &serde_json::json!({ "section": "output" }))
+            get_config(&settings, &serde_json::json!({ "section": "output" }), 1)
                 .unwrap()
                 .starts_with(&format!("{first}\n[output]\nformat = \"text\"\n"))
         );
-        let error = |v: Value| get_config(&settings, &v).unwrap_err().to_text();
+        let error = |v: Value| get_config(&settings, &v, 1).unwrap_err().to_text();
         assert_eq!(
             error(serde_json::json!({ "section": 1 })),
             "error[invalid_option]: 'section' must be a string\n"

@@ -31,7 +31,7 @@ fn initialize_list_and_find() {
     );
     assert_eq!(
         result["instructions"],
-        "File search: find + grep in one query. Call get_config first to learn allowed roots and defaults. Spec version 1."
+        "File search: find + grep in one query. Call get_config first to learn allowed roots and defaults. Spec version 2."
     );
 
     let list = server.request(2, "tools/list", &json!({}));
@@ -61,7 +61,7 @@ fn initialize_list_and_find() {
     assert_eq!(find["inputSchema"]["type"], "object");
     assert_eq!(find["inputSchema"]["properties"]["query"]["type"], "string");
     let description = find["description"].as_str().unwrap();
-    assert!(description.contains("Spec version 1."), "{description}");
+    assert!(description.contains("Spec version 2."), "{description}");
 
     let call = server.request(
         3,
@@ -72,7 +72,7 @@ fn initialize_list_and_find() {
     assert_eq!(
         call["result"]["content"],
         json!([{ "type": "text", "text": format!(
-            "files: 1  lines: 0  matches: 0  result: r1\n#1 name = 'Cargo.toml'\n\n.{}\nCargo.toml  [#1]\n",
+            "files: 1  lines: 0  matches: 0  result: r1\n\n.{}\nCargo.toml\n",
             std::path::MAIN_SEPARATOR
         ) }])
     );
@@ -115,7 +115,7 @@ fn version_flag() {
     assert!(out.status.success());
     assert_eq!(
         String::from_utf8(out.stdout).unwrap(),
-        format!("easy-peasy-mcp {}, spec 1\n", env!("CARGO_PKG_VERSION"))
+        format!("easy-peasy-mcp {}, spec 2\n", env!("CARGO_PKG_VERSION"))
     );
 }
 

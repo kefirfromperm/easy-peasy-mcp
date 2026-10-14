@@ -56,6 +56,8 @@ pub struct Request {
     pub since: Option<u64>,
     /// `output.file`: the file the response is written to.
     pub file: Option<FileTarget>,
+    /// `version`: the spec version of the request; `None` — the current one.
+    pub version: Option<u32>,
 }
 
 impl Request {
@@ -117,9 +119,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
     {
         return Err(Report::not_implemented(&format!("the field '{field}'")));
     }
-    if let Some(version) = object.get("version") {
-        check_version(version)?;
-    }
+    let version = object.get("version").map(check_version).transpose()?;
     let within = object
         .get("within")
         .map(|v| result_id("within", v))
@@ -179,6 +179,7 @@ pub fn parse(arguments: &Value) -> Result<Request, Report> {
         within,
         since,
         file,
+        version,
     })
 }
 
@@ -317,10 +318,10 @@ pub(crate) fn result_id(field: &str, value: &Value) -> Result<u64, Report> {
 }
 
 /// The spec versions this server supports (TOOLS.md#versioning).
-pub const SPEC_VERSIONS: [u64; 1] = [1];
+pub const SPEC_VERSIONS: [u64; 2] = [1, 2];
 
 /// Checks the `version` field: a whole number of at least 1 and a supported spec version.
-fn check_version(version: &Value) -> Result<(), Report> {
+fn check_version(version: &Value) -> Result<u32, Report> {
     let Some(version) = version.as_u64().filter(|v| *v >= 1) else {
         return Err(Report::new(
             ErrorCode::InvalidOption,
@@ -328,7 +329,7 @@ fn check_version(version: &Value) -> Result<(), Report> {
         ));
     };
     if SPEC_VERSIONS.contains(&version) {
-        return Ok(());
+        return Ok(u32::try_from(version).expect("a supported spec version is small"));
     }
     let supported: Vec<String> = SPEC_VERSIONS.iter().map(ToString::to_string).collect();
     Err(Report::new(
@@ -374,8 +375,18 @@ mod tests {
 
     #[test]
     fn version() {
-        assert_eq!(parse(&json!({ "version": 1, "query": "x" })).unwrap().version, Some(1));
-        assert_eq!(parse(&json!({ "version": 2, "query": "x" })).unwrap().version, Some(2));
+        assert_eq!(
+            parse(&json!({ "version": 1, "query": "x" }))
+                .unwrap()
+                .version,
+            Some(1)
+        );
+        assert_eq!(
+            parse(&json!({ "version": 2, "query": "x" }))
+                .unwrap()
+                .version,
+            Some(2)
+        );
         assert_eq!(parse(&json!({ "query": "x" })).unwrap().version, None);
         assert_eq!(
             text(&json!({ "version": 3 })),
@@ -525,7 +536,7 @@ mod tests {
         );
         assert!(
             text(&json!({ "output": { "cursr": "a" } }))
-                .ends_with(", path_style, omit, cursor, file\n")
+                .ends_with(", path_style, omit, show, cursor, file\n")
         );
     }
 

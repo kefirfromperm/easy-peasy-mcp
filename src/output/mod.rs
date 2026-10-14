@@ -256,6 +256,8 @@ pub struct Response<'a> {
     /// `path_style = in_dir`: the working directories as given, by their index; the paths of the files are without
     /// them, with one working directory the warnings too.
     pub in_dirs: Option<&'a [std::path::PathBuf]>,
+    /// The spec version of the request: the `version` of JSON.
+    pub spec: u32,
 }
 
 /// The separator of output paths on this platform.
@@ -772,15 +774,39 @@ impl Response<'_> {
         }
     }
 
-    /// The warnings at the end of the text format: an empty line and a line per warning; empty without warnings.
+    /// The warnings at the end of the text format: an empty line and a line per warning, or the line of the warnings
+    /// left out; empty without warnings.
     #[must_use]
     pub fn warnings_text(&self) -> String {
         let warnings = self.all_warnings();
-        if warnings.is_empty() {
-            String::new()
-        } else {
-            format!("\n{}", warnings.to_text())
+        if !warnings.is_empty() {
+            return format!("\n{}", warnings.to_text());
         }
+        let left_out = self.left_out();
+        if left_out.is_empty() {
+            return String::new();
+        }
+        let codes: Vec<String> = left_out
+            .iter()
+            .map(|(code, count)| match count {
+                Some(n) => format!("{code} ({n})"),
+                None => (*code).to_string(),
+            })
+            .collect();
+        format!("\nwarnings left out: {}\n", codes.join(", "))
+    }
+
+    /// The codes of the warnings left out with their numbers of entries, in the order of the warnings; empty unless
+    /// `warnings` is left out and `left_out` isn't (OUTPUT.md#defaults-of-spec-2).
+    fn left_out(&self) -> Vec<(&'static str, Option<usize>)> {
+        if !self.omit.has(Part::Warnings) || self.omit.has(Part::LeftOut) {
+            return Vec::new();
+        }
+        self.response_warnings()
+            .groups()
+            .into_iter()
+            .map(|(code, count, _)| (code, count))
+            .collect()
     }
 
     /// The warnings of the response: of the search, `marker_in_content` and `output_file_truncated` when the cap of a
@@ -789,6 +815,11 @@ impl Response<'_> {
         if self.omit.has(Part::Warnings) {
             return Cow::Owned(Warnings::default());
         }
+        self.response_warnings()
+    }
+
+    /// The warnings of the response, also the ones left out.
+    fn response_warnings(&self) -> Cow<'_, Warnings> {
         let mut warnings = self.marker_warnings();
         if self.limits.file_cap
             && self
@@ -984,6 +1015,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_text();
         let s = SEP;
@@ -1030,6 +1062,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         };
         assert_eq!(
             response.to_text(),
@@ -1066,6 +1099,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_text();
         let s = SEP;
@@ -1118,6 +1152,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_text();
         let s = SEP;
@@ -1157,6 +1192,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_text();
         let s = SEP;
@@ -1213,6 +1249,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_text();
         assert_eq!(
@@ -1266,6 +1303,7 @@ mod tests {
             timed_out: false,
             omit: Omit::from_parts(omit),
             in_dirs: None,
+            spec: 1,
         }
         .to_text()
     }
@@ -1339,6 +1377,7 @@ mod tests {
                 timed_out: false,
                 omit: crate::output::Omit::default(),
                 in_dirs: None,
+                spec: 1,
             }
             .to_text()
         };
@@ -1396,6 +1435,7 @@ mod tests {
                 timed_out,
                 omit: Omit::default(),
                 in_dirs: None,
+                spec: 1,
             }
             .to_text()
         };
@@ -1437,6 +1477,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         }
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
@@ -1478,6 +1519,7 @@ mod tests {
             timed_out: false,
             omit: crate::output::Omit::default(),
             in_dirs: None,
+            spec: 1,
         };
         let listing = Listing::without_lines(response.listed(), &response.limits);
         let cursor = response.next_cursor(&listing)?;
@@ -1532,6 +1574,7 @@ mod tests {
             timed_out: false,
             omit: Omit::from_parts(omit),
             in_dirs: None,
+            spec: 1,
         }
         .to_text()
     }
