@@ -13,6 +13,7 @@ pub enum Part {
     Conditions,
     FileCounts,
     MatchIds,
+    Groups,
     LineNumbers,
     Gaps,
     Indent,
@@ -21,7 +22,7 @@ pub enum Part {
 
 impl Part {
     /// All parts in the order of the spec.
-    pub const ALL: [Part; 12] = [
+    pub const ALL: [Part; 13] = [
         Self::Counts,
         Self::Result,
         Self::Legend,
@@ -30,6 +31,7 @@ impl Part {
         Self::Conditions,
         Self::FileCounts,
         Self::MatchIds,
+        Self::Groups,
         Self::LineNumbers,
         Self::Gaps,
         Self::Indent,
@@ -48,6 +50,7 @@ impl Part {
             Self::Conditions => "conditions",
             Self::FileCounts => "file_counts",
             Self::MatchIds => "match_ids",
+            Self::Groups => "groups",
             Self::LineNumbers => "line_numbers",
             Self::Gaps => "gaps",
             Self::Indent => "indent",
@@ -102,13 +105,13 @@ mod tests {
 
     #[test]
     fn parts_by_name() {
-        assert_eq!(Part::ALL.len(), 12);
+        assert_eq!(Part::ALL.len(), 13);
         assert_eq!(Part::find("match_ids"), Some(Part::MatchIds));
         assert_eq!(Part::find("colour"), None);
         assert_eq!(Part::LineNumbers.name(), "line_numbers");
         assert_eq!(
             Part::ALL.map(Part::name).join(", "),
-            "counts, result, legend, funnel, hints, conditions, file_counts, match_ids, line_numbers, gaps, indent, warnings"
+            "counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps, indent, warnings"
         );
     }
 

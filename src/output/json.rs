@@ -197,6 +197,22 @@ struct Fragment {
     escape: Option<u8>,
     #[serde(skip_serializing_if = "Option::is_none")]
     to: Option<To>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    groups: Vec<Group>,
+}
+
+/// A sub-group of a fragment (OUTPUT.md#sub-groups); `n` when it starts in another line than its fragment.
+#[derive(Serialize)]
+struct Group {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    n: Option<usize>,
+    col: [usize; 2],
+    text: String,
+    /// Empty: `match_ids` is left out.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    ids: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    to: Option<To>,
 }
 
 #[derive(Serialize)]
@@ -407,6 +423,27 @@ fn fragment(content: &Content, f: &super::Fragment, i: usize) -> Fragment {
         ids: f.ids.iter().map(|(_, id)| id.to_string()).collect(),
         escape: f.escape,
         to: at.to.map(|(n, col)| To { n, col }),
+        groups: f
+            .groups
+            .iter()
+            .map(|g| {
+                let line = content.line_of(g.range.start);
+                let as_fragment = super::Fragment {
+                    range: g.range.clone(),
+                    ids: Vec::new(),
+                    escape: None,
+                    groups: Vec::new(),
+                };
+                let at = columns(content, &as_fragment, line);
+                Group {
+                    n: (line != i).then_some(line + 1),
+                    col: [at.start, at.end],
+                    text: content.text()[g.range.clone()].to_string(),
+                    ids: g.ids.clone(),
+                    to: at.to.map(|(n, col)| To { n, col }),
+                }
+            })
+            .collect(),
     }
 }
 
@@ -492,6 +529,7 @@ mod tests {
             range,
             ids: vec![(id as usize, CondId::Number(id))],
             escape,
+            groups: Vec::new(),
         }
     }
 

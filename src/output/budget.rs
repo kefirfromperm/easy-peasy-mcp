@@ -107,6 +107,7 @@ mod tests {
                 range: i..i + 1,
                 ids: vec![(1, CondId::Number(1))],
                 escape: None,
+                groups: Vec::new(),
             })
             .collect();
         let lines = crate::output::matched_lines(&content, &fragments);

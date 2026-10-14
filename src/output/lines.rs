@@ -10,12 +10,22 @@ use crate::content::Content;
 use crate::query::ast::CondId;
 
 /// A matched part of the content: a byte range of the normalized text, the conditions which produced it with
-/// their order of appearance in the query and, for a condition with `/e`, the escape level it was found on.
+/// their order of appearance in the query, for a condition with `/e` the escape level it was found on and, for a
+/// `text =~` condition with capture groups, its sub-groups.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fragment {
     pub range: Range<usize>,
     pub ids: Vec<(usize, CondId)>,
     pub escape: Option<u8>,
+    pub groups: Vec<SubMatch>,
+}
+
+/// A capture group of a regex match (OUTPUT.md#sub-groups): a byte range of the normalized text and its references,
+/// `@def.1`, `@def.fname`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubMatch {
+    pub range: Range<usize>,
+    pub ids: Vec<String>,
 }
 
 /// A marked part of a line: overlapping fragments with the union of their ranges, ids and escape levels.
@@ -37,6 +47,11 @@ pub fn merge_identical(mut fragments: Vec<Fragment>) -> Vec<Fragment> {
                 for id in f.ids {
                     if !last.ids.contains(&id) {
                         last.ids.push(id);
+                    }
+                }
+                for group in f.groups {
+                    if !last.groups.contains(&group) {
+                        last.groups.push(group);
                     }
                 }
             }
@@ -544,6 +559,7 @@ mod tests {
                 .map(|n| (*n as usize, CondId::Number(*n)))
                 .collect(),
             escape: None,
+            groups: Vec::new(),
         }
     }
 

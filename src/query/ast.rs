@@ -266,6 +266,8 @@ pub enum NodeKind {
     Condition(Condition),
     Line(Box<Expr>),
     Near(Near),
+    /// `( ... ) @name`: a bracket with a label (QUERY.md#groups).
+    Group(Box<Expr>),
 }
 
 /// The id of a condition: `#1` or `@label` (QUERY.md#labels-and-condition-ids).
@@ -284,14 +286,31 @@ impl fmt::Display for CondId {
     }
 }
 
-/// A condition, a `line( ... )` or a `near( ... )`: everything which gets a condition id.
+/// A sub-group of a `text =~` condition: a capture group by its number or its name (QUERY.md#regex-groups).
+#[allow(dead_code)] // the fields which refer to groups come with `output.groups` and `replace` (tasks 129, 130)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SubGroup {
+    Number(usize),
+    Name(String),
+}
+
+/// A checked reference to a group of the query (QUERY.md#group-references): a whole group, or a sub-group of a
+/// `text =~` condition.
+#[allow(dead_code)] // the fields which refer to groups come with `output.groups` and `replace` (tasks 129, 130)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct GroupRef {
+    pub id: CondId,
+    pub sub: Option<SubGroup>,
+}
+
+/// A condition, a `line( ... )`, a `near( ... )` or a bracket group: everything which gets a condition id.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
     pub kind: NodeKind,
     pub label: Option<Spanned>,
     /// The indexes of the first and the last token of the node, label excluded.
     pub tokens: Range<usize>,
-    /// The byte range of the first token: the target, `line` or `near`.
+    /// The byte range of the first token: the target, `line`, `near` or `(`.
     pub keyword: Range<usize>,
     /// Set after parsing, in the order of appearance.
     pub id: CondId,
@@ -323,7 +342,7 @@ impl Expr {
                 f(node);
                 match &mut node.kind {
                     NodeKind::Condition(_) => {}
-                    NodeKind::Line(inner) => inner.visit_nodes_mut(f),
+                    NodeKind::Line(inner) | NodeKind::Group(inner) => inner.visit_nodes_mut(f),
                     NodeKind::Near(near) => {
                         near.a.visit_nodes_mut(f);
                         near.b.visit_nodes_mut(f);
@@ -346,7 +365,7 @@ impl Expr {
                 f(node);
                 match &node.kind {
                     NodeKind::Condition(_) => {}
-                    NodeKind::Line(inner) => inner.visit_nodes(f),
+                    NodeKind::Line(inner) | NodeKind::Group(inner) => inner.visit_nodes(f),
                     NodeKind::Near(near) => {
                         near.a.visit_nodes(f);
                         near.b.visit_nodes(f);

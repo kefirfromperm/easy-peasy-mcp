@@ -27,7 +27,7 @@ pub use funnel::Hint;
 use listing::{Listed, Listing};
 pub use sort::{Sort, sort_files};
 
-pub use lines::{Fragment, matched_lines, merge_identical};
+pub use lines::{Fragment, SubMatch, matched_lines, merge_identical};
 pub use omit::{Omit, Part};
 
 /// How much a response returns (OUTPUT.md#detail-levels).
@@ -988,6 +988,7 @@ mod tests {
                     range: 4..5,
                     ids: vec![(1, CondId::Number(1))],
                     escape: None,
+                    groups: Vec::new(),
                 }];
                 Found {
                     matches: Some(crate::search::FileMatches {
@@ -1040,6 +1041,7 @@ mod tests {
                     range: b..b + 1,
                     ids: vec![(1, CondId::Number(1))],
                     escape: None,
+                    groups: Vec::new(),
                 }],
                 lines: 1,
             }),

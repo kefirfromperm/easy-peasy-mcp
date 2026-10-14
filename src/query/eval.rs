@@ -273,6 +273,14 @@ pub enum Filter {
         ordered: bool,
         report: Report,
     },
+    /// `( ... ) @name`: true when the inner expression is; `members` are the orders of the conditions inside it
+    /// (QUERY.md#groups).
+    Group {
+        id: CondId,
+        order: usize,
+        inner: Box<Filter>,
+        members: Vec<usize>,
+    },
     /// A comparison of a numeric value: `size > 1M`, `size in 1K..2K`.
     Number {
         id: CondId,
@@ -285,6 +293,7 @@ pub enum Filter {
 /// How a `text` condition matches: a regex over the whole normalized content, or over every line separately (`=~`
 /// without `/m`); in line scope over the line.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)] // independent flags, one per modifier or regex feature
 pub struct TextPattern {
     pub regex: Regex,
     pub per_line: bool,
@@ -294,6 +303,8 @@ pub struct TextPattern {
     pub skip_comments: bool,
     /// `/e`: the escape level of every capture group of the regex; empty without `/e`.
     pub escape_levels: Vec<u8>,
+    /// `=~` with capture groups: they are the sub-groups of the condition (QUERY.md#regex-groups).
+    pub captures: bool,
 }
 
 impl TextPattern {
@@ -339,6 +350,31 @@ impl TextPattern {
         (1..captures.len())
             .find(|&i| captures.get(i).is_some())
             .and_then(|i| self.escape_levels.get(i - 1).copied())
+    }
+
+    /// The capture groups of the match which starts at `start` of `hay` which took part in it: number, name and byte
+    /// range in `hay`, by their number; empty for a pattern without sub-groups.
+    pub fn sub_groups(
+        &self,
+        hay: &str,
+        start: usize,
+    ) -> Vec<(usize, Option<String>, std::ops::Range<usize>)> {
+        if !self.captures {
+            return Vec::new();
+        }
+        let Some(captures) = self.regex.captures_at(hay, start) else {
+            return Vec::new();
+        };
+        self.regex
+            .capture_names()
+            .enumerate()
+            .skip(1)
+            .filter_map(|(i, name)| {
+                captures
+                    .get(i)
+                    .map(|m| (i, name.map(str::to_string), m.range()))
+            })
+            .collect()
     }
 
     /// `in_comment` with `/c`.
@@ -498,6 +534,7 @@ impl Filter {
                     Truth::from(!pattern.content_matches(content).is_empty())
                 }
             },
+            Self::Group { inner, .. } => inner.eval(file),
             Self::Line { inner, .. } => match file.content {
                 ContentState::NotRead | ContentState::Unknown => Truth::Unknown,
                 ContentState::Absent => Truth::False,
@@ -611,7 +648,44 @@ impl Filter {
             | Self::Line { id, order, .. }
             | Self::Len { id, order, .. }
             | Self::Near { id, order, .. }
+            | Self::Group { id, order, .. }
             | Self::Number { id, order, .. } => Some((*order, id)),
+        }
+    }
+
+    /// The order and the id of every group which holds a condition of `orders`, in the order of appearance
+    /// (OUTPUT.md#fragments).
+    pub fn group_ids(&self, orders: &[usize]) -> Vec<(usize, CondId)> {
+        let mut out = Vec::new();
+        self.collect_groups(orders, &mut out);
+        out.sort_by_key(|(order, _)| *order);
+        out
+    }
+
+    fn collect_groups(&self, orders: &[usize], out: &mut Vec<(usize, CondId)>) {
+        match self {
+            Self::And(items) | Self::Or(items) | Self::Xor(items) => {
+                for item in items {
+                    item.collect_groups(orders, out);
+                }
+            }
+            Self::Not(inner) | Self::Line { inner, .. } => inner.collect_groups(orders, out),
+            Self::Near { a, b, .. } => {
+                a.collect_groups(orders, out);
+                b.collect_groups(orders, out);
+            }
+            Self::Group {
+                id,
+                order,
+                inner,
+                members,
+            } => {
+                if members.iter().any(|m| orders.contains(m)) {
+                    out.push((*order, id.clone()));
+                }
+                inner.collect_groups(orders, out);
+            }
+            _ => {}
         }
     }
 
@@ -622,6 +696,7 @@ impl Filter {
             Self::Or(items) => items.iter().any(|f| f.eval_line(line)),
             Self::Xor(items) => items.iter().filter(|f| f.eval_line(line)).count() % 2 == 1,
             Self::Not(inner) => !inner.eval_line(line),
+            Self::Group { inner, .. } => inner.eval_line(line),
             Self::Content { pattern, .. } => !pattern.line_matches(line).is_empty(),
             #[allow(clippy::cast_precision_loss)] // line lengths are far below 2^53
             Self::Len { bounds, .. } => bounds.contains(line.text.chars().count() as f64),
@@ -731,6 +806,7 @@ impl Filter {
                 }
             }
             Self::Not(_) => {}
+            Self::Group { inner, .. } => inner.collect_line(line, found),
             leaf => found.push(leaf),
         }
     }
@@ -744,6 +820,10 @@ impl Filter {
                 }
             }
             Self::Not(_) => {}
+            Self::Group { inner, .. } => {
+                found.push(self);
+                inner.collect(file, found);
+            }
             leaf => found.push(leaf),
         }
     }
@@ -785,6 +865,52 @@ mod tests {
                 .map(ToString::to_string)
                 .collect()
         })
+    }
+
+    #[test]
+    fn a_group_contributes_with_its_inside() {
+        let group = Filter::Group {
+            id: CondId::Label("g".into()),
+            order: 0,
+            inner: Box::new(Filter::Or(vec![text(1, "a"), text(2, "b")])),
+            members: vec![1, 2],
+        };
+        let f = Filter::And(vec![group, Filter::Not(Box::new(text(3, "b")))]);
+        assert_eq!(ids(&f, "a"), Some(vec!["@g".into(), "#1".into()]));
+        assert_eq!(ids(&f, "b"), None);
+        let ids: Vec<String> = f
+            .group_ids(&[2])
+            .into_iter()
+            .map(|(_, id)| id.to_string())
+            .collect();
+        assert_eq!(ids, ["@g"]);
+        assert!(f.group_ids(&[3]).is_empty());
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)] // lists of ranges
+    fn sub_groups_of_a_regex() {
+        let pattern = TextPattern {
+            regex: Regex::new(r"(pub )?fn (?<fname>\w+)").unwrap(),
+            per_line: true,
+            whole_word: false,
+            skip_comments: false,
+            escape_levels: Vec::new(),
+            captures: true,
+        };
+        assert_eq!(
+            pattern.sub_groups("x fn load", 2),
+            [(2, Some("fname".to_string()), 5..9)]
+        );
+        assert_eq!(
+            pattern.sub_groups("pub fn a", 0),
+            [(1, None, 0..4), (2, Some("fname".to_string()), 7..8)]
+        );
+        let plain = TextPattern {
+            captures: false,
+            ..pattern
+        };
+        assert!(plain.sub_groups("pub fn a", 0).is_empty());
     }
 
     #[test]

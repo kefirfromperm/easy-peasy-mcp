@@ -110,7 +110,7 @@ QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. 
 Modifiers after a text value: /i ignore case, /w whole word, /m multiline regex, /c skip comments,
   /n any naming style ('parse query' = parseQuery, parse_query, PARSE_QUERY ...),
   /e(backslash|quote_doubling|xml|url, 0..2|any) also match the escaped text (JSON inside JSON etc.)
-Labels: text has 'x' @name — the output shows which condition matched.
+Labels: text has 'x' @name — the output shows which condition matched; (... or ...) @name labels a bracket group.
 Strings: '...' or "..." with \ escapes; `...` raw, best for regex.
 Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 
@@ -223,7 +223,7 @@ EXAMPLES
         "path_style": { "enum": ["relative", "absolute"] },
         "omit": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "line_numbers", "gaps", "indent", "warnings"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "gaps", "indent", "warnings"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to leave out, or \"all\"."

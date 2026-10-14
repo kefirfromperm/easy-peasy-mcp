@@ -1425,7 +1425,7 @@ fn omit(settings: &Settings) -> Omit {
 }
 
 /// The files of a response: the differences to the kept result of `since`, if any; without the ids of their
-/// fragments when `match_ids` is left out.
+/// fragments when `match_ids` is left out, without their sub-groups when `groups` is.
 fn shown_files(
     since: Option<CachedResult>,
     files: Vec<search::Found>,
@@ -1438,14 +1438,15 @@ fn shown_files(
         }
         None => (files, None),
     };
-    if omit.has(Part::MatchIds) {
-        without_ids(&mut files);
+    if omit.has(Part::MatchIds) || omit.has(Part::Groups) {
+        without_ids(&mut files, omit);
     }
     (files, since)
 }
 
-/// The files without the ids and the escape levels of their fragments and path fragments: `match_ids` is left out.
-fn without_ids(files: &mut [search::Found]) {
+/// The files without the ids and the escape levels of their fragments and path fragments when `match_ids` is left
+/// out, without the sub-groups of the fragments when `groups` is.
+fn without_ids(files: &mut [search::Found], omit: Omit) {
     let fragments = files.iter_mut().flat_map(|file| {
         let lines = file.matches.iter_mut().flat_map(|m| m.fragments.iter_mut());
         let path = file
@@ -1455,8 +1456,16 @@ fn without_ids(files: &mut [search::Found]) {
         lines.chain(path)
     });
     for fragment in fragments {
-        fragment.ids.clear();
-        fragment.escape = None;
+        if omit.has(Part::Groups) {
+            fragment.groups.clear();
+        }
+        if omit.has(Part::MatchIds) {
+            fragment.ids.clear();
+            fragment.escape = None;
+            for group in &mut fragment.groups {
+                group.ids.clear();
+            }
+        }
     }
 }
 

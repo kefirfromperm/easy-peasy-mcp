@@ -23,6 +23,7 @@ otherwise.
 - [Proximity](#proximity)
 - [Identifiers and fuzzy names](#identifiers-and-fuzzy-names)
 - [Labels and condition ids](#labels-and-condition-ids)
+- [Groups](#groups)
 - [Grammar](#grammar)
 - [Errors](#errors)
 - [Recipes](#recipes)
@@ -679,6 +680,8 @@ Every condition gets an id, so the output can tell which condition matched a fil
   numbers have no gaps: in `text has 'a' @x or text has 'b'` the second condition is `#1`.
 - A label `@name` after a condition (after its modifiers) or after a `line( ... )` / `near( ... )` replaces the number.
   A label starts with a letter or `_` and contains letters, digits, `_` and `-`. Labels must be unique.
+- A label after a closing bracket, `( ... ) @name`, gives the bracket an id: it is a [group](#groups). A bracket
+  without a label has no id and is not numbered.
 
 ```
 name ~ '*.rs' and line(text has 'unwrap(' @unwrap or text has 'expect(' @expect) @panics
@@ -693,6 +696,67 @@ name ~ '*.rs' and line(text has 'unwrap(' @unwrap or text has 'expect(' @expect)
 
 Labels are useful with `or`: the output shows which branch has matched.
 
+## Groups
+
+A group is the matched text of a part of the query, which the agent can refer to: like the groups of a regex, but
+over the whole query.
+
+- every condition is a group: its matches; `line( ... )` and `near( ... )` too: the matches of their fragments
+- `( ... ) @name` is a group of everything inside the brackets: every fragment of a condition inside them belongs to it,
+  also inside nested brackets, `line( ... )` and `near( ... )`
+- a bracket group is a condition id like any other: in the legend, as written with its brackets and in the order of
+  appearance of its `(`; in the conditions of a file and the `condition` facet when it made the file match at the file
+  level; in the ids of the fragments of the conditions inside it, before their ids:
+  `⟦@ser,#1:serde⟧`, see [OUTPUT.md](OUTPUT.md#condition-ids)
+- a group without a condition which produces fragments, e.g. `(name ~ '*.rs' or name ~ '*.toml') @src`, is valid; it
+  has no matched text
+- labels are unique across conditions and groups
+
+```
+(text has 'serde' or text has 'serde_json') @ser and text has 'apple'
+```
+
+finds the files with `serde` (or `serde_json`) and `apple`; the group `@ser` is the matched `serde` / `serde_json`
+text, not `apple`.
+
+| Id     | Condition                                       |
+|--------|-------------------------------------------------|
+| `@ser` | `(text has 'serde' or text has 'serde_json')`   |
+| `#1`   | `text has 'serde'`                              |
+| `#2`   | `text has 'serde_json'`                         |
+| `#3`   | `text has 'apple'`                              |
+
+### Regex groups
+
+The capture groups of a `text =~` condition are sub-groups of its id: `@def.1`, `@def.2`, ... by their number, and
+also `@def.fname` for a named group `(?<fname>...)`; without a label `#3.1`, `#3.fname`.
+
+```
+text =~ `fn\s+(?<fname>\w+)\(` @def
+```
+
+`@def` is the whole match, `@def.1` and `@def.fname` the name of the function.
+
+- a sub-group which didn't take part in a match, e.g. a branch of `|` which didn't match, has no text for that match
+- the sub-groups are not marked in the text format; the JSON format lists them in the `groups` of a fragment, see
+  [OUTPUT.md](OUTPUT.md#fragments)
+- `name =~` and `path =~` have no sub-groups
+
+### Group references
+
+The request fields which refer to the groups of the query write them as:
+
+| Reference              | Group                                          |
+|------------------------|------------------------------------------------|
+| `@name`, `#3`          | a whole group: a condition, `line`, `near` or a bracket group |
+| `@name.1`, `#3.1`      | the capture group number 1 of a `text =~` condition |
+| `@name.fname`          | the named capture group `fname` of a `text =~` condition |
+
+A reference to an id which the query doesn't have, a sub-group of a condition which is not `text =~` or a capture
+group which its regex doesn't have is `unknown_group`, with the position in the field and the groups of the query as
+the hint: `unknown group '@x'`, `hint: the groups of the query: @def, @def.1, @def.fname, #1`. The hint lists the ids
+in the order of the legend, every sub-group after its condition by its number and, when it has one, by its name.
+
 ## Grammar
 
 ```
@@ -701,8 +765,7 @@ or_expr     = xor_expr { "or" xor_expr }
 xor_expr    = and_expr { "xor" and_expr }
 and_expr    = unary { "and" unary }
 unary       = "not" unary | primary
-primary     = "(" or_expr ")"
-            | ( line | near | condition ) [ label ]
+primary     = ( "(" or_expr ")" | line | near | condition ) [ label ]
 line        = "line" "(" or_expr ")"
 near        = "near" "(" or_expr "," or_expr "," integer { "," near_option } ")"
 near_option = "any" | "ordered" | "all" | "closest" | "first"
@@ -776,6 +839,10 @@ string token is shown with its own quotes: `unexpected 'x'` for `'x'`, `unexpect
 | `conflicting_options`    | `near(text has 'a', text has 'b', 3, any, ordered)` | conflicting options 'any' and 'ordered' | choose one of: any, ordered             |
 | `invalid_escape_level`   | `text has 'a' /e(backslash, 9)`            | invalid escape level 9                   | max level is 3 (configuration escape.max_level)  |
 | `duplicate_label`        | `text has 'a' @x or text has 'b' @x`       | duplicate label '@x'                     | labels must be unique                            |
+| `unknown_group`          | `@x` for `text has 'a' @a`                 | unknown group '@x'                       | the groups of the query: @a                      |
+
+`unknown_group` is the error of a [group reference](#group-references) in another field of the request; its position
+is in that field.
 
 The position marks the token in the message, for `unterminated_string` from the opening quote to the end of the
 query, for `invalid_wildcard` the whole string value. The first error found from the start of the query is reported.
