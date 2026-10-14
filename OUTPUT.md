@@ -1118,10 +1118,10 @@ Problems which don't make the request fail: the response is returned and lists t
 | `output_file_truncated` | the response written to a file was cut by `server.max_output_file_size`, see [Output to a file](#output-to-a-file) |
 | `file_changed`         | a write tool: an entry of the result changed (size, modification time) or no longer exists since the result; it is skipped |
 | `archive_member`       | a write tool: an entry is a member of an archive, which can't be changed; it is skipped |
-| `trash_unavailable`    | `delete`, `rename` with `overwrite`: the file system of an entry has no trash; it is skipped, never deleted permanently without `permanent` |
-| `pattern_mismatch`     | `rename`: the path of an entry doesn't match `pattern`; it is skipped |
-| `invalid_target`       | `rename`: the target of an entry is empty; it is skipped |
-| `target_conflict`      | `rename`: the target of an entry conflicts (`on_conflict = "skip"`), or appeared after the check; it is skipped |
+| `trash_unavailable`    | `delete`, `rename` and `copy` with `overwrite`: the file system of an entry has no trash; it is skipped, never deleted permanently without `permanent` |
+| `pattern_mismatch`     | `rename`, `copy`: the path of an entry doesn't match `pattern`; it is skipped |
+| `invalid_target`       | `rename`, `copy`: the target of an entry is empty; it is skipped |
+| `target_conflict`      | `rename`, `copy`: the target of an entry conflicts (`on_conflict = "skip"`), or appeared after the check; it is skipped |
 
 Unreadable entries (`permission_denied`): a directory which can't be listed is skipped with everything below it, also
 by `type = dir`; a file which can't be opened is skipped when the server opens it — for its content when the other
@@ -1182,9 +1182,9 @@ error[unknown_operator]: unknown operator 'contains'
   for the error position; a query with several lines shows only that line, and `col` in JSON counts from the start of
   the whole query (a line break is one character)
 - a position at the end of the query (`unexpected_end`) is one `^` right after the last character
-- a position in another field of the request (`to` and `pattern` of `rename`) is shown the same way; in JSON the
+- a position in another field of the request (`to` and `pattern` of `rename` and `copy`) is shown the same way; in JSON the
   field is named after it (`"to": "..."`) instead of `query`
-- the conflicts of `rename_conflict`, one per line indented by two spaces, before the hint (JSON: `conflicts`), see
+- the conflicts of `rename_conflict` and `copy_conflict`, one per line indented by two spaces, before the hint (JSON: `conflicts`), see
   [TOOLS.md](TOOLS.md#conflicts)
 - `  hint: ...` when there is a hint
 - every line ends with a line break; a request error without a query position has only the first line and the hint
@@ -1205,8 +1205,9 @@ Query errors are listed in [QUERY.md](QUERY.md#errors). Request errors:
 | `unsupported_version` | the requested `version` is not supported, see [TOOLS.md](TOOLS.md#versioning) |
 | `write_disabled`    | a write tool with `server.allow_write = false`: `write tools are disabled`, see [TOOLS.md](TOOLS.md#write-tools) |
 | `count_mismatch`    | the selection of a write tool has another number of entries than `expect`; nothing was changed |
-| `invalid_template`  | the template `to` of `rename` is invalid, with the position in it, see [TOOLS.md](TOOLS.md#the-target) |
+| `invalid_template`  | the template `to` of `rename` or `copy` is invalid, with the position in it, see [TOOLS.md](TOOLS.md#the-target) |
 | `rename_conflict`   | targets of `rename` conflict with `on_conflict = "fail"`, or in a way `overwrite` can't resolve; nothing was changed, see [TOOLS.md](TOOLS.md#conflicts) |
+| `copy_conflict`     | targets of `copy` conflict with `on_conflict = "fail"`, or in a way `overwrite` can't resolve; nothing was changed, see [TOOLS.md](TOOLS.md#copy) |
 | `not_implemented`   | a valid feature of the spec which this server version doesn't implement yet: `error[not_implemented]: <feature> is not implemented yet`, with the position when the feature is in the query |
 
 ## Examples

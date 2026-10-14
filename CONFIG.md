@@ -102,7 +102,7 @@ default_dirs = ["."]            # working directories when the request has no `d
 timeout = "30s"
 threads = 0                     # 0: number of CPU cores
 allow_update = true             # whether `update_config` is available
-allow_write = false             # whether the write tools (`delete`, `rename`) are available
+allow_write = false             # whether the write tools (`delete`, `rename`, `copy`) are available
 result_cache = 50               # results kept for `within` / `since`
 output_dir = "/tmp/easy-peasy-mcp"   # default: `easy-peasy-mcp` in the temp dir of the system; "": off
 max_output_file_size = "100M"   # cap of a response written to a file (`output.file`)
@@ -229,7 +229,7 @@ Can't be changed by a request; only `timeout` and `default_dirs` are replaced fo
 | `timeout`       | duration         | `"30s"`  | no        | max time of one search, units `ms`, `s`, `m`; `"0s"` — no limit |
 | `threads`       | number           | `0`      | no        | search threads, `0` — number of CPU cores                    |
 | `allow_update`  | bool             | `true`   | yes       | `false` disables `update_config`                             |
-| `allow_write`   | bool             | `false`  | yes       | `true` enables the write tools (`delete`, `rename`), see [TOOLS.md](TOOLS.md#write-tools) |
+| `allow_write`   | bool             | `false`  | yes       | `true` enables the write tools (`delete`, `rename`, `copy`), see [TOOLS.md](TOOLS.md#write-tools) |
 | `result_cache`  | number           | `50`     | no        | results kept in memory for `within` and `since`, see [OUTPUT.md](OUTPUT.md#result-ids); `0` — off |
 | `output_dir`    | path             | `easy-peasy-mcp` in the temp dir | yes | where `output.file` writes responses, see [OUTPUT.md](OUTPUT.md#output-to-a-file); `""` — off |
 | `max_output_file_size` | size      | `"100M"` | yes       | cap of a response written to a file, counted like `max_output` |
@@ -843,7 +843,7 @@ Arguments which don't match the input schema are `invalid_option`, like in `find
 
 - The server only reads the allowed roots unless `server.allow_write = true`; it writes responses only into
   `server.output_dir` ([`output.file`](OUTPUT.md#output-to-a-file)), and `update_config` never writes the config file.
-- The write tools (`delete`, `rename`) exist only with `server.allow_write = true`, which the agent can't set; they act only on
+- The write tools (`delete`, `rename`, `copy`) exist only with `server.allow_write = true`, which the agent can't set; they act only on
   paths inside the allowed roots, checked when they act, never follow symlinks, and move files to the trash of the
   system unless asked for `permanent`, see [TOOLS.md](TOOLS.md#write-tools).
 - `server.output_dir` and `server.max_output_file_size` can't be changed by the agent; a file of `output.file` is

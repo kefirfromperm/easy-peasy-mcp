@@ -12,6 +12,7 @@ configuration in [CONFIG.md](CONFIG.md).
   - [update_config](#update_config)
   - [delete](#delete)
   - [rename](#rename)
+  - [copy](#copy)
 - [Write tools](#write-tools)
 - [Results](#results)
 - [Errors](#errors)
@@ -78,9 +79,10 @@ The spec version is an integer, it grows only on a breaking change.
 | `update_config` | `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: true`, `openWorldHint: false` | change the configuration in memory |
 | `delete`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: true`, `openWorldHint: false` | move files to the trash or delete them |
 | `rename`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: false` | rename or move files |
+| `copy`          | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: true`, `openWorldHint: false` | copy files |
 
 `update_config` is not listed when `server.allow_update = false`; a call made anyway fails with `update_disabled`.
-`delete` and `rename` are [write tools](#write-tools): they are listed only when `server.allow_write = true`.
+`delete`, `rename` and `copy` are [write tools](#write-tools): they are listed only when `server.allow_write = true`.
 `find` stays `readOnlyHint: true` with `output.file`: it writes only its own responses into `server.output_dir`, never
 the files it searches.
 
@@ -696,9 +698,185 @@ c.tsx  unchanged
 }
 ```
 
+### copy
+
+#### Description
+
+```
+Copies files: every file gets a copy at a path made from a template. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, not only the shown ones
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+to = "...": the path of the copy, relative to the working directory, / as the separator. Placeholders:
+  {dir} {name} {stem} {ext} {path}   parts of the old path: src/a.test.ts = src, a.test.ts, a.test, ts, src/a.test.ts
+  {1} {2} {word}                     groups of pattern; {{ and }} are braces
+  e.g. "{dir}/{stem}.bak.{ext}", "backup/{path}"
+pattern = "regex": must match the whole old path, e.g. "src/(.*)\.rs" with to = "old/{1}.rs".
+  A file which doesn't match is skipped with a warning.
+Missing directories are created. A directory is copied with everything in it. Symlinks are copied as symlinks.
+The content, the modification time and the permissions are kept; a failed copy leaves nothing behind.
+on_conflict: a target which exists, two files to one target, a target which is another selected file:
+  "fail" (default): nothing is copied, the error lists them; "skip": those files are skipped;
+  "overwrite": an existing file is moved to the trash and replaced, a directory never.
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+expect = N: fails without changing anything unless the selection has N files.
+dry_run = true: lists what would be copied and changes nothing. Use it for a selection you haven't seen.
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["to"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "result": { "type": "string", "description": "Result id of find, e.g. 'r12': all its files. Instead of query." },
+    "query": { "type": "string", "description": "Query like in find: the files it matches. Instead of result." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    },
+    "to": { "type": "string", "minLength": 1, "description": "The path of the copy, relative to the working directory: {dir} {name} {stem} {ext} {path}, groups {1} {word} of pattern." },
+    "pattern": { "type": "string", "description": "Regex on the old path, the whole path must match; its groups are {1}, {2}, {name} in to." },
+    "on_conflict": { "enum": ["fail", "skip", "overwrite"], "description": "A target which exists or collides. Default: fail." },
+    "expect": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless the selection has this many files." },
+    "dry_run": { "type": "boolean", "description": "List what would be copied, change nothing." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max time of the call, e.g. '10s'. '0s': no limit." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "group_dirs": { "type": "boolean" }
+      }
+    }
+  }
+}
+```
+
+
+`to` is required; `result` and `query` exclude each other, one of them is required; `dirs`, `traversal`, `kinds` and
+`languages` work only with `query`. The other fields are optional; `output.format` and `output.group_dirs` default to
+the configuration. The rules of the selection, the dry run and the response are in [Write tools](#write-tools).
+
+The target is made like the one of `rename` ([The target](#the-target)): the same placeholders, `pattern`, errors
+(`invalid_template`, `invalid_regex`, `invalid_option`) and warnings (`pattern_mismatch`, `invalid_target`,
+`permission_denied`); a target which is the old path is not copied, the entry is listed as `unchanged`. The conflicts
+are the ones of `rename` ([Conflicts](#conflicts)) and one more:
+
+| Reason   | Text                                        | When                                                 |
+|----------|---------------------------------------------|------------------------------------------------------|
+| `inside` | `the target is inside the copied directory` | the entry is a directory and the target is inside it |
+
+`overwrite` doesn't resolve it. A conflict which isn't resolved fails the call with `copy_conflict`, nothing is
+copied, also in a dry run; the error is written like `rename_conflict`, with the hint
+`on_conflict = "skip" copies the other files, "overwrite" replaces the existing ones` (with `overwrite`:
+`on_conflict = "skip" copies the other files`):
+
+```
+error[copy_conflict]: targets conflict; nothing was changed
+  src/a.ts -> src/a.bak.ts: exists
+  hint: on_conflict = "skip" copies the other files, "overwrite" replaces the existing ones
+```
+
+#### Result
+
+The [response of a write tool](#response-of-a-write-tool), counted as `copied`, with `unchanged: N` after it when it
+is not 0; the entries are written like the ones of `rename` ([Result](#result-4)): `<old> -> <target>`, then
+`  replaced` for a replaced target, or `<old>  unchanged`:
+
+```
+copied: 2
+
+src/
+a.ts -> src/a.bak.ts
+b.ts -> src/b.bak.ts  replaced
+```
+
+- the entries are copied in path order; the source is never changed
+- a file keeps its content byte for byte, its modification time and its permissions as far as the platform keeps them;
+  `traversal.max_file_size` doesn't limit the copy
+- a directory is copied with its whole tree, every file, directory and symlink in it, also the hidden and ignored
+  ones: the traversal options of the request don't apply inside it; the directories keep their modification times
+- a symlink is copied as a symlink with the same text, never followed; it keeps its modification time where the
+  platform can set it
+- the copy is written under a temporary name next to the target (a name starting with `.` and ending with `.tmp`), a
+  directory with its whole tree, then renamed into place: a failed copy is removed and leaves no partial target
+- a target which appeared after the check (it exists when the copy is renamed into place, without `overwrite`) is
+  skipped with `target_conflict`, never replaced; with `overwrite` the existing target is moved to the trash after
+  the copy is written, right before it is renamed into place, and where there is no trash the entry is skipped with
+  `trash_unavailable`
+- an unchanged entry counts as done for `isError`
+- JSON: `"copied"`, then `"unchanged"` when not 0; the entries like the ones of `rename`
+
+```json
+{
+  "version": 1,
+  "copied": 2,
+  "files": [
+    { "path": "src/a.ts", "to": "src/a.bak.ts" },
+    { "path": "src/b.ts", "to": "src/b.bak.ts", "replaced": true }
+  ]
+}
+```
+
 ## Write tools
 
-Tools which change files: `delete`, `rename`. They share how they are enabled, how they select files, the dry run and the
+Tools which change files: `delete`, `rename`, `copy`. They share how they are enabled, how they select files, the dry run and the
 response.
 
 ### Enabling
@@ -768,7 +946,7 @@ old.rs
 warning: file_changed (1): src/main.rs
 ```
 
-- the header: the count of the tool (`deleted: N`, also `deleted: 0`; `rename` adds `unchanged: N`), then `skipped: N` (the entries skipped with a
+- the header: the count of the tool (`deleted: N`, also `deleted: 0`; `rename` and `copy` add `unchanged: N`), then `skipped: N` (the entries skipped with a
   warning) and `failed: N` (the entries which failed) when they are not 0, then `permanent` for `permanent: true`, then
   `dry run` for a dry run
 - the entries in path order, grouped by directory like `find` with `output.group_dirs`
