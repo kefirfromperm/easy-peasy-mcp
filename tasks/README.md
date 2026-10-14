@@ -221,7 +221,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 |---|------|------------|--------|
 | 125 | [`delete` tool](125__TASK__DELETE_TOOL.md) | 111, 115, 120 | ✅ |
 | 126 | [`rename` tool](126__TASK__RENAME_TOOL.md) | 125 | ✅ |
-| 127 | [`copy` tool](127__TASK__COPY_TOOL.md) | 126 | ⬜ |
+| 127 | [`copy` tool](127__TASK__COPY_TOOL.md) | 126 | ✅ |
 
 ## Groups and replace
 

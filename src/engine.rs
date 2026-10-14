@@ -184,8 +184,14 @@ impl Drop for Lease {
 
 impl Engine {
     /// The names of the tools, in the order of `tools/list`.
-    pub const TOOLS: [&'static str; 5] =
-        ["find", "get_config", "update_config", "delete", "rename"];
+    pub const TOOLS: [&'static str; 6] = [
+        "find",
+        "get_config",
+        "update_config",
+        "delete",
+        "rename",
+        "copy",
+    ];
 
     /// A new session.
     #[must_use]
@@ -255,9 +261,12 @@ impl Engine {
             "delete" => {
                 Ok(self.write_tool(arguments, |json| self.try_delete(arguments, progress, json)))
             }
-            "rename" => {
-                Ok(self.write_tool(arguments, |json| self.try_rename(arguments, progress, json)))
-            }
+            "rename" => Ok(self.write_tool(arguments, |json| {
+                self.try_transfer(rename::Mode::Rename, arguments, progress, json)
+            })),
+            "copy" => Ok(self.write_tool(arguments, |json| {
+                self.try_transfer(rename::Mode::Copy, arguments, progress, json)
+            })),
             other => Err(UnknownTool(other.to_string())),
         }
     }
@@ -377,9 +386,11 @@ impl Engine {
         Ok(write_output(&outcome, "deleted", &settings, json))
     }
 
-    /// `rename` with writing allowed: the selection, `expect`, the plan and its conflicts, then the renames.
-    fn try_rename(
+    /// `rename` or `copy` with writing allowed: the selection, `expect`, the plan and its conflicts, then the renames
+    /// or the copies.
+    fn try_transfer(
         &self,
+        mode: rename::Mode,
         arguments: &Value,
         progress: Option<&Arc<Progress>>,
         json: bool,
@@ -416,10 +427,11 @@ impl Engine {
                     stop: &stop,
                     trash: &trash,
                     dry_run: write.dry_run,
+                    mode,
                 },
             )?
         };
-        Ok(write_output(&outcome, "renamed", &settings, json))
+        Ok(write_output(&outcome, mode.count(), &settings, json))
     }
 
     /// The `find` tool.
@@ -1035,7 +1047,7 @@ impl Engine {
 }
 
 /// The tools which change files (TOOLS.md#write-tools).
-const WRITE_TOOLS: [&str; 2] = ["delete", "rename"];
+const WRITE_TOOLS: [&str; 3] = ["delete", "rename", "copy"];
 
 /// The selection of a write tool, see [`Engine::selection`].
 struct Selected {

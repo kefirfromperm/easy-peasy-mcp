@@ -46,6 +46,9 @@ impl Server {
         let Value::Object(rename_schema) = description::rename_schema() else {
             unreachable!("the schema is a JSON object")
         };
+        let Value::Object(copy_schema) = description::copy_schema() else {
+            unreachable!("the schema is a JSON object")
+        };
         vec![
             Tool::new("find", description::FIND_DESCRIPTION, schema)
                 .annotate(ToolAnnotations::new().read_only(true).open_world(false)),
@@ -79,6 +82,13 @@ impl Server {
                     .read_only(false)
                     .destructive(true)
                     .idempotent(false)
+                    .open_world(false),
+            ),
+            Tool::new("copy", description::COPY_DESCRIPTION, copy_schema).annotate(
+                ToolAnnotations::new()
+                    .read_only(false)
+                    .destructive(true)
+                    .idempotent(true)
                     .open_world(false),
             ),
         ]

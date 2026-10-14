@@ -1,4 +1,5 @@
-//! The `rename` tool: the target of every entry, the conflicts of the plan, the renames (TOOLS.md#rename).
+//! The `rename` and `copy` tools: the target of every entry, the conflicts of the plan, the renames or the copies
+//! (TOOLS.md#rename, TOOLS.md#copy).
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -20,7 +21,24 @@ pub(crate) enum OnConflict {
     Overwrite,
 }
 
-/// The fields of `rename` besides the shared ones of the write tools.
+/// Whether the entries are moved or copied to their targets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mode {
+    Rename,
+    Copy,
+}
+
+impl Mode {
+    /// The count of the response: `renamed`, `copied`.
+    pub(crate) fn count(self) -> &'static str {
+        match self {
+            Self::Rename => "renamed",
+            Self::Copy => "copied",
+        }
+    }
+}
+
+/// The fields of `rename` and `copy` besides the shared ones of the write tools.
 #[derive(Debug, Clone)]
 pub(crate) struct RenameRequest {
     pub to: Template,
@@ -98,6 +116,8 @@ enum Reason {
     SameTarget,
     Selected,
     Directory,
+    /// `copy`: a directory into itself.
+    Inside,
 }
 
 impl Reason {
@@ -107,6 +127,7 @@ impl Reason {
             Self::SameTarget => "same_target",
             Self::Selected => "selected",
             Self::Directory => "directory",
+            Self::Inside => "inside",
         }
     }
 
@@ -116,6 +137,7 @@ impl Reason {
             Self::SameTarget => "the same target as another file",
             Self::Selected => "the target is another selected file",
             Self::Directory => "a directory is never replaced",
+            Self::Inside => "the target is inside the copied directory",
         }
     }
 }
@@ -144,7 +166,7 @@ enum Step<'a> {
     Move(Move<'a>),
 }
 
-/// How `rename` acts.
+/// How `rename` and `copy` act.
 pub(crate) struct How<'a> {
     pub roots: &'a [PathBuf],
     /// Whether the call must stop: its deadline, its cancellation.
@@ -152,10 +174,11 @@ pub(crate) struct How<'a> {
     /// Moves a replaced target to the trash.
     pub trash: &'a dyn Fn(&Path) -> Result<(), TrashError>,
     pub dry_run: bool,
+    pub mode: Mode,
 }
 
-/// Renames the entries (in path order, not inside one another): the plan, its conflicts, then the renames until the
-/// call must stop.
+/// Renames or copies the entries (in path order, not inside one another): the plan, its conflicts, then the renames
+/// or the copies until the call must stop.
 pub(crate) fn rename(
     entries: &[Entry],
     request: &RenameRequest,
@@ -174,7 +197,7 @@ pub(crate) fn rename(
             Err(code) => outcome.skip(entry, code),
         }
     }
-    conflicts(&mut steps, entries, request.on_conflict)?;
+    conflicts(&mut steps, entries, request.on_conflict, how.mode)?;
     for step in &steps {
         if let Step::Move(m) = step
             && m.conflict.is_some()
@@ -276,11 +299,12 @@ fn slash_path(path: &Path) -> String {
         .join("/")
 }
 
-/// Marks the conflicts of the moves; `rename_conflict` when `on_conflict` doesn't resolve them.
+/// Marks the conflicts of the moves; `rename_conflict` or `copy_conflict` when `on_conflict` doesn't resolve them.
 fn conflicts(
     steps: &mut [Step<'_>],
     entries: &[Entry],
     on_conflict: OnConflict,
+    mode: Mode,
 ) -> Result<(), Report> {
     let old: HashSet<PathBuf> = entries
         .iter()
@@ -300,6 +324,8 @@ fn conflicts(
             Some(Reason::SameTarget)
         } else if old.contains(&m.to) {
             Some(Reason::Selected)
+        } else if mode == Mode::Copy && m.entry.is_dir && m.to.starts_with(&m.from) {
+            Some(Reason::Inside)
         } else {
             std::fs::symlink_metadata(&m.to).ok().map(|meta| {
                 if on_conflict == OnConflict::Overwrite && (meta.is_dir() || m.entry.is_dir) {
@@ -343,21 +369,22 @@ fn conflicts(
             json!({ "path": path, "to": to, "reason": reason.code() })
         })
         .collect();
-    let hint = match on_conflict {
-        OnConflict::Overwrite => r#"on_conflict = "skip" renames the other files"#,
-        _ => {
-            r#"on_conflict = "skip" renames the other files, "overwrite" replaces the existing ones"#
-        }
+    let (code, verb) = match mode {
+        Mode::Rename => (ErrorCode::RenameConflict, "renames"),
+        Mode::Copy => (ErrorCode::CopyConflict, "copies"),
     };
-    Err(Report::new(
-        ErrorCode::RenameConflict,
-        "targets conflict; nothing was changed",
-    )
-    .details(lines, "conflicts", Value::Array(json))
-    .hint(hint))
+    let hint = match on_conflict {
+        OnConflict::Overwrite => format!(r#"on_conflict = "skip" {verb} the other files"#),
+        _ => format!(
+            r#"on_conflict = "skip" {verb} the other files, "overwrite" replaces the existing ones"#
+        ),
+    };
+    Err(Report::new(code, "targets conflict; nothing was changed")
+        .details(lines, "conflicts", Value::Array(json))
+        .hint(hint))
 }
 
-/// Why an entry wasn't renamed.
+/// Why an entry wasn't renamed or copied.
 #[derive(Debug)]
 enum Failure {
     /// The target appeared after the check.
@@ -366,8 +393,11 @@ enum Failure {
     Trash(TrashError),
 }
 
-/// Renames one entry: the replaced target to the trash, the missing directories, the move.
+/// Renames or copies one entry: the replaced target to the trash, the missing directories, the move or the copy.
 fn act(m: &Move<'_>, how: &How<'_>) -> Result<(), Failure> {
+    if how.mode == Mode::Copy {
+        return copy_into_place(m, how);
+    }
     let exists = std::fs::symlink_metadata(&m.to).is_ok();
     if exists && !m.replace {
         return Err(Failure::Appeared);
@@ -392,6 +422,46 @@ fn move_entry(from: &Path, to: &Path) -> Result<(), TrashError> {
     }
 }
 
+/// Copies one entry under a temporary name next to its target, then renames it into place; the replaced target goes
+/// to the trash right before. A copy which isn't put into place is removed.
+fn copy_into_place(m: &Move<'_>, how: &How<'_>) -> Result<(), Failure> {
+    let failed = |e: &std::io::Error| Failure::Trash(crate::recycle::failed(e));
+    let (Some(parent), Some(name)) = (m.to.parent(), m.to.file_name()) else {
+        return Err(failed(&std::io::Error::from(
+            std::io::ErrorKind::InvalidInput,
+        )));
+    };
+    std::fs::create_dir_all(parent).map_err(|e| failed(&e))?;
+    let temporary = parent.join(temporary_name(name));
+    if std::fs::symlink_metadata(&temporary).is_ok() {
+        return Err(failed(&std::io::Error::from(
+            std::io::ErrorKind::AlreadyExists,
+        )));
+    }
+    copy_moved(&m.from, &temporary).map_err(Failure::Trash)?;
+    let discard = |failure: Failure| {
+        let _ = write::remove(&temporary);
+        failure
+    };
+    if std::fs::symlink_metadata(&m.to).is_ok() {
+        if !m.replace {
+            return Err(discard(Failure::Appeared));
+        }
+        (how.trash)(&m.to).map_err(|e| discard(Failure::Trash(e)))?;
+    }
+    std::fs::rename(&temporary, &m.to).map_err(|e| discard(failed(&e)))
+}
+
+/// A hidden name for the copy of `name` which is not in place yet: `.<name>.<pid>-<n>.tmp`.
+fn temporary_name(name: &std::ffi::OsStr) -> std::ffi::OsString {
+    static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let mut temporary = std::ffi::OsString::from(".");
+    temporary.push(name);
+    temporary.push(format!(".{}-{n}.tmp", std::process::id()));
+    temporary
+}
+
 /// Copies `from` to `to`; a failed copy is removed.
 fn copy_moved(from: &Path, to: &Path) -> Result<(), TrashError> {
     copy_tree(from, to).map_err(|e| {
@@ -402,12 +472,16 @@ fn copy_moved(from: &Path, to: &Path) -> Result<(), TrashError> {
     })
 }
 
-/// Copies an entry: a directory with everything in it, a symlink as a link.
+/// Copies an entry: a directory with everything in it, a symlink as a link; the permissions and the modification
+/// times are kept (of a symlink where the platform can set it).
 fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
     let meta = std::fs::symlink_metadata(from)?;
+    let modified = filetime::FileTime::from_last_modification_time(&meta);
     if meta.file_type().is_symlink() {
         let target = std::fs::read_link(from)?;
-        return symlink(&target, to, from);
+        symlink(&target, to, from)?;
+        let _ = filetime::set_symlink_file_times(to, filetime::FileTime::now(), modified);
+        return Ok(());
     }
     if meta.is_dir() {
         std::fs::create_dir(to)?;
@@ -415,9 +489,11 @@ fn copy_tree(from: &Path, to: &Path) -> std::io::Result<()> {
             let child = child?;
             copy_tree(&child.path(), &to.join(child.file_name()))?;
         }
-        return std::fs::set_permissions(to, meta.permissions());
+        std::fs::set_permissions(to, meta.permissions())?;
+        return filetime::set_file_mtime(to, modified);
     }
-    std::fs::copy(from, to).map(|_| ())
+    std::fs::copy(from, to)?;
+    filetime::set_file_mtime(to, modified)
 }
 
 #[cfg(unix)]
@@ -461,6 +537,16 @@ mod tests {
         arguments: &Value,
         trashed: &std::cell::RefCell<Vec<PathBuf>>,
     ) -> Result<Outcome, String> {
+        run_as(Mode::Rename, root, entries, arguments, trashed)
+    }
+
+    fn run_as(
+        mode: Mode,
+        root: &Path,
+        entries: &[Entry],
+        arguments: &Value,
+        trashed: &std::cell::RefCell<Vec<PathBuf>>,
+    ) -> Result<Outcome, String> {
         let roots = [root.to_path_buf()];
         let trash = |path: &Path| {
             trashed.borrow_mut().push(path.to_path_buf());
@@ -474,6 +560,7 @@ mod tests {
                 stop: &|| false,
                 trash: &trash,
                 dry_run: false,
+                mode,
             },
         )
         .map_err(|r| r.to_text())
@@ -566,6 +653,161 @@ mod tests {
         assert!(copy_moved(&root.join("missing"), &root.join("f")).is_err());
         assert!(copy_moved(&root.join("d"), &root.join("e/x.txt/y")).is_err());
         assert!(!root.join("f").exists());
+    }
+
+    /// The names in `dir`, sorted.
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_copy_keeps_the_source_contents_and_times() {
+        let (_tmp, root) = tree();
+        std::fs::write(root.join("d/x.txt"), "x").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("x.txt", root.join("d/link")).unwrap();
+        let old = filetime::FileTime::from_unix_time(1_790_000_000, 0);
+        filetime::set_file_mtime(root.join("d/x.txt"), old).unwrap();
+        filetime::set_file_mtime(root.join("d"), old).unwrap();
+        filetime::set_file_mtime(root.join("a.js"), old).unwrap();
+        let trashed = std::cell::RefCell::default();
+        let entries = [entry(&root, "a.js", false), entry(&root, "d", true)];
+        let outcome = run_as(
+            Mode::Copy,
+            &root,
+            &entries,
+            &json!({"to": "copy/{name}"}),
+            &trashed,
+        )
+        .unwrap();
+        assert_eq!(outcome.acted.len(), 2);
+        let mtime = |path: &Path| {
+            filetime::FileTime::from_last_modification_time(
+                &std::fs::symlink_metadata(path).unwrap(),
+            )
+        };
+        for path in ["a.js", "d", "d/x.txt"] {
+            assert!(root.join(path).exists(), "the source {path} stays");
+            assert_eq!(mtime(&root.join("copy").join(path)), old, "{path}");
+        }
+        assert_eq!(
+            std::fs::read_to_string(root.join("copy/a.js")).unwrap(),
+            "a.js"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("copy/d/x.txt")).unwrap(),
+            "x"
+        );
+        #[cfg(unix)]
+        assert_eq!(
+            std::fs::read_link(root.join("copy/d/link")).unwrap(),
+            PathBuf::from("x.txt")
+        );
+        // no temporary copy is left
+        assert_eq!(names(&root.join("copy")), ["a.js", "d"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_copy_keeps_the_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_tmp, root) = tree();
+        std::fs::set_permissions(root.join("a.js"), std::fs::Permissions::from_mode(0o750))
+            .unwrap();
+        let trashed = std::cell::RefCell::default();
+        run_as(
+            Mode::Copy,
+            &root,
+            &[entry(&root, "a.js", false)],
+            &json!({"to": "{stem}.bak.{ext}"}),
+            &trashed,
+        )
+        .unwrap();
+        let mode = std::fs::metadata(root.join("a.bak.js"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o750);
+    }
+
+    #[test]
+    fn a_failed_copy_leaves_nothing() {
+        let (_tmp, root) = tree();
+        let trashed: std::cell::RefCell<Vec<PathBuf>> = std::cell::RefCell::default();
+        // the source is gone after the plan: copy_into_place fails and removes its temporary copy
+        let m = Move {
+            entry: &entry(&root, "a.js", false),
+            from: root.join("missing.js"),
+            to: root.join("out/a.js"),
+            shown: PathBuf::from("out/a.js"),
+            conflict: None,
+            replace: false,
+        };
+        let trash = |path: &Path| {
+            trashed.borrow_mut().push(path.to_path_buf());
+            Ok(())
+        };
+        let how = How {
+            roots: std::slice::from_ref(&root),
+            stop: &|| false,
+            trash: &trash,
+            dry_run: false,
+            mode: Mode::Copy,
+        };
+        assert!(act(&m, &how).is_err());
+        assert!(names(&root.join("out")).is_empty());
+    }
+
+    #[test]
+    fn copy_overwrite_keeps_the_source() {
+        let (_tmp, root) = tree();
+        let trashed = std::cell::RefCell::default();
+        let outcome = run_as(
+            Mode::Copy,
+            &root,
+            &[entry(&root, "c.ts", false)],
+            &json!({"to": "{stem}.tsx", "on_conflict": "overwrite"}),
+            &trashed,
+        )
+        .unwrap();
+        assert!(outcome.acted[0].replaced);
+        assert_eq!(*trashed.borrow(), [root.join("c.tsx")]);
+        assert_eq!(std::fs::read_to_string(root.join("c.tsx")).unwrap(), "c.ts");
+        assert_eq!(std::fs::read_to_string(root.join("c.ts")).unwrap(), "c.ts");
+    }
+
+    #[test]
+    fn a_directory_copied_into_itself() {
+        let (_tmp, root) = tree();
+        let trashed = std::cell::RefCell::default();
+        let dir = [entry(&root, "d", true)];
+        let error = run_as(
+            Mode::Copy,
+            &root,
+            &dir,
+            &json!({"to": "d/sub/d", "on_conflict": "overwrite"}),
+            &trashed,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            "error[copy_conflict]: targets conflict; nothing was changed\n  d/ -> d/sub/d/: the target is inside the copied directory\n  hint: on_conflict = \"skip\" copies the other files\n"
+        );
+        // a sibling which starts with the same name is not inside
+        let error = run_as(
+            Mode::Copy,
+            &root,
+            &dir,
+            &json!({"to": "{name}.bak"}),
+            &trashed,
+        );
+        assert!(error.is_ok());
+        assert!(root.join("d.bak").is_dir() && root.join("d").is_dir());
     }
 
     #[test]

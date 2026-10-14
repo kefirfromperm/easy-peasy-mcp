@@ -45,6 +45,7 @@ pub enum ErrorCode {
     CountMismatch,
     InvalidTemplate,
     RenameConflict,
+    CopyConflict,
     /// A cancelled request: its response is never sent (TOOLS.md#cancellation).
     Cancelled,
     NotImplemented,
@@ -94,6 +95,7 @@ impl ErrorCode {
             Self::CountMismatch => "count_mismatch",
             Self::InvalidTemplate => "invalid_template",
             Self::RenameConflict => "rename_conflict",
+            Self::CopyConflict => "copy_conflict",
             Self::Cancelled => "cancelled",
             Self::NotImplemented => "not_implemented",
         }
