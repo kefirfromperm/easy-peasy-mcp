@@ -1,6 +1,6 @@
 # Task 139: A dry run header which can't be read as done
 
-Status: in progress
+Status: implemented, see [139__SUMMARY__DRY_RUN_HEADER.md](139__SUMMARY__DRY_RUN_HEADER.md)
 
 Depends on: task 125
 
