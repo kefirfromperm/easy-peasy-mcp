@@ -93,7 +93,7 @@ pub fn fit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::output::{BlockOptions, Detail, Highlight, Limits, Page, Response};
+    use crate::output::{BlockOptions, CountBy, Detail, Highlight, Limits, Page, Response};
     use crate::query::ast::CondId;
     use crate::search::{FileMatches, Found};
     use crate::warning::Warnings;
@@ -198,6 +198,8 @@ mod tests {
             values: (0..100).map(|i| (format!("directory{i:03}/"), 1)).collect(),
         }];
         big.facet_limit = 100;
+        // the count level of a lowered detail is the totals, whatever count_by is
+        big.count_by = CountBy::Line;
         assert_eq!(
             fit(big, 100, 4.0, false).0,
             "files: 12  lines: 12  matches: 12  detail: count (budget 100)  truncated: yes (budget)\n"
@@ -215,5 +217,36 @@ mod tests {
         let text = fit(paged, 116, 4.0, false).0;
         assert!(text.starts_with("files: 11  lines: 11  matches: 11  detail: files (budget 116)  truncated: yes (budget)\n"), "{text}");
         assert!(text.contains("f10  [#1]"), "all the files: {text}");
+    }
+
+    #[test]
+    fn the_levels_of_the_counts() {
+        let files: Vec<Found> = (0..30).map(|i| file(&format!("f{i:02}"), "x\n")).collect();
+        let legend = [(CondId::Number(1), "text has 'x'".to_string())];
+        let warnings = Warnings::default();
+        let fitted = |budget: usize| {
+            let mut counts = response(&files, &legend, &warnings);
+            counts.detail = Detail::Count;
+            counts.count_by = CountBy::Line;
+            counts.page.hash = Some("0123abcd".to_string());
+            fit(counts, budget, 4.0, false).0
+        };
+        // 30 × "f00  lines: 1  matches: 1\n  1: 1\n" and the header: 257 tokens
+        let text = fitted(260);
+        assert!(text.starts_with("files: 30  lines: 30  matches: 30\n"), "{text}");
+        assert!(text.contains("f29  lines: 1  matches: 1\n  1: 1\n"), "{text}");
+        // the counts of the files: 218 tokens
+        let text = fitted(230);
+        assert!(text.starts_with("files: 30  lines: 30  matches: 30  count by: file (budget 230)  truncated: yes (budget)\n"), "{text}");
+        assert!(text.contains("f29  lines: 1  matches: 1\n") && !text.contains("1: 1"), "{text}");
+        // 16 of the files with a cursor
+        let text = fitted(150);
+        assert!(text.contains("count by: file (budget 150)  truncated: yes (budget)  next cursor: "), "{text}");
+        assert!(text.contains("f15  ") && !text.contains("f16  "), "{text}");
+        // fewer than ten files fit: the totals
+        assert_eq!(
+            fitted(100),
+            "files: 30  lines: 30  matches: 30  count by: total (budget 100)  truncated: yes (budget)\n"
+        );
     }
 }

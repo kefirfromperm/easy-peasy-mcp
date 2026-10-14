@@ -1210,6 +1210,67 @@ mod tests {
         )
     }
 
+    /// The text of `count_by = line` for a file with two matches in line 1 and a multiline match from line 3 to 4.
+    fn line_counts(omit: &[Part]) -> String {
+        let content = crate::content::Content::from_bytes(b"a x x\nb\nx\ny\n");
+        let fragment = |start: usize, end: usize| Fragment {
+            range: start..end,
+            ids: vec![(1, CondId::Number(1))],
+            escape: None,
+            groups: Vec::new(),
+        };
+        let fragments = vec![fragment(2, 3), fragment(4, 5), fragment(8, 11)];
+        let lines = matched_lines(&content, &fragments);
+        let files = [Found {
+            matches: Some(crate::search::FileMatches {
+                content,
+                fragments,
+                lines,
+            }),
+            ..found("f")
+        }];
+        let legend = [(CondId::Number(1), "text has 'x'".to_string())];
+        Response {
+            detail: Detail::Count,
+            count_by: CountBy::Line,
+            blocks: BlockOptions::default(),
+            group_dirs: false,
+            group_repeated: 3,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
+            funnel: None,
+            hints: Vec::new(),
+            facets: Vec::new(),
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits::default(),
+            result_id: None,
+            legend: &legend,
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+            omit: Omit::from_parts(omit),
+        }
+        .to_text()
+    }
+
+    #[test]
+    fn the_counts_of_the_lines() {
+        let head = "files: 1  lines: 3  matches: 3\n\nf  lines: 3  matches: 3\n";
+        assert_eq!(line_counts(&[]), format!("{head}  1: 2\n  3: 1\n  4: 0\n"));
+        assert_eq!(
+            line_counts(&[Part::LineNumbers]),
+            format!("{head}  2\n  1\n  0\n")
+        );
+        assert_eq!(
+            line_counts(&[Part::LineCounts]),
+            format!("{head}  1\n  3\n  4\n")
+        );
+        assert_eq!(line_counts(&[Part::LineNumbers, Part::LineCounts]), head);
+    }
+
     #[test]
     fn the_cursor_of_a_budget_list_starts_after_the_files_listed() {
         // max_files reaches past the end, the budget cuts the list

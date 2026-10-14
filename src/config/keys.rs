@@ -922,7 +922,7 @@ mod tests {
             Type::Omit.check_toml(&item("['legend', 'gaps']")),
             Ok(Value::List(vec!["legend".into(), "gaps".into()]))
         );
-        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps, indent, warnings) is expected";
+        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings) is expected";
         for bad in ["'none'", "['colour']", "1"] {
             assert_eq!(
                 Type::Omit.check_toml(&item(bad)),
@@ -941,10 +941,23 @@ mod tests {
                 .check_json("output.omit", &json!("none"))
                 .unwrap_err()
                 .to_text(),
-            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, gaps, indent, warnings)\n"
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings)\n"
         );
         assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
+    }
+
+    #[test]
+    fn count_by_after_detail() {
+        assert_eq!(Key::CountBy.name(), "count_by");
+        assert_eq!(Key::CountBy.section(), "output");
+        assert_eq!(Key::CountBy.default_value(), Value::Text("total".into()));
+        assert_eq!(
+            Key::CountBy.ty().expected(),
+            "expected one of: total, file, line"
+        );
+        let at = |key| Key::ALL.iter().position(|k| *k == key);
+        assert_eq!(at(Key::CountBy), at(Key::Detail).map(|i| i + 1));
     }
 
     #[test]
