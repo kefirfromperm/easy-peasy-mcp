@@ -210,10 +210,10 @@ main.rs  [#1]  lines: 2  matches: 2
 2:let a = ⟦#1:std::⟧io::stdin();
 ```
 
-2. the budget: three locations fit into 100 tokens
+2. the budget, with three characters a token: three locations fit into 100 tokens (96), all of them don't (133)
 
 ```json request
-{"query": "text has 'std::'", "output": {"sort": "path asc", "budget": 100}}
+{"query": "text has 'std::'", "output": {"sort": "path asc", "budget": 100, "chars_per_token": 3}}
 ```
 ```text response
 files: 13  lines: 17  matches: 17  result: r2
@@ -230,7 +230,7 @@ main.rs  [#1]  lines: 2  matches: 2
 3. all of them don't: the budget lowers the detail
 
 ```json request
-{"query": "text has 'std::'", "output": {"sort": "path asc", "budget": 100, "repeated_locations": 0}}
+{"query": "text has 'std::'", "output": {"sort": "path asc", "budget": 100, "chars_per_token": 3, "repeated_locations": 0}}
 ```
 ```text response
 files: 13  lines: 17  matches: 17  result: r3  detail: facets (budget 100)  truncated: yes (budget)
