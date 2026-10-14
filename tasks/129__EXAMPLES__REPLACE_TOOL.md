@@ -97,19 +97,20 @@ main.rs  matches: 3
 2. the files after it: `lib.rs` and `Cargo.toml` keep `serde_json`
 
 ```json request
-{"query": "text has 'json'", "output": {"sort": "path asc", "highlight": "none", "dedent": false}}
+{"query": "name ~ '*.{rs,toml}' and text has 'json'", "output": {"sort": "path asc", "highlight": "none", "dedent": false}}
 ```
 ```text response
-files: 3  lines: 6  matches: 6  result: r1
-#1 text has 'json'
+files: 3  lines: 5  matches: 7  result: r1
+#1 name ~ '*.{rs,toml}'
+#2 text has 'json'
 
 ./
-Cargo.toml  lines: 1  matches: 1
+Cargo.toml  [#1 #2]  lines: 1  matches: 1
 2:serde_json = "1"
 src/
-lib.rs  lines: 1  matches: 2
+lib.rs  [#1 #2]  lines: 1  matches: 2
 1:pub fn to_json(v: &serde_json::Value) -> String {
-main.rs  lines: 3  matches: 3
+main.rs  [#1 #2]  lines: 3  matches: 4
 1:use simd_json::Value;
 --
 4:    let apple = simd_json::json!({"fruit": "apple"});
@@ -410,17 +411,18 @@ easy-peasy-mcp --allow-write
 1. find
 
 ```json request
-{"query": "text has 'serde_json' @old", "output": {"detail": "files", "sort": "path asc"}}
+{"query": "name ~ '*.{rs,toml}' and text has 'serde_json' @old", "output": {"detail": "files", "sort": "path asc"}}
 ```
 ```text response
 files: 3  lines: 5  matches: 5  result: r1
+#1 name ~ '*.{rs,toml}'
 @old text has 'serde_json'
 
 ./
-Cargo.toml  [@old]  lines: 1  matches: 1
+Cargo.toml  [#1 @old]  lines: 1  matches: 1
 src/
-lib.rs  [@old]  lines: 1  matches: 1
-main.rs  [@old]  lines: 3  matches: 3
+lib.rs  [#1 @old]  lines: 1  matches: 1
+main.rs  [#1 @old]  lines: 3  matches: 3
 ```
 
 ```text setup
