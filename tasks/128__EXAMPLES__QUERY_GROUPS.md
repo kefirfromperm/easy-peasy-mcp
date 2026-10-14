@@ -123,6 +123,7 @@ files: 1  lines: 1  matches: 1  result: r1
 #3 text has 'parse'
 #4 text has 'fn'
 
+./
 lib.rs  [#1]  lines: 1  matches: 1
 ⇥4
 2:⟦#1,@call,#3:parse⟧(path)
@@ -144,6 +145,7 @@ files: 2  lines: 0  matches: 0  result: r1
 #1 name ~ '*.toml'
 #2 name = 'lib.rs'
 
+./
 Cargo.toml  [@top #1]
 lib.rs  [@top #2]
 ```
@@ -216,6 +218,7 @@ files: 1  lines: 2  matches: 2  result: r1
 #1 name = 'lib.rs'
 @def text =~ `(pub\s+)?fn\s+(?<fname>\w+)\(`
 
+./
 lib.rs  [#1 @def]  lines: 2  matches: 2
 1:⟦@def:pub fn load_config(⟧path: &Path) -> Config {
 --
