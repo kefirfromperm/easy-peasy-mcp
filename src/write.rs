@@ -853,6 +853,52 @@ mod tests {
     }
 
     #[test]
+    fn changed_lines_of_replace_cut_by_max_lines() {
+        let change = crate::replace::Change {
+            line: 2,
+            old: vec!["a".into(), "b".into()],
+            new_line: 2,
+            new: vec!["A".into()],
+        };
+        let outcome = Outcome {
+            acted: vec![
+                Acted {
+                    shown: PathBuf::from("x.txt"),
+                    matches: Some(2),
+                    changes: vec![change.clone()],
+                    ..Acted::default()
+                },
+                Acted {
+                    shown: PathBuf::from("y.txt"),
+                    matches: Some(1),
+                    changes: vec![change],
+                    ..Acted::default()
+                },
+                Acted {
+                    shown: PathBuf::from("z.txt"),
+                    unchanged: true,
+                    ..Acted::default()
+                },
+            ],
+            selected: 3,
+            max_lines: Some(4),
+            ..Outcome::default()
+        };
+        assert_eq!(
+            outcome.to_text("replaced", false),
+            "replaced: 2  matches: 3  unchanged: 1\n\nx.txt  matches: 2\n-2:a\n-3:b\n+2:A\ny.txt  matches: 1\n-2:a\nz.txt  unchanged\n… 2 more lines\n"
+        );
+        let json: Value = serde_json::from_str(&outcome.to_json("replaced")).unwrap();
+        assert_eq!(json["matches"], json!(3));
+        assert_eq!(
+            json["files"][1],
+            json!({"path": "y.txt", "matches": 1, "changes": [{"line": 2, "old": ["a"], "new_line": 2, "new": []}]})
+        );
+        assert_eq!(json["more_lines"], json!(2));
+        assert!(json["files"][2].get("changes").is_none());
+    }
+
+    #[test]
     fn an_allowed_root_itself_is_never_changed() {
         let roots = [PathBuf::from("/p"), PathBuf::from("/p/q")];
         assert!(may_change(Path::new("/p/a.txt"), &roots));
