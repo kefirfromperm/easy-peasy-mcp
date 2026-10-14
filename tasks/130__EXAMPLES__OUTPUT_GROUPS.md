@@ -93,12 +93,15 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 1  lines: 2  matches: 2  result: r1
+files: 2  lines: 3  matches: 3  result: r1
 
 ./
 lib.rs  lines: 2  matches: 2
 1:load_config
 5:parse
+src/
+a.rs  lines: 1  matches: 1
+3:main
 ```
 
 ## E130.4 A group and its sub-group, with markers
@@ -113,7 +116,7 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 1  lines: 2  matches: 4  result: r1
+files: 2  lines: 3  matches: 6  result: r1
 
 ./
 lib.rs  lines: 2  matches: 4
@@ -121,6 +124,10 @@ lib.rs  lines: 2  matches: 4
 1:⟦@def.fname:load_config⟧
 5:⟦@def:fn parse(⟧
 5:⟦@def.fname:parse⟧
+src/
+a.rs  lines: 1  matches: 2
+3:⟦@def:fn main(⟧
+3:⟦@def.fname:main⟧
 ```
 
 ## E130.5 Only the matches in JSON
@@ -130,7 +137,7 @@ The file has `fragments` instead of `blocks`, every one with the number of its l
 Fixture: `query-groups`
 
 ```json request
-{"query": "text =~ `fn\\s+(?<fname>\\w+)\\(` @def", "output": {"groups": ["@def.fname"], "only_match": true, "format": "json"}}
+{"query": "text =~ `fn\\s+(?<fname>\\w+)\\(` @def", "output": {"groups": ["@def.fname"], "only_match": true, "format": "json", "sort": "path asc"}}
 ```
 
 ```json response
@@ -138,11 +145,14 @@ Fixture: `query-groups`
   "version": 2,
   "exists": true,
   "result": "r1",
-  "counts": {"files": 1, "lines": 2, "matches": 2},
+  "counts": {"files": 2, "lines": 3, "matches": 3},
   "files": [
     {"path": "lib.rs", "lines": 2, "matches": 2, "fragments": [
       {"n": 1, "col": [8, 19], "text": "load_config"},
       {"n": 5, "col": [4, 9], "text": "parse"}
+    ]},
+    {"path": "src/a.rs", "lines": 1, "matches": 1, "fragments": [
+      {"n": 3, "col": [4, 8], "text": "main"}
     ]}
   ]
 }
