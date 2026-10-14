@@ -1,6 +1,6 @@
 # Task 129: `replace` tool
 
-Status: in progress
+Status: implemented, see [129__SUMMARY__REPLACE_TOOL.md](129__SUMMARY__REPLACE_TOOL.md)
 
 Depends on: task 125, task 128
 
