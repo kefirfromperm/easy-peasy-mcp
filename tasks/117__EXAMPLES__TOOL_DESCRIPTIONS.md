@@ -330,8 +330,10 @@ easy-peasy-mcp
                 "path_style": {
                   "enum": [
                     "relative",
-                    "absolute"
-                  ]
+                    "absolute",
+                    "in_dir"
+                  ],
+                  "description": "in_dir: the working directory written once, the paths relative to it."
                 },
                 "omit": {
                   "anyOf": [
@@ -341,6 +343,7 @@ easy-peasy-mcp
                         "enum": [
                           "counts",
                           "result",
+                          "dir",
                           "legend",
                           "funnel",
                           "hints",
