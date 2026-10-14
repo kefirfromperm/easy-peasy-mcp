@@ -1,6 +1,6 @@
 # Task 138: All the locations of a repeated line
 
-Status: in progress
+Status: implemented, see [138__SUMMARY__REPEATED_LOCATIONS.md](138__SUMMARY__REPEATED_LOCATIONS.md)
 
 Depends on: task 86, task 134
 
