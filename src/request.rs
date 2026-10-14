@@ -374,10 +374,12 @@ mod tests {
 
     #[test]
     fn version() {
-        assert!(parse(&json!({ "version": 1, "query": "x" })).is_ok());
+        assert_eq!(parse(&json!({ "version": 1, "query": "x" })).unwrap().version, Some(1));
+        assert_eq!(parse(&json!({ "version": 2, "query": "x" })).unwrap().version, Some(2));
+        assert_eq!(parse(&json!({ "query": "x" })).unwrap().version, None);
         assert_eq!(
-            text(&json!({ "version": 2 })),
-            "error[unsupported_version]: the spec version 2 is not supported\n  hint: supported spec versions: 1\n"
+            text(&json!({ "version": 3 })),
+            "error[unsupported_version]: the spec version 3 is not supported\n  hint: supported spec versions: 1, 2\n"
         );
         for bad in [json!(0), json!("1"), json!(1.5), json!(-1)] {
             assert_eq!(

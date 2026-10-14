@@ -935,7 +935,7 @@ mod tests {
             Type::Omit.check_toml(&item("['legend', 'gaps']")),
             Ok(Value::List(vec!["legend".into(), "gaps".into()]))
         );
-        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings) is expected";
+        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected";
         for bad in ["'none'", "['colour']", "1"] {
             assert_eq!(
                 Type::Omit.check_toml(&item(bad)),
@@ -954,9 +954,9 @@ mod tests {
                 .check_json("output.omit", &json!("none"))
                 .unwrap_err()
                 .to_text(),
-            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings)\n"
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)\n"
         );
-        assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
+        assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
     }
 
@@ -971,6 +971,17 @@ mod tests {
         );
         let at = |key| Key::ALL.iter().position(|k| *k == key);
         assert_eq!(at(Key::CountBy), at(Key::Detail).map(|i| i + 1));
+    }
+
+    #[test]
+    fn show_after_omit_and_the_default_of_omit_per_spec() {
+        let at = |key| Key::ALL.iter().position(|k| *k == key);
+        assert_eq!(at(Key::Show), at(Key::Omit).map(|i| i + 1));
+        assert_eq!(Key::Show.default_value(), Value::List(vec![]));
+        assert_eq!(Key::Omit.default_value(), Value::List(vec!["warnings".into()]));
+        assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
+        assert_eq!(Key::Omit.default_for(2), Key::Omit.default_value());
+        assert_eq!(Key::Detail.default_for(1), Key::Detail.default_value());
     }
 
     #[test]

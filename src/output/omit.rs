@@ -114,14 +114,15 @@ mod tests {
 
     #[test]
     fn parts_by_name() {
-        assert_eq!(Part::ALL.len(), 16);
+        assert_eq!(Part::ALL.len(), 17);
+        assert_eq!(Part::find("left_out"), Some(Part::LeftOut));
         assert_eq!(Part::find("dir"), Some(Part::Dir));
         assert_eq!(Part::find("match_ids"), Some(Part::MatchIds));
         assert_eq!(Part::find("colour"), None);
         assert_eq!(Part::LineNumbers.name(), "line_numbers");
         assert_eq!(
             Part::ALL.map(Part::name).join(", "),
-            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings"
+            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out"
         );
         assert_eq!(Part::find("line_counts"), Some(Part::LineCounts));
     }
@@ -136,5 +137,29 @@ mod tests {
         assert!(some.has(Part::Legend) && some.has(Part::Gaps));
         assert!(!some.has(Part::Counts));
         assert_eq!(Omit::default(), none);
+    }
+
+    #[test]
+    fn the_rules_of_spec_2_and_show() {
+        let none = Omit::default();
+        let parts = Omit::from_parts;
+        // one condition, no context lines
+        let one = none.effective(none, 2, 1, false);
+        for part in [Part::Legend, Part::Conditions, Part::MatchIds, Part::Gaps] {
+            assert!(one.has(part), "{part:?}");
+        }
+        assert!(!one.has(Part::Warnings) && !one.has(Part::LeftOut));
+        // several conditions, context lines
+        let several = none.effective(none, 2, 2, true);
+        assert!(Part::ALL.iter().all(|p| !several.has(*p)));
+        // without line numbers the gaps stay
+        assert!(!parts(&[Part::LineNumbers]).effective(none, 2, 2, false).has(Part::Gaps));
+        // show wins over omit and the rules
+        let shown = parts(&[Part::Warnings]).effective(parts(&[Part::Warnings, Part::Legend]), 2, 1, false);
+        assert!(!shown.has(Part::Warnings) && !shown.has(Part::Legend) && shown.has(Part::Conditions));
+        assert_eq!(none.effective(Omit::all(), 2, 1, false), none);
+        // spec 1: no rules, no line of the omitted warnings
+        assert_eq!(none.effective(none, 1, 1, false), parts(&[Part::LeftOut]));
+        assert_eq!(parts(&[Part::Legend]).union(parts(&[Part::Gaps])), parts(&[Part::Legend, Part::Gaps]));
     }
 }
