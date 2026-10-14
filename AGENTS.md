@@ -187,6 +187,11 @@ Fixture: `small-rust`
 - a line `` Slow reads: `2s` `` in an example makes every read of a file's content take that long (a test hook of the
   library, cut short at the deadline of the request), so a timeout can be shown without depending on the machine; a
   startup example passes it to the binary in `EASY_PEASY_TEST_SLOW_READS` (milliseconds)
+- an examples file is written for a spec version (TOOLS.md#versioning): a line `` Spec: `1` `` before its fixtures
+  runs every example of the file against a server whose current spec version is that one (a test hook of the library;
+  a startup example passes it to the binary in `EASY_PEASY_TEST_SPEC`), so a request without `version` gets that
+  spec; without the line the examples are for the current spec version. The examples of the tasks before 141 are
+  spec 1 examples and keep their responses forever, the new examples are written for the current spec
 - every example runs against a fresh server, so result ids start at `r1`; a multi-step example (`within`, `since`,
   pagination) is written as a numbered sequence of requests and responses in one example
 - nothing in an example may depend on the machine: no absolute paths outside the fixture, no current time — dates

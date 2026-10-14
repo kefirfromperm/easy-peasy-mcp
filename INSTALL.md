@@ -86,7 +86,7 @@ easy-peasy-mcp --version
 ```
 
 ```
-easy-peasy-mcp 0.121.0, spec 1
+easy-peasy-mcp 0.135.0, spec 2
 ```
 
 ## Register in an MCP client

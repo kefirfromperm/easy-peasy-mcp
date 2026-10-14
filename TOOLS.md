@@ -38,7 +38,7 @@ Server capabilities announced in `initialize`:
 {
   "capabilities": { "tools": { "listChanged": false } },
   "serverInfo": { "name": "easy-peasy-mcp", "version": "0.1.0" },
-  "instructions": "File search: find + grep in one query. Call get_config first to learn allowed roots and defaults. Spec version 1."
+  "instructions": "File search: find + grep in one query. Call get_config first to learn allowed roots and defaults. Spec version 2."
 }
 ```
 
@@ -49,7 +49,7 @@ Two independent versions:
 | Version          | Example  | Covers                                                                         |
 |------------------|----------|--------------------------------------------------------------------------------|
 | server version   | `0.1.0`  | the program, semantic versioning; in `serverInfo` and `--version`              |
-| spec version     | `1`      | the contract with the agent: query language, request fields, response format   |
+| spec version     | `2`      | the contract with the agent: query language, request fields, response format   |
 
 The spec version is an integer, it grows only on a breaking change.
 
@@ -63,10 +63,17 @@ The spec version is an integer, it grows only on a breaking change.
 
 - A request can pin the spec version with `"version": 1`. Without it the current version is used.
 - The server supports the current spec version and may keep older ones; `get_config` lists them in the first comment
-  line of its result: `# easy-peasy-mcp 0.1.0, spec 1, supported specs: 1`.
+  line of its result: `# easy-peasy-mcp 0.1.0, spec 2, supported specs: 1, 2`.
 - An unsupported version fails with `unsupported_version` and the list of supported ones:
-  `error[unsupported_version]: the spec version 2 is not supported`, hint `supported spec versions: 1`; a value which
-  is not a whole number of at least 1 is `invalid_option`: `'version' must be a whole number of at least 1`.
+  `error[unsupported_version]: the spec version 3 is not supported`, hint `supported spec versions: 1, 2`; a value
+  which is not a whole number of at least 1 is `invalid_option`: `'version' must be a whole number of at least 1`.
+
+The spec versions:
+
+| Version | Changes                                                                                               |
+|---------|-------------------------------------------------------------------------------------------------------|
+| `1`     | the first one: every part of the response is written unless `output.omit` leaves it out               |
+| `2`     | the current one: the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines; the `omit` of a request is added to the configured one |
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
@@ -95,7 +102,7 @@ The description is what the agent reads to learn the query language, so it is a 
 sent in `tools/list`:
 
 ```
-Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 1.
+Search files by name, path, metadata and content in one query (find + grep in one). Read-only. Spec version 2.
 Call get_config once first to learn the allowed roots and defaults.
 
 QUERY: conditions joined with not, and, xor, or (this precedence) and brackets. Empty query = all files.
@@ -118,9 +125,10 @@ Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 OUTPUT: output.detail = exists | count | facets | files | lines (default); output.context = N lines around.
 output.count_by = file | line with detail = count: the counts of every file, or of every matched line too.
 output.budget = N tokens: the server picks the richest detail which fits. By default files are sorted by relevance.
-Text response with the default options: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match,
-[#1 @x] matched conditions, ⇥N removed indentation; empty or huge results come with a funnel and hints how to fix
-the query. output.omit = ['legend', 'line_numbers', ...] or 'all' leaves those parts out.
+Text response: "42:" matched line, "41-" context line, "--" gap between blocks of context, ⟦text⟧ a match, ⇥N removed
+indentation; with several conditions a legend, [#1 @x] matched conditions and ⟦ids:text⟧; empty or huge results come
+with a funnel and hints how to fix the query. Warnings are left out by default ("warnings left out: ...").
+output.omit = ['line_numbers', ...] or 'all' leaves more parts out, output.show = ['warnings', ...] or 'all' adds them.
 If the response has next_cursor, pass it back as output.cursor with the same request to get the next page.
 Responses with count detail or higher have a result id (r12), unless the result cache is off: within = "r12"
 searches only its files, since = "r12" returns only the changes.
@@ -227,10 +235,17 @@ EXAMPLES
         "path_style": { "enum": ["relative", "absolute", "in_dir"], "description": "in_dir: the working directory written once, the paths relative to it." },
         "omit": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings", "left_out"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to leave out, or \"all\"."
+        },
+        "show": {
+          "anyOf": [
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings", "left_out"] } },
+            { "enum": ["all"] }
+          ],
+          "description": "Parts of the response to show whatever omit says, or \"all\"."
         },
         "cursor": { "type": "string" },
         "file": {
@@ -358,7 +373,7 @@ TOML with the changed keys and their old values in comments, see [CONFIG.md](CON
 #### Description
 
 ```
-Deletes files: moves them to the trash of the system (Trash, Recycle Bin), so a mistake can be undone. Spec version 1.
+Deletes files: moves them to the trash of the system (Trash, Recycle Bin), so a mistake can be undone. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -472,7 +487,7 @@ The [response of a write tool](#response-of-a-write-tool), counted as `deleted`.
 #### Description
 
 ```
-Renames or moves files: every file gets a new path made from a template. Spec version 1.
+Renames or moves files: every file gets a new path made from a template. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -709,7 +724,7 @@ c.tsx  unchanged
 #### Description
 
 ```
-Copies files: every file gets a copy at a path made from a template. Spec version 1.
+Copies files: every file gets a copy at a path made from a template. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, not only the shown ones
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -886,7 +901,7 @@ b.ts -> src/b.bak.ts  replaced
 #### Description
 
 ```
-Replaces text in files: the matches of a group of the query get a new text made from a template. Spec version 1.
+Replaces text in files: the matches of a group of the query get a new text made from a template. Spec version 2.
 Select the files with exactly one of:
   result = "r12"      all files of a find result, searched again with the query of that find
   query = "..."       a find query, with dirs, traversal, kinds, languages like in find
@@ -1375,7 +1390,7 @@ The client cancels a running search with:
 → tools/list
 ← find, get_config, update_config
 → tools/call get_config {}
-← allowed roots ["/home/me/projects/app"], defaults, spec 1
+← allowed roots ["/home/me/projects/app"], defaults, spec 2
 → tools/call find { "query": "lang = rust and text has 'unwrap(' /c", "output": { "detail": "count" } }
 ← files: 14  lines: 52  matches: 57  result: r1
 → tools/call find { "within": "r1", "query": "text has 'unwrap(' /c", "output": { "detail": "files", "sort": "matches desc", "max_files": 5 } }
