@@ -73,7 +73,7 @@ The spec versions:
 | Version | Changes                                                                                               |
 |---------|-------------------------------------------------------------------------------------------------------|
 | `1`     | the first one: every part of the response is written unless `output.omit` leaves it out               |
-| `2`     | the current one: the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines; the `omit` of a request is added to the configured one |
+| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines; the `omit` of a request is added to the configured one |
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
@@ -1229,8 +1229,12 @@ An unknown field is `invalid_option` with the expected fields, like in `find`.
 ### Dry run
 
 - `dry_run: true` checks the selection like the real call (`expect`, changed files, archives, allowed roots) and
-  changes nothing; the response is the same as the real one, with `dry run` at the end of the header
-  (`"dry_run": true` in JSON). Whether the trash is available and whether an entry can be changed are known only when
+  changes nothing; the response is the same as the real one except its header, which starts with what it is, so it
+  can't be read as done: `dry run  would delete: 2  skipped: 1  permanent` — `dry run`, then the count of the tool
+  named with `would` and the verb of the tool (`would delete`, `would rename`, `would copy`, `would replace`), then
+  the other counts and `permanent` as in the real call. In spec 1 the header is the one of the real call with `dry
+  run` at the end: `deleted: 2  skipped: 1  permanent  dry run`. JSON keeps the keys of the real call with
+  `"dry_run": true` (`"deleted": 2`), in both versions: the key names the count, `dry_run` what it is. Whether the trash is available and whether an entry can be changed are known only when
   acting
 - `dry_run` defaults to `false`; the tool description tells the agent to use it for a selection it hasn't seen
 - `dry_run` must be a boolean: `'dry_run' must be a boolean`
@@ -1254,8 +1258,8 @@ warning: file_changed (1): src/main.rs
 
 - the header: the count of the tool (`deleted: N`, also `deleted: 0`; `rename` and `copy` add `unchanged: N`, `replace`
   adds `matches: N` and `unchanged: N`), then `skipped: N` (the entries skipped with a
-  warning) and `failed: N` (the entries which failed) when they are not 0, then `permanent` for `permanent: true`, then
-  `dry run` for a dry run
+  warning) and `failed: N` (the entries which failed) when they are not 0, then `permanent` for `permanent: true`; a
+  dry run starts with `dry run  would <verb>: N`, see [Dry run](#dry-run)
 - the entries in path order, grouped by directory like `find` with `output.group_dirs`
   ([OUTPUT.md](OUTPUT.md#directory-groups)), directories ending with the separator; the paths are written like the
   paths of `find`; an empty selection has no entries part
