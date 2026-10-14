@@ -1164,7 +1164,7 @@ The tool returns the summary of the response instead of the response:
 - `<path>` is the absolute canonical path of the file, so the agent can read it whatever its working directory is;
   `lines` counts the lines of the file (a last line without a line break too), `bytes` its size
 - JSON: the fields of the response which the text header has, and its warnings, then `file`, `lines` and `bytes`:
-  `version`, `exists`, `result`, `detail_used`, `since`, `unchanged`, `counts`, `counts_exact`, `truncated`,
+  `version`, `exists`, `result`, `detail_used`, `count_by_used`, `since`, `unchanged`, `counts`, `counts_exact`, `truncated`,
   `truncated_by`, `next_cursor`, `warnings`, `file`, `lines`, `bytes`
 
 ```json
