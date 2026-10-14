@@ -1345,6 +1345,7 @@ fn text_target(target: Target) -> TextTarget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ast::{GroupRef, SubGroup};
 
     static SENSITIVE: std::sync::LazyLock<ParseOptions> =
         std::sync::LazyLock::new(|| ParseOptions {
@@ -2440,6 +2441,110 @@ mod tests {
         let q = parse("name = 'a' @x or name = 'b'", &SENSITIVE).unwrap();
         let ids: Vec<String> = q.legend.iter().map(|(id, _)| id.to_string()).collect();
         assert_eq!(ids, ["@x", "#1"]);
+    }
+
+    #[test]
+    fn a_labelled_bracket_is_a_group() {
+        let q = parse(
+            "(text has 'serde' or text has 'serde_json') @ser and text has 'apple'",
+            &SENSITIVE,
+        )
+        .unwrap();
+        let legend: Vec<String> = q.legend.iter().map(|(id, t)| format!("{id} {t}")).collect();
+        assert_eq!(
+            legend,
+            [
+                "@ser (text has 'serde' or text has 'serde_json')",
+                "#1 text has 'serde'",
+                "#2 text has 'serde_json'",
+                "#3 text has 'apple'"
+            ]
+        );
+        // a bracket without a label is no group
+        let q = parse("(text has 'a') and ((name = 'b') @n)", &SENSITIVE).unwrap();
+        let ids: Vec<String> = q.legend.iter().map(|(id, _)| id.to_string()).collect();
+        assert_eq!(ids, ["#1", "@n", "#2"]);
+        // groups inside line( ... ) are checked in line scope
+        assert!(parse("line((text has 'a' or len > 3) @x)", &SENSITIVE).is_ok());
+        assert_eq!(
+            parse("line((name = 'a') @x)", &SENSITIVE).unwrap_err().code,
+            ErrorCode::FileTargetInside
+        );
+    }
+
+    #[test]
+    fn a_duplicate_label_is_the_later_one() {
+        let e = parse("(text has 'a' @x or text has 'b') @x", &SENSITIVE).unwrap_err();
+        assert_eq!((e.code, e.span), (ErrorCode::DuplicateLabel, 34..36));
+        let e = parse("(text has 'a') @x @y", &SENSITIVE).unwrap_err();
+        assert_eq!((e.code, e.span), (ErrorCode::UnexpectedToken, 18..20));
+    }
+
+    #[test]
+    fn group_references() {
+        let q = parse(
+            "text =~ `(pub )?fn (?<fname>\\w+)` @def and text =~ `(a)` and (name = 'x') @g",
+            &SENSITIVE,
+        )
+        .unwrap();
+        let ok = |r: &str| q.group(r).unwrap();
+        let label = |l: &str| CondId::Label(l.into());
+        assert_eq!(
+            ok("@def"),
+            GroupRef {
+                id: label("def"),
+                sub: None
+            }
+        );
+        assert_eq!(
+            ok("@def.1"),
+            GroupRef {
+                id: label("def"),
+                sub: Some(SubGroup::Number(1))
+            }
+        );
+        assert_eq!(
+            ok("@def.fname"),
+            GroupRef {
+                id: label("def"),
+                sub: Some(SubGroup::Name("fname".into()))
+            }
+        );
+        assert_eq!(
+            ok("#1.1"),
+            GroupRef {
+                id: CondId::Number(1),
+                sub: Some(SubGroup::Number(1))
+            }
+        );
+        assert_eq!(
+            ok("@g"),
+            GroupRef {
+                id: label("g"),
+                sub: None
+            }
+        );
+        let hint = "the groups of the query: @def, @def.1, @def.2, @def.fname, #1, #1.1, @g";
+        for (reference, span) in [
+            ("@x", 0..2),
+            ("#2", 0..2),
+            ("@def.3", 0..6),
+            ("@def.nope", 0..9),
+            ("@g.1", 0..4),
+            ("def", 0..3),
+        ] {
+            let e = q.group(reference).unwrap_err();
+            assert_eq!(
+                (e.code, e.message, e.span, e.hint.as_deref()),
+                (
+                    ErrorCode::UnknownGroup,
+                    format!("unknown group '{reference}'"),
+                    span,
+                    Some(hint)
+                ),
+                "{reference}"
+            );
+        }
     }
 
     #[test]

@@ -788,6 +788,52 @@ mod tests {
     }
 
     #[test]
+    fn a_group_contributes_with_its_inside() {
+        let group = Filter::Group {
+            id: CondId::Label("g".into()),
+            order: 0,
+            inner: Box::new(Filter::Or(vec![text(1, "a"), text(2, "b")])),
+            members: vec![1, 2],
+        };
+        let f = Filter::And(vec![group, Filter::Not(Box::new(text(3, "b")))]);
+        assert_eq!(ids(&f, "a"), Some(vec!["@g".into(), "#1".into()]));
+        assert_eq!(ids(&f, "b"), None);
+        let ids: Vec<String> = f
+            .group_ids(&[2])
+            .into_iter()
+            .map(|(_, id)| id.to_string())
+            .collect();
+        assert_eq!(ids, ["@g"]);
+        assert!(f.group_ids(&[3]).is_empty());
+    }
+
+    #[test]
+    #[allow(clippy::single_range_in_vec_init)] // lists of ranges
+    fn sub_groups_of_a_regex() {
+        let pattern = TextPattern {
+            regex: Regex::new(r"(pub )?fn (?<fname>\w+)").unwrap(),
+            per_line: true,
+            whole_word: false,
+            skip_comments: false,
+            escape_levels: Vec::new(),
+            captures: true,
+        };
+        assert_eq!(
+            pattern.sub_groups("x fn load", 2),
+            [(2, Some("fname".to_string()), 5..9)]
+        );
+        assert_eq!(
+            pattern.sub_groups("pub fn a", 0),
+            [(1, None, 0..4), (2, Some("fname".to_string()), 7..8)]
+        );
+        let plain = TextPattern {
+            captures: false,
+            ..pattern
+        };
+        assert!(plain.sub_groups("pub fn a", 0).is_empty());
+    }
+
+    #[test]
     #[allow(clippy::single_range_in_vec_init)] // lists of ranges
     fn ranges_in_the_path() {
         let filter = |target: TextTarget, matcher: TextMatcher| Filter::Text {
