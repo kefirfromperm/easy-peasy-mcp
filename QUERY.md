@@ -745,7 +745,7 @@ text =~ `fn\s+(?<fname>\w+)\(` @def
 ### Group references
 
 The request fields which refer to the groups of the query (the keys and templates of `replace`,
-[TOOLS.md](TOOLS.md#replace)) write them as:
+[TOOLS.md](TOOLS.md#replace), and `output.groups`, [OUTPUT.md](OUTPUT.md#shown-groups)) write them as:
 
 | Reference              | Group                                          |
 |------------------------|------------------------------------------------|
