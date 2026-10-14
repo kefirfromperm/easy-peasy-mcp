@@ -117,10 +117,22 @@ fn trimmed<'a>(
         if first != last || range.start > range.end || (range.is_empty() && !f.range.is_empty()) {
             return None;
         }
+        let shifted = |r: &std::ops::Range<usize>| {
+            let start = r.start.clamp(from, to) - from;
+            start..(r.end.clamp(from, to) - from).max(start)
+        };
         out.push(Fragment {
             range: range.start - from..range.end - from,
             ids: f.ids.clone(),
             escape: f.escape,
+            groups: f
+                .groups
+                .iter()
+                .map(|g| super::SubMatch {
+                    range: shifted(&g.range),
+                    ids: g.ids.clone(),
+                })
+                .collect(),
         });
     }
     Some((text, out))
@@ -141,6 +153,7 @@ mod tests {
                 range: i..i + needle.len(),
                 ids: vec![(id as usize, CondId::Number(id))],
                 escape: None,
+                groups: Vec::new(),
             })
             .collect();
         let lines = super::super::matched_lines(&content, &fragments);

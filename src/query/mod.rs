@@ -17,7 +17,8 @@ use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 
 use ast::{
-    CondId, Condition, Expr, Modifier, Node, NodeKind, Op, Spanned, Target, TargetClass, Value,
+    CondId, Condition, Expr, GroupRef, Modifier, Node, NodeKind, Op, Spanned, SubGroup, Target,
+    TargetClass, Value,
 };
 use escape::Style;
 use fuzzy::Fuzzy;
@@ -69,6 +70,86 @@ pub struct Query {
     pub funnel: Option<Funnel>,
     /// What could narrow the query (OUTPUT.md#hints).
     pub narrowing: Narrowing,
+    /// The capture groups of the `text =~` conditions which have some: the name of every group by its number,
+    /// group 1 first (QUERY.md#regex-groups).
+    #[allow(dead_code)]
+    // read by the fields which refer to groups: `output.groups`, `replace` (tasks 129, 130)
+    pub sub_groups: Vec<(CondId, Vec<Option<String>>)>,
+}
+
+#[allow(dead_code)] // the fields which refer to groups come with `output.groups` and `replace` (tasks 129, 130)
+impl Query {
+    /// Checks a reference to a group of the query (QUERY.md#group-references): `unknown_group`, with the position in
+    /// `reference`, when the query has no such group.
+    pub fn group(&self, reference: &str) -> Result<GroupRef, QueryError> {
+        let unknown = || {
+            QueryError::new(
+                ErrorCode::UnknownGroup,
+                format!("unknown group '{reference}'"),
+                0..reference.len(),
+            )
+            .hint(format!(
+                "the groups of the query: {}",
+                self.group_names().join(", ")
+            ))
+        };
+        let (base, sub) = match reference.split_once('.') {
+            Some((base, sub)) => (base, Some(sub)),
+            None => (reference, None),
+        };
+        let id = self
+            .legend
+            .iter()
+            .map(|(id, _)| id)
+            .find(|id| id.to_string() == base)
+            .ok_or_else(unknown)?;
+        let Some(sub) = sub else {
+            return Ok(GroupRef {
+                id: id.clone(),
+                sub: None,
+            });
+        };
+        let names = self
+            .sub_groups
+            .iter()
+            .find(|(regex, _)| regex == id)
+            .map(|(_, names)| names)
+            .ok_or_else(unknown)?;
+        let sub = match sub.parse::<usize>() {
+            Ok(n) => (1..=names.len())
+                .contains(&n)
+                .then_some(SubGroup::Number(n)),
+            Err(_) => names
+                .iter()
+                .any(|name| name.as_deref() == Some(sub))
+                .then(|| SubGroup::Name(sub.to_string())),
+        };
+        sub.map(|sub| GroupRef {
+            id: id.clone(),
+            sub: Some(sub),
+        })
+        .ok_or_else(unknown)
+    }
+
+    /// The references of all groups in the order of the legend, every sub-group after its condition by its number
+    /// and its name.
+    fn group_names(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for (id, _) in &self.legend {
+            out.push(id.to_string());
+            let subs = self.sub_groups.iter().find(|(regex, _)| regex == id);
+            for (i, name) in subs
+                .into_iter()
+                .flat_map(|(_, names)| names.iter().enumerate())
+            {
+                out.push(format!("{id}.{}", i + 1));
+                if let Some(name) = name {
+                    out.push(format!("{id}.{name}"));
+                }
+            }
+        }
+        out
+    }
 }
 
 /// What the hints of a huge result suggest to narrow a query.
@@ -108,7 +189,7 @@ impl Narrowing {
                             && !has("n"),
                     }
                 }
-                NodeKind::Line(inner) => Self::of(inner, negated),
+                NodeKind::Line(inner) | NodeKind::Group(inner) => Self::of(inner, negated),
                 NodeKind::Near(near) => both(&[near.a.as_ref().clone(), near.b.as_ref().clone()]),
             },
         }
@@ -258,6 +339,24 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
     let narrowing = expr
         .as_ref()
         .map_or_else(Narrowing::default, |expr| Narrowing::of(expr, false));
+    let mut sub_groups = Vec::new();
+    if let Some(expr) = &expr {
+        expr.visit_nodes(&mut |node| {
+            if let NodeKind::Condition(c) = &node.kind
+                && let (Target::Text, Some((Op::Regex, _)), Value::Str(s)) =
+                    (c.target, &c.op, &c.value)
+                && let Ok(regex) = Regex::new(&s.value)
+                && regex.captures_len() > 1
+            {
+                let names = regex
+                    .capture_names()
+                    .skip(1)
+                    .map(|name| name.map(str::to_string))
+                    .collect();
+                sub_groups.push((node.id.clone(), names));
+            }
+        });
+    }
     let filter = expr.map(|expr| compile(&expr, options));
     ranking.conditions = filter.as_ref().map_or(0, crate::relevance::conditions);
     Ok(Query {
@@ -268,6 +367,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         ranking,
         funnel,
         narrowing,
+        sub_groups,
     })
 }
 
@@ -454,6 +554,8 @@ fn has_content(expr: &Expr) -> bool {
         content |= match &node.kind {
             NodeKind::Condition(c) => matches!(c.target, Target::Text | Target::Len),
             NodeKind::Line(_) | NodeKind::Near(_) => true,
+            // the nodes inside it are visited too
+            NodeKind::Group(_) => false,
         };
     });
     content
@@ -576,6 +678,7 @@ fn validate(
                 );
             }
             NodeKind::Line(inner) => validate(text, inner, Scope::Line, options, errors),
+            NodeKind::Group(inner) => validate(text, inner, scope, options, errors),
             NodeKind::Near(near) => {
                 validate(text, &near.a, Scope::Near, options, errors);
                 validate(text, &near.b, Scope::Near, options, errors);
@@ -987,23 +1090,25 @@ fn unknown_value(word: &Spanned, names: &[&str]) -> QueryError {
     .hint(hint)
 }
 
-/// `duplicate_label` at every repeated use of a label.
+/// `duplicate_label` at every repeated use of a label, in the order they are written: the label of a group is
+/// written after the labels inside it.
 fn duplicate_labels(expr: &Expr, errors: &mut Vec<QueryError>) {
+    let mut labels = Vec::new();
+    expr.visit_nodes(&mut |node| labels.extend(node.label.clone()));
+    labels.sort_by_key(|l| l.span.start);
     let mut seen = std::collections::HashSet::new();
-    expr.visit_nodes(&mut |node| {
-        if let Some(label) = &node.label
-            && !seen.insert(label.text.clone())
-        {
+    for label in labels {
+        if !seen.insert(label.text.clone()) {
             errors.push(
                 QueryError::new(
                     ErrorCode::DuplicateLabel,
                     format!("duplicate label '@{}'", label.text),
-                    label.span.clone(),
+                    label.span,
                 )
                 .hint("labels must be unique"),
             );
         }
-    });
+    }
 }
 
 /// The hint of `modifier_not_allowed` if the modifier is not allowed for the condition (QUERY.md#modifiers).
@@ -1096,6 +1201,16 @@ fn compile(expr: &Expr, options: &ParseOptions) -> Filter {
                     } else {
                         Report::All
                     },
+                }
+            }
+            NodeKind::Group(inner) => {
+                let mut members = Vec::new();
+                inner.visit_nodes(&mut |n| members.push(n.tokens.start));
+                Filter::Group {
+                    id: node.id.clone(),
+                    order: node.tokens.start,
+                    inner: Box::new(compile(inner, options)),
+                    members,
                 }
             }
             NodeKind::Condition(_) => compile_node(node, options),
@@ -1230,12 +1345,14 @@ fn content_pattern(c: &Condition, max_escape_level: usize) -> Option<TextPattern
             .multi_line(multiline)
             .build()
             .expect("regexes are validated before compiling");
+        let captures = regex.captures_len() > 1;
         return Some(TextPattern {
             regex,
             per_line: !multiline,
             whole_word,
             skip_comments,
             escape_levels: Vec::new(),
+            captures,
         });
     }
     let escape = c.modifiers.iter().find_map(|m| {
@@ -1265,6 +1382,7 @@ fn content_pattern(c: &Condition, max_escape_level: usize) -> Option<TextPattern
         whole_word,
         skip_comments,
         escape_levels,
+        captures: false,
     })
 }
 
@@ -2524,10 +2642,10 @@ mod tests {
                 sub: None
             }
         );
-        let hint = "the groups of the query: @def, @def.1, @def.2, @def.fname, #1, #1.1, @g";
+        let hint = "the groups of the query: @def, @def.1, @def.2, @def.fname, #1, #1.1, @g, #2";
         for (reference, span) in [
             ("@x", 0..2),
-            ("#2", 0..2),
+            ("#3", 0..2),
             ("@def.3", 0..6),
             ("@def.nope", 0..9),
             ("@g.1", 0..4),

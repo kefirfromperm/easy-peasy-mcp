@@ -172,7 +172,17 @@ impl<'a> Parser<'a> {
                 self.pos += 1;
                 let inner = self.or_expr()?;
                 self.expect_rparen()?;
-                return Ok(Expr::Group(Box::new(inner)));
+                // only a bracket with a label is a group with an id (QUERY.md#groups)
+                if !matches!(
+                    self.peek(),
+                    Some(Token {
+                        tok: Tok::Label(_),
+                        ..
+                    })
+                ) {
+                    return Ok(Expr::Group(Box::new(inner)));
+                }
+                NodeKind::Group(Box::new(inner))
             }
             Tok::Word(w) if w.eq_ignore_ascii_case("line") => {
                 NodeKind::Line(Box::new(self.line()?))

@@ -130,6 +130,7 @@ mod tests {
             range: start..start + 1,
             ids: vec![(1, CondId::Number(1))],
             escape: None,
+            groups: Vec::new(),
         }
     }
 
@@ -232,6 +233,7 @@ mod tests {
                 range: start + offset..start + offset + 1,
                 ids: vec![(1, CondId::Number(1))],
                 escape: None,
+                groups: Vec::new(),
             }
         };
         let ac = [late(0, 4), late(3, 6)];

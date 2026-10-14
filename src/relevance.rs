@@ -52,6 +52,8 @@ pub fn conditions(filter: &Filter) -> usize {
             items.iter().map(conditions).sum()
         }
         Filter::Not(_) => 0,
+        // a group is its inside: a label doesn't change the relevance
+        Filter::Group { inner, .. } => conditions(inner),
         _ => 1,
     }
 }
@@ -126,7 +128,11 @@ pub fn signals(
         conditions: if ranking.conditions == 0 {
             1.0
         } else {
-            (leaves.len() as f64 / ranking.conditions as f64).min(1.0)
+            let leaves = leaves
+                .iter()
+                .filter(|leaf| !matches!(leaf, Filter::Group { .. }))
+                .count();
+            (leaves as f64 / ranking.conditions as f64).min(1.0)
         },
         depth: path.matches('/').count(),
     }

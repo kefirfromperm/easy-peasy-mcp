@@ -284,6 +284,7 @@ mod tests {
                 range: i..i + m.len(),
                 ids: vec![(1, CondId::Number(1))],
                 escape: None,
+                groups: Vec::new(),
             })
             .collect();
         let fragments = crate::output::merge_identical(fragments);

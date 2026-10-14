@@ -19,10 +19,11 @@ use crate::compressed::{Compression, Decompressed, decompress};
 use crate::content::{Content, DecodeOptions, Decoded, Encoding, decode, is_binary_content};
 use crate::git::{GitIndex, GitStatus};
 use crate::languages::{Language, LanguageTable};
-use crate::output::{Fragment, matched_lines, merge_identical};
+use crate::output::{Fragment, SubMatch, matched_lines, merge_identical};
 use crate::query::UNKNOWN_LANG;
 use crate::query::{
-    ContentState, EntryType, FileValues, Filter, FunnelKind, Kind, Query, Truth, ast::CondId, nfc,
+    ContentState, EntryType, FileValues, Filter, FunnelKind, Kind, Query, TextPattern, Truth,
+    ast::CondId, nfc,
 };
 use crate::relevance::{self, Signals};
 use crate::warning::{WarningCode, Warnings};
@@ -231,7 +232,7 @@ pub struct PathFragments {
 impl PathFragments {
     /// The fragments of the contributing conditions in the NFC `path` (relative to the working directory, `/` as
     /// the separator) of an entry named `name`; `None` without any.
-    fn of(leaves: &[&Filter], name: &str, path: &str) -> Option<Self> {
+    fn of(filter: &Filter, leaves: &[&Filter], name: &str, path: &str) -> Option<Self> {
         let fragments: Vec<Fragment> = leaves
             .iter()
             .flat_map(|leaf| {
@@ -246,12 +247,13 @@ impl PathFragments {
                         range,
                         ids: ids.clone(),
                         escape: None,
+                        groups: Vec::new(),
                     })
             })
             .collect();
         (!fragments.is_empty()).then(|| Self {
             path: path.to_string(),
-            fragments: merge_identical(fragments),
+            fragments: merge_identical(with_group_ids(filter, fragments)),
         })
     }
 
@@ -298,6 +300,36 @@ pub struct FileMatches {
     pub lines: usize,
 }
 
+/// The fragments with the ids of the bracket groups around their conditions (OUTPUT.md#fragments).
+fn with_group_ids(filter: &Filter, mut fragments: Vec<Fragment>) -> Vec<Fragment> {
+    for f in &mut fragments {
+        let orders: Vec<usize> = f.ids.iter().map(|(order, _)| *order).collect();
+        f.ids.extend(filter.group_ids(&orders));
+    }
+    fragments
+}
+
+/// The sub-groups of the match of a `text =~` condition with the id `id` which starts at `start` of `hay`, a text
+/// which starts at `offset` of the content (OUTPUT.md#sub-groups).
+fn sub_matches(
+    pattern: &TextPattern,
+    id: &CondId,
+    hay: &str,
+    offset: usize,
+    start: usize,
+) -> Vec<SubMatch> {
+    pattern
+        .sub_groups(hay, start)
+        .into_iter()
+        .map(|(number, name, range)| SubMatch {
+            range: offset + range.start..offset + range.end,
+            ids: std::iter::once(format!("{id}.{number}"))
+                .chain(name.map(|name| format!("{id}.{name}")))
+                .collect(),
+        })
+        .collect()
+}
+
 /// The fragments of a `line( ... )` group or one side of a `near( ... )` in the given lines: the matches of the
 /// contributing text conditions of `inner` with the ids of the condition and the group, or the whole line with the
 /// id of the group.
@@ -317,6 +349,7 @@ fn line_fragments(
             if let Filter::Content { id, order, pattern } = leaf {
                 fragments.extend(pattern.line_matches(line).into_iter().map(|r| Fragment {
                     escape: pattern.escape_level(line.text, r.start),
+                    groups: sub_matches(pattern, id, line.text, start, r.start),
                     range: start + r.start..start + r.end,
                     ids: vec![group.clone(), (*order, id.clone())],
                 }));
@@ -327,6 +360,7 @@ fn line_fragments(
                 range: start..end,
                 ids: vec![group.clone()],
                 escape: None,
+                groups: Vec::new(),
             });
         }
     }
@@ -334,7 +368,7 @@ fn line_fragments(
 }
 
 /// The fragments of the contributing content conditions; `None` when there is none.
-fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
+fn file_matches(content: &Content, filter: &Filter, leaves: &[&Filter]) -> Option<FileMatches> {
     let mut fragments = Vec::new();
     for leaf in leaves {
         if let Filter::Content { id, order, pattern } = leaf {
@@ -344,6 +378,18 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
                     .into_iter()
                     .map(|range| Fragment {
                         escape: pattern.escape_level(content.text(), range.start),
+                        groups: if pattern.per_line {
+                            let line = content.line_ref(content.line_of(range.start));
+                            sub_matches(
+                                pattern,
+                                id,
+                                line.text,
+                                line.start,
+                                range.start - line.start,
+                            )
+                        } else {
+                            sub_matches(pattern, id, content.text(), 0, range.start)
+                        },
                         range,
                         ids: vec![(*order, id.clone())],
                     }),
@@ -377,7 +423,7 @@ fn file_matches(content: &Content, leaves: &[&Filter]) -> Option<FileMatches> {
     if fragments.is_empty() {
         return None;
     }
-    let fragments = merge_identical(fragments);
+    let fragments = merge_identical(with_group_ids(filter, fragments));
     let lines = matched_lines(content, &fragments);
     Some(FileMatches {
         content: content.clone(),
@@ -1045,11 +1091,11 @@ impl Walk<'_> {
             .map(|(_, id)| id.clone())
             .collect();
         let matches = match file.content {
-            ContentState::Text(content) => file_matches(content, &leaves),
+            ContentState::Text(content) => file_matches(content, filter, &leaves),
             _ => None,
         };
         let path_fragments = if self.options.path_fragments {
-            PathFragments::of(&leaves, file.name, file.path)
+            PathFragments::of(filter, &leaves, file.name, file.path)
         } else {
             None
         };
@@ -1683,6 +1729,7 @@ mod tests {
                 range: 4..5,
                 ids: vec![],
                 escape: None,
+                groups: Vec::new(),
             }],
         };
         let sep = std::path::MAIN_SEPARATOR;
