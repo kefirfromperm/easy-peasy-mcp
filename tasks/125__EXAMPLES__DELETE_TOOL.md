@@ -83,7 +83,7 @@ easy-peasy-mcp --allow-write
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": "find", "annotations": {"readOnlyHint": true, "openWorldHint": false}}, {"name": "get_config"}, {"name": "update_config"}, {"name": "delete", "annotations": {"readOnlyHint": false, "destructiveHint": true, "idempotentHint": true, "openWorldHint": false}}, {"name": "rename"}]}}
+{"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": "find", "annotations": {"readOnlyHint": true, "openWorldHint": false}}, {"name": "get_config"}, {"name": "update_config"}, {"name": "delete", "annotations": {"readOnlyHint": false, "destructiveHint": true, "idempotentHint": true, "openWorldHint": false}}, {"name": "rename"}, {"name": "copy"}]}}
 ```
 
 ## E125.4 `get_config` shows `allow_write`
