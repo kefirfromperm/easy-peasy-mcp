@@ -1,6 +1,6 @@
 # Task 138: All the locations of a repeated line
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 86, task 134
 
