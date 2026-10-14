@@ -1,6 +1,6 @@
 # Task 126: `rename` tool
 
-Status: in progress
+Status: implemented, see [126__SUMMARY__RENAME_TOOL.md](126__SUMMARY__RENAME_TOOL.md)
 
 Depends on: task 125
 
