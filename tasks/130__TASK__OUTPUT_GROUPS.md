@@ -1,6 +1,6 @@
 # Task 130: Output limited to groups
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 128
 
