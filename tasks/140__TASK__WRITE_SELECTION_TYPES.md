@@ -1,6 +1,6 @@
 # Task 140: The write tools say how to select directories and symlinks
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 125
 
