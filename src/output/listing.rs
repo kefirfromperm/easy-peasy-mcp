@@ -501,6 +501,26 @@ mod tests {
     }
 
     #[test]
+    fn only_the_characters_of_the_matches() {
+        // every line has one match of one character and five characters in all
+        let files = [file("a bbb\na bbb\na bbb\n")];
+        let limits = Limits {
+            max_output_per_file: 2,
+            ..Limits::default()
+        };
+        let lines = |only_match| {
+            let options = BlockOptions {
+                only_match,
+                ..BlockOptions::default()
+            };
+            let listing = Listing::new(&files, &Repeated::default(), &limits, Some(&options), 0);
+            (listed_lines(&listing, &files), listing.until)
+        };
+        assert_eq!(lines(true), (vec![vec![0, 1]], vec![Some(2)]));
+        assert_eq!(lines(false), (vec![vec![]], vec![Some(0)]));
+    }
+
+    #[test]
     fn the_first_characters_of_the_response() {
         // the path `f` is one character, every line four
         let files = [file("aaaa\naaaa\n"), file("aaaa\n")];

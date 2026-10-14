@@ -27,6 +27,7 @@ mod rename;
 mod replace;
 mod request;
 mod search;
+mod shown;
 mod template;
 mod warning;
 mod write;

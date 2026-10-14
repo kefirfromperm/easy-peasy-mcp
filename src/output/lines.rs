@@ -584,6 +584,47 @@ mod tests {
     }
 
     #[test]
+    fn only_the_matches() {
+        let c = Content::from_bytes(b"let a = bb;\nx\nyz");
+        let fragments = vec![frag(4..5, &[1]), frag(8..10, &[2]), frag(12..15, &[1])];
+        let omit = super::super::omit::Omit::default();
+        let markers = Highlight::Markers("⟦", "⟧");
+        assert_eq!(
+            render_matches(&c, &fragments, markers, omit),
+            "1:⟦#1:a⟧\n1:⟦#2:bb⟧\n2:⟦#1:x\n3:y⟧\n"
+        );
+        assert_eq!(
+            render_matches(&c, &fragments, Highlight::None, omit),
+            "1:a\n1:bb\n2:x\n3:y\n"
+        );
+        // auto: the markers outgrow the short matches
+        assert_eq!(
+            render_matches(&c, &fragments, Highlight::Auto("⟦", "⟧"), omit),
+            "1:a\n1:bb\n2:x\n3:y\n"
+        );
+        assert_eq!(
+            render_matches(&c, &fragments[..1], Highlight::Columns, omit),
+            "1:a\n  @ 5..6 #1\n"
+        );
+        let numbers = super::super::omit::Omit::from_parts(&[OmitPart::LineNumbers]);
+        assert_eq!(render_matches(&c, &fragments[..2], Highlight::None, numbers), "a\nbb\n");
+    }
+
+    #[test]
+    fn only_the_matches_with_auto() {
+        let c = Content::from_bytes(b"let a = bb;");
+        let auto = Highlight::Auto("⟦", "⟧");
+        let omit = super::super::omit::Omit::default();
+        assert_eq!(render_matches(&c, &[frag(0..10, &[1])], auto, omit), "1:⟦#1:let a = bb⟧\n");
+        // a match without ids has nothing to mark with auto, `markers` marks it
+        assert_eq!(render_matches(&c, &[frag(0..10, &[])], auto, omit), "1:let a = bb\n");
+        assert_eq!(
+            render_matches(&c, &[frag(0..10, &[])], Highlight::Markers("⟦", "⟧"), omit),
+            "1:⟦let a = bb⟧\n"
+        );
+    }
+
+    #[test]
     fn columns_after_the_line() {
         let c = Content::from_bytes("é = x x\nab\ncd\n".as_bytes());
         let x = c.text().find('x').unwrap();

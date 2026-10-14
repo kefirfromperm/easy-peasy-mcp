@@ -858,6 +858,18 @@ mod tests {
             "a whole number is expected (0: off)"
         );
         assert_eq!(Type::List("paths").must_be(), "a list of strings");
+        assert_eq!(Type::GroupRefs.must_be(), "a list of group references");
+        assert_eq!(
+            Type::GroupRefs.expected(),
+            "a list of group references is expected"
+        );
+        assert_eq!(
+            Type::GroupRefs.parse_json(&json!(["@a", "#2"])),
+            Some(Value::List(vec!["@a".into(), "#2".into()]))
+        );
+        assert_eq!(Type::GroupRefs.parse_toml(&item("'@a'")), None);
+        assert_eq!(Key::Groups.default_value(), Value::List(vec![]));
+        assert_eq!(Key::OnlyMatch.default_value(), Value::Bool(false));
         let case = Type::Choice(&["native", "sensitive"]);
         assert_eq!(
             case.check_toml(&item("'sensitive'")),
