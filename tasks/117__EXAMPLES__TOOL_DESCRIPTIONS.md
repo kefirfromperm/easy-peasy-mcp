@@ -339,6 +339,7 @@ easy-peasy-mcp
                           "conditions",
                           "file_counts",
                           "match_ids",
+                          "groups",
                           "line_numbers",
                           "gaps",
                           "indent",
