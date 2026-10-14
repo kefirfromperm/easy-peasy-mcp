@@ -1,6 +1,6 @@
 # Task 127: `copy` tool
 
-Status: in progress
+Status: implemented, see [127__SUMMARY__COPY_TOOL.md](127__SUMMARY__COPY_TOOL.md)
 
 Depends on: task 126
 
