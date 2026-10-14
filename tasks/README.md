@@ -258,3 +258,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 138 | [All the locations of a repeated line](138__TASK__REPEATED_LOCATIONS.md) | 86, 134 | ⬜ |
 | 139 | [A dry run header which can't be read as done](139__TASK__DRY_RUN_HEADER.md) | 125 | ⬜ |
 | 140 | [The write tools say how to select directories and symlinks](140__TASK__WRITE_SELECTION_TYPES.md) | 125 | ⬜ |
+| 141 | [Useful output by default: the default of `output.omit`](141__TASK__OUTPUT_DEFAULTS.md) | 134 | ⬜ |
