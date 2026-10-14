@@ -461,6 +461,16 @@ mod tests {
         arguments: &Value,
         trashed: &std::cell::RefCell<Vec<PathBuf>>,
     ) -> Result<Outcome, String> {
+        run_as(Mode::Rename, root, entries, arguments, trashed)
+    }
+
+    fn run_as(
+        mode: Mode,
+        root: &Path,
+        entries: &[Entry],
+        arguments: &Value,
+        trashed: &std::cell::RefCell<Vec<PathBuf>>,
+    ) -> Result<Outcome, String> {
         let roots = [root.to_path_buf()];
         let trash = |path: &Path| {
             trashed.borrow_mut().push(path.to_path_buf());
@@ -474,6 +484,7 @@ mod tests {
                 stop: &|| false,
                 trash: &trash,
                 dry_run: false,
+                mode,
             },
         )
         .map_err(|r| r.to_text())
@@ -566,6 +577,144 @@ mod tests {
         assert!(copy_moved(&root.join("missing"), &root.join("f")).is_err());
         assert!(copy_moved(&root.join("d"), &root.join("e/x.txt/y")).is_err());
         assert!(!root.join("f").exists());
+    }
+
+    /// The names in `dir`, sorted.
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_copy_keeps_the_source_contents_and_times() {
+        let (_tmp, root) = tree();
+        std::fs::write(root.join("d/x.txt"), "x").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("x.txt", root.join("d/link")).unwrap();
+        let old = filetime::FileTime::from_unix_time(1_790_000_000, 0);
+        filetime::set_file_mtime(root.join("d/x.txt"), old).unwrap();
+        filetime::set_file_mtime(root.join("d"), old).unwrap();
+        filetime::set_file_mtime(root.join("a.js"), old).unwrap();
+        let trashed = std::cell::RefCell::default();
+        let entries = [entry(&root, "a.js", false), entry(&root, "d", true)];
+        let outcome = run_as(
+            Mode::Copy,
+            &root,
+            &entries,
+            &json!({"to": "copy/{name}"}),
+            &trashed,
+        )
+        .unwrap();
+        assert_eq!(outcome.acted.len(), 2);
+        let mtime = |path: &Path| {
+            filetime::FileTime::from_last_modification_time(&std::fs::symlink_metadata(path).unwrap())
+        };
+        for path in ["a.js", "d", "d/x.txt"] {
+            assert!(root.join(path).exists(), "the source {path} stays");
+            assert_eq!(mtime(&root.join("copy").join(path)), old, "{path}");
+        }
+        assert_eq!(std::fs::read_to_string(root.join("copy/a.js")).unwrap(), "a.js");
+        assert_eq!(std::fs::read_to_string(root.join("copy/d/x.txt")).unwrap(), "x");
+        #[cfg(unix)]
+        assert_eq!(
+            std::fs::read_link(root.join("copy/d/link")).unwrap(),
+            PathBuf::from("x.txt")
+        );
+        // no temporary copy is left
+        assert_eq!(names(&root.join("copy")), ["a.js", "d"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_copy_keeps_the_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let (_tmp, root) = tree();
+        std::fs::set_permissions(root.join("a.js"), std::fs::Permissions::from_mode(0o750))
+            .unwrap();
+        let trashed = std::cell::RefCell::default();
+        run_as(
+            Mode::Copy,
+            &root,
+            &[entry(&root, "a.js", false)],
+            &json!({"to": "{stem}.bak.{ext}"}),
+            &trashed,
+        )
+        .unwrap();
+        let mode = std::fs::metadata(root.join("a.bak.js")).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o750);
+    }
+
+    #[test]
+    fn a_failed_copy_leaves_nothing() {
+        let (_tmp, root) = tree();
+        let trashed = std::cell::RefCell::default();
+        // the source is gone after the plan: copy_into_place fails and removes its temporary copy
+        let m = Move {
+            entry: &entry(&root, "a.js", false),
+            from: root.join("missing.js"),
+            to: root.join("out/a.js"),
+            shown: PathBuf::from("out/a.js"),
+            conflict: None,
+            replace: false,
+        };
+        let trash = |path: &Path| {
+            trashed.borrow_mut().push(path.to_path_buf());
+            Ok(())
+        };
+        let how = How {
+            roots: &[root.clone()],
+            stop: &|| false,
+            trash: &trash,
+            dry_run: false,
+            mode: Mode::Copy,
+        };
+        assert!(act(&m, &how).is_err());
+        assert!(names(&root.join("out")).is_empty());
+    }
+
+    #[test]
+    fn copy_overwrite_keeps_the_source() {
+        let (_tmp, root) = tree();
+        let trashed = std::cell::RefCell::default();
+        let outcome = run_as(
+            Mode::Copy,
+            &root,
+            &[entry(&root, "c.ts", false)],
+            &json!({"to": "{stem}.tsx", "on_conflict": "overwrite"}),
+            &trashed,
+        )
+        .unwrap();
+        assert!(outcome.acted[0].replaced);
+        assert_eq!(*trashed.borrow(), [root.join("c.tsx")]);
+        assert_eq!(std::fs::read_to_string(root.join("c.tsx")).unwrap(), "c.ts");
+        assert_eq!(std::fs::read_to_string(root.join("c.ts")).unwrap(), "c.ts");
+    }
+
+    #[test]
+    fn a_directory_copied_into_itself() {
+        let (_tmp, root) = tree();
+        let trashed = std::cell::RefCell::default();
+        let dir = [entry(&root, "d", true)];
+        let error = run_as(
+            Mode::Copy,
+            &root,
+            &dir,
+            &json!({"to": "d/sub/d", "on_conflict": "overwrite"}),
+            &trashed,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            "error[copy_conflict]: targets conflict; nothing was changed\n  d/ -> d/sub/d/: the target is inside the copied directory\n  hint: on_conflict = \"skip\" copies the other files\n"
+        );
+        // a sibling which starts with the same name is not inside
+        let error = run_as(Mode::Copy, &root, &dir, &json!({"to": "{name}.bak"}), &trashed);
+        assert!(error.is_ok());
+        assert!(root.join("d.bak").is_dir() && root.join("d").is_dir());
     }
 
     #[test]
