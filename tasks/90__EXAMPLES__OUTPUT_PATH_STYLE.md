@@ -219,7 +219,7 @@ Fixture: `path-frags`
 ```
 
 ```text error
-error[invalid_option]: 'output.path_style' must be one of: relative, absolute
+error[invalid_option]: 'output.path_style' must be one of: relative, absolute, in_dir
 ```
 
 ## E90.7 An invalid value for `update_config`
@@ -232,7 +232,7 @@ Fixture: `path-frags`
 
 ```text error
 error[invalid_value]: invalid value for 'output.path_style'
-  hint: expected one of: relative, absolute
+  hint: expected one of: relative, absolute, in_dir
 ```
 
 ## E90.8 From the config file
@@ -273,5 +273,5 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text stderr exit 1
-easy-peasy-mcp: conf/o.toml:2: invalid value for 'output.path_style': expected one of: relative, absolute
+easy-peasy-mcp: conf/o.toml:2: invalid value for 'output.path_style': expected one of: relative, absolute, in_dir
 ```

@@ -77,7 +77,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `group_dirs`           | `true`, `false`                                 | `true`     | text format: group files under directory headers          |
 | `group_repeated`       | number                                          | `3`        | a matched line repeated in this many files is printed once; `0` — off |
 | `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
-| `path_style`           | `relative`, `absolute`                          | `relative` | how paths are written                                     |
+| `path_style`           | `relative`, `absolute`, `in_dir`                | `relative` | how paths are written, see [Paths](#paths)                |
 | `omit`                 | list of parts, or `"all"`                       | `[]`       | parts of the response left out, see [Omit](#omit)         |
 | `cursor`               | string                                          | —          | continue a truncated response, see [Pagination](#pagination) |
 | `file`                 | a path, `true`, `false`                         | —          | write the response to a file and return a summary, see [Output to a file](#output-to-a-file) |
@@ -154,6 +154,7 @@ Top level
 | Field           | Levels             | Meaning                                                            |
 |-----------------|--------------------|--------------------------------------------------------------------|
 | `version`       | all, JSON only     | version of the response format, see [TOOLS.md](TOOLS.md#versioning) |
+| `dirs`          | with `path_style = in_dir`, JSON only | the working directories the paths are relative to, see [Paths](#paths) |
 | `exists`        | all                | `true` if at least one file matches                                |
 | `result`        | `count` and higher | id of this result, see [Result ids](#result-ids); absent if `server.result_cache = 0` |
 | `detail_used`   | `count` and higher | only if the [budget](#budget) lowered the detail level              |
@@ -180,6 +181,7 @@ Per file
 | Field            | Levels           | Meaning                                                             |
 |------------------|------------------|---------------------------------------------------------------------|
 | `path`           | `files`, `lines` | file path, see below                                                |
+| `dir`            | with `path_style = in_dir` and several working directories | the index of the working directory of the file in `dirs` |
 | `type`           | with `meta`      | the entry: `file`, `dir`, `link`; a symlink is `link`               |
 | `size`           | with `meta`      | size in bytes                                                       |
 | `lang`, `kind`   | with `meta`      | language and kind of the file                                       |
@@ -208,7 +210,49 @@ Per file
   symlink is written as the link itself, its target is not shown.
 - A member of an archive: `<archive path>!/<member path>`, e.g. `logs/2026-10.zip!/app/server.log`; the part after
   `!/` always uses `/`.
+- `in_dir`: like `relative`, but the working directory is written once instead of before every path, so an
+  absolute working directory (a git worktree outside the default directory) costs no more than `.`. See
+  [The working directory once](#the-working-directory-once).
 - With [`within`](#refine-within) the paths are written as in the referred result.
+
+#### The working directory once
+
+With `path_style = in_dir` the paths are relative to their working directory, and the working directory is written
+once, in a line `in: <dir>` with the directory as it was given in the request and the separator at the end:
+
+```json
+{ "dirs": ["/home/me/app/.claude/worktrees/agent-1"], "query": "text has 'cache'", "output": { "detail": "files", "path_style": "in_dir" } }
+```
+
+```
+files: 2  lines: 3  matches: 3  result: r1
+in: /home/me/app/.claude/worktrees/agent-1/
+#1 text has 'cache'
+
+src/
+cache.rs  [#1]  lines: 2  matches: 2
+output/
+json.rs  [#1]  lines: 1  matches: 1
+```
+
+- one working directory: the `in:` line comes right after the header line (it is the first line when the header is
+  left out), in the responses which write a path: `facets`, `files` and `lines` detail, `count` with
+  [`count_by`](#counts-per-file-and-per-line), and a response with warnings about entries. The paths of the files,
+  the directory headers, the [repeated lines](#repeated-lines), the [warnings](#warnings), the `dir` facet and the
+  hints are relative to it. The working directory `.` has no line, as with `relative`
+- several working directories: every file is under the `in:` line of its working directory (`./` for `.`), written
+  like a [directory header](#directory-groups) whenever the working directory differs from the one of the previous
+  file, so with `sort = relevance` one working directory can get several lines; a directory header follows it again.
+  The repeated lines, the warnings, the facets and the hints write their paths as with `relative`
+- JSON: `"dirs": ["/home/me/app/.claude/worktrees/agent-1/"]` after `result` (the working directory `.` alone gives no
+  `dirs`); the paths of the files are relative to it; with several working directories every file has `"dir"`, the
+  index of its working directory in `dirs`, after `path`
+- `within` and `since` work as with `relative`: a file of `since` is the same file when its path relative to its
+  working directory and its working directory are the same; `path` conditions see the path relative to the working
+  directory as always
+- [omit](#omit): `dir` leaves out the `in:` lines (JSON `dirs` and `dir`); the paths stay relative to their working
+  directory
+- `in_dir` is the default of no spec version yet: it changes the text layout, see [TOOLS.md](TOOLS.md#versioning)
 
 #### Duplicates
 
@@ -906,6 +950,7 @@ the table: the bare grep-like output.
 |----------------|---------------------------------------------------------------|----------------------------------------|
 | `counts`       | `files: N  lines: N  matches: N` of the header                | `counts`, `counts_exact`               |
 | `result`       | `result: r1` of the header                                    | `result`                               |
+| `dir`          | the `in:` lines of `path_style = in_dir`                      | `dirs`, `dir` of a file                |
 | `legend`       | the legend lines                                              | `legend`                               |
 | `funnel`       | `funnel:` with its steps, and the hints                       | `funnel`, `hints`                      |
 | `hints`        | `hints:` with its lines                                       | `hints`                                |
@@ -955,7 +1000,7 @@ warning: binary_skipped (1): data.bin
 - `omit` is a list of parts or `"all"`; it is a request option and a [configuration key](CONFIG.md#output): the list of
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
   own. Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of
-  parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers,
+  parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers,
   line_counts, gaps, indent, warnings)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an

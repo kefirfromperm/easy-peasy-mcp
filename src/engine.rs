@@ -798,6 +798,7 @@ impl Engine {
 
     /// The response of a search in the format of the settings, within the budget; the head of its summary and its
     /// result id. `in_file`: the limits for a file (OUTPUT.md#limits-for-a-file).
+    #[allow(clippy::too_many_lines)] // the steps of a response, one after another
     fn respond(
         &self,
         settings: &Settings,
@@ -820,11 +821,22 @@ impl Engine {
             result:
                 search::SearchResult {
                     mut files,
-                    warnings,
+                    mut warnings,
                     timed_out,
                     funnel: funnel_counts,
                 },
         } = run;
+        let result_id = (detail != Detail::Exists)
+            .then(|| self.keep_result(settings, arguments, &working_dirs, &files))
+            .flatten();
+        // `in_dir`: with one working directory the facets, the hints and the warnings are made of the short paths
+        let in_dirs = in_dirs(settings, &working_dirs);
+        let one_dir = working_dirs.len() == 1;
+        strip_in_dirs(
+            in_dirs.as_deref().filter(|_| one_dir),
+            &mut files,
+            Some(&mut warnings),
+        );
         let max_files = settings.whole(Key::MaxFiles);
         let shown = shown_funnel(
             &query,
@@ -859,12 +871,8 @@ impl Engine {
                 file.meta = None;
             }
         }
-        let result_id = if detail == Detail::Exists {
-            None
-        } else {
-            self.keep_result(settings, arguments, &working_dirs, &files)
-        };
-        let (files, since) = shown_files(since, files, omit);
+        strip_in_dirs(in_dirs.as_deref().filter(|_| !one_dir), &mut files, None);
+        let (files, since) = shown_files(since, files, omit, in_dirs.as_deref());
         let json = settings.text(Key::Format) == "json";
         let (limits, budget) = if in_file {
             file_limits(settings, request)
@@ -893,6 +901,7 @@ impl Engine {
             warnings: &warnings,
             timed_out,
             omit,
+            in_dirs: in_dirs.as_deref(),
         };
         let (text, response) = match budget {
             Some(budget) => {
@@ -1376,7 +1385,17 @@ fn shown_funnel(
 
 /// The differences of the files of a result to a kept result (OUTPUT.md#changes-since): the added and changed files in
 /// their order, then the removed ones in the order of the kept result; the same file has the same path and member.
-fn differences(kept: &CachedResult, files: Vec<search::Found>) -> (Vec<search::Found>, Since) {
+/// `in_dirs`: the paths of the files are without their working directories, these ones, and so are the paths of the
+/// removed files.
+fn differences(
+    kept: &CachedResult,
+    files: Vec<search::Found>,
+    in_dirs: Option<&[PathBuf]>,
+) -> (Vec<search::Found>, Since) {
+    let full = |f: &search::Found| match in_dirs.and_then(|dirs| dirs.get(f.root)) {
+        Some(prefix) => prefix.join(&f.rel),
+        None => f.rel.clone(),
+    };
     let key = |rel: &std::path::Path, member: &Option<String>| (rel.to_path_buf(), member.clone());
     let before: std::collections::HashMap<(PathBuf, Option<String>), u64> = kept
         .files
@@ -1391,12 +1410,12 @@ fn differences(kept: &CachedResult, files: Vec<search::Found>) -> (Vec<search::F
         .collect();
     let totals = totals_of(&files);
     let now: HashSet<(PathBuf, Option<String>)> =
-        files.iter().map(|f| key(&f.rel, &f.member)).collect();
+        files.iter().map(|f| key(&full(f), &f.member)).collect();
     let mut unchanged = 0;
     let mut listed = Vec::new();
     let mut changes = Vec::new();
     for file in files {
-        match before.get(&key(&file.rel, &file.member)) {
+        match before.get(&key(&full(&file), &file.member)) {
             None => {
                 changes.push(Change::Added);
                 listed.push(file);
@@ -1416,7 +1435,14 @@ fn differences(kept: &CachedResult, files: Vec<search::Found>) -> (Vec<search::F
         let rel = prefix.join(&f.rel);
         if !now.contains(&key(&rel, &f.member)) {
             changes.push(Change::Removed);
-            listed.push(search::Found::path_only(rel, f.member.clone()));
+            let shown = if in_dirs.is_some() {
+                f.rel.clone()
+            } else {
+                rel
+            };
+            let mut removed = search::Found::path_only(shown, f.member.clone());
+            removed.root = f.root;
+            listed.push(removed);
         }
     }
     (
@@ -1516,6 +1542,46 @@ fn answers(sections: Sections<Answer>) -> (Sections<String>, Sections<Head>) {
         .unzip()
 }
 
+/// The working directories as given with `path_style = in_dir`, by their index.
+fn in_dirs(settings: &Settings, working_dirs: &[(PathBuf, PathBuf)]) -> Option<Vec<PathBuf>> {
+    (settings.text(Key::PathStyle) == "in_dir").then(|| {
+        working_dirs
+            .iter()
+            .map(|(_, prefix)| prefix.clone())
+            .collect()
+    })
+}
+
+/// With `in_dir` (`prefixes`), after the result is kept: the paths of the files without their working directories,
+/// and of the warnings without the first one when they are given.
+fn strip_in_dirs(
+    prefixes: Option<&[PathBuf]>,
+    files: &mut [search::Found],
+    warnings: Option<&mut Warnings>,
+) {
+    let Some(prefixes) = prefixes else {
+        return;
+    };
+    strip_working_dirs(files, prefixes);
+    if let (Some(warnings), Some(prefix)) = (warnings, prefixes.first()) {
+        warnings.strip_prefix(prefix);
+    }
+}
+
+/// The paths of the files without the working directory of each, `prefixes` by the index of the working directory;
+/// their path fragments too.
+fn strip_working_dirs(files: &mut [search::Found], prefixes: &[PathBuf]) {
+    for f in files {
+        let Some(prefix) = prefixes.get(f.root) else {
+            continue;
+        };
+        if let Ok(rel) = f.rel.strip_prefix(prefix) {
+            f.rel = rel.to_path_buf();
+        }
+        f.path_fragments = f.path_fragments.take().map(|p| p.unshown(prefix));
+    }
+}
+
 /// The parts of the response left out by `output.omit` (OUTPUT.md#omit).
 fn omit(settings: &Settings) -> Omit {
     Omit::from_value(settings.value(Key::Omit))
@@ -1527,10 +1593,11 @@ fn shown_files(
     since: Option<CachedResult>,
     files: Vec<search::Found>,
     omit: Omit,
+    in_dirs: Option<&[PathBuf]>,
 ) -> (Vec<search::Found>, Option<Since>) {
     let (mut files, since) = match since {
         Some(kept) => {
-            let (changed, since) = differences(&kept, files);
+            let (changed, since) = differences(&kept, files, in_dirs);
             (changed, Some(since))
         }
         None => (files, None),

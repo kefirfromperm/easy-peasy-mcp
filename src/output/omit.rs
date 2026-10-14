@@ -7,6 +7,7 @@ use crate::config::KeyValue;
 pub enum Part {
     Counts,
     Result,
+    Dir,
     Legend,
     Funnel,
     Hints,
@@ -23,9 +24,10 @@ pub enum Part {
 
 impl Part {
     /// All parts in the order of the spec.
-    pub const ALL: [Part; 14] = [
+    pub const ALL: [Part; 15] = [
         Self::Counts,
         Self::Result,
+        Self::Dir,
         Self::Legend,
         Self::Funnel,
         Self::Hints,
@@ -46,6 +48,7 @@ impl Part {
         match self {
             Self::Counts => "counts",
             Self::Result => "result",
+            Self::Dir => "dir",
             Self::Legend => "legend",
             Self::Funnel => "funnel",
             Self::Hints => "hints",
@@ -108,13 +111,14 @@ mod tests {
 
     #[test]
     fn parts_by_name() {
-        assert_eq!(Part::ALL.len(), 14);
+        assert_eq!(Part::ALL.len(), 15);
+        assert_eq!(Part::find("dir"), Some(Part::Dir));
         assert_eq!(Part::find("match_ids"), Some(Part::MatchIds));
         assert_eq!(Part::find("colour"), None);
         assert_eq!(Part::LineNumbers.name(), "line_numbers");
         assert_eq!(
             Part::ALL.map(Part::name).join(", "),
-            "counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings"
+            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings"
         );
         assert_eq!(Part::find("line_counts"), Some(Part::LineCounts));
     }

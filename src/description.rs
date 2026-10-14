@@ -132,10 +132,10 @@ const FIND_SCHEMA: &str = r##"{
         "group_dirs": { "type": "boolean" },
         "group_repeated": { "type": "integer", "minimum": 0 },
         "sort": { "type": "string", "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$" },
-        "path_style": { "enum": ["relative", "absolute"] },
+        "path_style": { "enum": ["relative", "absolute", "in_dir"], "description": "in_dir: the working directory written once, the paths relative to it." },
         "omit": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "warnings"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "warnings"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to leave out, or \"all\"."

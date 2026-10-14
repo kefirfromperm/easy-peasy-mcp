@@ -1,6 +1,6 @@
 # Task 137: An absolute working directory written once
 
-Status: not implemented
+Status: implemented, see [137__SUMMARY__WORKING_DIR_ONCE.md](137__SUMMARY__WORKING_DIR_ONCE.md)
 
 Depends on: task 85, task 90, task 134
 

@@ -213,6 +213,7 @@ mod tests {
             warnings,
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
     }
 

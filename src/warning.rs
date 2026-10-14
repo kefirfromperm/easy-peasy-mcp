@@ -95,6 +95,27 @@ impl Warnings {
         self.entries.entry(code).or_default();
     }
 
+    /// The paths of the warnings without the working directory `prefix` before them.
+    pub fn strip_prefix(&mut self, prefix: &std::path::Path) {
+        for entries in self.entries.values_mut() {
+            *entries = std::mem::take(entries)
+                .into_iter()
+                .map(|(rel, member, is_dir)| {
+                    let rel = rel
+                        .strip_prefix(prefix)
+                        .map_or_else(|_| rel.clone(), std::path::Path::to_path_buf);
+                    (rel, member, is_dir)
+                })
+                .collect();
+        }
+    }
+
+    /// Whether a warning is about entries: it has paths.
+    #[must_use]
+    pub fn has_paths(&self) -> bool {
+        self.entries.values().any(|entries| !entries.is_empty())
+    }
+
     /// Adds the warnings of another working directory, their paths prefixed with it.
     pub fn extend(&mut self, other: Warnings, prefix: &std::path::Path) {
         for (code, entries) in other.entries {

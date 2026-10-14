@@ -235,7 +235,7 @@ impl Key {
             Self::PathStyle => (
                 "output",
                 "path_style",
-                Type::Choice(&["relative", "absolute"]),
+                Type::Choice(&["relative", "absolute", "in_dir"]),
             ),
             Self::Omit => ("output", "omit", Type::Omit),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),
@@ -930,7 +930,7 @@ mod tests {
             Type::Omit.check_toml(&item("['legend', 'gaps']")),
             Ok(Value::List(vec!["legend".into(), "gaps".into()]))
         );
-        let expected = "\"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings) is expected";
+        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings) is expected";
         for bad in ["'none'", "['colour']", "1"] {
             assert_eq!(
                 Type::Omit.check_toml(&item(bad)),
@@ -949,7 +949,7 @@ mod tests {
                 .check_json("output.omit", &json!("none"))
                 .unwrap_err()
                 .to_text(),
-            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings)\n"
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, warnings)\n"
         );
         assert_eq!(Key::Omit.default_value(), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");

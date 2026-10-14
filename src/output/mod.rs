@@ -251,6 +251,9 @@ pub struct Response<'a> {
     pub timed_out: bool,
     /// The parts left out (OUTPUT.md#omit).
     pub omit: Omit,
+    /// `path_style = in_dir`: the working directories as given, by their index; the paths of the files are without
+    /// them, with one working directory the warnings too.
+    pub in_dirs: Option<&'a [std::path::PathBuf]>,
 }
 
 /// The separator of output paths on this platform.
@@ -297,6 +300,9 @@ impl Response<'_> {
         } else {
             format!("{header}\n")
         };
+        if let Some(dir) = self.in_line() {
+            let _ = writeln!(out, "in: {dir}");
+        }
         if self.detail == Detail::Exists {
             self.push_warnings(&mut out);
             return out;
@@ -329,10 +335,16 @@ impl Response<'_> {
         }
         self.push_repeated(&mut out, &repeated);
         let mut current: Option<String> = None;
+        let mut root: Option<usize> = None;
         for (index, file) in self.listed().iter().enumerate().take(listing.shown) {
-            if listing.files[index] != Listed::LeftOut {
-                self.push_file(&mut out, file, &listing, index, &mut current);
+            if listing.files[index] == Listed::LeftOut {
+                continue;
             }
+            if let Some(dir) = self.dir_line(file, &mut root) {
+                let _ = writeln!(out, "in: {dir}");
+                current = None;
+            }
+            self.push_file(&mut out, file, &listing, index, &mut current);
         }
         self.push_warnings(&mut out);
         out
@@ -392,6 +404,49 @@ impl Response<'_> {
             parts.push(format!("next cursor: {cursor}"));
         }
         parts.join("  ")
+    }
+
+    /// The working directories written in `in:` lines: with `path_style = in_dir`, unless `dir` is left out.
+    fn shown_dirs(&self) -> Option<&[std::path::PathBuf]> {
+        self.in_dirs.filter(|_| !self.omit.has(Part::Dir))
+    }
+
+    /// The working directory of the `in:` line after the header: the only one, other than `.`, in a response which
+    /// writes a path (OUTPUT.md#the-working-directory-once).
+    fn in_line(&self) -> Option<String> {
+        let [dir] = self.shown_dirs()? else {
+            return None;
+        };
+        let listed = self.file_count() > 0 && (self.lists() || self.detail == Detail::Facets);
+        let paths = listed || self.all_warnings().has_paths();
+        (paths && !display_path(dir, false).is_empty()).then(|| dir_name(dir))
+    }
+
+    /// With several working directories the `in:` line before a file when its working directory differs from the one
+    /// of the previous file, `root`.
+    fn dir_line(&self, file: &Found, root: &mut Option<usize>) -> Option<String> {
+        let dirs = self.shown_dirs().filter(|dirs| dirs.len() > 1)?;
+        if *root == Some(file.root) {
+            return None;
+        }
+        *root = Some(file.root);
+        dirs.get(file.root).map(|dir| dir_name(dir))
+    }
+
+    /// The path of a listed file in the locations of the repeated lines: with several working directories under
+    /// `in_dir` its working directory before it again.
+    fn location_path(&self, file: &Found) -> String {
+        match self.in_dirs.filter(|dirs| dirs.len() > 1) {
+            Some(dirs) => {
+                let dir = dirs
+                    .get(file.root)
+                    .map_or_else(Default::default, |d| d.join(&file.rel));
+                let mut full = Found::path_only(dir, file.member.clone());
+                full.is_dir = file.is_dir;
+                display_found(&full)
+            }
+            None => display_found(file),
+        }
     }
 
     /// The listed file `index`: its line (under its directory header when it differs from `current`; `(cut)` when a
@@ -661,7 +716,7 @@ impl Response<'_> {
             .files
             .iter()
             .take(LOCATIONS)
-            .map(|&(file, i)| format!("{}:{}", display_found(&self.files[file]), i + 1))
+            .map(|&(file, i)| format!("{}:{}", self.location_path(&self.files[file]), i + 1))
             .collect();
         if line.files.len() > LOCATIONS {
             out.push(format!("… {} more", line.files.len() - LOCATIONS));
@@ -802,6 +857,16 @@ pub fn display_found(file: &Found) -> String {
     }
 }
 
+/// A working directory in an `in:` line: as given with the separator at the end, `./` for `.`.
+fn dir_name(dir: &Path) -> String {
+    let name = display_path(dir, true);
+    if name.len() == SEP.len_utf8() && !dir.has_root() {
+        format!(".{SEP}")
+    } else {
+        name
+    }
+}
+
 /// The directory header and the name of a matched entry; a member of an archive is under `<archive>!/<member dir>/`,
 /// the part after `!/` with `/`.
 fn split_found(file: &Found) -> (String, String) {
@@ -885,6 +950,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_text();
         let s = SEP;
@@ -929,6 +995,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         };
         assert_eq!(
             response.to_text(),
@@ -963,6 +1030,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_text();
         let s = SEP;
@@ -1013,6 +1081,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_text();
         let s = SEP;
@@ -1050,6 +1119,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_text();
         let s = SEP;
@@ -1104,6 +1174,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_text();
         assert_eq!(
@@ -1153,6 +1224,7 @@ mod tests {
                 warnings: &Warnings::default(),
                 timed_out: false,
                 omit: crate::output::Omit::default(),
+                in_dirs: None,
             }
             .to_text()
         };
@@ -1208,6 +1280,7 @@ mod tests {
                 warnings: &Warnings::default(),
                 timed_out,
                 omit: Omit::default(),
+                in_dirs: None,
             }
             .to_text()
         };
@@ -1247,6 +1320,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
@@ -1286,6 +1360,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         };
         let listing = Listing::without_lines(response.listed(), &response.limits);
         let cursor = response.next_cursor(&listing)?;
@@ -1338,6 +1413,7 @@ mod tests {
             warnings: &Warnings::default(),
             timed_out: false,
             omit: Omit::from_parts(omit),
+            in_dirs: None,
         }
         .to_text()
     }
