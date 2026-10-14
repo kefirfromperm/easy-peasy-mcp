@@ -235,7 +235,7 @@ impl Key {
             Self::PathStyle => (
                 "output",
                 "path_style",
-                Type::Choice(&["relative", "absolute"]),
+                Type::Choice(&["relative", "absolute", "in_dir"]),
             ),
             Self::Omit => ("output", "omit", Type::Omit),
             Self::MaxLevel => ("escape", "max_level", Type::Whole(None)),

@@ -7,6 +7,7 @@ use crate::config::KeyValue;
 pub enum Part {
     Counts,
     Result,
+    Dir,
     Legend,
     Funnel,
     Hints,
@@ -23,9 +24,10 @@ pub enum Part {
 
 impl Part {
     /// All parts in the order of the spec.
-    pub const ALL: [Part; 14] = [
+    pub const ALL: [Part; 15] = [
         Self::Counts,
         Self::Result,
+        Self::Dir,
         Self::Legend,
         Self::Funnel,
         Self::Hints,
@@ -46,6 +48,7 @@ impl Part {
         match self {
             Self::Counts => "counts",
             Self::Result => "result",
+            Self::Dir => "dir",
             Self::Legend => "legend",
             Self::Funnel => "funnel",
             Self::Hints => "hints",

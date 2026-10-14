@@ -287,6 +287,24 @@ impl PathFragments {
         }
         self
     }
+
+    /// The fragments as shown without the working directory `prefix` before the path: the inverse of `shown`.
+    #[must_use]
+    pub fn unshown(mut self, prefix: &Path) -> Self {
+        let dir = crate::output::display_path(prefix, false);
+        if dir.is_empty() {
+            return self;
+        }
+        let start = format!("{dir}{}", std::path::MAIN_SEPARATOR);
+        if let Some(rest) = self.path.strip_prefix(&start) {
+            let shift = start.len();
+            self.path = rest.to_string();
+            for f in &mut self.fragments {
+                f.range = f.range.start.saturating_sub(shift)..f.range.end.saturating_sub(shift);
+            }
+        }
+        self
+    }
 }
 
 /// The content fragments of a matched file and its counts (OUTPUT.md#counts).
@@ -1695,14 +1713,20 @@ mod tests {
         };
         let inside = PathFragments {
             path: "src/cache.rs".to_string(),
-            fragments: vec![fragment(4, 9)],
+            fragments: vec![fragment(4..9)],
         };
         let prefix = Path::new("../work/agent-1");
         let shown = inside.clone().shown(prefix, false);
         assert_ne!(shown, inside);
-        assert_eq!(shown.unshown(prefix), inside.clone().shown(Path::new(""), false));
         assert_eq!(
-            inside.clone().shown(Path::new(""), false).unshown(Path::new("")),
+            shown.unshown(prefix),
+            inside.clone().shown(Path::new(""), false)
+        );
+        assert_eq!(
+            inside
+                .clone()
+                .shown(Path::new(""), false)
+                .unshown(Path::new("")),
             inside.shown(Path::new(""), false)
         );
     }

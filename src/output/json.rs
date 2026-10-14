@@ -9,7 +9,7 @@ use super::lines::{columns, cut_line, starts_in};
 use super::listing::{Listed, Listing};
 use super::{
     BlockOptions, Change, CountBy, Detail, Highlight, LOCATIONS, Omit, Part, Response,
-    display_found,
+    display_found, display_path,
 };
 use crate::content::Content;
 use crate::query::Kind;
@@ -25,6 +25,8 @@ struct Document<'a> {
     exists: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<&'a str>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    dirs: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     detail_used: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -133,6 +135,8 @@ struct Warning {
 #[derive(Serialize, Default)]
 struct File {
     path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dir: Option<usize>,
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     entry_type: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -263,6 +267,7 @@ impl Response<'_> {
             version: VERSION,
             exists: self.file_count() > 0,
             result: self.result_id.filter(|_| !self.omit.has(Part::Result)),
+            dirs: self.json_dirs(),
             detail_used: self
                 .budget
                 .filter(|b| b.lowered)
@@ -361,6 +366,10 @@ impl Response<'_> {
         if change == Some(Change::Removed) {
             return File {
                 path: display_found(found),
+                dir: self
+                    .shown_dirs()
+                    .filter(|dirs| dirs.len() > 1)
+                    .map(|_| found.root),
                 change: Some(Change::Removed.keyword()),
                 ..File::default()
             };
@@ -368,6 +377,10 @@ impl Response<'_> {
         let meta = found.meta.as_ref();
         File {
             path: display_found(found),
+            dir: self
+                .shown_dirs()
+                .filter(|dirs| dirs.len() > 1)
+                .map(|_| found.root),
             change: change.map(Change::keyword),
             entry_type: meta.map(|m| m.entry_type.keyword()),
             size: meta.and_then(|m| m.size),
@@ -426,6 +439,15 @@ impl Response<'_> {
 }
 
 impl Response<'_> {
+    /// The working directories of `path_style = in_dir` with the separator at the end; none for `.` alone.
+    fn json_dirs(&self) -> Vec<String> {
+        match self.shown_dirs() {
+            Some([dir]) if display_path(dir, false).is_empty() => Vec::new(),
+            Some(dirs) => dirs.iter().map(|d| super::dir_name(d)).collect(),
+            None => Vec::new(),
+        }
+    }
+
     /// The listed lines of a file with their matches in `count_by = line`, without the parts left out; none
     /// without both.
     fn matched_lines(&self, content: &Content, fragments: &[super::Fragment]) -> Vec<LineCount> {
@@ -676,6 +698,7 @@ mod tests {
             warnings: &warnings,
             timed_out: true,
             omit: crate::output::Omit::default(),
+            in_dirs: None,
         }
         .to_json();
         let sep = std::path::MAIN_SEPARATOR;
