@@ -17,8 +17,8 @@ use crate::hints;
 use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
-    BlockOptions, Change, Detail, Highlight, Hint, Limits, Omit, Page, Part, Response, Since, Sort,
-    sort_files,
+    BlockOptions, Change, CountBy, Detail, Highlight, Hint, Limits, Omit, Page, Part, Response,
+    Since, Sort, sort_files,
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
@@ -873,6 +873,7 @@ impl Engine {
         };
         let response = Response {
             detail,
+            count_by: count_by(settings),
             group_dirs: settings.bool(Key::GroupDirs),
             group_repeated: settings.whole(Key::GroupRepeated),
             highlight: highlight(settings, json),
@@ -1462,6 +1463,15 @@ fn detail(settings: &Settings) -> Detail {
         "facets" => Detail::Facets,
         "files" => Detail::Files,
         _ => Detail::Lines,
+    }
+}
+
+/// The grain of the counts of `detail = count`.
+fn count_by(settings: &Settings) -> CountBy {
+    match settings.text(Key::CountBy) {
+        "file" => CountBy::File,
+        "line" => CountBy::Line,
+        _ => CountBy::Total,
     }
 }
 

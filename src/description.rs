@@ -28,6 +28,7 @@ Strings: '...' or "..." with \ escapes; `...` raw, best for regex.
 Dates: 2026-10-01, -30m -2h -7d -2w. Sizes: 512 10K 5M 1G.
 
 OUTPUT: output.detail = exists | count | facets | files | lines (default); output.context = N lines around.
+output.count_by = file | line with detail = count: the counts of every file, or of every matched line too.
 output.budget = N tokens: the server picks the richest detail which fits. By default files are sorted by relevance.
 Text response with the default options: "42:" matched line, "41-" context line, "--" gap, ⟦ids:text⟧ a match,
 [#1 @x] matched conditions, ⇥N removed indentation; empty or huge results come with a funnel and hints how to fix
@@ -105,6 +106,7 @@ const FIND_SCHEMA: &str = r##"{
       "properties": {
         "format": { "enum": ["text", "json"] },
         "detail": { "enum": ["exists", "count", "facets", "files", "lines"] },
+        "count_by": { "enum": ["total", "file", "line"], "description": "detail = count: the totals, or also the counts per file or per line." },
         "budget": { "type": "integer", "minimum": 100, "description": "Max response size in tokens." },
         "chars_per_token": { "type": "number", "exclusiveMinimum": 0 },
         "funnel": { "enum": ["auto", "always", "never"] },
@@ -133,7 +135,7 @@ const FIND_SCHEMA: &str = r##"{
         "path_style": { "enum": ["relative", "absolute"] },
         "omit": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "gaps", "indent", "warnings"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "warnings"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to leave out, or \"all\"."

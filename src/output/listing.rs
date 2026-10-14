@@ -54,12 +54,13 @@ impl Listing {
     /// `max_matches_per_file` of every file, those before the line which makes its output longer than
     /// `max_output_per_file` (its blocks made with `options`), then of those the ones of the first `max_lines` matched
     /// lines and the first `max_matches` fragments in the order of the files. The fragments of the first file start
-    /// at the index `skip`, where the page starts.
+    /// at the index `skip`, where the page starts. Without `options` the lines have no text (`count_by = line`):
+    /// `max_output_per_file` doesn't apply and `max_output` counts the paths only.
     pub fn new(
         files: &[Found],
         repeated: &Repeated,
         limits: &Limits,
-        options: &BlockOptions,
+        options: Option<&BlockOptions>,
         skip: usize,
     ) -> Self {
         let mut lines_left = limits.max_lines;
@@ -89,7 +90,7 @@ impl Listing {
                 matches_per_file = true;
                 rest.truncate(limits.max_matches_per_file);
             }
-            until[index] = first_over(&m.content, &rest, options, limits);
+            until[index] = options.and_then(|o| first_over(&m.content, &rest, o, limits));
             if let Some(line) = until[index] {
                 cut[index] = true;
                 rest.retain(|f| last_line(&m.content, f) < line);
@@ -135,7 +136,7 @@ impl Listing {
             next,
             truncated_by,
         };
-        listing.limit_output(files, limits, Some(options));
+        listing.limit_output(files, limits, options);
         listing
     }
 
@@ -337,7 +338,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits,
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
@@ -351,7 +352,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits,
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1, 3], vec![0]]);
@@ -359,7 +360,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &Limits::default(),
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(
@@ -374,7 +375,7 @@ mod tests {
                 max_lines: 1,
                 ..Limits::default()
             },
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listed_lines(&one, &files), [vec![0], vec![]]);
@@ -392,7 +393,7 @@ mod tests {
                 max_matches: 2,
                 ..Limits::default()
             },
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert!(matches!(&listing.files[0], Listed::Lines(f) if f.len() == 2));
@@ -406,7 +407,7 @@ mod tests {
                 max_matches: 5,
                 ..Limits::default()
             },
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listed_lines(&both, &files), [vec![0, 1], vec![]]);
@@ -418,7 +419,7 @@ mod tests {
                 max_matches: 5,
                 ..Limits::default()
             },
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(
@@ -439,7 +440,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits,
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listing.cut, [true, false, false]);
@@ -455,7 +456,7 @@ mod tests {
                 max_matches_per_file: 2,
                 ..Limits::default()
             },
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(per_file.truncated_by, ["max_matches_per_file"]);
@@ -472,7 +473,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits,
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listed_lines(&listing, &files), [vec![0, 1], vec![0, 2]]);
@@ -488,7 +489,13 @@ mod tests {
             max_output_per_file: 5,
             ..Limits::default()
         };
-        let listing = Listing::new(&files[1..], &Repeated::default(), &limits, &context, 0);
+        let listing = Listing::new(
+            &files[1..],
+            &Repeated::default(),
+            &limits,
+            Some(&context),
+            0,
+        );
         assert_eq!(listed_lines(&listing, &files[1..]), [vec![0]]);
         assert_eq!(listing.until, [Some(2)]);
     }
@@ -505,7 +512,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits(6),
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listing.shown, 1);
@@ -516,7 +523,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits(10),
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(listing.shown, 2);
@@ -525,7 +532,7 @@ mod tests {
             &files,
             &Repeated::default(),
             &limits(14),
-            &BlockOptions::default(),
+            Some(&BlockOptions::default()),
             0,
         );
         assert_eq!(all.shown, 2);
@@ -544,16 +551,16 @@ mod tests {
         };
         let options = BlockOptions::default();
         // the third fragment, the second one of line 1
-        let listing = Listing::new(&files, &Repeated::default(), &limits(2), &options, 0);
+        let listing = Listing::new(&files, &Repeated::default(), &limits(2), Some(&options), 0);
         assert_eq!(listing.next, Some((0, 2)));
-        let listing = Listing::new(&files, &Repeated::default(), &limits(3), &options, 0);
+        let listing = Listing::new(&files, &Repeated::default(), &limits(3), Some(&options), 0);
         assert_eq!(listing.next, Some((1, 0)));
         assert_eq!(
-            Listing::new(&files, &Repeated::default(), &limits(4), &options, 0).next,
+            Listing::new(&files, &Repeated::default(), &limits(4), Some(&options), 0).next,
             None
         );
         // a page which starts inside the first file
-        let listing = Listing::new(&files, &Repeated::default(), &limits(1), &options, 2);
+        let listing = Listing::new(&files, &Repeated::default(), &limits(1), Some(&options), 2);
         assert_eq!(listed_lines(&listing, &files)[0], [1]);
         assert_eq!(listing.next, Some((1, 0)));
     }

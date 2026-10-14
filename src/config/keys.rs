@@ -31,6 +31,7 @@ pub enum Key {
     SkipGenerated,
     Format,
     Detail,
+    CountBy,
     Budget,
     CharsPerToken,
     Funnel,
@@ -71,7 +72,7 @@ pub enum Key {
 
 impl Key {
     /// All keys in the order of the spec.
-    pub const ALL: [Key; 58] = [
+    pub const ALL: [Key; 59] = [
         Self::DefaultDirs,
         Self::Timeout,
         Self::Threads,
@@ -94,6 +95,7 @@ impl Key {
         Self::SkipGenerated,
         Self::Format,
         Self::Detail,
+        Self::CountBy,
         Self::Budget,
         Self::CharsPerToken,
         Self::Funnel,
@@ -177,6 +179,11 @@ impl Key {
                 "output",
                 "detail",
                 Type::Choice(&["exists", "count", "facets", "files", "lines"]),
+            ),
+            Self::CountBy => (
+                "output",
+                "count_by",
+                Type::Choice(&["total", "file", "line"]),
             ),
             Self::Context => ("output", "context", Type::Whole(None)),
             Self::Before => ("output", "before", Type::OptWhole),
@@ -295,6 +302,7 @@ impl Key {
             Self::PathStyle => Value::Text("relative".to_string()),
             Self::Sort => Value::Text("relevance".to_string()),
             Self::Detail => Value::Text("lines".to_string()),
+            Self::CountBy => Value::Text("total".to_string()),
             Self::MaxArchiveSize => Value::Text("100M".to_string()),
         }
     }
