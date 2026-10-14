@@ -1,5 +1,7 @@
 # Examples for task 115
 
+Spec: `1`
+
 Startup examples (AGENTS.md) with JSON-RPC exchanges. The examples use the fixture `funnel` of task 102: eleven
 `many/*.txt` files with `x`. With one search thread and reads of two seconds a search of the content takes half a
 minute.

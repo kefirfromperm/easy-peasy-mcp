@@ -1,5 +1,7 @@
 # Examples for task 56
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `legacy` of task 55:
 `bom.txt` is UTF-8 with a BOM, `latin.txt` Windows-1252 (`café au lait`), `plain.txt` UTF-8 without a BOM.
 
@@ -34,7 +36,7 @@ warning: decode_errors (1): latin.txt
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -136,7 +138,7 @@ latin.txt  [#1]  lines: 1  matches: 1  windows-1252
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -214,7 +216,7 @@ easy-peasy-mcp --config conf/f.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]

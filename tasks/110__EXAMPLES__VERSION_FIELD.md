@@ -1,5 +1,7 @@
 # Examples for task 110
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The examples use the fixture `detail` of task 79: `src/a.rs` and
 `src/b.rs` with two lines with `TODO` each.
 
@@ -36,22 +38,22 @@ Fixture: `detail`
 Fixture: `detail`
 
 ```json request
-{"version": 2, "query": "text has 'TODO'"}
+{"version": 3, "query": "text has 'TODO'"}
 ```
 
 ```text error
-error[unsupported_version]: the spec version 2 is not supported
-  hint: supported spec versions: 1
+error[unsupported_version]: the spec version 3 is not supported
+  hint: supported spec versions: 1, 2
 ```
 
 In JSON:
 
 ```json request
-{"version": 2, "query": "text has 'TODO'", "output": {"format": "json"}}
+{"version": 3, "query": "text has 'TODO'", "output": {"format": "json"}}
 ```
 
 ```json error
-{ "error": { "code": "unsupported_version", "message": "the spec version 2 is not supported", "hint": "supported spec versions: 1" } }
+{ "error": { "code": "unsupported_version", "message": "the spec version 3 is not supported", "hint": "supported spec versions: 1, 2" } }
 ```
 
 ## E110.4 An invalid version

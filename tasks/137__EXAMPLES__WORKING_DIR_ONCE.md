@@ -1,5 +1,7 @@
 # Examples for task 137
 
+Spec: `1`
+
 `path_style = in_dir` writes the working directory once and the paths relative to it
 (OUTPUT.md#the-working-directory-once).
 
@@ -402,5 +404,5 @@ error[invalid_option]: 'output.path_style' must be one of: relative, absolute, i
 {"query": "text has 'cache('", "output": {"omit": ["dirs"]}}
 ```
 ```text error
-error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings)
+error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)
 ```

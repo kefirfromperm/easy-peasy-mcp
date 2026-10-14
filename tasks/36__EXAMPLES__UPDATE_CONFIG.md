@@ -1,5 +1,7 @@
 # Examples for task 36
 
+Spec: `1`
+
 No configuration key is implemented yet (they come with their own tasks), so the examples show the calls which change
 nothing and the errors.
 
@@ -193,7 +195,7 @@ error[unknown_key]: unknown key 'output.max_file'
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -257,6 +259,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 
 [escape]
 max_level = 3

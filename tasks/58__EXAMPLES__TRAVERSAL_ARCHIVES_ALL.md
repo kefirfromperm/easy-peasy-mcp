@@ -1,5 +1,7 @@
 # Examples for task 58
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md).
 
 ## Fixtures
@@ -214,7 +216,7 @@ warning: archive_error (1): logs/broken.zip
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]
@@ -281,7 +283,7 @@ easy-peasy-mcp --config conf/a.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [traversal]

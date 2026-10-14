@@ -1,5 +1,7 @@
 # Examples for task 136
 
+Spec: `1`
+
 `output.count_by` sets the grain of the counts of `detail = count`: the totals, the counts of every file, or of every
 matched line too (OUTPUT.md#counts-per-file-and-per-line).
 
@@ -740,7 +742,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -775,6 +777,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 2. `find`
@@ -930,5 +933,5 @@ error[invalid_value]: invalid value for 'output.count_by'
 {"query": "text has 'unwrap('", "output": {"omit": ["line_count"]}}
 ```
 ```text error
-error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings)
+error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)
 ```

@@ -1,5 +1,7 @@
 # Examples for task 113
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The examples use the fixture `funnel` of task 102: `src/a.rs`
 (`fn parse_query() {}`), `src/b.rs` (`fn other() {}`), `docs/c.md`, `tools/d.py` (`def parse_query(): pass`),
 eleven `many/*.txt`.

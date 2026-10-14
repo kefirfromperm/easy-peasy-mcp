@@ -1,5 +1,7 @@
 # Examples for task 140
 
+Spec: `1`
+
 The query of a write tool selects files only, like `find`; `type = dir` selects directories and `type = link`
 symlinks, and the descriptions of `delete`, `rename` and `copy` say so ([TOOLS.md](../TOOLS.md#selection)).
 

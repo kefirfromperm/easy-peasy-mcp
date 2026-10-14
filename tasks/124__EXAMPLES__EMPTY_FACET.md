@@ -1,5 +1,7 @@
 # Examples for task 124
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The examples use the fixture `huge` of task 104: eleven files — six in
 `vendor/lib/`, two in `src/`, two tests in `tests/` (`.rs`), `docs/d1.md`. The fixture is not a git repository.
 

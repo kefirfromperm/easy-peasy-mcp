@@ -1,5 +1,7 @@
 # Examples for task 104
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The examples list one or two files (`max_files`) of eleven, so the
 result is huge: more than 10 × `max_files` files.
 

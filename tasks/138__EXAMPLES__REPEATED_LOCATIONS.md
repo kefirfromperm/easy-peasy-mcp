@@ -1,5 +1,7 @@
 # Examples for task 138
 
+Spec: `1`
+
 `output.repeated_locations` sets how many locations of a repeated line are written, `0` all of them
 (OUTPUT.md#repeated-lines).
 
@@ -316,5 +318,5 @@ error[invalid_value]: invalid value for 'output.repeated_locations'
 {"query": "text has 'std::'", "output": {"omit": ["location"]}}
 ```
 ```text error
-error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings)
+error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)
 ```

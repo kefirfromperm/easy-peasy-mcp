@@ -1,5 +1,7 @@
 # Examples for task 106
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). The examples use the fixture `huge` of task 104:
 eleven files with `error` — six in `vendor/lib/`, two in `src/`, two in `tests/`, `docs/d1.md`.
 
@@ -26,7 +28,7 @@ dir:        vendor/lib/ 6 · src/ 2 · tests/ 2 · docs/ 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -61,6 +63,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E106.2 One level in a request
@@ -133,7 +136,7 @@ dir:        vendor/ 6 · src/ 2 · tests/ 2 · docs/ 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -168,6 +171,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E106.5 An invalid value in a request

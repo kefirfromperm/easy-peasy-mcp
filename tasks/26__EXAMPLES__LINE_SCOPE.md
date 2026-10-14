@@ -1,5 +1,7 @@
 # Examples for task 26
 
+Spec: `1`
+
 The fixture `content` is described in [19__EXAMPLES__TEXT_HAS.md](19__EXAMPLES__TEXT_HAS.md).
 
 ## E26.1 Two conditions on the same line

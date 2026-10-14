@@ -1,5 +1,7 @@
 # Examples for task 126
 
+Spec: `1`
+
 The `rename` tool ([TOOLS.md](../TOOLS.md#rename)). It is a write tool: the selection, `expect`, `dry_run`, the
 skipped entries and the response follow the shared rules of task 125, so these examples are about the target, the
 conflicts and the response. Most are startup examples with `--allow-write`; a replaced file goes to the trash of the

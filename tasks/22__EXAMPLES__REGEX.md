@@ -1,5 +1,7 @@
 # Examples for task 22
 
+Spec: `1`
+
 The fixture `content` is described in [19__EXAMPLES__TEXT_HAS.md](19__EXAMPLES__TEXT_HAS.md).
 
 ## E22.1 A regex per line, `^` is the start of the line

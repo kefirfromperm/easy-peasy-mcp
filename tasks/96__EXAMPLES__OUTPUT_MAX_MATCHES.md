@@ -1,5 +1,7 @@
 # Examples for task 96
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value. The
 examples use the fixture `sorting` of task 92: `a.txt` (`TODO`), `b.txt` (`TODO TODO TODO`), `c.txt` and `d/e.txt`
 (`TODO TODO`), and set `sort = "path asc"`. The cursor of the next page comes with task 101.
@@ -13,7 +15,7 @@ Fixture: `sorting`
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -48,6 +50,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E96.2 The first matches
@@ -191,7 +194,7 @@ a.txt  [#1]  lines: 1  matches: 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -226,6 +229,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E96.7 An invalid value in a request

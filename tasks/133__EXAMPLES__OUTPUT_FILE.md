@@ -1,5 +1,7 @@
 # Examples for task 133
 
+Spec: `1`
+
 `output.file` writes the response to a file under `server.output_dir` and returns a summary with its path
 (OUTPUT.md#output-to-a-file). The examples run with `server.output_dir` in a temporary directory of the test,
 `<output_dir>`; a `text file` / `json file` block is the content of a file of `<output_dir>` after the request before
@@ -484,7 +486,7 @@ easy-peasy-mcp --output-dir out
 {"section": "server", "sources": true}
 ```
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]
@@ -527,7 +529,7 @@ easy-peasy-mcp --config config.toml
 {"section": "server"}
 ```
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [server]

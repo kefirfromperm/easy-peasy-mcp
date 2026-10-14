@@ -1,5 +1,7 @@
 # Examples for task 8
 
+Spec: `1`
+
 The fixture `names` is described in [3__EXAMPLES__NAME_OPERATORS.md](3__EXAMPLES__NAME_OPERATORS.md), the fixture
 `flat` in [2__EXAMPLES__EMPTY_QUERY.md](2__EXAMPLES__EMPTY_QUERY.md).
 

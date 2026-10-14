@@ -1,5 +1,7 @@
 # Examples for task 103
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The hints of huge results come with task 104.
 
 ## Fixtures

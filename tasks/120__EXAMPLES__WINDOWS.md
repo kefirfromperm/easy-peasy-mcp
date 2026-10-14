@@ -1,5 +1,7 @@
 # Examples for task 120
 
+Spec: `1`
+
 The conventions of Windows (CONFIG.md#platforms). The examples are marked `` Platform: `windows` `` and run only
 there; they are compared exactly, `\` included.
 

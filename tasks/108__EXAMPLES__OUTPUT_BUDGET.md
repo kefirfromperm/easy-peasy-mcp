@@ -1,5 +1,7 @@
 # Examples for task 108
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value. The
 examples use the fixture `huge` of task 104: eleven files with `error` — `docs/d1.md`, two in `src/`, two in
 `tests/`, six in `vendor/lib/`; with `group_repeated = 0` and `sort = "path asc"` their lines are listed in path
@@ -55,7 +57,7 @@ a6.rs  [#1]  lines: 1  matches: 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -90,6 +92,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E108.2 A budget the response fits in
@@ -270,7 +273,7 @@ a6.rs  [#1]  lines: 1  matches: 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -305,6 +308,7 @@ repeated_locations = 3    # default
 sort = "relevance"    # default
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E108.8 An invalid value in a request

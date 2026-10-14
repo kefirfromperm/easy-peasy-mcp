@@ -1,5 +1,7 @@
 # Examples for task 123
 
+Spec: `1`
+
 A JSON response is compared as a JSON value. The scores are those of the fuzzy matching of QUERY.md#--fuzzy, rounded
 down to two decimals.
 

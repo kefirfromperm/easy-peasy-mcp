@@ -1,5 +1,7 @@
 # Examples for task 92
 
+Spec: `1`
+
 Examples with a command line are startup examples (AGENTS.md). A JSON response is compared as a JSON value. The
 order of the default `sort = relevance` comes with task 93, so the examples set another order.
 
@@ -26,7 +28,7 @@ Fixture: `sorting`
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -61,6 +63,7 @@ repeated_locations = 3
 sort = "relevance"
 path_style = "relative"
 omit = []
+show = []
 ```
 
 ## E92.2 By path
@@ -257,7 +260,7 @@ a.txt  [#1]  lines: 1  matches: 1
 ```
 
 ```text response
-# easy-peasy-mcp <version>, spec 1, supported specs: 1
+# easy-peasy-mcp <version>, spec 1, supported specs: 1, 2
 # read-only: server.allowed_roots, server.allow_update, server.allow_write, server.output_dir, server.max_output_file_size
 
 [output]
@@ -292,6 +295,7 @@ repeated_locations = 3    # default
 sort = "modified asc"    # update
 path_style = "relative"    # default
 omit = []    # default
+show = []    # default
 ```
 
 ## E92.8 An invalid value in a request
