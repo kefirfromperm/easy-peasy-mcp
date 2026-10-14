@@ -28,6 +28,8 @@ pub enum WarningCode {
     PatternMismatch,
     InvalidTarget,
     TargetConflict,
+    ReplaceConflict,
+    Unencodable,
 }
 
 impl WarningCode {
@@ -53,6 +55,8 @@ impl WarningCode {
             Self::PatternMismatch => "pattern_mismatch",
             Self::InvalidTarget => "invalid_target",
             Self::TargetConflict => "target_conflict",
+            Self::ReplaceConflict => "replace_conflict",
+            Self::Unencodable => "unencodable",
         }
     }
 }

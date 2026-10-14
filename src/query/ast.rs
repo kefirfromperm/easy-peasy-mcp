@@ -287,7 +287,6 @@ impl fmt::Display for CondId {
 }
 
 /// A sub-group of a `text =~` condition: a capture group by its number or its name (QUERY.md#regex-groups).
-#[allow(dead_code)] // the fields which refer to groups come with `output.groups` and `replace` (tasks 129, 130)
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SubGroup {
     Number(usize),
@@ -296,7 +295,6 @@ pub enum SubGroup {
 
 /// A checked reference to a group of the query (QUERY.md#group-references): a whole group, or a sub-group of a
 /// `text =~` condition.
-#[allow(dead_code)] // the fields which refer to groups come with `output.groups` and `replace` (tasks 129, 130)
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct GroupRef {
     pub id: CondId,

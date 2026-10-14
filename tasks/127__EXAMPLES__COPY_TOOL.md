@@ -39,7 +39,7 @@ easy-peasy-mcp --allow-write
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": "find"}, {"name": "get_config"}, {"name": "update_config"}, {"name": "delete"}, {"name": "rename"}, {"name": "copy", "annotations": {"readOnlyHint": false, "destructiveHint": true, "idempotentHint": true, "openWorldHint": false}}]}}
+{"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": "find"}, {"name": "get_config"}, {"name": "update_config"}, {"name": "delete"}, {"name": "rename"}, {"name": "copy", "annotations": {"readOnlyHint": false, "destructiveHint": true, "idempotentHint": true, "openWorldHint": false}}, {"name": "replace"}]}}
 ```
 
 ## E127.2 Without `allow_write`

@@ -24,6 +24,7 @@ mod query;
 mod recycle;
 mod relevance;
 mod rename;
+mod replace;
 mod request;
 mod search;
 mod template;

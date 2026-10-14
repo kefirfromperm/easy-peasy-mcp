@@ -43,6 +43,7 @@ It runs locally over stdio and is built natively for Linux, macOS and Windows.
 | `delete`        | move found files to the trash, or delete them; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#delete) |
 | `rename`        | rename or move found files by a template; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#rename) |
 | `copy`          | copy found files by a template; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#copy) |
+| `replace`       | replace the matches of a group of the query in found files; only with `server.allow_write = true` | [TOOLS.md](TOOLS.md#replace) |
 
 ## Request
 

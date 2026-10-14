@@ -453,7 +453,7 @@ fn copy_into_place(m: &Move<'_>, how: &How<'_>) -> Result<(), Failure> {
 }
 
 /// A hidden name for the copy of `name` which is not in place yet: `.<name>.<pid>-<n>.tmp`.
-fn temporary_name(name: &std::ffi::OsStr) -> std::ffi::OsString {
+pub(crate) fn temporary_name(name: &std::ffi::OsStr) -> std::ffi::OsString {
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let mut temporary = std::ffi::OsString::from(".");

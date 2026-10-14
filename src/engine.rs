@@ -25,6 +25,7 @@ use crate::query::{self, ParseOptions};
 use crate::recycle::{Trash, TrashError};
 use crate::relevance;
 use crate::rename;
+use crate::replace;
 use crate::request;
 use crate::search::{self, Archives, Binary, KindOptions, Progress, SearchOptions};
 use crate::warning::{WarningCode, Warnings};
@@ -184,13 +185,14 @@ impl Drop for Lease {
 
 impl Engine {
     /// The names of the tools, in the order of `tools/list`.
-    pub const TOOLS: [&'static str; 6] = [
+    pub const TOOLS: [&'static str; 7] = [
         "find",
         "get_config",
         "update_config",
         "delete",
         "rename",
         "copy",
+        "replace",
     ];
 
     /// A new session.
@@ -266,6 +268,9 @@ impl Engine {
             })),
             "copy" => Ok(self.write_tool(arguments, |json| {
                 self.try_transfer(rename::Mode::Copy, arguments, progress, json)
+            })),
+            "replace" => Ok(self.write_tool(arguments, |json| {
+                self.try_replace(arguments, progress, json)
             })),
             other => Err(UnknownTool(other.to_string())),
         }
@@ -344,7 +349,7 @@ impl Engine {
         json: bool,
     ) -> Result<ToolOutput, Report> {
         let arrival = std::time::Instant::now();
-        let write = write::parse(arguments, &write::DELETE_FIELDS)?;
+        let write = write::parse(arguments, &write::DELETE_FIELDS, &write::OUTPUT_FIELDS)?;
         let Selected {
             settings,
             deadline,
@@ -396,7 +401,7 @@ impl Engine {
         json: bool,
     ) -> Result<ToolOutput, Report> {
         let arrival = std::time::Instant::now();
-        let write = write::parse(arguments, &write::RENAME_FIELDS)?;
+        let write = write::parse(arguments, &write::RENAME_FIELDS, &write::OUTPUT_FIELDS)?;
         let request = rename::parse(arguments)?;
         let Selected {
             settings,
@@ -432,6 +437,88 @@ impl Engine {
             )?
         };
         Ok(write_output(&outcome, mode.count(), &settings, json))
+    }
+
+    /// `replace` with writing allowed: the groups of `replace` checked against the query, the selection with its
+    /// matches (a result searched again with its query), `expect`, then every file planned and written.
+    fn try_replace(
+        &self,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+        json: bool,
+    ) -> Result<ToolOutput, Report> {
+        let arrival = std::time::Instant::now();
+        let write = write::parse(arguments, &replace::REPLACE_FIELDS, &replace::OUTPUT_FIELDS)?;
+        let spec = replace::parse(arguments)?;
+        let (find, request, kept) = match write.selection {
+            write::Selection::Query => (write.find.clone(), write.request.clone(), None),
+            write::Selection::Result(id) => {
+                let kept = self.kept(id)?;
+                let find = replace::result_request(&kept.arguments, id, &write.find);
+                let request = request::parse(&find)?;
+                (find, request, Some(kept))
+            }
+        };
+        let settings = self
+            .settings()
+            .with(&request.config, &request.languages)
+            .map_err(|p| p.request_report())?;
+        let languages = Arc::new(LanguageTable::new(settings.language_list()));
+        let query = query::parse(&request.query, &self.parse_options(&settings, languages))
+            .map_err(|e| e.into_report(&request.query))?;
+        let rules = replace::compile(&spec, &query)?;
+        let limit = request.timeout.or_else(|| settings.timeout());
+        let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
+        let mut run = self.run(&request, &settings, &find, arrival, progress)?;
+        if progress.is_some_and(|p| p.is_cancelled()) {
+            return Err(Report::new(
+                ErrorCode::Cancelled,
+                "the request was cancelled",
+            ));
+        }
+        let mut matches = replace::Matches::new();
+        for file in &mut run.result.files {
+            if let Some(found) = file.matches.take() {
+                matches.insert((file.rel.clone(), file.member.clone()), found);
+            }
+        }
+        let timed_out = run.result.timed_out;
+        let entries = match &kept {
+            Some(kept) => result_entries(kept),
+            None => found_entries(&run.working_dirs, std::mem::take(&mut run.result.files)),
+        };
+        let max_lines = settings.whole(Key::MaxLines);
+        let outcome = if timed_out {
+            // nothing is changed when the selection is incomplete
+            let mut outcome = write::Outcome {
+                dry_run: write.dry_run,
+                selected: entries.len(),
+                max_lines: Some(max_lines),
+                ..write::Outcome::default()
+            };
+            outcome.warnings.add_global(WarningCode::Timeout);
+            outcome
+        } else {
+            write::check_expect(entries.len(), write.expect)?;
+            let entries = write::select(entries);
+            let stop = || stopped(deadline, progress);
+            let allowed = |path: &Path| write::may_change(path, &settings.allowed_roots);
+            replace::replace(
+                &entries,
+                &matches,
+                &rules,
+                &replace::How {
+                    allowed: &allowed,
+                    stop: &stop,
+                    decode: &run.search.decode,
+                    filter: run.query.filter.as_ref(),
+                    dry_run: write.dry_run,
+                    expect_matches: spec.expect_matches,
+                    max_lines,
+                },
+            )?
+        };
+        Ok(write_output(&outcome, "replaced", &settings, json))
     }
 
     /// The `find` tool.
@@ -1047,7 +1134,7 @@ impl Engine {
 }
 
 /// The tools which change files (TOOLS.md#write-tools).
-const WRITE_TOOLS: [&str; 3] = ["delete", "rename", "copy"];
+const WRITE_TOOLS: [&str; 4] = ["delete", "rename", "copy", "replace"];
 
 /// The selection of a write tool, see [`Engine::selection`].
 struct Selected {
