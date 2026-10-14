@@ -80,9 +80,10 @@ The spec version is an integer, it grows only on a breaking change.
 | `delete`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: true`, `openWorldHint: false` | move files to the trash or delete them |
 | `rename`        | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: false` | rename or move files |
 | `copy`          | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: true`, `openWorldHint: false` | copy files |
+| `replace`       | `readOnlyHint: false`, `destructiveHint: true`, `idempotentHint: false`, `openWorldHint: false` | replace text in files |
 
 `update_config` is not listed when `server.allow_update = false`; a call made anyway fails with `update_disabled`.
-`delete`, `rename` and `copy` are [write tools](#write-tools): they are listed only when `server.allow_write = true`.
+`delete`, `rename`, `copy` and `replace` are [write tools](#write-tools): they are listed only when `server.allow_write = true`.
 `find` stays `readOnlyHint: true` with `output.file`: it writes only its own responses into `server.output_dir`, never
 the files it searches.
 
@@ -874,9 +875,290 @@ b.ts -> src/b.bak.ts  replaced
 }
 ```
 
+### replace
+
+#### Description
+
+```
+Replaces text in files: the matches of a group of the query get a new text made from a template. Spec version 1.
+Select the files with exactly one of:
+  result = "r12"      all files of a find result, searched again with the query of that find
+  query = "..."       a find query, with dirs, traversal, kinds, languages like in find
+replace = {"@old": "template"}: the matches of the group @old are replaced; a group is a condition, line( ... ),
+  near( ... ) or ( ... ) @name of the query. The other conditions only select the files.
+  {@old} the match, {@old.1} {@old.fname} the groups of a =~ regex; {{ and }} are braces
+  e.g. query "text =~ `fn (?<f>\w+)_old\(` @def", replace {"@def": "fn {@def.f}_new("}
+Only the matches which made the file match are replaced: in line( ... ) and near( ... ) the matched lines;
+  matches skipped by /c stay. /n writes the new text in the naming style of each match: 'parse query' /n to
+  'build request' turns parseQuery into buildRequest, PARSE_QUERY into BUILD_REQUEST. /e escapes it like the match.
+The encoding, the BOM, the line breaks and the permissions of a file are kept.
+A file changed since the result, a member of an archive, a path outside of the allowed roots: skipped with a warning.
+expect = N: fails without changing anything unless the selection has N files; expect_matches = N: N matches.
+dry_run = true: shows the changed lines and writes nothing. Use it for a selection you haven't seen.
+```
+
+#### Input schema
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["replace"],
+  "properties": {
+    "version": { "type": "integer", "minimum": 1, "description": "Spec version. Omit to use the current one." },
+    "result": { "type": "string", "description": "Result id of find, e.g. 'r12': all its files. Instead of query." },
+    "query": { "type": "string", "description": "Query like in find: the files it matches. Instead of result." },
+    "dirs": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "Working directories inside the allowed roots. Default: server.default_dirs."
+    },
+    "traversal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min_depth": { "type": "integer", "minimum": 0 },
+        "max_depth": { "type": "integer", "minimum": 0 },
+        "follow_symlinks": { "type": "boolean" },
+        "hidden": { "type": "boolean" },
+        "ignore_files": { "type": "array", "items": { "type": "string" } },
+        "git_excludes": { "type": "boolean" },
+        "ignore_paths": { "type": "array", "items": { "type": "string" } },
+        "exclude": { "type": "array", "items": { "type": "string" } },
+        "path_case": { "enum": ["native", "sensitive", "insensitive"] },
+        "binary": { "enum": ["skip", "search", "exclude"] },
+        "max_file_size": { "type": "string" },
+        "encoding": { "type": "string" },
+        "fallback_encoding": { "type": "string" },
+        "archives": { "enum": ["none", "compressed", "all"] },
+        "max_archive_size": { "type": "string" },
+        "skip_generated": { "type": "boolean" }
+      }
+    },
+    "kinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_markers": { "type": "array", "items": { "type": "string" } },
+        "generated_marker_lines": { "type": "integer", "minimum": 1 },
+        "generated": { "type": "array", "items": { "type": "string" } },
+        "test": { "type": "array", "items": { "type": "string" } },
+        "doc": { "type": "array", "items": { "type": "string" } },
+        "config": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "languages": {
+      "type": "object",
+      "description": "Languages, replace the configured languages with the same name.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "extensions": { "type": "array", "items": { "type": "string" } },
+          "names": { "type": "array", "items": { "type": "string" } },
+          "shebangs": { "type": "array", "items": { "type": "string" } },
+          "line_comments": { "type": "array", "items": { "type": "string" } },
+          "block_comments": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 } },
+          "nested_block_comments": { "type": "boolean" },
+          "strings": { "type": "array", "items": { "type": "string" } },
+          "source": { "type": "boolean" }
+        }
+      }
+    },
+    "replace": {
+      "type": "object", "minProperties": 1,
+      "description": "Group of the query -> template of the new text, e.g. {\"@old\": \"new_{@old.1}\"}.",
+      "additionalProperties": {
+        "anyOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["template"],
+            "properties": {
+              "template": { "type": "string" },
+              "naming": { "type": "boolean", "description": "false: a /n match gets the template as it is." }
+            }
+          }
+        ]
+      }
+    },
+    "expect": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless the selection has this many files." },
+    "expect_matches": { "type": "integer", "minimum": 0, "description": "Fail without changing anything unless this many matches are replaced." },
+    "dry_run": { "type": "boolean", "description": "Show the changed lines, write nothing." },
+    "timeout": { "type": "string", "pattern": "^[0-9]+(ms|s|m)$", "description": "Max time of the call, e.g. '10s'. '0s': no limit." },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["text", "json"] },
+        "group_dirs": { "type": "boolean" },
+        "max_lines": { "type": "integer", "minimum": 1, "description": "Max changed lines shown." }
+      }
+    }
+  }
+}
+```
+
+`replace` is required; `result` and `query` exclude each other, one of them is required; `dirs`, `traversal`, `kinds`
+and `languages` work only with `query`. The other fields are optional; `output.format`, `output.group_dirs` and
+`output.max_lines` default to the configuration. The rules of the selection, the dry run and the response are in
+[Write tools](#write-tools).
+
+With `result` the files of the result are searched again with the `find` request of the result, like `within`
+([OUTPUT.md](OUTPUT.md#result-ids)): its query, `traversal`, `kinds`, `languages`, `escape` and `query_options`; the
+groups of `replace` are the groups of that query. A file of the result which doesn't match it any more has no matches.
+
+#### What is replaced
+
+`replace` maps a group of the query to the template of its new text. A key is a [group
+reference](QUERY.md#group-references) to a whole group: `@name` or `#3`, a condition, `line( ... )`, `near( ... )` or
+a bracket group `( ... ) @name`. A value is the template, or an object `{"template": "...", "naming": false}`.
+
+The matches of a group in a file are its fragments ([OUTPUT.md](OUTPUT.md#fragments)): the fragments of the file whose
+ids have the group.
+
+- only the matches which made the file match: the matches of a `text` condition inside `line( ... )` or
+  `near( ... )` only in the lines which matched there; a line of `line( ... )` without a text match is replaced as a
+  whole (`line(len > 120) @long`, without its line break); a condition under `not` has no matches
+- a match which `/c` skips (it starts in a comment) is not a match and stays
+- a group of the query which is not a key of `replace` stays as it is; it only selects the files
+- matches of one group which overlap: the one which starts first is replaced, at the same start the longer one; the
+  other one stays
+- matches of two keys which overlap (also a group and a condition inside it): the file is skipped with
+  `replace_conflict`, nothing in it is changed
+- a selected entry without a match of the keys (a file selected by another branch of `or`, a directory, a symlink,
+  a binary file) is listed as `unchanged`; a symlink is never written through, also with
+  `traversal.follow_symlinks`
+
+Errors of `replace`, before anything is changed (`invalid_option` unless named):
+
+| Error | When | Message | Hint |
+|-------|------|---------|------|
+| `invalid_option` | no `replace` | `'replace' is required` | `the groups of the query and their new text, e.g. {"@old": "new"}` |
+| `invalid_option` | not an object, or empty | `'replace' must be an object of groups and templates` | the same |
+| `invalid_option` | a value which is not a string or `{template, naming}` | `'replace.@old' must be a template or {"template": "...", "naming": false}` | |
+| `unknown_group` | `@x` for `text has 'a' @a` | `unknown group '@x'` | `the groups of the query: @a` |
+| `invalid_option` | `@def.1` | `'@def.1' is a sub-group; replace the whole group` | `e.g. {"@def": "...{@def.1}..."}` |
+| `invalid_option` | `@src` of `(name ~ '*.rs') @src` | `the group '@src' has no text condition` | `replace changes the text of files; rename changes their names` |
+| `invalid_option` | `expect_matches` not a whole number | `'expect_matches' must be a whole number` | |
+
+The keys are checked in the order of the request. The position of `unknown_group` is the key; in JSON the field of
+the position is `replace` with the key as its text. `expect_matches: N` fails the call with `count_mismatch` when the
+files which are not skipped have another number of matches to replace, before anything is written:
+`error[count_mismatch]: the selection has 5 matches, expected 4`, hint
+`nothing was changed; check the selection with dry_run: true`.
+
+#### Templates
+
+| Part               | Value                                                                                   |
+|--------------------|-----------------------------------------------------------------------------------------|
+| `{@old}`, `{#3}`   | the text of the match of the group                                                      |
+| `{@old.1}`, `{@old.fname}` | a capture group of the match of a `text =~` condition, empty when it didn't take part |
+| `{{`, `}}`         | a literal brace                                                                         |
+| a line break       | the line break of the file: its first one, `\n` in a file without one                   |
+
+A template refers only to the group of its key and to its capture groups: a match of another group is not tied to this
+one. Errors (`invalid_template`), with the position in the template, in JSON the field `replace` with the template as
+its text:
+
+| Example `@old`       | Message                                   | Hint                                                     |
+|----------------------|-------------------------------------------|----------------------------------------------------------|
+| `{@x}_v2`            | `'{@x}' is not '@old' or its sub-group`   | `the placeholders of '@old' are {@old}, {@old.1}, {@old.fname}` |
+| `{name}`             | `unknown placeholder 'name'`              | the same                                                 |
+| `{}`                 | `empty placeholder`                       | the same                                                 |
+| `{@old`              | `unclosed '{'`                            | `write '{{' for a brace`                                 |
+| `@old}`              | `unmatched '}'`                           | `write '}}' for a brace`                                 |
+
+The hint lists the group and its capture groups like the hint of `unknown_group`. The position of a placeholder is
+the placeholder with its braces, of an unclosed `{` from it to the end, of `}` the character.
+
+**`/n`.** A match of a condition with `/n` gets the new text — the template with its placeholders filled in — in the
+naming style of the match: the new text is split into words like the value of `/n`
+([QUERY.md](QUERY.md#n--any-naming-style)) and written with
+
+- the separator between the words of the match: `_`, `-`, `.` or a space; none when they are joined
+- the case of the word of the match at the same position, after the last word of the match the case of its last
+  word: `UPPER` (an upper case letter and no lower case one), `Capitalized` (an upper case first letter), `lower`
+- a match of one word: `lower` writes the words in camelCase, `Capitalized` in PascalCase, `UPPER` joined by `_`
+
+`'parse query' /n` with `build request`: `parseQuery` → `buildRequest`, `ParseQuery` → `BuildRequest`, `parse_query`
+→ `build_request`, `PARSE_QUERY` → `BUILD_REQUEST`, `parse-query` → `build-request`. `"naming": false` writes the new
+text as it is. A condition with `/i` gets the new text as it is: the case of the match is not adapted. A `naming`
+which is not a boolean is `'replace.@old.naming' must be a boolean`.
+
+**`/e`.** A match found on the escape level n of a style ([QUERY.md](QUERY.md#escaping)) gets the literal text of the
+template escaped n times in that style, every character in its first form of the table of
+[Styles](QUERY.md#styles) (`'` stays `'` in `backslash`, a space is `%20` in `url`); the text of the placeholders is
+written as matched, it is escaped already.
+
+#### Writing
+
+- the files are planned in path order before anything is written: read, decoded with the encoding of the search, their
+  matches replaced in memory; then `expect_matches` is checked, then they are written in path order
+- a file whose text differs from the text of the search is skipped with `file_changed`
+- a file keeps its encoding and its BOM; a file which has bytes invalid in its encoding (`decode_errors`), whose text
+  doesn't encode back to the same bytes, or whose new text has a character which its encoding can't write is skipped
+  with `unencodable`
+- the line breaks of the unchanged text stay as they are (`\r\n` too); a new line break is the line break of the file
+- a file is written to a hidden temporary file next to it (a name starting with `.` and ending with `.tmp`) with the
+  permissions of the file, then renamed into place: a failed write leaves the file untouched and no temporary file;
+  the file gets a new modification time
+- a file whose new text is its old text (`{@old}` as the template) is listed as `unchanged`, it isn't written
+- the timeout and a cancellation stop between files: while planning, nothing is written (the response has no entries
+  and the `timeout` warning); while writing, the response lists the files written so far
+
+#### Result
+
+The [response of a write tool](#response-of-a-write-tool), counted as `replaced`: the files changed, then
+`matches: N`, the matches replaced in them (also `matches: 0`), then `unchanged: N` when it is not 0. Every changed
+file is written with its matches, then its changed lines like a diff: for every run of lines with replaced matches
+(runs which touch are joined) the old lines `-<n>:<text>`, then the new lines `+<n>:<text>` with their numbers in the
+new file; an unchanged file is `<name>  unchanged`:
+
+```
+replaced: 2  matches: 3  unchanged: 1
+
+src/
+a.rs  matches: 2
+-3:use serde_json::Value;
++3:use simd_json::Value;
+-9:    serde_json::to_string(&v)
++9:    simd_json::to_string(&v)
+b.rs  matches: 1
+-1:serde_json = "1"
++1:simd_json = "1"
+c.rs  unchanged
+```
+
+- the lines are written as they are, without highlight, dedent or a limit of their length
+- `output.max_lines` (default: the configuration, 500) is the most `-` and `+` lines of the response: the files after
+  it are written without their lines, and the entries end with `… N more lines`
+- an unchanged entry counts as done for `isError`
+- JSON: `"replaced"`, `"matches"`, then `"unchanged"` when not 0; a changed file has `"matches"` and `"changes"`, each
+  `{ "line", "old", "new_line", "new" }` with the lines as arrays, an unchanged one `"unchanged": true`; the lines over
+  `max_lines` are left out of `changes` and counted in `"more_lines"` after `files`
+
+```json
+{
+  "version": 1,
+  "replaced": 1,
+  "matches": 2,
+  "files": [
+    {
+      "path": "src/a.rs",
+      "matches": 2,
+      "changes": [
+        { "line": 3, "old": ["use serde_json::Value;"], "new_line": 3, "new": ["use simd_json::Value;"] },
+        { "line": 9, "old": ["    serde_json::to_string(&v)"], "new_line": 9, "new": ["    simd_json::to_string(&v)"] }
+      ]
+    }
+  ]
+}
+```
+
 ## Write tools
 
-Tools which change files: `delete`, `rename`, `copy`. They share how they are enabled, how they select files, the dry run and the
+Tools which change files: `delete`, `rename`, `copy`, `replace`. They share how they are enabled, how they select files, the dry run and the
 response.
 
 ### Enabling
@@ -946,7 +1228,8 @@ old.rs
 warning: file_changed (1): src/main.rs
 ```
 
-- the header: the count of the tool (`deleted: N`, also `deleted: 0`; `rename` and `copy` add `unchanged: N`), then `skipped: N` (the entries skipped with a
+- the header: the count of the tool (`deleted: N`, also `deleted: 0`; `rename` and `copy` add `unchanged: N`, `replace`
+  adds `matches: N` and `unchanged: N`), then `skipped: N` (the entries skipped with a
   warning) and `failed: N` (the entries which failed) when they are not 0, then `permanent` for `permanent: true`, then
   `dry run` for a dry run
 - the entries in path order, grouped by directory like `find` with `output.group_dirs`
