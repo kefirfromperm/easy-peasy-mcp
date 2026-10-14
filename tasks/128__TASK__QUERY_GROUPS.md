@@ -1,6 +1,6 @@
 # Task 128: Query groups
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 7, task 22
 
