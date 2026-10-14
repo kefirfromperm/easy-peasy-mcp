@@ -594,8 +594,8 @@ lib.rs  lines: 2  matches: 2
 5:parse
 ```
 
-- the matches of a file in the order of their start; several matches in one line are written one after another,
-  every one with the number of the line
+- the matches of a file in the order of their start, at the same start the shorter one first; several matches in
+  one line are written one after another, every one with the number of the line
 - no context lines, no `--` and no `⇥N`: `context`, `before`, `after` and `dedent` don't apply, and
   `max_line_length` doesn't cut a match
 - the highlight: `none` writes the match as it is; `columns` as it is, followed by its columns as after a line
