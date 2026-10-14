@@ -1,6 +1,6 @@
 # Task 128: Query groups
 
-Status: in progress
+Status: implemented, see [128__SUMMARY__QUERY_GROUPS.md](128__SUMMARY__QUERY_GROUPS.md)
 
 Depends on: task 7, task 22
 
