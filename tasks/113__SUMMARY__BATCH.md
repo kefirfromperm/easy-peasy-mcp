@@ -33,7 +33,8 @@ Server version: `0.113.0`.
 ## Limitations and known gaps
 
 - The queries run one after another and every query walks its directories on its own: the split of the budget needs
-  what the earlier queries used; sharing one walk between queries with the same `dirs` and `traversal` is not done.
+  what the earlier queries used; sharing one walk between queries with the same `dirs` and `traversal` is not done
+  (done by task 135).
 
 ## Try it
 

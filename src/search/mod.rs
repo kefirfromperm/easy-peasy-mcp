@@ -2,6 +2,7 @@
 
 mod kinds;
 
+use std::cell::{Cell, OnceCell, RefCell};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
@@ -533,37 +534,72 @@ fn walk_builder(root: &Path, options: &SearchOptions) -> (WalkBuilder, Outside) 
 /// Searches `root` and returns the matched entries in path order, every file once; without a `type` condition only
 /// regular files.
 pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResult {
-    let (builder, outside) = walk_builder(root, options);
-    let walk = Walk::new(root, query, options);
+    search_shared(root, &[(query, options)])
+        .pop()
+        .expect("one result for one search")
+}
+
+/// Searches `root` for several queries with one walk (OUTPUT.md#batch): every entry is visited once and its content
+/// read and decoded once, then every query still running is evaluated on it; the result of every query, in their
+/// order, is the result of `search` alone. The walk options are those of the first search, the caller groups the
+/// searches by them; the walk stops when every query has stopped (its deadline, its first match with `first_only`).
+pub fn search_shared(root: &Path, searches: &[(&Query, &SearchOptions)]) -> Vec<SearchResult> {
+    let Some(&(_, first)) = searches.first() else {
+        return Vec::new();
+    };
+    let (builder, outside) = walk_builder(root, first);
+    // the slow reads of the test hook wait for the query which waits longest
+    let read_deadline = searches
+        .iter()
+        .map(|(_, o)| o.deadline)
+        .try_fold(None, |latest: Option<Instant>, d| {
+            d.map(|d| Some(latest.map_or(d, |l| l.max(d))))
+        })
+        .flatten();
+    let walks: Vec<Walk> = searches
+        .iter()
+        .map(|&(query, options)| Walk::new(root, query, options, read_deadline))
+        .collect();
     builder.build_parallel().run(|| {
-        let walk = &walk;
+        let walks = &walks;
         Box::new(move |entry| {
-            if walk.past_deadline() || walk.done.load(AtomicOrdering::Relaxed) {
+            let running: Vec<&Walk> = walks
+                .iter()
+                .filter(|w| !(w.past_deadline() || w.done.load(AtomicOrdering::Relaxed)))
+                .collect();
+            if running.is_empty() {
                 return WalkState::Quit;
             }
             match entry {
                 Ok(entry) => {
-                    if let Some(item) = walk.visit(&entry) {
-                        walk.found
-                            .lock()
-                            .expect("no thread panics while holding the lock")
-                            .push(item);
+                    let shared = Shared::default();
+                    for walk in &running {
+                        if let Some(item) = walk.visit(&entry, &shared) {
+                            walk.found
+                                .lock()
+                                .expect("no thread panics while holding the lock")
+                                .push(item);
+                        }
                     }
-                    if walk.options.archives == Archives::All {
-                        walk.visit_members(&entry, None);
+                    if first.archives == Archives::All {
+                        visit_members(&running, &entry, None);
                     }
-                    if walk.options.first_only
-                        && !walk
+                    for walk in running.iter().filter(|w| w.options.first_only) {
+                        if !walk
                             .found
                             .lock()
                             .expect("no thread panics while holding the lock")
                             .is_empty()
-                    {
-                        walk.done.store(true, AtomicOrdering::Relaxed);
-                        return WalkState::Quit;
+                        {
+                            walk.done.store(true, AtomicOrdering::Relaxed);
+                        }
                     }
                 }
-                Err(err) => walk.walk_error(&err),
+                Err(err) => {
+                    for walk in &running {
+                        walk.walk_error(&err);
+                    }
+                }
             }
             WalkState::Continue
         })
@@ -573,7 +609,10 @@ pub fn search(root: &Path, query: &Query, options: &SearchOptions) -> SearchResu
         .expect("no thread panics while holding the lock")
         .drain(..)
         .collect();
-    walk.finish(outside)
+    walks
+        .into_iter()
+        .map(|walk| walk.finish(outside.clone()))
+        .collect()
 }
 
 /// Searches the files `files` of the working directory `root` (paths in it and the members of archives) without a
@@ -584,7 +623,7 @@ pub fn search_files(
     query: &Query,
     options: &SearchOptions,
 ) -> SearchResult {
-    let walk = Walk::new(root, query, options);
+    let walk = Walk::new(root, query, options, options.deadline);
     let mut members: Vec<(&PathBuf, Vec<String>)> = Vec::new();
     for (rel, member) in files {
         if let Some(member) = member {
@@ -600,7 +639,7 @@ pub fn search_files(
         let Some(entry) = FileEntry::new(root, rel, options.follow_symlinks) else {
             continue;
         };
-        if let Some(item) = walk.visit(&entry) {
+        if let Some(item) = walk.visit(&entry, &Shared::default()) {
             walk.found
                 .lock()
                 .expect("no thread panics while holding the lock")
@@ -611,19 +650,100 @@ pub fn search_files(
         if let Some(entry) = FileEntry::new(root, rel, options.follow_symlinks)
             && !walk.past_deadline()
         {
-            walk.visit_members(&entry, Some(&list));
+            visit_members(&[&walk], &entry, Some(&list));
         }
     }
     walk.finish(Vec::new())
 }
 
+/// Visits the members of an archive with `archives = all` for the queries `walks` (`only` those members, when
+/// given), every member read once: the matched members go to the found entries of their query; an archive which
+/// can't be read gets `archive_error` (`permission_denied` when it can't be opened) in every query.
+fn visit_members(walks: &[&Walk<'_>], entry: &dyn Entry, only: Option<&[String]>) {
+    let Some(first) = walks.first() else {
+        return;
+    };
+    if entry.depth() == 0 || entry_type(entry) != Some(EntryType::File) {
+        return;
+    }
+    let Some(kind) = ArchiveKind::of(&entry.file_name().to_string_lossy()) else {
+        return;
+    };
+    let Ok(rel) = entry.path().strip_prefix(first.root) else {
+        return;
+    };
+    let archive = slash_path(rel);
+    let id = entry.metadata().and_then(|m| file_id(entry.path(), &m));
+    let mut found: Vec<Vec<Found>> = walks.iter().map(|_| Vec::new()).collect();
+    let mut total = 0_u64;
+    let mut too_big = false;
+    let result = for_each_member(
+        entry.path(),
+        kind,
+        &first.options.time_zone,
+        &mut |member, reader| {
+            let running: Vec<usize> = (0..walks.len())
+                .filter(|&i| !walks[i].past_deadline())
+                .collect();
+            if running.is_empty() {
+                return false;
+            }
+            total = total.saturating_add(member.size);
+            #[allow(clippy::cast_precision_loss)]
+            // sizes far below 2^53 are exact, bigger ones surely too big
+            if total as f64 > first.options.max_archive_size {
+                too_big = true;
+                return false;
+            }
+            if only.is_some_and(|only| !only.contains(&member.path)) {
+                return true;
+            }
+            let shared = SharedMember {
+                reader: RefCell::new(reader),
+                head: RefCell::default(),
+                shared: Shared::default(),
+            };
+            for i in running {
+                if let Some(mut item) = walks[i].visit_member(rel, &archive, member, &shared) {
+                    item.id = id;
+                    found[i].push(item);
+                }
+            }
+            true
+        },
+    );
+    for (walk, found) in walks.iter().zip(found) {
+        if too_big {
+            walk.warn(WarningCode::ArchiveTooBig, rel, false);
+        }
+        if let Err(e) = &result {
+            let code = if e.kind() == std::io::ErrorKind::PermissionDenied {
+                WarningCode::PermissionDenied
+            } else {
+                WarningCode::ArchiveError
+            };
+            walk.warn(code, rel, false);
+        }
+        walk.found
+            .lock()
+            .expect("no thread panics while holding the lock")
+            .extend(found);
+    }
+}
+
 impl<'a> Walk<'a> {
-    /// The state of a search of `root`.
-    fn new(root: &'a Path, query: &'a Query, options: &'a SearchOptions) -> Self {
+    /// The state of a search of `root`; `read_deadline`: when the slow reads of the test hook stop waiting.
+    fn new(
+        root: &'a Path,
+        query: &'a Query,
+        options: &'a SearchOptions,
+        read_deadline: Option<Instant>,
+    ) -> Self {
         Walk {
             root,
             query,
             options,
+            read_deadline,
             kinds: KindRules::new(&options.kinds, options.case_insensitive_paths),
             git: GitIndex::new(!options.git_global_excludes, options.git_base.clone()),
             found: Mutex::default(),
@@ -772,11 +892,98 @@ struct Walk<'a> {
     timed_out: AtomicBool,
     /// Set when the walk can stop: `first_only` and an entry was found.
     done: AtomicBool,
+    /// When the slow reads of the test hook stop waiting: the latest deadline of the queries of the walk.
+    read_deadline: Option<Instant>,
 }
 
-/// The content of a file read for its content conditions.
-enum ReadContent {
+/// What the queries of a walk share about one entry: its content read and decoded once, and whether the progress
+/// counted it. One thread visits an entry, so the cells need no lock.
+#[derive(Default)]
+struct Shared {
+    raw: OnceCell<Raw>,
+    decoded: OnceCell<Decoded>,
+    /// The first line of the file, for a shebang.
+    first_line: OnceCell<Option<String>>,
+    /// Whether the content starts binary, for `binary = exclude`.
+    starts_binary: OnceCell<bool>,
+    scanned: Cell<bool>,
+    matched: Cell<bool>,
+}
+
+/// What the queries of a walk share about a member of an archive: its reader, the bytes read from it before the whole
+/// content (the head for `binary = exclude`) and the entry state.
+struct SharedMember<'r> {
+    reader: RefCell<&'r mut dyn std::io::Read>,
+    head: RefCell<Vec<u8>>,
+    shared: Shared,
+}
+
+impl Shared {
+    /// The first line of the file at `path`, read once.
+    fn first_line(&self, path: &Path) -> Option<String> {
+        self.first_line.get_or_init(|| first_line(path)).clone()
+    }
+}
+
+impl SharedMember<'_> {
+    /// The content of the member, read once up to `limit` + 1 bytes after the head read before; `TooBig` keeps the
+    /// bytes read as the head.
+    fn raw(&self, member: &Member, limit: u64) -> &Raw {
+        use std::io::Read;
+        self.shared.raw.get_or_init(|| {
+            if member.size > limit {
+                return Raw::TooBig;
+            }
+            let mut bytes = std::mem::take(&mut *self.head.borrow_mut());
+            let rest = limit.saturating_add(1).saturating_sub(bytes.len() as u64);
+            let mut reader = self.reader.borrow_mut();
+            let read = (&mut **reader).take(rest).read_to_end(&mut bytes);
+            match read {
+                Ok(_) if bytes.len() as u64 <= limit => Raw::Bytes(bytes),
+                Ok(_) => {
+                    *self.head.borrow_mut() = bytes;
+                    Raw::TooBig
+                }
+                Err(_) => {
+                    *self.head.borrow_mut() = bytes;
+                    Raw::Failed(None)
+                }
+            }
+        })
+    }
+
+    /// Whether the member starts binary: its first 8K, from the content read or read now; a member which can't be
+    /// read is not.
+    fn starts_binary(&self, decode: &DecodeOptions) -> bool {
+        use std::io::Read;
+        const HEAD: usize = 8 * 1024;
+        *self.shared.starts_binary.get_or_init(|| {
+            if let Some(Raw::Bytes(bytes)) = self.shared.raw.get() {
+                return is_binary_content(&bytes[..bytes.len().min(HEAD)], decode);
+            }
+            let mut head = self.head.borrow_mut();
+            let missing = HEAD.saturating_sub(head.len()) as u64;
+            let mut reader = self.reader.borrow_mut();
+            let read = (&mut **reader).take(missing).read_to_end(&mut head);
+            read.is_ok() && is_binary_content(&head[..head.len().min(HEAD)], decode)
+        })
+    }
+}
+
+/// The read of a file for its content conditions, before every query looks at it.
+enum Raw {
+    /// Bigger than `max_file_size`, not read.
+    TooBig,
+    /// It couldn't be read; the warning of the error, if it has one.
+    Failed(Option<WarningCode>),
+    /// A compressed file too big when decompressed, or broken: its warning.
+    Broken(WarningCode),
     Bytes(Vec<u8>),
+}
+
+/// The content of a file for the conditions of one query.
+enum Fetched<'c> {
+    Decoded(&'c Decoded),
     /// Not searched: too big or a broken compressed file; the warning is given.
     Unknown,
     /// Not readable, or the deadline passed: the file is skipped.
@@ -820,7 +1027,7 @@ struct Dates {
 
 impl Walk<'_> {
     /// The matched entry and its hard link identity, or `None` if the entry doesn't match or is skipped.
-    fn visit(&self, entry: &dyn Entry) -> Option<Found> {
+    fn visit(&self, entry: &dyn Entry, shared: &Shared) -> Option<Found> {
         let query = self.query;
         if entry.depth() == 0 || entry.depth() < self.options.min_depth {
             return None;
@@ -845,7 +1052,7 @@ impl Walk<'_> {
             .then(|| {
                 self.options
                     .languages
-                    .detect(&name, || first_line(entry.path()))
+                    .detect(&name, || shared.first_line(entry.path()))
             })
             .flatten();
         let kind = if query.needs.kind {
@@ -883,22 +1090,23 @@ impl Walk<'_> {
                 filter,
                 file,
                 language,
-                &mut || self.read_content(entry.path(), rel, &name),
+                &mut || self.fetch(shared, entry.path(), rel, &name),
                 &|code| self.warn(code, rel, false),
+                shared,
             )?,
         };
-        if self.left_out(entry, rel, entry_type, &name, &path, evaluated.text) {
+        if self.left_out(entry, rel, entry_type, &path, evaluated.text, shared) {
             return None;
         }
         self.count_funnel(evaluated.funnel);
-        self.count_match();
+        self.count_match(shared);
         let meta = self.options.meta.then(|| {
             let known = Known {
                 metadata: metadata.as_ref(),
                 language: language.filter(|_| query.needs.lang || query.needs.comments),
                 kind: query.needs.kind.then_some(kind),
             };
-            self.meta(entry, entry_type, &name, &path, &known)
+            self.meta(entry, entry_type, &name, &path, &known, shared)
         });
         Some(Found {
             rel: rel.to_path_buf(),
@@ -929,6 +1137,7 @@ impl Walk<'_> {
         name: &str,
         path: &str,
         known: &Known<'_>,
+        shared: &Shared,
     ) -> Meta {
         let read = known.metadata.is_none().then(|| entry.metadata()).flatten();
         let metadata = known.metadata.or(read.as_ref());
@@ -937,7 +1146,7 @@ impl Walk<'_> {
             known.language.or_else(|| {
                 self.options
                     .languages
-                    .detect(name, || first_line(entry.path()))
+                    .detect(name, || shared.first_line(entry.path()))
             })
         } else {
             None
@@ -977,17 +1186,20 @@ impl Walk<'_> {
         entry: &dyn Entry,
         rel: &Path,
         entry_type: EntryType,
-        name: &str,
         path: &str,
         text: bool,
+        shared: &Shared,
     ) -> bool {
         let is_file = entry_type == EntryType::File;
+        let starts_binary = || {
+            *shared.starts_binary.get_or_init(|| {
+                let name = nfc(&entry.file_name().to_string_lossy());
+                self.starts_binary(entry.path(), &name)
+            })
+        };
         !self.readable(entry.path(), rel, entry_type)
             || (self.skips_generated() && is_file && self.kinds.is_generated(path, entry.path()))
-            || (self.options.binary == Binary::Exclude
-                && is_file
-                && !text
-                && self.starts_binary(entry.path(), name))
+            || (self.options.binary == Binary::Exclude && is_file && !text && starts_binary())
     }
 
     /// The signals of the relevance of a matched entry: those of its evaluation, or for the empty query those of its
@@ -1042,60 +1254,61 @@ impl Walk<'_> {
     /// The conditions which made the file match and its content fragments, or `None` if it doesn't match. The file
     /// is read only when the conditions without the content don't decide; a binary file's content is unknown.
     /// `read` reads the content when it is needed, `warn` gives a warning about the entry.
-    fn evaluate(
+    fn evaluate<'c>(
         &self,
         filter: &Filter,
         file: FileValues<'_>,
         language: Option<&Language>,
-        read: &mut dyn FnMut() -> ReadContent,
+        fetch: &mut dyn FnMut() -> Fetched<'c>,
         warn: &dyn Fn(WarningCode),
+        shared: &Shared,
     ) -> Option<Evaluated> {
-        if let Some(progress) = &self.options.progress {
+        // the progress counts an entry once, however many queries of the walk evaluate it
+        if let Some(progress) = &self.options.progress
+            && !shared.scanned.replace(true)
+        {
             progress.scanned.fetch_add(1, AtomicOrdering::Relaxed);
         }
         if filter.eval(&file) == Truth::False {
             self.count_funnel(self.funnel_point(filter, &file, false));
             return None;
         }
-        let content: Content;
+        let commented: Content;
         let mut encoding = None;
         let mut text = false;
         // a copy with a shorter lifetime, which can borrow the content read here
         let mut file = file;
         if matches!(file.content, ContentState::NotRead) {
-            let bytes = match read() {
-                ReadContent::Bytes(bytes) => Some(bytes),
-                ReadContent::Unknown => None,
-                ReadContent::Unreadable => return None,
-            };
-            if let Some(bytes) = bytes {
-                match decode(&bytes, &self.options.decode) {
-                    Decoded::Binary if self.options.binary == Binary::Exclude => return None,
-                    Decoded::Binary => {
-                        file.content = ContentState::Unknown;
-                        warn(WarningCode::BinarySkipped);
-                    }
-                    Decoded::Text {
-                        content: decoded,
-                        encoding: used,
-                        errors,
-                    } => {
-                        if errors {
-                            warn(WarningCode::DecodeErrors);
-                        }
-                        encoding = (used != Encoding::Utf8).then_some(used);
-                        text = true;
-                        content = match language {
-                            Some(language) if self.query.needs.comments => {
-                                decoded.with_comments(language)
-                            }
-                            _ => decoded,
-                        };
-                        file.content = ContentState::Text(&content);
-                    }
+            match fetch() {
+                Fetched::Unreadable => return None,
+                Fetched::Unknown => file.content = ContentState::Unknown,
+                Fetched::Decoded(Decoded::Binary) if self.options.binary == Binary::Exclude => {
+                    return None;
                 }
-            } else {
-                file.content = ContentState::Unknown;
+                Fetched::Decoded(Decoded::Binary) => {
+                    file.content = ContentState::Unknown;
+                    warn(WarningCode::BinarySkipped);
+                }
+                Fetched::Decoded(Decoded::Text {
+                    content: decoded,
+                    encoding: used,
+                    errors,
+                }) => {
+                    if *errors {
+                        warn(WarningCode::DecodeErrors);
+                    }
+                    encoding = (*used != Encoding::Utf8).then_some(*used);
+                    text = true;
+                    // the decoded content is shared by the queries of the walk, the comments are of this one
+                    let content = match language {
+                        Some(language) if self.query.needs.comments => {
+                            commented = decoded.clone().with_comments(language);
+                            &commented
+                        }
+                        _ => decoded,
+                    };
+                    file.content = ContentState::Text(content);
+                }
             }
         }
         if !filter.matches(&file) {
@@ -1168,9 +1381,11 @@ impl Walk<'_> {
             .count()
     }
 
-    /// Counts a matched entry for the progress.
-    fn count_match(&self) {
-        if let Some(progress) = &self.options.progress {
+    /// Counts a matched entry for the progress, once however many queries of the walk match it.
+    fn count_match(&self, shared: &Shared) {
+        if let Some(progress) = &self.options.progress
+            && !shared.matched.replace(true)
+        {
             progress.matched.fetch_add(1, AtomicOrdering::Relaxed);
         }
     }
@@ -1190,66 +1405,6 @@ impl Walk<'_> {
         }
     }
 
-    /// Visits the members of an archive with `archives = all` (`only` those, when given): the matched members go to
-    /// the found entries; an archive which can't be read gets `archive_error` (`permission_denied` when it can't be
-    /// opened).
-    fn visit_members(&self, entry: &dyn Entry, only: Option<&[String]>) {
-        if entry.depth() == 0 || entry_type(entry) != Some(EntryType::File) {
-            return;
-        }
-        let Some(kind) = ArchiveKind::of(&entry.file_name().to_string_lossy()) else {
-            return;
-        };
-        let Ok(rel) = entry.path().strip_prefix(self.root) else {
-            return;
-        };
-        let archive = slash_path(rel);
-        let id = entry.metadata().and_then(|m| file_id(entry.path(), &m));
-        let mut found = Vec::new();
-        let mut total = 0_u64;
-        let mut too_big = false;
-        let result = for_each_member(
-            entry.path(),
-            kind,
-            &self.options.time_zone,
-            &mut |member, reader| {
-                if self.past_deadline() {
-                    return false;
-                }
-                total = total.saturating_add(member.size);
-                #[allow(clippy::cast_precision_loss)]
-                // sizes far below 2^53 are exact, bigger ones surely too big
-                if total as f64 > self.options.max_archive_size {
-                    too_big = true;
-                    return false;
-                }
-                if only.is_some_and(|only| !only.contains(&member.path)) {
-                    return true;
-                }
-                if let Some(mut item) = self.visit_member(rel, &archive, member, reader) {
-                    item.id = id;
-                    found.push(item);
-                }
-                true
-            },
-        );
-        if too_big {
-            self.warn(WarningCode::ArchiveTooBig, rel, false);
-        }
-        if let Err(e) = result {
-            let code = if e.kind() == std::io::ErrorKind::PermissionDenied {
-                WarningCode::PermissionDenied
-            } else {
-                WarningCode::ArchiveError
-            };
-            self.warn(code, rel, false);
-        }
-        self.found
-            .lock()
-            .expect("no thread panics while holding the lock")
-            .extend(found);
-    }
-
     /// The matched member of an archive, or `None`. A member is a regular file with the path
     /// `<archive>!/<member>`, its name, size and modification date from the archive, no creation or access date, no
     /// git status; nested archives are not opened.
@@ -1258,9 +1413,8 @@ impl Walk<'_> {
         rel: &Path,
         archive: &str,
         member: &Member,
-        reader: &mut dyn std::io::Read,
+        shared: &SharedMember<'_>,
     ) -> Option<Found> {
-        use std::io::Read;
         let query = self.query;
         let path = format!("{archive}!/{}", member.path);
         let nfc_path = nfc(&path);
@@ -1301,42 +1455,39 @@ impl Walk<'_> {
                 ContentState::Absent
             },
         };
-        let limit = self.size_limit();
-        let mut read = || {
-            if member.size > limit {
+        let mut fetch = || match shared.raw(member, self.size_limit()) {
+            Raw::Bytes(bytes) => Fetched::Decoded(
+                shared
+                    .shared
+                    .decoded
+                    .get_or_init(|| decode(bytes, &self.options.decode)),
+            ),
+            Raw::TooBig => {
                 warn(WarningCode::TooBig);
-                return ReadContent::Unknown;
+                Fetched::Unknown
             }
-            let mut bytes = Vec::new();
-            match reader.take(limit.saturating_add(1)).read_to_end(&mut bytes) {
-                Ok(_) if bytes.len() as u64 > limit => {
-                    warn(WarningCode::TooBig);
-                    ReadContent::Unknown
-                }
-                Ok(_) => ReadContent::Bytes(bytes),
-                Err(_) => {
-                    self.warn(WarningCode::ArchiveError, rel, false);
-                    ReadContent::Unknown
-                }
+            Raw::Failed(_) | Raw::Broken(_) => {
+                self.warn(WarningCode::ArchiveError, rel, false);
+                Fetched::Unknown
             }
         };
         let evaluated = match &query.filter {
             None => Evaluated::default(),
-            Some(filter) => self.evaluate(filter, file, language, &mut read, &warn)?,
+            Some(filter) => {
+                self.evaluate(filter, file, language, &mut fetch, &warn, &shared.shared)?
+            }
         };
         if self.skips_generated() && self.kinds.is_generated_path(&path) {
             return None;
         }
-        if self.options.binary == Binary::Exclude && !evaluated.text {
-            let mut head = Vec::new();
-            if reader.take(8 * 1024).read_to_end(&mut head).is_ok()
-                && is_binary_content(&head, &self.options.decode)
-            {
-                return None;
-            }
+        if self.options.binary == Binary::Exclude
+            && !evaluated.text
+            && shared.starts_binary(&self.options.decode)
+        {
+            return None;
         }
         self.count_funnel(evaluated.funnel);
-        self.count_match();
+        self.count_match(&shared.shared);
         Some(Found {
             rel: rel.to_path_buf(),
             member: Some(member.path.clone()),
@@ -1356,46 +1507,66 @@ impl Walk<'_> {
         })
     }
 
-    /// The content of a file whose content conditions must be decided: the bytes, decompressed for a compressed file
-    /// with `archives`; `Unknown` (with its warning) for a file too big or a broken compressed one; `Unreadable` when
-    /// it can't be read or the deadline passed.
-    fn read_content(&self, path: &Path, rel: &Path, name: &str) -> ReadContent {
+    /// The content of a file whose content conditions must be decided for this query, read once for the queries of
+    /// the walk (`shared`): the decoded bytes, decompressed for a compressed file with `archives`; `Unknown` (with its
+    /// warning) for a file too big or a broken compressed one; `Unreadable` when it can't be read or the deadline of
+    /// this query passed.
+    fn fetch<'c>(&self, shared: &'c Shared, path: &Path, rel: &Path, name: &str) -> Fetched<'c> {
+        let raw = shared.raw.get_or_init(|| self.read_raw(path, name));
+        if matches!(raw, Raw::TooBig) {
+            self.warn(WarningCode::TooBig, rel, false);
+            return Fetched::Unknown;
+        }
+        if self.past_deadline() {
+            return Fetched::Unreadable;
+        }
+        match raw {
+            Raw::Bytes(bytes) => Fetched::Decoded(
+                shared
+                    .decoded
+                    .get_or_init(|| decode(bytes, &self.options.decode)),
+            ),
+            Raw::Broken(code) => {
+                self.warn(*code, rel, false);
+                Fetched::Unknown
+            }
+            Raw::Failed(code) => {
+                if let Some(code) = code {
+                    self.warn(*code, rel, false);
+                }
+                Fetched::Unreadable
+            }
+            Raw::TooBig => Fetched::Unknown,
+        }
+    }
+
+    /// Reads a file for its content conditions: decompressed for a compressed file with `archives`.
+    fn read_raw(&self, path: &Path, name: &str) -> Raw {
         let compression = if self.options.archives == Archives::None {
             None
         } else {
             Compression::of(name)
         };
         if compression.is_none() && self.too_big(path) {
-            self.warn(WarningCode::TooBig, rel, false);
-            return ReadContent::Unknown;
+            return Raw::TooBig;
         }
         self.slow_read();
-        let bytes = std::fs::read(path);
-        if self.past_deadline() {
-            return ReadContent::Unreadable;
-        }
-        let bytes = match bytes {
+        let bytes = match std::fs::read(path) {
             Ok(bytes) => bytes,
             Err(e) => {
-                if e.kind() == std::io::ErrorKind::PermissionDenied {
-                    self.warn(WarningCode::PermissionDenied, rel, false);
-                }
-                return ReadContent::Unreadable;
+                return Raw::Failed(
+                    (e.kind() == std::io::ErrorKind::PermissionDenied)
+                        .then_some(WarningCode::PermissionDenied),
+                );
             }
         };
         let Some(compression) = compression else {
-            return ReadContent::Bytes(bytes);
+            return Raw::Bytes(bytes);
         };
         match decompress(compression, bytes.as_slice(), self.size_limit()) {
-            Ok(Decompressed::Bytes(bytes)) => ReadContent::Bytes(bytes),
-            Ok(Decompressed::TooBig) => {
-                self.warn(WarningCode::TooBig, rel, false);
-                ReadContent::Unknown
-            }
-            Err(_) => {
-                self.warn(WarningCode::ArchiveError, rel, false);
-                ReadContent::Unknown
-            }
+            Ok(Decompressed::Bytes(bytes)) => Raw::Bytes(bytes),
+            Ok(Decompressed::TooBig) => Raw::Broken(WarningCode::TooBig),
+            Err(_) => Raw::Broken(WarningCode::ArchiveError),
         }
     }
 
@@ -1535,7 +1706,7 @@ impl Walk<'_> {
             return;
         };
         let until = Instant::now() + delay;
-        let until = self.options.deadline.map_or(until, |d| until.min(d));
+        let until = self.read_deadline.map_or(until, |d| until.min(d));
         while let Some(rest) = until.checked_duration_since(Instant::now()) {
             if self.cancelled() {
                 return;
@@ -1732,6 +1903,63 @@ mod tests {
     }
 
     use super::*;
+
+    /// The options of a search of `tmp` with the defaults of the walk.
+    fn options(progress: &std::sync::Arc<Progress>) -> SearchOptions {
+        let engine = crate::Engine::new(crate::EngineOptions::new(PathBuf::from(".")));
+        let mut options = engine.default_search_options();
+        options.progress = Some(std::sync::Arc::clone(progress));
+        options
+    }
+
+    #[test]
+    fn shared_search_answers_like_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("a.rs"), "fn a() {}\n").unwrap();
+        std::fs::write(tmp.path().join("b.md"), "a b\n").unwrap();
+        std::fs::write(tmp.path().join("c.txt"), "c\n").unwrap();
+        let parse = crate::query::ParseOptions {
+            case_insensitive_paths: false,
+            now: jiff::Timestamp::UNIX_EPOCH,
+            time_zone: jiff::tz::TimeZone::UTC,
+            languages: std::sync::Arc::new(LanguageTable::builtin()),
+            backslash_separator: false,
+            max_escape_level: 3,
+            fuzzy_min_score: 0.5,
+        };
+        let first = crate::query::parse("text has 'a'", &parse).unwrap();
+        let second = crate::query::parse("name ~ '*.md' or text has 'c'", &parse).unwrap();
+        let alone = std::sync::Arc::new(Progress::default());
+        let alone_options = options(&alone);
+        let expected: Vec<Vec<PathBuf>> = [&first, &second]
+            .iter()
+            .map(|q| {
+                search(tmp.path(), q, &alone_options)
+                    .files
+                    .into_iter()
+                    .map(|f| f.rel)
+                    .collect()
+            })
+            .collect();
+        let shared = std::sync::Arc::new(Progress::default());
+        let shared_options = options(&shared);
+        let results = search_shared(
+            tmp.path(),
+            &[(&first, &shared_options), (&second, &shared_options)],
+        );
+        let found: Vec<Vec<PathBuf>> = results
+            .into_iter()
+            .map(|r| r.files.into_iter().map(|f| f.rel).collect())
+            .collect();
+        assert_eq!(found, expected);
+        assert_eq!(
+            alone.scanned(),
+            6,
+            "every query alone scans the three files"
+        );
+        assert_eq!(shared.scanned(), 3, "a shared walk scans every file once");
+        assert_eq!(shared.matched(), 3, "a.rs, b.md and c.txt once each");
+    }
 
     #[test]
     #[cfg(windows)]

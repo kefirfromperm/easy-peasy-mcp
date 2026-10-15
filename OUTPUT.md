@@ -1268,7 +1268,16 @@ Several queries in one call: one round trip, one response.
 - `queries` replaces `query`; every item has a `query`, an optional `label` and may override `dirs`, `timeout`,
   `traversal` and `output`
 - the other fields of the request are shared by all queries
-- the queries run in parallel; queries with the same `dirs` and `traversal` share one directory walk
+- queries with the same walk share it: the same working directories and the same `traversal`, `kinds` and
+  `languages` (an item's own `dirs` or `traversal` can make a walk of its own); every entry of a shared walk is
+  visited once and its content read and decoded once, then every query of the walk is evaluated on it. The response
+  of every query is the same as when it runs alone: files, counts, fragments, funnel, hints, warnings, order, result
+  id. A query with `within` searches the files of the kept result and is not walked
+- the walks run one after another in the order of their first query; the responses are made in the order of the
+  items
+- every query keeps its own timeout, counted from the start of its walk: a query whose deadline has passed stops
+  being evaluated and is `truncated: yes (timeout)`, the walk goes on for the others; a walk stops when all its queries
+  have stopped (a `detail = exists` query stops at its first match)
 - `budget` and `max_output` are for the whole response, split equally between the queries; what a query doesn't use
   goes to the next ones; a query which sets its own `output.budget` or `output.max_output` gets exactly that, the
   rest is split between the others

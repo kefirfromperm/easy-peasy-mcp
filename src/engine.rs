@@ -575,6 +575,7 @@ impl Engine {
     /// A batch request (OUTPUT.md#batch): every query in its section, the budget and `max_output` of the whole
     /// response split between them; `isError` only when all of them fail. `output.file` of the request writes the
     /// batch response to a file (OUTPUT.md#in-a-batch).
+    #[allow(clippy::too_many_lines)] // the steps of a batch, one after another
     fn batch(&self, arguments: &Value, progress: Option<&Arc<Progress>>) -> ToolOutput {
         let mut shared = batch::shared(arguments);
         let json = self.json_format(&shared);
@@ -634,19 +635,38 @@ impl Engine {
         let mut budget = budget_total.map(|total| batch::Split::new(total, &own("budget")));
         let mut output = output_total.map(|total| batch::Split::new(total, &own("max_output")));
         let chars_per_token = settings.number(Key::CharsPerToken);
+        let spec = self.spec_of(&request);
+        // the arguments of an item; its parts of the budget are known only when the earlier items have responded
+        let item_arguments = |item: &Value, parts: (Option<usize>, Option<usize>)| {
+            let mut args = batch::item_arguments(&shared, item, spec)?;
+            set_item_output(&mut args, item, json, (!own_file(item)).then_some(parts));
+            Ok::<Value, Report>(args)
+        };
+        let mut prepared: Vec<Result<(FindHead, Option<Prepared>), Report>> = items
+            .iter()
+            .map(|item| {
+                let args = item_arguments(item, (None, None))?;
+                let (head, run) = self.prepare(&args, progress, target.is_some())?;
+                Ok((head, Some(run)))
+            })
+            .collect();
+        let runs = self.search_batch(&mut prepared, progress);
         let mut sections = Vec::with_capacity(items.len());
-        for (index, item) in items.iter().enumerate() {
+        for (index, ((item, prepared), run)) in items.iter().zip(prepared).zip(runs).enumerate() {
             let parts = (
                 budget.as_mut().map(|b| b.next(index).max(100)),
                 output.as_mut().map(|o| o.next(index).max(100)),
             );
-            let result = batch::item_arguments(&shared, item, self.spec_of(&request)).and_then(
-                |mut args| {
-                    let parts = (!own_file(item)).then_some(parts);
-                    set_item_output(&mut args, item, json, parts);
-                    self.try_find(&args, progress, target.is_some())
-                },
-            );
+            let result = prepared.and_then(|(head, _)| {
+                let args = item_arguments(item, parts)?;
+                let request = request::parse(&args)?;
+                let settings = self.request_settings(&request)?;
+                // the cursor of an item is of its arguments with its parts of the budget
+                let (page, totals) = page(&args, request.cursor.as_deref())?;
+                let mut run = run.expect("every prepared item is searched");
+                run.paged(page, totals);
+                self.finish(&head, &request, &settings, &args, run, progress)
+            });
             let used = result
                 .as_ref()
                 .map_or(0, |answer| answer.text.chars().count());
@@ -680,6 +700,53 @@ impl Engine {
         }
     }
 
+    /// The searches of the prepared items of a batch (OUTPUT.md#batch): the items with the same walk key share one
+    /// walk, the walks run in the order of their first item, an item with `within` alone at its place; the deadline
+    /// of a query counts from the start of its walk. The runs in the order of the items, `None` for a wrong one.
+    fn search_batch(
+        &self,
+        prepared: &mut [Result<(FindHead, Option<Prepared>), Report>],
+        progress: Option<&Arc<Progress>>,
+    ) -> Vec<Option<Run>> {
+        let mut runs: Vec<Option<Run>> = prepared.iter().map(|_| None).collect();
+        for index in 0..prepared.len() {
+            let Ok((_, Some(first))) = &prepared[index] else {
+                continue;
+            };
+            let members: Vec<usize> = match first.walk_key() {
+                None => vec![index],
+                Some(key) => (index..prepared.len())
+                    .filter(|&j| {
+                        matches!(&prepared[j], Ok((_, Some(run))) if run.walk_key() == Some(key))
+                    })
+                    .collect(),
+            };
+            let mut group: Vec<(usize, Prepared)> = members
+                .iter()
+                .filter_map(|&j| match &mut prepared[j] {
+                    Ok((_, run)) => run.take().map(|run| (j, run)),
+                    Err(_) => None,
+                })
+                .collect();
+            let mut searched: Vec<(&Settings, &mut Prepared)> = group
+                .iter_mut()
+                .map(|(j, run)| {
+                    let (head, _) = prepared[*j]
+                        .as_ref()
+                        .expect("a member of a group is prepared");
+                    (&head.settings, run)
+                })
+                .collect();
+            let (results, _lease) =
+                self.search_runs(&mut searched, std::time::Instant::now(), progress);
+            drop(searched);
+            for ((j, run), result) in group.into_iter().zip(results) {
+                runs[j] = Some(run.into_run(result, None));
+            }
+        }
+        runs
+    }
+
     /// Whether the response of a request is JSON: its `output.format`, or the format of the session when the request
     /// has none; an invalid one is text, the format of its error.
     fn json_format(&self, arguments: &Value) -> bool {
@@ -698,15 +765,60 @@ impl Engine {
         in_file: bool,
     ) -> Result<Answer, Report> {
         let arrival = std::time::Instant::now();
+        let (head, mut prepared) = self.prepare(arguments, progress, in_file)?;
+        let (page, totals) = page(arguments, head.request.cursor.as_deref())?;
+        let (mut results, lease) =
+            self.search_runs(&mut [(&head.settings, &mut prepared)], arrival, progress);
+        let mut run = prepared.into_run(results.pop().expect("one result for one run"), lease);
+        run.paged(page, totals);
+        self.finish(
+            &head,
+            &head.request,
+            &head.settings,
+            arguments,
+            run,
+            progress,
+        )
+    }
+
+    /// A request of `find` without `queries` checked and ready to search; `in_file` as in `try_find`. The path of
+    /// `output.file` is checked before the search.
+    fn prepare(
+        &self,
+        arguments: &Value,
+        progress: Option<&Arc<Progress>>,
+        in_file: bool,
+    ) -> Result<(FindHead, Prepared), Report> {
         let request = request::parse(arguments)?;
         let settings = self.request_settings(&request)?;
-        // the path is checked before the search
         let target = request
             .file
             .as_ref()
             .map(|file| target(&settings, file))
             .transpose()?;
-        let run = self.run(&request, &settings, arguments, arrival, progress, true)?;
+        let prepared = self.prepare_run(&request, &settings, progress, true)?;
+        Ok((
+            FindHead {
+                in_file: in_file || target.is_some(),
+                target,
+                request,
+                settings,
+            },
+            prepared,
+        ))
+    }
+
+    /// The answer of a search of `find`: its response with `request`, `settings` and `arguments` (the parts of the
+    /// budget of a batch item), written to its file with `output.file`.
+    fn finish(
+        &self,
+        head: &FindHead,
+        request: &request::Request,
+        settings: &Settings,
+        arguments: &Value,
+        run: Run,
+        progress: Option<&Arc<Progress>>,
+    ) -> Result<Answer, Report> {
         if progress.is_some_and(|p| p.is_cancelled()) {
             // no response is sent and no result is kept for a cancelled request
             return Err(Report::new(
@@ -714,22 +826,25 @@ impl Engine {
                 "the request was cancelled",
             ));
         }
-        let in_file = in_file || target.is_some();
-        let (text, head, result_id) = self.respond(&settings, &request, arguments, run, in_file);
-        let Some(target) = target else {
-            return Ok(Answer { text, head });
+        let (text, response_head, result_id) =
+            self.respond(settings, request, arguments, run, head.in_file);
+        let Some(target) = head.target.clone() else {
+            return Ok(Answer {
+                text,
+                head: response_head,
+            });
         };
         let json = settings.text(Key::Format) == "json";
         let written =
             output_file::write(&self.file_path(target, result_id.as_deref(), json), &text)?;
-        let summary = head.summary(&written);
-        let head = match head {
+        let summary = response_head.summary(&written);
+        let response_head = match response_head {
             Head::Json(_) => Head::Json(summary.clone()),
             text_head @ Head::Text { .. } => text_head,
         };
         Ok(Answer {
             text: summary,
-            head,
+            head: response_head,
         })
     }
 
@@ -763,9 +878,25 @@ impl Engine {
         progress: Option<&Arc<Progress>>,
         groups: bool,
     ) -> Result<Run, Report> {
+        let mut prepared = self.prepare_run(request, settings, progress, groups)?;
+        let (page, totals) = page(arguments, request.cursor.as_deref())?;
+        let (mut results, lease) =
+            self.search_runs(&mut [(settings, &mut prepared)], arrival, progress);
+        let mut run = prepared.into_run(results.pop().expect("one result for one run"), lease);
+        run.paged(page, totals);
+        Ok(run)
+    }
+
+    /// Parses the query of a request and makes the options of its search, without its deadline.
+    fn prepare_run(
+        &self,
+        request: &request::Request,
+        settings: &Settings,
+        progress: Option<&Arc<Progress>>,
+        groups: bool,
+    ) -> Result<Prepared, Report> {
         let languages = Arc::new(LanguageTable::new(settings.language_list()));
         let limit = request.timeout.or_else(|| settings.timeout());
-        let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
         let within = request.within.map(|id| self.kept(id)).transpose()?;
         let since = request.since.map(|id| self.kept(id)).transpose()?;
         let working_dirs = match &within {
@@ -781,9 +912,8 @@ impl Engine {
         } else {
             None
         };
-        let (page, cursor_totals) = page(arguments, request.cursor.as_deref())?;
         let mut search =
-            self.search_options(settings, deadline, parse.case_insensitive_paths, languages);
+            self.search_options(settings, None, parse.case_insensitive_paths, languages);
         search.first_only = settings.text(Key::Detail) == "exists";
         search.progress = progress.cloned();
         let detail = detail(settings);
@@ -792,44 +922,85 @@ impl Engine {
             && !omit(settings).has(Part::Funnel)
             && detail >= Detail::Count;
         let facet_names = facet_names(settings, detail, &mut search);
+        let sort = Sort::parse(settings.text(Key::Sort));
+        // the hints of a huge result look at the languages and kinds
+        search.meta |= settings.bool(Key::Meta) || sort.needs_meta() || search.funnel;
+        search.rank = sort == Sort::Relevance;
         let threads = match search.threads {
             0 => std::thread::available_parallelism().map_or(1, std::num::NonZero::get),
             n => n,
         };
-        let stop = || {
-            deadline.is_some_and(|d| std::time::Instant::now() >= d)
-                || progress.is_some_and(|p| p.is_cancelled())
-        };
-        let lease = self.slots.acquire(threads, &stop);
-        search.threads = lease.as_ref().map_or(1, Lease::count);
-        let mut result = search_sorted(
-            settings,
-            &working_dirs,
-            &query,
-            &mut search,
-            within.as_ref().map(|r| r.files.as_slice()),
-        );
-        if let Some(shown) = &shown {
-            shown.apply(&mut result.files);
-        }
-        // the totals of a cursor are the shown ones
-        if cursor_totals.is_some_and(|totals| totals != totals_of(&result.files)) {
-            result.warnings.add_global(WarningCode::ResultsChanged);
-        }
-        Ok(Run {
-            references: shown.as_ref().map(Shown::references),
+        let walk_key = within
+            .is_none()
+            .then(|| WalkKey::of(settings, &working_dirs, parse.case_insensitive_paths));
+        Ok(Prepared {
+            shown,
             query,
             parse,
             search,
             working_dirs,
-            page,
             detail,
             limit,
             facet_names,
             since,
-            result,
-            _lease: lease,
+            within,
+            sort,
+            threads,
+            walk_key,
         })
+    }
+
+    /// Searches prepared runs which share their walk (the same `walk_key`), or one run: the deadline of every run
+    /// counted from `start`, one lease of the threads for all; the results in the order of the runs.
+    fn search_runs(
+        &self,
+        runs: &mut [(&Settings, &mut Prepared)],
+        start: std::time::Instant,
+        progress: Option<&Arc<Progress>>,
+    ) -> (Vec<search::SearchResult>, Option<Lease>) {
+        for (_, run) in runs.iter_mut() {
+            run.search.deadline = run.limit.filter(|l| !l.is_zero()).map(|l| start + l);
+        }
+        let deadlines: Vec<Option<std::time::Instant>> =
+            runs.iter().map(|(_, run)| run.search.deadline).collect();
+        let stop = || {
+            deadlines
+                .iter()
+                .all(|d| d.is_some_and(|d| std::time::Instant::now() >= d))
+                || progress.is_some_and(|p| p.is_cancelled())
+        };
+        let lease = self.slots.acquire(runs[0].1.threads, &stop);
+        let threads = lease.as_ref().map_or(1, Lease::count);
+        for (_, run) in runs.iter_mut() {
+            run.search.threads = threads;
+        }
+        let mut results = match runs {
+            [(settings, run)] if run.within.is_some() => {
+                let kept = run.within.as_ref().map_or(&[][..], |r| r.files.as_slice());
+                vec![search_within(
+                    settings,
+                    &run.working_dirs,
+                    kept,
+                    &run.query,
+                    &run.search,
+                )]
+            }
+            _ => {
+                let searches: Vec<(&query::Query, &SearchOptions)> = runs
+                    .iter()
+                    .map(|(_, run)| (&run.query, &run.search))
+                    .collect();
+                search_dirs(&runs[0].1.working_dirs, &searches)
+            }
+        };
+        for ((_, run), result) in runs.iter().zip(&mut results) {
+            if run.sort == Sort::Relevance {
+                relevance::rank(&mut result.files, &run.query.ranking);
+            } else {
+                sort_files(&mut result.files, run.sort);
+            }
+        }
+        (results, lease)
     }
 
     /// The response of a search in the format of the settings, within the budget; the head of its summary and its
@@ -1097,6 +1268,14 @@ impl Engine {
         }
     }
 
+    /// The search options of the session settings, for the tests of the search.
+    #[cfg(test)]
+    pub(crate) fn default_search_options(&self) -> SearchOptions {
+        let settings = self.settings();
+        let languages = Arc::new(LanguageTable::new(settings.language_list()));
+        self.search_options(&settings, None, false, languages)
+    }
+
     /// Keeps the result for `within` and `since`; its id, `None` when the result cache is off.
     fn keep_result(
         &self,
@@ -1311,31 +1490,6 @@ fn found_entries(
             })
         })
         .collect()
-}
-
-/// The search of a request with its files in the order of `output.sort`: ranked by relevance (its signals and the
-/// metadata it needs are computed) or sorted; the metadata is kept only with `output.meta`.
-fn search_sorted(
-    settings: &Settings,
-    working_dirs: &[(PathBuf, PathBuf)],
-    query: &query::Query,
-    options: &mut SearchOptions,
-    within: Option<&[CachedFile]>,
-) -> search::SearchResult {
-    let sort = Sort::parse(settings.text(Key::Sort));
-    // the hints of a huge result look at the languages and kinds
-    options.meta |= settings.bool(Key::Meta) || sort.needs_meta() || options.funnel;
-    options.rank = sort == Sort::Relevance;
-    let mut result = match within {
-        Some(files) => search_within(settings, working_dirs, files, query, options),
-        None => search_all(working_dirs, query, options),
-    };
-    if sort == Sort::Relevance {
-        relevance::rank(&mut result.files, &query.ranking);
-    } else {
-        sort_files(&mut result.files, sort);
-    }
-    result
 }
 
 /// The search of the files of a kept result (`within`) in its working directories: the paths are written as in the
@@ -1782,6 +1936,7 @@ struct Answer {
 }
 
 /// Where the response of `output.file` goes: a checked path, or a name of the server in the output directory.
+#[derive(Clone)]
 enum Target {
     Path(PathBuf),
     Auto(PathBuf),
@@ -1821,6 +1976,107 @@ struct Run {
     result: search::SearchResult,
     /// The threads of the search, given back with the response.
     _lease: Option<Lease>,
+}
+
+impl Run {
+    /// The page of the response and the totals of the cursor of the request: `results_changed` when they changed.
+    fn paged(&mut self, page: Page, cursor_totals: Option<[usize; 3]>) {
+        self.page = page;
+        // the totals of a cursor are the shown ones
+        if cursor_totals.is_some_and(|totals| totals != totals_of(&self.result.files)) {
+            self.result.warnings.add_global(WarningCode::ResultsChanged);
+        }
+    }
+}
+
+/// A request of `find` checked before its search: what its response needs besides the search.
+struct FindHead {
+    request: request::Request,
+    settings: Settings,
+    /// The file of `output.file`.
+    target: Option<Target>,
+    /// The response goes to a file (its own or the one of a batch): the limits for a file.
+    in_file: bool,
+}
+
+/// A search of a request ready to run: its query and options, without its deadline.
+struct Prepared {
+    shown: Option<Shown>,
+    query: query::Query,
+    parse: ParseOptions,
+    search: SearchOptions,
+    working_dirs: Vec<(PathBuf, PathBuf)>,
+    detail: Detail,
+    limit: Option<std::time::Duration>,
+    facet_names: Vec<String>,
+    since: Option<CachedResult>,
+    /// The kept result of `within`: its files are searched instead of a walk.
+    within: Option<CachedResult>,
+    sort: Sort,
+    /// The threads it asks for.
+    threads: usize,
+    /// What its walk is made of; `None` with `within`, which isn't walked.
+    walk_key: Option<WalkKey>,
+}
+
+impl Prepared {
+    /// What its walk is made of, see `WalkKey`.
+    fn walk_key(&self) -> Option<&WalkKey> {
+        self.walk_key.as_ref()
+    }
+
+    /// The run with the result of its search, the matches of `output.groups` only; its page is set with `paged`.
+    fn into_run(self, mut result: search::SearchResult, lease: Option<Lease>) -> Run {
+        if let Some(shown) = &self.shown {
+            shown.apply(&mut result.files);
+        }
+        Run {
+            references: self.shown.as_ref().map(Shown::references),
+            query: self.query,
+            parse: self.parse,
+            search: self.search,
+            working_dirs: self.working_dirs,
+            page: Page::default(),
+            detail: self.detail,
+            limit: self.limit,
+            facet_names: self.facet_names,
+            since: self.since,
+            result,
+            _lease: lease,
+        }
+    }
+}
+
+/// What a walk is made of (OUTPUT.md#batch): the working directories as written and canonical, the values of the
+/// keys of `traversal` and `kinds`, the languages and the case of paths. The queries of a batch with the same key
+/// share one walk.
+#[derive(Debug, PartialEq)]
+struct WalkKey {
+    working_dirs: Vec<(PathBuf, PathBuf)>,
+    values: Vec<config::KeyValue>,
+    languages: Vec<config::LanguageSetting>,
+    case_insensitive_paths: bool,
+}
+
+impl WalkKey {
+    fn of(
+        settings: &Settings,
+        working_dirs: &[(PathBuf, PathBuf)],
+        case_insensitive_paths: bool,
+    ) -> Self {
+        Self {
+            working_dirs: working_dirs.to_vec(),
+            values: Key::ALL
+                .iter()
+                .filter(|key| {
+                    matches!(key.section(), "traversal" | "kinds") || **key == Key::Threads
+                })
+                .map(|key| settings.value(*key).clone())
+                .collect(),
+            languages: settings.languages.clone(),
+            case_insensitive_paths,
+        }
+    }
 }
 
 /// How the fragments are shown: `auto` is markers which don't outgrow the line in text and columns in JSON.
@@ -1866,56 +2122,91 @@ fn without_verbatim(path: &Path) -> PathBuf {
     }
 }
 
-/// Searches the working directories in their order: the matched entries sorted by path, every entry once, the
-/// warnings, and whether the search stopped at the deadline. With `first_only` it stops after the first directory
-/// with a match.
+/// The search of the working directories of a request, one after another; a file reachable by several paths is
+/// returned once.
 pub(crate) fn search_all(
     working_dirs: &[(PathBuf, PathBuf)],
     query: &query::Query,
     options: &SearchOptions,
 ) -> search::SearchResult {
-    let mut files = Vec::new();
-    let mut warnings = Warnings::default();
-    let mut seen = HashSet::new();
-    let mut timed_out = false;
-    let mut funnel: Vec<usize> = Vec::new();
+    search_dirs(working_dirs, &[(query, options)])
+        .pop()
+        .expect("one result for one search")
+}
+
+/// The search of the working directories of a group of queries with one walk of every directory, one directory after
+/// another; for every query a file reachable by several paths is returned once, and a query which timed out or found
+/// its `exists` match doesn't walk the next directories. The results in the order of the queries.
+fn search_dirs(
+    working_dirs: &[(PathBuf, PathBuf)],
+    searches: &[(&query::Query, &SearchOptions)],
+) -> Vec<search::SearchResult> {
+    /// The result of one query so far.
+    #[derive(Default)]
+    struct Collected {
+        files: Vec<search::Found>,
+        warnings: Warnings,
+        seen: HashSet<(search::FileId, Option<String>)>,
+        timed_out: bool,
+        funnel: Vec<usize>,
+        stopped: bool,
+    }
+    let mut collected: Vec<Collected> = searches.iter().map(|_| Collected::default()).collect();
     for (index, (path, prefix)) in working_dirs.iter().enumerate() {
-        let result = search::search(path, query, options);
-        timed_out |= result.timed_out;
-        funnel.resize(result.funnel.len().max(funnel.len()), 0);
-        for (sum, n) in funnel.iter_mut().zip(&result.funnel) {
-            *sum += n;
-        }
-        files.extend(
-            result
-                .files
-                .into_iter()
-                .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
-                .map(|mut f| {
-                    f.rel = prefix.join(&f.rel);
-                    f.path_fragments = f
-                        .path_fragments
-                        .map(|p| p.shown(prefix, f.member.is_some()));
-                    f.root = index;
-                    f
-                }),
-        );
-        warnings.extend(result.warnings, prefix);
-        if timed_out {
-            warnings.add_global(WarningCode::Timeout);
+        let running: Vec<usize> = (0..searches.len())
+            .filter(|&i| !collected[i].stopped)
+            .collect();
+        if running.is_empty() {
             break;
         }
-        if options.first_only && !files.is_empty() {
-            break;
+        let walked: Vec<(&query::Query, &SearchOptions)> =
+            running.iter().map(|&i| searches[i]).collect();
+        for (&i, result) in running.iter().zip(search::search_shared(path, &walked)) {
+            let into = &mut collected[i];
+            into.timed_out |= result.timed_out;
+            into.funnel
+                .resize(result.funnel.len().max(into.funnel.len()), 0);
+            for (sum, n) in into.funnel.iter_mut().zip(&result.funnel) {
+                *sum += n;
+            }
+            let seen = &mut into.seen;
+            into.files.extend(
+                result
+                    .files
+                    .into_iter()
+                    .filter(|f| f.id.is_none_or(|id| seen.insert((id, f.member.clone()))))
+                    .map(|mut f| {
+                        f.rel = prefix.join(&f.rel);
+                        f.path_fragments = f
+                            .path_fragments
+                            .map(|p| p.shown(prefix, f.member.is_some()));
+                        f.root = index;
+                        f
+                    }),
+            );
+            into.warnings.extend(result.warnings, prefix);
+            if into.timed_out {
+                into.warnings.add_global(WarningCode::Timeout);
+                into.stopped = true;
+            }
+            if searches[i].1.first_only && !into.files.is_empty() {
+                into.stopped = true;
+            }
         }
     }
-    files.sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
-    search::SearchResult {
-        files,
-        warnings,
-        timed_out,
-        funnel,
-    }
+    collected
+        .into_iter()
+        .map(|mut c| {
+            c.files
+                .sort_by(|a, b| (&a.rel, &a.member).cmp(&(&b.rel, &b.member)));
+            search::SearchResult {
+                files: c.files,
+                warnings: c.warnings,
+                timed_out: c.timed_out,
+                funnel: c.funnel,
+            }
+        })
+        .collect()
 }
 
 /// A hash of the matched lines of a file, to tell a changed file from an unchanged one.
@@ -1939,6 +2230,33 @@ fn fingerprint(file: &search::Found) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn walk_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir(tmp.path().join("src")).unwrap();
+        let engine = Engine::new(EngineOptions::new(tmp.path().to_path_buf()));
+        let key = |arguments: Value| engine.prepare(&arguments, None, false).unwrap().1.walk_key;
+        let plain = key(json!({ "query": "text has 'a'" }));
+        assert!(plain.is_some(), "a walk");
+        assert_eq!(
+            key(json!({ "query": "name ~ '*.rs'", "output": { "detail": "count" } })),
+            plain,
+            "the output is not part of the walk"
+        );
+        assert_ne!(
+            key(json!({ "query": "text has 'x'", "dirs": ["src"] })),
+            plain
+        );
+        assert_ne!(
+            key(json!({ "query": "text has 'x'", "traversal": { "hidden": true } })),
+            plain
+        );
+        assert_ne!(
+            key(json!({ "query": "text has 'x'", "kinds": { "test": ["*.t"] } })),
+            plain
+        );
+    }
 
     #[test]
     fn searches_share_the_threads() {

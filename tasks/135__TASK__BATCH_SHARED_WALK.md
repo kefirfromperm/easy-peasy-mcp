@@ -1,6 +1,6 @@
 # Task 135: One walk for the queries of a batch
 
-Status: not implemented
+Status: implemented, see [135__SUMMARY__BATCH_SHARED_WALK.md](135__SUMMARY__BATCH_SHARED_WALK.md)
 
 Depends on: task 113, task 133, task 134
 
