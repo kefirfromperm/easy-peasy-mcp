@@ -501,6 +501,7 @@ Select the files with exactly one of:
 replace = {"@old": "template"}: the matches of the group @old are replaced; a group is a condition, line( ... ),
   near( ... ) or ( ... ) @name of the query. The other conditions only select the files.
   {@old} the match, {@old.1} {@old.fname} the groups of a =~ regex; {{ and }} are braces
+  {indent} the spaces and tabs at the start of the line of the match: {"@old": "{@old}\n{indent}new line"}
   e.g. query "text =~ `fn (?<f>\w+)_old\(` @def", replace {"@def": "fn {@def.f}_new("}
 Only the matches which made the file match are replaced: in line( ... ) and near( ... ) the matched lines;
   matches skipped by /c stay. /n writes the new text in the naming style of each match: 'parse query' /n to
