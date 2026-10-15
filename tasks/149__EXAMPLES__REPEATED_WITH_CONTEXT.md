@@ -245,7 +245,7 @@ Fixture: `repeated-context`
       "blocks": [
         { "lines": [
             { "n": 6, "text": "```" },
-            { "n": 7, "text": "Status: done", "match": true,
+            { "n": 7, "text": "Status: done",
               "fragments": [ { "col": [1, 8], "text": "Status:" } ] },
             { "n": 8, "text": "end." } ] }
       ]
