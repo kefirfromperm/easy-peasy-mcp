@@ -1155,8 +1155,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   warning which is not about entries (`"timeout": 0`); the summary of a [file](#output-to-a-file) has the text line only. A `timeout` is never
   hidden: the header has `truncated: yes (timeout)`, and the line names the code
 - rules of parts which carry nothing in a search: `legend`, `conditions` and `match_ids` are written only when the
-  query has more than one [counted condition](#counted-conditions) or a label (with one, the agent wrote it, and every
-  `[#1]` and `#1:` repeats it), with [`groups`](#shown-groups) `match_ids` instead only when the list has more than
+  query has more than one [counted condition](#counted-conditions) (with one, the agent wrote it, and every `[#1]` and
+  `#1:` repeats it), with [`groups`](#shown-groups) `match_ids` instead only when the list has more than
   one reference; `gaps`
   only with context lines (`before` or `after` above 0) or without `line_numbers` (the line numbers show the gaps)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
@@ -1197,8 +1197,9 @@ The rule of the legend counts the conditions the agent wrote which can produce i
   `text has 'x' and not text has 'y'` counts one, `line(not text starts '#')` one (the group)
 - `and`, `or`, `xor` and brackets without a label add up their parts: `name ~ '*.rs' and line(text has 'x')` counts
   two
-- a label `@name` anywhere in the query keeps the legend, the conditions and the ids: the agent asked for the name,
-  e.g. `text has 'x' @x` alone or a bracket group `( ... ) @name`
+- a bracket group with a label `( ... ) @name` counts what is inside it, at least one, like `line( ... )`; a label
+  adds nothing: with one counted condition its ids are the same in every file and match, also `@name`, which the
+  agent wrote to refer to the group (in [`groups`](#shown-groups), in a [write tool](TOOLS.md#write-tools))
 
 ## Result ids
 
