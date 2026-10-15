@@ -19,6 +19,10 @@ The specification is the contract. Code, tests and examples follow it, never the
 - If the spec is ambiguous or contradicts itself, fix the spec first, in its own commit, then continue.
 - Never implement behavior the spec doesn't describe. If a task needs something new, add it to the spec first.
 - Follow the spec's own versioning rules (TOOLS.md#versioning): spec version `1` is not broken by any task.
+- All output is optional. Every part of a `find` response can be left out with `output.omit` and brought back with
+  `output.show` (OUTPUT.md#omit), and whether it is shown by default comes from the configuration (`output.omit` in
+  CONFIG.md), not from the code. A task or spec change that adds anything to the response, in text or JSON, names its
+  `omit` part, adds it to the table in OUTPUT.md#omit, sets its default and covers it in the examples.
 
 ## Agent tools
 
