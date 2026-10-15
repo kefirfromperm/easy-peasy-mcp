@@ -285,7 +285,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "== 1 ==  files: 3  lines: 4  matches: 4  result: r1\nwarnings left out: decode_errors (1)\n== 2 ==  files: 2  lines: 3  matches: 3  result: r2\nwarnings left out: decode_errors (1)\n== 3 ==  files: 3  lines: 4  matches: 5  result: r3\nwarnings left out: decode_errors (1)\n"}], "isError": false}}
+{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "== 1 ==  files: 3  lines: 4  matches: 4  result: r1\n\nwarnings left out: decode_errors (1)\n== 2 ==  files: 2  lines: 3  matches: 3  result: r2\n\nwarnings left out: decode_errors (1)\n== 3 ==  files: 3  lines: 4  matches: 5  result: r3\n\nwarnings left out: decode_errors (1)\n"}], "isError": false}}
 ```
 
 ```json never
