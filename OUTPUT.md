@@ -1034,10 +1034,14 @@ In the files below these lines are not repeated. A file which has no other match
 detail at all; `detail = files` still lists such a file. The counts are not changed.
 
 - the section comes after the legend (and the funnel) and its empty line, only in `lines` detail
-- a line is `  ×N <line>    <locations>`: `N` the number of files, the line without its leading and trailing
-  whitespace and with its markers, after four spaces `path:line` of the first `repeated_locations` files (`0`: all of
-  them) in the order of the files, separated by `, `, and `, … M more` when some are left out; the lines are ordered
-  by `N`, more first, then by their first file
+- a line is `  ×N <line>    <locations>`: `N` the number of files of the result which have the line, also the files
+  which are not listed (after `max_files`, on the other pages of a cursor), the line without its leading and trailing
+  whitespace and with its markers, after four spaces `path:line` of the first `repeated_locations` listed files (`0`:
+  all of them) in the order of the files, separated by `, `, and `, … M more` for the other files of the result; the
+  lines are ordered by `N`, more first, then by their first listed file
+- a line is grouped when at least `group_repeated` files of the result have it and at least one of them is listed;
+  a line only in files which are not listed is not in the section, it comes with its files on their page. Every page
+  of a cursor writes such a line with the same `N` and the locations of its own files, so the pages are not added up
 - an agent which needs every place of a line, to edit them all, sets `repeated_locations = 0`: the locations of all the
   files in one line, at a fraction of the tokens of `group_repeated = 0`, which writes the line under every file
 - the locations count in `max_output` on their own: the characters of the written locations and their separators,
