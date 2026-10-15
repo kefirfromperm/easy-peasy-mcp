@@ -369,7 +369,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
   limit was hit, the encoding if it is not UTF-8; with `meta` also type, size, date, language, kind and, with
   `sort = relevance`, the score:
   `file 2.1K 2026-10-08 14:03 rust source 0.82`
-- `⇥4` — the indentation removed from the block, see [Dedent](#dedent)
+- `⇥4` — the indentation removed from the block (in spec 2 also from the blocks after it), see [Dedent](#dedent)
 - `42:` — a matched line, `41-` — a context line, `--` — a gap between blocks, like in `grep`
 - warnings at the end, prefixed with `warning:`
 
@@ -1045,6 +1045,29 @@ src/server/handlers.rs  [#1]  lines: 1  matches: 1
 
 In JSON the block has `"indent": 12`.
 
+In spec 2 a `⇥N` holds for the blocks after it until the next one: it is written only where the removed indentation
+differs from the one in effect, so a file whose matched lines all have the same indentation has one `⇥N`. Spec 1
+writes `⇥N` before every block which has common whitespace.
+
+- every file starts with the indentation 0: the indentation in effect doesn't carry over to the next file, a
+  directory header or a page of a [cursor](#pagination), so every file reads on its own
+- a block without common whitespace after a dedented one gets `⇥0`
+- the `⇥N` line comes after the `--` of the gap, as always; without `gaps` (`omit`) the blocks follow each other and
+  `⇥N` still marks where the indentation changes
+- the lines of the [repeated](#repeated-lines) section are written without their leading whitespace and have no
+  `⇥N`; a file which follows starts with 0 as always
+- `omit = ["indent"]` leaves every `⇥N` out, the blocks stay dedented; JSON keeps `"indent"` on every block
+
+```
+lib.rs  lines: 2  matches: 2
+⇥4
+2:let raw = read().⟦unwrap(⟧);
+4:parse(&text).⟦unwrap(⟧)
+main.rs  lines: 1  matches: 1
+⇥4
+2:let cfg = load().⟦unwrap(⟧);
+```
+
 ### Blank context lines
 
 With `blank_context = false` empty and whitespace-only context lines are skipped; the line numbers show the gap.
@@ -1238,7 +1261,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4
@@ -1293,7 +1315,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4
