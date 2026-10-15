@@ -1,6 +1,6 @@
 # Task 144: Context to the end of the block: `output.after = "block"`
 
-Status: in progress
+Status: implemented, see [144__SUMMARY__CONTEXT_BLOCK.md](144__SUMMARY__CONTEXT_BLOCK.md)
 
 Depends on: task 80, task 134
 
