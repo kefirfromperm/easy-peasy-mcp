@@ -128,7 +128,8 @@ lib.rs  lines: 1  matches: 1
 
 Fixture: `block`
 
-A closing line opens no block: no context after it. The blocks are separated by `--`, as with any context.
+A closing line opens no block: no context after it. The blocks are separated by `--`, as with any context. The
+markers would outgrow the one character of the lines, so `highlight = auto` writes them plain.
 
 ```json request
 {"query": "line(text starts '}')", "output": {"after": "block"}}
@@ -138,11 +139,11 @@ files: 1  lines: 3  matches: 3  result: r1
 
 src/
 lib.rs  lines: 3  matches: 3
-9:⟦}⟧
+9:}
 --
-13:⟦}⟧
+13:}
 --
-21:⟦}⟧
+21:}
 ```
 
 ## E144.7 A closing line which opens the block again
@@ -249,7 +250,7 @@ The first matched line is listed with its whole block, the next ones are left fo
 {"query": "text =~ `fn \\w+\\(`", "output": {"after": "block", "max_lines": 1}}
 ```
 ```text response
-files: 1  lines: 3  matches: 3  result: r1  truncated: yes (max_lines)  next cursor: CURSOR
+files: 1  lines: 3  matches: 3  result: r1  truncated: yes (max_lines)  next cursor: eyJ2IjoxLCJoIjoiYzdiZjc3YzQiLCJmIjowLCJtIjoxLCJ0IjpbMSwzLDNdfQ
 
 src/
 lib.rs  lines: 3  matches: 3
@@ -304,13 +305,22 @@ lib.rs  lines: 1  matches: 1
 
 Fixture: `block`
 
-The three functions with their blocks don't fit into the budget; without the context lines they do.
+The three functions with their blocks don't fit into 100 tokens (400 characters); without the context lines, the
+level 2 of the budget, they do.
 
 ```json request
 {"query": "text =~ `fn \\w+\\(`", "output": {"after": "block", "budget": 100}}
 ```
 ```text response
-BUDGET
+files: 1  lines: 3  matches: 3  result: r1  truncated: yes (budget)
+
+src/
+lib.rs  lines: 3  matches: 3
+3:pub ⟦fn load(⟧path: &str) -> String {
+--
+11:⟦fn read(⟧path: &str) -> String {
+--
+15:pub ⟦fn parse(⟧
 ```
 
 ## E144.15 An invalid value in a request

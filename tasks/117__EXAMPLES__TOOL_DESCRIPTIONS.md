@@ -262,8 +262,8 @@ easy-peasy-mcp
                   "minimum": 0
                 },
                 "after": {
-                  "type": "integer",
-                  "minimum": 0
+                  "anyOf": [{ "type": "integer", "minimum": 0 }, { "const": "block" }],
+                  "description": "Lines after a matched line, or \"block\": to the end of its indented block."
                 },
                 "path_fragments": {
                   "type": "boolean"
