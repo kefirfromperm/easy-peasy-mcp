@@ -1370,6 +1370,8 @@ If the request has a progress token, the server sends progress notifications abo
   grows: the entries whose conditions were evaluated, matched or not; the message has the files matched so far and
   the time since the request arrived with one decimal
 - `total` is not sent: the size of the tree is unknown until the walk ends
+- a batch (OUTPUT.md#batch) counts every entry of a shared walk once, however many of its queries evaluate it; an
+  entry matched by several of them is one matched file
 - no notifications for searches shorter than one second
 
 ## Cancellation
