@@ -706,13 +706,21 @@ impl Response<'_> {
     /// The repeated lines of the files, only in `lines` detail.
     fn repeated(&self) -> repeated::Repeated {
         if self.detail == Detail::Lines {
-            repeated::repeated(self.files, self.listed_range(), self.group_repeated)
+            // spec 1 groups a line without its context (OUTPUT.md#repeated-lines-with-context)
+            let context = (self.spec >= 2).then_some(&self.blocks);
+            repeated::repeated(
+                self.files,
+                self.listed_range(),
+                self.group_repeated,
+                context,
+            )
         } else {
             repeated::Repeated::default()
         }
     }
 
-    /// The `repeated:` section: `  ×N <line>    <locations>` (OUTPUT.md#repeated-lines).
+    /// The `repeated:` section: `  ×N <line>    <locations>`, or with context lines `  ×N <locations>` and the lines
+    /// of the block (OUTPUT.md#repeated-lines, OUTPUT.md#repeated-lines-with-context).
     fn push_repeated(&self, out: &mut String, repeated: &repeated::Repeated) {
         if repeated.lines.is_empty() {
             return;
@@ -720,22 +728,38 @@ impl Response<'_> {
         out.push_str("repeated:\n");
         let (written, _) = self.written_locations(repeated);
         for (line, &count) in repeated.lines.iter().zip(&written) {
-            let _ = write!(
-                out,
-                "  ×{} {}",
-                line.count,
-                lines::shown_line(&line.content, &line.fragments, 0, 0, self.highlight),
-            );
+            let shown = lines::shown_line(&line.content, &line.fragments, 0, 0, self.highlight);
+            let block = !line.before.is_empty() || !line.after.is_empty();
+            let _ = write!(out, "  ×{}", line.count);
+            if !block {
+                let _ = write!(out, " {shown}");
+            }
             if !self.omit.has(Part::Locations) {
                 let mut locations = self.locations(line, count);
                 if count < line.count {
                     locations.push(format!("… {} more", line.count - count));
                 }
-                let _ = write!(out, "    {}", locations.join(", "));
+                let separator = if block { " " } else { "    " };
+                let _ = write!(out, "{separator}{}", locations.join(", "));
             }
             out.push('\n');
-            if self.highlight == Highlight::Columns {
-                lines::push_columns(out, &line.content, &line.fragments, 0);
+            if !block {
+                if self.highlight == Highlight::Columns {
+                    lines::push_columns(out, &line.content, &line.fragments, 0);
+                }
+                continue;
+            }
+            for text in &line.before {
+                let _ = writeln!(out, "    -{text}");
+            }
+            let _ = writeln!(out, "    :{shown}");
+            if self.highlight == Highlight::Columns
+                && let Some(columns) = lines::columns_text(&line.content, &line.fragments, 0)
+            {
+                let _ = writeln!(out, "      {columns}");
+            }
+            for text in &line.after {
+                let _ = writeln!(out, "    -{text}");
             }
         }
     }
@@ -1278,6 +1302,76 @@ mod tests {
         assert_eq!(
             text,
             "files: 4  lines: 4  matches: 4\n#1 text has 'x'\n\nrepeated:\n  ×4 use ⟦#1:x⟧;    a:1, b:1, c:1, … 1 more\n"
+        );
+    }
+
+    /// The repeated line `use x;` after `// a` in three files, with one line before it, in the spec `spec`.
+    fn repeated_block_text(spec: u32, omit: &[Part]) -> String {
+        let files: Vec<Found> = ["a", "b", "c"]
+            .iter()
+            .map(|name| Found {
+                matches: Some(crate::search::FileMatches {
+                    content: crate::content::Content::from_bytes(b"// a\nuse x;\n"),
+                    fragments: vec![Fragment {
+                        range: 9..10,
+                        ids: vec![(1, CondId::Number(1))],
+                        escape: None,
+                        groups: Vec::new(),
+                    }],
+                    lines: 1,
+                }),
+                ..found(name)
+            })
+            .collect();
+        Response {
+            detail: Detail::Lines,
+            count_by: CountBy::Total,
+            blocks: BlockOptions {
+                before: 1,
+                blank_context: true,
+                ..BlockOptions::default()
+            },
+            group_dirs: true,
+            group_repeated: 3,
+            repeated_locations: 3,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
+            funnel: None,
+            hints: Vec::new(),
+            facets: Vec::new(),
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits::default(),
+            result_id: None,
+            legend: &[],
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+            omit: Omit::from_parts(omit),
+            in_dirs: None,
+            spec,
+            carry_indent: false,
+        }
+        .to_text()
+    }
+
+    #[test]
+    fn a_repeated_line_with_its_context() {
+        let head = "files: 3  lines: 3  matches: 3\n\nrepeated:\n";
+        assert_eq!(
+            repeated_block_text(2, &[]),
+            format!("{head}  ×3 a:2, b:2, c:2\n    -// a\n    :use ⟦#1:x⟧;\n")
+        );
+        assert_eq!(
+            repeated_block_text(2, &[Part::Locations]),
+            format!("{head}  ×3\n    -// a\n    :use ⟦#1:x⟧;\n")
+        );
+        assert_eq!(
+            repeated_block_text(1, &[]),
+            format!("{head}  ×3 use ⟦#1:x⟧;    a:2, b:2, c:2\n"),
+            "spec 1 leaves the context out"
         );
     }
 

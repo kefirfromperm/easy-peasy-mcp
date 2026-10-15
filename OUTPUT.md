@@ -1171,11 +1171,48 @@ detail at all; `detail = files` still lists such a file. The counts are not chan
   first line which is cut only `… N more`) and `truncated_by` names `max_output`. They are not paged: the cursor
   continues the files; `line(text = '<the line>')` with `detail = files` lists all the files of a line. The
   [budget](#budget) estimates the whole response, the locations with it
-- a line touched by a multiline match is not grouped; the context of a repeated line goes with it
+- a line touched by a multiline match is not grouped
 - JSON: `"repeated": [{ "count": 37, "text": "use anyhow::Result;", "fragments": [...], "locations":
   ["src/main.rs:3", "src/config.rs:5", "src/eval/mod.rs:2"] }]` — `col` of the fragments counts in `text`, the
   locations are the ones written in the text format, `count` is the number of all the files
 - [omit](#omit): `locations` leaves out the locations, the line and `×N` stay (JSON `locations`)
+
+#### Repeated lines with context
+
+In spec 1 the context of a repeated line goes with it: the context lines asked for are not written. In spec 2 a
+matched line with context (`context`, `before`, `after`, also `after = "block"`) is grouped together with its
+context: the line is the same in two files only when its block is. When the matched line is only an anchor (a fence,
+a heading, `#[test]`, `Status:`), the context is what the agent wanted and differs in every file, so the line is
+written under every file with its context; a block which is the same is written once:
+
+```
+repeated:
+  ×4 tasks/1.md:12, tasks/2.md:9, tasks/3.md:15, … 1 more
+    -## Fixtures
+    -
+    :⟦```text tree⟧
+```
+
+- the block of a matched line is the line with the context lines its file would write for it alone (see
+  [Blocks](#blocks), [Block context](#block-context)): `before` lines before it and `after` lines (or its block) after
+  it, fewer at the start and the end of the file, without the blank ones with `blank_context = false`
+- two blocks are the same when their lines are the same without the common leading whitespace of the block (counted
+  as [dedent](#dedent) counts it: the empty and whitespace-only lines don't count) and without the trailing whitespace
+  of every line, and the matched lines have the same condition ids. A block of only the matched line is a line
+  without its leading and trailing whitespace, as above; `context = 0` groups the lines as always. A line with a
+  fragment in the common leading whitespace of its block is not grouped
+- a matched line with another matched line of its file in its block is not grouped there: it is written under its
+  file with its context, and that file is not counted in `N`
+- the section writes a block of more than one line as `  ×N <locations>` followed by its lines, every line after four
+  spaces: the matched line after `:`, a context line after `-` (the marks of the lines of a file without the line
+  numbers), without the common leading whitespace and without `⇥N`; with `columns` the matched line is followed by
+  the line of the columns of its fragments in its text, after six spaces: `      @ 1..8`. Without `locations` the first line is `  ×N`
+- the lines of a block are written like the repeated line: not cut, not counted in `max_lines`, `max_matches`,
+  `max_output_per_file` and `max_output`, which counts only the locations; the counts are not changed
+- JSON: `"before"` and `"after"`, the lists of the texts of the context lines before and after the matched line
+  (without the common leading whitespace and the trailing whitespace), before `text` and after `fragments`, each only
+  when it isn't empty: `{ "count": 4, "before": ["## Fixtures", ""], "text": "```text tree", "fragments": [...],
+  "locations": [...] }`
 
 ## Omit
 

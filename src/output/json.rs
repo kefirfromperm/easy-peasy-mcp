@@ -35,7 +35,7 @@ struct Document<'a> {
     #[serde(skip_serializing_if = "Facets::is_empty")]
     facets: Facets<'a>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    repeated: Vec<Repeated>,
+    repeated: Vec<Repeated<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     since: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -95,11 +95,15 @@ struct FunnelStep<'a> {
 
 /// A matched line repeated in many files (OUTPUT.md#repeated-lines).
 #[derive(Serialize)]
-struct Repeated {
+struct Repeated<'a> {
     count: usize,
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    before: &'a [String],
     text: String,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     fragments: Vec<Fragment>,
+    #[serde(skip_serializing_if = "<[String]>::is_empty")]
+    after: &'a [String],
     #[serde(skip_serializing_if = "Vec::is_empty")]
     locations: Vec<String>,
 }
@@ -349,8 +353,10 @@ impl Response<'_> {
                     );
                     Repeated {
                         count: line.count,
+                        before: &line.before,
                         text: shown.text,
                         fragments: shown.fragments,
+                        after: &line.after,
                         locations: if self.omit.has(Part::Locations) {
                             Vec::new()
                         } else {
