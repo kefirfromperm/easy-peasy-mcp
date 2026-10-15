@@ -216,6 +216,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
     }
 

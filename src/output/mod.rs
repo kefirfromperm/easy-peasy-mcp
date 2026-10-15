@@ -258,6 +258,8 @@ pub struct Response<'a> {
     pub in_dirs: Option<&'a [std::path::PathBuf]>,
     /// The spec version of the request: the `version` of JSON.
     pub spec: u32,
+    /// `⇥N` only where the indentation changes (OUTPUT.md#dedent): spec 2 unless `show` has `indent`.
+    pub carry_indent: bool,
 }
 
 /// The separator of output paths on this platform.
@@ -536,7 +538,7 @@ impl Response<'_> {
                 self.highlight,
                 self.limits.max_line_length,
                 self.omit,
-                self.spec >= 2,
+                self.carry_indent,
             ));
         }
     }
@@ -1031,6 +1033,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text();
         let s = SEP;
@@ -1078,6 +1081,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         };
         assert_eq!(
             response.to_text(),
@@ -1115,6 +1119,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text();
         let s = SEP;
@@ -1168,6 +1173,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text();
         let s = SEP;
@@ -1208,6 +1214,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text();
         let s = SEP;
@@ -1265,6 +1272,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text();
         assert_eq!(
@@ -1319,6 +1327,7 @@ mod tests {
             omit: Omit::from_parts(omit),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text()
     }
@@ -1393,6 +1402,7 @@ mod tests {
                 omit: crate::output::Omit::default(),
                 in_dirs: None,
                 spec: 1,
+                carry_indent: false,
             }
             .to_text()
         };
@@ -1451,6 +1461,7 @@ mod tests {
                 omit: Omit::default(),
                 in_dirs: None,
                 spec: 1,
+                carry_indent: false,
             }
             .to_text()
         };
@@ -1493,6 +1504,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
@@ -1535,6 +1547,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         };
         let listing = Listing::without_lines(response.listed(), &response.limits);
         let cursor = response.next_cursor(&listing)?;
@@ -1590,6 +1603,7 @@ mod tests {
             omit: Omit::from_parts(omit),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_text()
     }
