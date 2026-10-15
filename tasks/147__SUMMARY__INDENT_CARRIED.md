@@ -12,7 +12,7 @@ Server version: `0.144.0`.
 - The gaps `--` stay as they were; `omit = ["indent"]` leaves every `⇥N` out; JSON keeps `"indent"` on every block.
 - It is a rule of the defaults of spec 2 ([OUTPUT.md#defaults-of-spec-2](../OUTPUT.md#defaults-of-spec-2)):
   `show = ["indent"]` and `show = "all"` write every `⇥N`, as spec 1 does, which is unchanged.
-- Spec: three commits on the branch — the rule, then `show` bringing every `⇥N` back. A change of a spec 2 rule,
+- Spec: two commits on the branch — the rule, then `show` bringing every `⇥N` back. A change of a spec 2 rule,
   allowed since spec 2 has not been used outside this repository (TOOLS.md#versioning).
 
 ## Architecture
