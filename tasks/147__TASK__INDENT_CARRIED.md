@@ -1,6 +1,6 @@
 # Task 147: The indentation written once per change
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 84, task 141
 
