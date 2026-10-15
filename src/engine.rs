@@ -1934,16 +1934,25 @@ fn set_item_output(
 }
 
 /// The limits and the budget of a response written to a file (OUTPUT.md#limits-for-a-file): `max_output`,
-/// `max_output_per_file` and `budget` only from the request, `max_output` at most `server.max_output_file_size`.
+/// `max_output_per_file` and `budget` only from the request, `max_output` at most `server.max_output_file_size`;
+/// the count limits which neither the request nor the configuration sets are the ones of spec 1.
 fn file_limits(settings: &Settings, request: &request::Request) -> (Limits, Option<usize>) {
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // a size in bytes
     let cap = crate::query::parse_size(&settings.max_output_file_size)
         .map_or(usize::MAX, |size| size as usize);
     let max_output = request.given(Key::MaxOutput).unwrap_or(usize::MAX);
+    let count = |key: Key| match (request.given(key), key.default_for(1)) {
+        (None, config::KeyValue::Whole(n)) if *settings.source(key) == config::Source::Default => n,
+        _ => settings.whole(key),
+    };
     let limits = Limits {
         max_output: max_output.min(cap),
         file_cap: cap < max_output,
         max_output_per_file: request.given(Key::MaxOutputPerFile).unwrap_or(usize::MAX),
+        max_files: count(Key::MaxFiles),
+        max_lines: count(Key::MaxLines),
+        max_matches: count(Key::MaxMatches),
+        max_matches_per_file: count(Key::MaxMatchesPerFile),
         ..limits(settings)
     };
     (limits, request.given(Key::Budget))
