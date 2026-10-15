@@ -247,7 +247,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 
 | # | Task | Depends on | Status |
 |---|------|------------|--------|
-| 135 | [One walk for the queries of a batch](135__TASK__BATCH_SHARED_WALK.md) | 113, 133, 134 | ⬜ |
+| 135 | [One walk for the queries of a batch](135__TASK__BATCH_SHARED_WALK.md) | 113, 133, 134 | 🚧 |
 
 ## Output from use
 

@@ -1,6 +1,6 @@
 # Task 135: One walk for the queries of a batch
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 113, task 133, task 134
 
