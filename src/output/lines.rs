@@ -94,17 +94,24 @@ pub fn render(
     highlight: Highlight<'_>,
     max_line_length: usize,
     omit: Omit,
-    _carry: bool,
+    carry: bool,
 ) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
+    let mut in_effect = 0;
     for (i, block) in blocks.iter().enumerate() {
         if i > 0 && !omit.has(OmitPart::Gaps) {
             out.push_str("--\n");
         }
-        if block.indent > 0 && !omit.has(OmitPart::Indent) {
+        let changed = if carry {
+            block.indent != in_effect
+        } else {
+            block.indent > 0
+        };
+        if changed && !omit.has(OmitPart::Indent) {
             let _ = writeln!(out, "⇥{}", block.indent);
         }
+        in_effect = block.indent;
         let plain = match highlight {
             Highlight::Auto(open, close) => {
                 plain_lines(content, &parts, block, [open, close], max_line_length)
