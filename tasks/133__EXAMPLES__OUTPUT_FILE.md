@@ -602,7 +602,7 @@ easy-peasy-mcp --config config.toml
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output_file_size)  next cursor: eyJ2IjoxLCJoIjoiZjYyOTJhOTkiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
-written: <output_dir>/page1.txt  lines: 13  bytes: 376
+written: <output_dir>/page1.txt  lines: 14  bytes: 401
 
 warning: output_file_truncated
 ```
@@ -613,11 +613,12 @@ files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output_file_size
 src/
 b.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:TODO⟧ remove
-./
-notes.md  [#1]  lines: 1  matches: 1
-2:⟦#1:TODO⟧ write the docs
-src/
 a.rs  [#1]  lines: 2  matches: 2
+⇥4
+2:// ⟦#1:TODO⟧ split this function into parse and check
+--
+⇥4
+4:// ⟦#1:TODO⟧ rename x
 
 warning: output_file_truncated
 ```
@@ -629,17 +630,13 @@ warning: output_file_truncated
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r2
-written: <output_dir>/page2.txt  lines: 10  bytes: 202
+written: <output_dir>/page2.txt  lines: 6  bytes: 134
 ```
 ```text file page2.txt
 files: 3  lines: 4  matches: 4  result: r2
 #1 text has 'TODO'
 
-src/
-a.rs  [#1]  lines: 2  matches: 2
-⇥4
-2:// ⟦#1:TODO⟧ split this function into parse and check
---
-⇥4
-4:// ⟦#1:TODO⟧ rename x
+./
+notes.md  [#1]  lines: 1  matches: 1
+2:⟦#1:TODO⟧ write the docs
 ```
