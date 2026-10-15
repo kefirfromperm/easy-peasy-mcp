@@ -12,6 +12,9 @@ pub struct BlockOptions {
     pub before: usize,
     /// Context lines after every matched line.
     pub after: usize,
+    /// The context after every matched line goes on to the end of its block, instead of `after` lines
+    /// (OUTPUT.md#block-context).
+    pub after_block: bool,
     /// Keep the empty and whitespace-only context lines.
     pub blank_context: bool,
     /// Remove the common leading whitespace of every block.
@@ -34,6 +37,10 @@ pub struct Block {
     /// The bytes of leading whitespace removed from every line (`dedent`).
     pub indent: usize,
     pub lines: Vec<BlockLine>,
+    /// With the block context: the last line of the block, blank lines too.
+    pub end: Option<usize>,
+    /// The lines of the file at the end of the block left out by a limit, from the first one to `end`.
+    pub more: usize,
 }
 
 /// The blocks of the matched lines of the fragments with their context; the context of two matched lines which
@@ -54,6 +61,8 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
         .into_iter()
         .map(|(lo, hi)| Block {
             indent: 0,
+            end: None,
+            more: 0,
             lines: (lo..=hi)
                 .map(|index| BlockLine {
                     index,
@@ -245,7 +254,7 @@ mod tests {
             after: 0,
             blank_context: true,
             dedent: true,
-            only_match: false,
+            ..BlockOptions::default()
         };
         assert_eq!(
             blocks(&indented, &ac[1..], &context)[0].indent,
@@ -259,5 +268,116 @@ mod tests {
             2,
             "the fragment starts at 2"
         );
+    }
+
+    const RUST: &[u8] = b"use std::fs;\n\npub fn load(path: &str) -> String {\n    let raw = read(path);\n    if raw.is_empty() {\n        return String::new();\n    }\n    raw\n}\n\nfn read(path: &str) -> String {\n    fs::read_to_string(path).unwrap_or_default()\n}\n\npub fn parse(\n    text: &str,\n) -> Vec<String> {\n    text.lines()\n        .map(str::to_string)\n        .collect()\n}\n";
+
+    const BLOCK: BlockOptions = BlockOptions {
+        before: 0,
+        after: 0,
+        after_block: true,
+        blank_context: false,
+        dedent: false,
+        only_match: false,
+    };
+
+    fn block_lines(content: &Content, lines: &[usize], options: &BlockOptions) -> Vec<Vec<usize>> {
+        let fragments: Vec<Fragment> = lines.iter().map(|&l| at(content, l - 1)).collect();
+        blocks(content, &fragments, options)
+            .iter()
+            .map(|b| b.lines.iter().map(|l| l.index + 1).collect())
+            .collect()
+    }
+
+    #[test]
+    fn the_block_of_a_function() {
+        let c = Content::from_bytes(RUST);
+        assert_eq!(block_lines(&c, &[3], &BLOCK), [vec![3, 4, 5, 6, 7, 8, 9]]);
+        assert_eq!(block_lines(&c, &[5], &BLOCK), [vec![5, 6, 7]], "nested");
+        assert_eq!(block_lines(&c, &[4], &BLOCK), [vec![4]], "no block");
+        assert_eq!(
+            block_lines(&c, &[3, 5], &BLOCK),
+            [vec![3, 4, 5, 6, 7, 8, 9]]
+        );
+        assert_eq!(
+            block_lines(&c, &[9, 13], &BLOCK),
+            [vec![9], vec![13]],
+            "closing lines open no block"
+        );
+        assert_eq!(
+            block_lines(&c, &[15], &BLOCK),
+            [vec![15, 16, 17, 18, 19, 20, 21]],
+            "a closing line which opens again"
+        );
+        let before = BlockOptions { before: 2, ..BLOCK };
+        assert_eq!(block_lines(&c, &[5], &before), [vec![3, 4, 5, 6, 7]]);
+        let blocks = blocks(&c, &[at(&c, 2)], &BLOCK);
+        assert_eq!(blocks[0].end, Some(8));
+    }
+
+    #[test]
+    fn a_block_without_a_closing_line() {
+        let python = Content::from_bytes(
+            b"import os\n\n\ndef load(path):\n    with open(path) as f:\n        data = f.read()\n\n    return data.strip()\n\n\ndef main():\n    print(load(\"x\"))\n",
+        );
+        assert_eq!(block_lines(&python, &[4], &BLOCK), [vec![4, 5, 6, 8]]);
+        let kept = BlockOptions {
+            blank_context: true,
+            ..BLOCK
+        };
+        assert_eq!(
+            block_lines(&python, &[4], &kept),
+            [vec![4, 5, 6, 7, 8]],
+            "the blank lines at the end are not in the block"
+        );
+        assert_eq!(
+            block_lines(&python, &[11], &BLOCK),
+            [vec![11, 12]],
+            "the last line"
+        );
+        let markdown = Content::from_bytes(b"# Demo\n\n## Usage\n\nRun the loader.\n");
+        assert_eq!(block_lines(&markdown, &[3], &BLOCK), [vec![3]]);
+    }
+
+    #[test]
+    fn closing_lines() {
+        for (text, closing) in [
+            ("}", true),
+            ("});", true),
+            (") -> X {", true),
+            ("]", true),
+            ("</div>", true),
+            ("end", true),
+            ("end)", true),
+            ("fi", true),
+            ("done", true),
+            ("esac", true),
+            ("ending()", false),
+            ("x = 1", false),
+            ("else:", false),
+        ] {
+            let c = Content::from_bytes(format!("a\n  b\n{text}\nc\n").as_bytes());
+            let want = if closing { vec![1, 2, 3] } else { vec![1, 2] };
+            assert_eq!(block_lines(&c, &[1], &BLOCK), [want], "{text}");
+        }
+        let tabs = Content::from_bytes(b"\tif x {\n\t\ty\n\t}\n}\n");
+        assert_eq!(block_lines(&tabs, &[1], &BLOCK), [vec![1, 2, 3]]);
+    }
+
+    #[test]
+    fn the_rest_of_a_cut_block() {
+        let c = Content::from_bytes(RUST);
+        let cut = before(blocks(&c, &[at(&c, 14)], &BLOCK), Some(19));
+        assert_eq!(cut[0].lines.len(), 5);
+        assert_eq!(cut[0].more, 2, "lines 20 and 21");
+        let whole = before(blocks(&c, &[at(&c, 14)], &BLOCK), Some(21));
+        assert_eq!(whole[0].more, 0);
+        let numbers = BlockOptions {
+            after: 6,
+            after_block: false,
+            ..BLOCK
+        };
+        let cut = before(blocks(&c, &[at(&c, 14)], &numbers), Some(19));
+        assert_eq!(cut[0].more, 0, "only the block context says so");
     }
 }

@@ -2104,6 +2104,7 @@ fn block_options(settings: &Settings) -> BlockOptions {
     BlockOptions {
         before: settings.opt_whole(Key::Before).unwrap_or(context),
         after: settings.opt_whole(Key::After).unwrap_or(context),
+        after_block: false,
         blank_context: settings.bool(Key::BlankContext),
         dedent: settings.bool(Key::Dedent),
         only_match: false,
