@@ -937,9 +937,7 @@ impl SharedMember<'_> {
             let mut bytes = std::mem::take(&mut *self.head.borrow_mut());
             let rest = limit.saturating_add(1).saturating_sub(bytes.len() as u64);
             let mut reader = self.reader.borrow_mut();
-            let read = (&mut **reader)
-                .take(rest)
-                .read_to_end(&mut bytes);
+            let read = (&mut **reader).take(rest).read_to_end(&mut bytes);
             match read {
                 Ok(_) if bytes.len() as u64 <= limit => Raw::Bytes(bytes),
                 Ok(_) => {
@@ -966,9 +964,7 @@ impl SharedMember<'_> {
             let mut head = self.head.borrow_mut();
             let missing = HEAD.saturating_sub(head.len()) as u64;
             let mut reader = self.reader.borrow_mut();
-            let read = (&mut **reader)
-                .take(missing)
-                .read_to_end(&mut head);
+            let read = (&mut **reader).take(missing).read_to_end(&mut head);
             read.is_ok() && is_binary_content(&head[..head.len().min(HEAD)], decode)
         })
     }
@@ -1099,7 +1095,7 @@ impl Walk<'_> {
                 shared,
             )?,
         };
-        if self.left_out(entry, rel, entry_type, &name, &path, evaluated.text, shared) {
+        if self.left_out(entry, rel, entry_type, &path, evaluated.text, shared) {
             return None;
         }
         self.count_funnel(evaluated.funnel);
@@ -1190,20 +1186,20 @@ impl Walk<'_> {
         entry: &dyn Entry,
         rel: &Path,
         entry_type: EntryType,
-        name: &str,
         path: &str,
         text: bool,
         shared: &Shared,
     ) -> bool {
         let is_file = entry_type == EntryType::File;
+        let starts_binary = || {
+            *shared.starts_binary.get_or_init(|| {
+                let name = nfc(&entry.file_name().to_string_lossy());
+                self.starts_binary(entry.path(), &name)
+            })
+        };
         !self.readable(entry.path(), rel, entry_type)
             || (self.skips_generated() && is_file && self.kinds.is_generated(path, entry.path()))
-            || (self.options.binary == Binary::Exclude
-                && is_file
-                && !text
-                && *shared
-                    .starts_binary
-                    .get_or_init(|| self.starts_binary(entry.path(), name)))
+            || (self.options.binary == Binary::Exclude && is_file && !text && starts_binary())
     }
 
     /// The signals of the relevance of a matched entry: those of its evaluation, or for the empty query those of its
@@ -1956,7 +1952,11 @@ mod tests {
             .map(|r| r.files.into_iter().map(|f| f.rel).collect())
             .collect();
         assert_eq!(found, expected);
-        assert_eq!(alone.scanned(), 6, "every query alone scans the three files");
+        assert_eq!(
+            alone.scanned(),
+            6,
+            "every query alone scans the three files"
+        );
         assert_eq!(shared.scanned(), 3, "a shared walk scans every file once");
         assert_eq!(shared.matched(), 3, "a.rs, b.md and c.txt once each");
     }

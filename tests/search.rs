@@ -223,7 +223,7 @@ fn a_batch_reads_every_file_once() {
     let engine = Engine::new(options);
     let start = std::time::Instant::now();
     let out = engine.find(&json!({
-        "queries": [{ "query": "text has 'x'" }, { "query": "text has 'y'" }, { "query": "text has 'x\n'" }],
+        "queries": [{ "query": "text has 'x'" }, { "query": "text =~ `x`" }, { "query": "text has 'x\n'" }],
         "output": { "detail": "count" }
     }));
     let elapsed = start.elapsed();
