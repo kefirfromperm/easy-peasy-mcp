@@ -123,7 +123,7 @@ fn version_flag() {
 fn unknown_argument() {
     let out = Command::new(BIN).arg("--bogus").output().unwrap();
     assert!(!out.status.success());
-    assert!(out.stdout.is_empty());
+    assert_eq!(out.stdout.len(), 0);
     let stderr = String::from_utf8(out.stderr).unwrap();
     assert!(stderr.contains("usage: easy-peasy-mcp"), "{stderr}");
 }

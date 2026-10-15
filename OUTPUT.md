@@ -63,7 +63,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `meta`                 | `true`, `false`                                 | `false`    | add type, size, modification date, language, kind and, with `sort = relevance`, the score to every file |
 | `context`              | number                                          | `0`        | lines before and after every matched line (`grep -C`)     |
 | `before`               | number                                          | `context`  | lines before (`grep -B`)                                  |
-| `after`                | number                                          | `context`  | lines after (`grep -A`)                                   |
+| `after`                | number, `"block"`                               | `context`  | lines after (`grep -A`); `"block"`: to the end of the block, see [Block context](#block-context) |
 | `path_fragments`       | `true`, `false`                                 | `false`    | return fragments of `path` and `name` conditions          |
 | `groups`               | list of [group references](QUERY.md#group-references) | `[]` | show only the matches of these groups, see [Shown groups](#shown-groups) |
 | `only_match`           | `true`, `false`                                 | `false`    | write the matches instead of their lines (`grep -o`), see [Only the matches](#only-the-matches) |
@@ -498,6 +498,57 @@ line with `none`.
 
 Matched lines and their context are grouped into blocks. If the context of two matched lines touches or overlaps, they
 are in the same block, so no line is repeated. Between blocks the text format prints `--`.
+
+### Block context
+
+`after = "block"` makes the context after a matched line go on to the end of its block: one call gives the body of a
+definition the query found (``text =~ `fn\s+load\(` ``), without a guessed number of lines. The block is found by the
+indentation of the lines, the same rule for every language: there is no parser and no brace matching across strings
+and comments.
+
+- the indentation of a line is the number of its leading spaces and tabs, a tab counts one
+- a matched line opens a block when the next non-blank line after it is indented more; a matched line which opens no
+  block (the next non-blank line is indented at most as much, or there is none) gets no context after it. A Markdown
+  heading followed by its text, which isn't indented, opens no block
+- the block context is the lines after the matched line up to the first non-blank line indented at most as much as
+  the matched line, without the blank lines at its end
+- that line is included when it is a closing line indented exactly as much as the matched line: after its
+  indentation it starts with `}`, `)`, `]` or `</`, or its first word is `end`, `fi`, `done` or `esac`. A closing line
+  followed by a non-blank line indented more than the matched line opens the block again (`} else {`,
+  `) -> Config {`): the block goes on after it. A Python function has no closing line, its block ends with its body
+- the block contexts of several matched lines merge like any context (see [Blocks](#blocks)): two matches in one
+  block, a match in a nested block or on the closing line give one block with every line once; `--` between blocks
+  and the [dedent](#dedent) of a block are as always
+- `before`, `blank_context` and `dedent` work with it as with a number of lines; `context` is a number only and
+  `after` defaults to it, so `"context": 2, "after": "block"` is two lines before and the block after
+- `after` is a number or `"block"` in a request and in the [configuration](CONFIG.md#output); another value is
+  `invalid_option`: `'output.after' must be a whole number or "block"`, in `update_config` `invalid_value` with the
+  hint `a whole number or "block" is expected`
+- the block context counts in `max_output_per_file` and `max_output` like any context, `max_lines` counts the matched
+  lines only (see [Limits and truncation](#limits-and-truncation)). When one of them cuts a file inside the block
+  context of a listed matched line, the line `… N more lines of the block` follows the last listed line: `N` lines of
+  the file from the first one left out to the end of the block, blank ones too, so the agent can read exactly them.
+  The line is not counted by the limits; in JSON the block has `"more_lines": N` after its `lines`;
+  [omit](#omit) `more_lines` leaves it out
+- the [budget](#budget) drops the block context at its level 2 with the other context lines
+
+```json
+{ "query": "text has 'fn load('", "output": { "after": "block" } }
+```
+
+```
+files: 1  lines: 1  matches: 1  result: r1
+
+src/
+lib.rs  lines: 1  matches: 1
+3:pub ⟦fn load(⟧path: &str) -> String {
+4-    let raw = read(path);
+5-    if raw.is_empty() {
+6-        return String::new();
+7-    }
+8-    raw
+9-}
+```
 
 ### Long lines
 
@@ -1079,6 +1130,7 @@ in spec 1 the default `[]` leaves out nothing.
 | `line_counts`  | `: 2` of `42: 2` of `count_by = line`                          | `matches` of `matched_lines`           |
 | `gaps`         | `--` between blocks                                           | —                                      |
 | `indent`       | the `⇥N` line, the block stays dedented                       | `indent` of a block                    |
+| `more_lines`   | `… N more lines of the block` of a cut [block context](#block-context) | `more_lines` of a block    |
 | `locations`    | the locations of a [repeated line](#repeated-lines)           | `locations` of a repeated line         |
 | `warnings`     | the warning lines and the empty line before them              | `warnings`                             |
 | `left_out`     | spec 2: the line `warnings left out: ...` of the omitted warnings | `left_out`                         |
@@ -1121,7 +1173,7 @@ warning: binary_skipped (1): data.bin
   own; in spec 2 the list of a request is added to the configured one, see [Defaults of spec 2](#defaults-of-spec-2).
   Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of parts
   (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts,
-  gaps, indent, locations, warnings, left_out)`; in `update_config` `invalid_value` with the same list in the hint
+  gaps, indent, more_lines, locations, warnings, left_out)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
   incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
@@ -1158,7 +1210,7 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   query has more than one [counted condition](#counted-conditions) (with one, the agent wrote it, and every `[#1]` and
   `#1:` repeats it), with [`groups`](#shown-groups) `match_ids` instead only when the list has more than
   one reference; `gaps`
-  only with context lines (`before` or `after` above 0) or without `line_numbers` (the line numbers show the gaps)
+  only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line numbers show the gaps)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
   `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`

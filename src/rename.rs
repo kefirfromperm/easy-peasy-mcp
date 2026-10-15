@@ -760,7 +760,7 @@ mod tests {
             mode: Mode::Copy,
         };
         assert!(act(&m, &how).is_err());
-        assert!(names(&root.join("out")).is_empty());
+        assert_eq!(names(&root.join("out")).len(), 0);
     }
 
     #[test]

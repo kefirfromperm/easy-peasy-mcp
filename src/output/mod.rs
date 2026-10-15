@@ -21,7 +21,7 @@ pub mod omit;
 mod repeated;
 mod sort;
 
-pub use blocks::BlockOptions;
+pub use blocks::{After, BlockOptions};
 pub use budget::fit;
 pub use funnel::Hint;
 use listing::{Listed, Listing};

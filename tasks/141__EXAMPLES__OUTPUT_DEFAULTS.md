@@ -608,7 +608,7 @@ Fixture: `omit`
 {"query": "text has 'unwrap('", "output": {"show": "none"}}
 ```
 ```text error
-error[invalid_option]: 'output.show' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)
+error[invalid_option]: 'output.show' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
 ```
 
 2. `show` in `update_config`
@@ -618,7 +618,7 @@ error[invalid_option]: 'output.show' must be "all" or a list of parts (counts, r
 ```
 ```text error
 error[invalid_value]: invalid value for 'output.show'
-  hint: "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected
+  hint: "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected
 ```
 
 3. a spec version which doesn't exist

@@ -138,7 +138,7 @@ facet_limit = 8
 meta = false
 context = 0
 # before = 0                    # not set: equal to `context`
-# after = 0                     # not set: equal to `context`
+# after = 0                     # not set: equal to `context`; "block": to the end of the block
 path_fragments = false
 groups = []                     # the group references whose matches are shown; []: all
 only_match = false              # true: the matches instead of their lines (grep -o)
@@ -428,7 +428,7 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `meta`                 | bool        | `false`        |
 | `context`              | number      | `0`            |
 | `before`               | number      | `context`      |
-| `after`                | number      | `context`      |
+| `after`                | number or `"block"` | `context` |
 | `path_fragments`       | bool        | `false`        |
 | `groups`               | list        | `[]`           |
 | `only_match`           | bool        | `false`        |
@@ -453,7 +453,7 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 
 `omit`: `"all"` or a list of the parts of [OUTPUT.md](OUTPUT.md#omit), otherwise `invalid value for 'output.omit':
 "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups,
-line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected`. `get_config` shows `omit = "all"` or
+line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected`. `get_config` shows `omit = "all"` or
 the list, the default of the current spec version. `show` takes the same values (`invalid value for 'output.show'`),
 see [OUTPUT.md](OUTPUT.md#defaults-of-spec-2).
 

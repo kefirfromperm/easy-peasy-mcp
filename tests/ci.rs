@@ -66,7 +66,7 @@ fn tracked_names_are_portable() {
     }
     let listed = String::from_utf8(output.stdout).expect("UTF-8 paths");
     let paths: Vec<&str> = listed.split('\0').filter(|p| !p.is_empty()).collect();
-    assert!(!paths.is_empty());
+    assert_ne!(paths.len(), 0);
     let mut folded: HashMap<String, &str> = HashMap::new();
     for path in paths {
         for name in path.split('/') {

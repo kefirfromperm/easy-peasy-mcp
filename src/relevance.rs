@@ -221,7 +221,7 @@ mod tests {
         assert!(!q.ranking.fuzzy);
         assert_eq!(q.ranking.conditions, 3);
         assert_eq!(query("text has 'unwrap('").ranking.words, ["unwrap"]);
-        assert!(query("text has 'a b'").ranking.words.is_empty());
+        assert_eq!(query("text has 'a b'").ranking.words.len(), 0);
         let q = query("name ~~ 'cfg' or not text has 'x'");
         assert!(q.ranking.fuzzy);
         assert_eq!(q.ranking.conditions, 1, "nothing under not");

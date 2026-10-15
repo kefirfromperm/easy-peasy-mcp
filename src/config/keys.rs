@@ -195,7 +195,7 @@ impl Key {
             ),
             Self::Context => ("output", "context", Type::Whole(None)),
             Self::Before => ("output", "before", Type::OptWhole),
-            Self::After => ("output", "after", Type::OptWhole),
+            Self::After => ("output", "after", Type::After),
             Self::Dedent => ("output", "dedent", Type::Bool),
             Self::BlankContext => ("output", "blank_context", Type::Bool),
             Self::PathFragments => ("output", "path_fragments", Type::Bool),
@@ -380,6 +380,8 @@ pub enum Type {
     Whole(Option<&'static str>),
     /// A whole number, or not set.
     OptWhole,
+    /// `output.after`: a whole number or `"block"`, or not set (OUTPUT.md#block-context).
+    After,
     /// A whole number and `ms`, `s` or `m`, as written.
     Duration,
     /// A list of strings; what they are, e.g. `file names`.
@@ -416,6 +418,9 @@ pub enum Type {
     GroupRefs,
 }
 
+/// The value of `output.after` which makes the context go on to the end of the block (OUTPUT.md#block-context).
+pub const BLOCK: &str = "block";
+
 /// The facets of `detail = facets` (OUTPUT.md#facets).
 pub const FACETS: [&str; 6] = ["dir", "ext", "lang", "kind", "git", "condition"];
 
@@ -427,6 +432,7 @@ impl Type {
         match self {
             Self::Bool => "true or false is expected".to_string(),
             Self::Whole(None) | Self::OptWhole => "a whole number is expected".to_string(),
+            Self::After => "a whole number or \"block\" is expected".to_string(),
             Self::Whole(Some(note)) => format!("a whole number is expected ({note})"),
             Self::Duration => "a duration like \"30s\" is expected (units ms, s, m)".to_string(),
             Self::List(what) => format!("a list of {what} is expected"),
@@ -457,6 +463,7 @@ impl Type {
         match self {
             Self::Bool => "true or false".to_string(),
             Self::Whole(_) | Self::OptWhole => "a whole number".to_string(),
+            Self::After => "a whole number or \"block\"".to_string(),
             Self::Duration => "a duration like \"10s\" (units ms, s, m)".to_string(),
             Self::List(_) | Self::Wildcards => "a list of strings".to_string(),
             Self::NonEmptyList(_) => "a non-empty list of strings".to_string(),
@@ -531,6 +538,14 @@ impl Type {
                 .as_integer()
                 .and_then(|n| usize::try_from(n).ok())
                 .map(Value::Whole),
+            Self::After => match item.as_str() {
+                Some(BLOCK) => Some(Value::Text(BLOCK.to_string())),
+                Some(_) => None,
+                None => item
+                    .as_integer()
+                    .and_then(|n| usize::try_from(n).ok())
+                    .map(Value::Whole),
+            },
             Self::AtLeast(min) | Self::OptAtLeast(min) => item
                 .as_integer()
                 .and_then(|n| usize::try_from(n).ok())
@@ -600,6 +615,14 @@ impl Type {
                 .as_u64()
                 .and_then(|n| usize::try_from(n).ok())
                 .map(Value::Whole),
+            Self::After => match value.as_str() {
+                Some(BLOCK) => Some(Value::Text(BLOCK.to_string())),
+                Some(_) => None,
+                None => value
+                    .as_u64()
+                    .and_then(|n| usize::try_from(n).ok())
+                    .map(Value::Whole),
+            },
             Self::AtLeast(min) | Self::OptAtLeast(min) => value
                 .as_u64()
                 .and_then(|n| usize::try_from(n).ok())
@@ -852,6 +875,18 @@ mod tests {
         );
         assert_eq!(Type::Bool.parse_toml(&item("1")), None);
         assert_eq!(Type::OptWhole.parse_toml(&item("-1")), None);
+        assert_eq!(Type::After.parse_toml(&item("3")), Some(Value::Whole(3)));
+        assert_eq!(
+            Type::After.parse_toml(&item("\"block\"")),
+            Some(Value::Text("block".into()))
+        );
+        assert_eq!(Type::After.parse_toml(&item("\"body\"")), None);
+        assert_eq!(
+            Type::After.parse_json(&json!("block")),
+            Some(Value::Text("block".into()))
+        );
+        assert_eq!(Type::After.parse_json(&json!(2)), Some(Value::Whole(2)));
+        assert_eq!(Type::After.parse_json(&json!(true)), None);
         assert_eq!(
             Type::Duration.parse_toml(&item("\"2m\"")),
             Some(Value::Text("2m".into()))
@@ -975,7 +1010,7 @@ mod tests {
             Type::Omit.check_toml(&item("['legend', 'gaps']")),
             Ok(Value::List(vec!["legend".into(), "gaps".into()]))
         );
-        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out) is expected";
+        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected";
         for bad in ["'none'", "['colour']", "1"] {
             assert_eq!(
                 Type::Omit.check_toml(&item(bad)),
@@ -994,7 +1029,7 @@ mod tests {
                 .check_json("output.omit", &json!("none"))
                 .unwrap_err()
                 .to_text(),
-            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, locations, warnings, left_out)\n"
+            "error[invalid_option]: 'output.omit' must be \"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)\n"
         );
         assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");

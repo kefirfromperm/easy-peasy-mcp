@@ -217,6 +217,9 @@ struct Block {
     #[serde(skip_serializing_if = "is_zero")]
     indent: usize,
     lines: Vec<Line>,
+    /// The lines left out at the end of a cut block context (OUTPUT.md#block-context).
+    #[serde(skip_serializing_if = "is_zero")]
+    more_lines: usize,
 }
 
 #[derive(Serialize)]
@@ -645,6 +648,11 @@ fn blocks(
                     line
                 })
                 .collect(),
+            more_lines: if omit.has(Part::MoreLines) {
+                0
+            } else {
+                block.more
+            },
         })
         .collect()
 }

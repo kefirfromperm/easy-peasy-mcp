@@ -1604,10 +1604,10 @@ mod tests {
                 "name has 'config.yml'"
             ]
         );
-        assert!(variations("text has 'x' /i")[0].1.is_empty());
-        assert!(variations("size > 1K")[0].1.is_empty());
+        assert_eq!(variations("text has 'x' /i")[0].1.len(), 0);
+        assert_eq!(variations("size > 1K")[0].1.len(), 0);
         assert_eq!(variations("name ~~ 'cfg'")[0].1, ["path ~~ 'cfg'"]);
-        assert!(variations("path ~~ 'cfg'")[0].1.is_empty());
+        assert_eq!(variations("path ~~ 'cfg'")[0].1.len(), 0);
         assert_eq!(
             variations("(text has 'a b')")[0].1,
             ["text has 'a b' /i", "text has 'a b' /n"]
@@ -2553,7 +2553,7 @@ mod tests {
     fn the_empty_query_has_no_filter_and_no_legend() {
         let q = parse(" \n ", &SENSITIVE).unwrap();
         assert!(q.filter.is_none());
-        assert!(q.legend.is_empty());
+        assert_eq!(q.legend.len(), 0);
     }
 
     #[test]

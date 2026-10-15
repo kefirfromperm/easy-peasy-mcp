@@ -1,6 +1,6 @@
 //! The budget of a response: the detail lowered until the response fits (OUTPUT.md#budget).
 
-use super::{BudgetUse, CountBy, Detail, Response};
+use super::{After, BudgetUse, CountBy, Detail, Response};
 
 /// The length of the lines at the third level.
 const CUT_LINES: usize = 120;
@@ -49,7 +49,7 @@ pub fn fit(
     if requested == Detail::Lines {
         lower(&mut response, Detail::Lines);
         response.blocks.before = 0;
-        response.blocks.after = 0;
+        response.blocks.after = After::Lines(0);
         let text = render(&response);
         if fits(&text) {
             return (text, response);
@@ -192,7 +192,7 @@ mod tests {
             count_by: CountBy::Total,
             blocks: BlockOptions {
                 before: 1,
-                after: 1,
+                after: After::Lines(1),
                 ..BlockOptions::default()
             },
             group_dirs: false,

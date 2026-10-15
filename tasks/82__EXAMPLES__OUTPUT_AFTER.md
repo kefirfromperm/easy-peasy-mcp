@@ -213,7 +213,7 @@ Fixture: `context`
 ```
 
 ```text error
-error[invalid_option]: 'output.after' must be a whole number
+error[invalid_option]: 'output.after' must be a whole number or "block"
 ```
 
 ## E82.6 An invalid value for `update_config`
@@ -226,7 +226,7 @@ Fixture: `context`
 
 ```text error
 error[invalid_value]: invalid value for 'output.after'
-  hint: a whole number is expected
+  hint: a whole number or "block" is expected
 ```
 
 ## E82.7 From the config file
@@ -323,5 +323,5 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```text stderr exit 1
-easy-peasy-mcp: conf/o.toml:2: invalid value for 'output.after': a whole number is expected
+easy-peasy-mcp: conf/o.toml:2: invalid value for 'output.after': a whole number or "block" is expected
 ```
