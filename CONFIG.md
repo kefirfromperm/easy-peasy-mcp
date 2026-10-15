@@ -144,13 +144,13 @@ groups = []                     # the group references whose matches are shown; 
 only_match = false              # true: the matches instead of their lines (grep -o)
 highlight = "auto"              # auto | none | columns | markers
 markers = ["⟦", "⟧"]
-max_files = 100
-max_lines = 500
-max_matches = 1000
-max_matches_per_file = 50
+max_files = 20                  # spec 1: 100
+max_lines = 100                 # spec 1: 500
+max_matches = 200               # spec 1: 1000
+max_matches_per_file = 10       # spec 1: 50
 max_line_length = 300
-max_output_per_file = 4000
-max_output = 40000
+max_output_per_file = 800       # spec 1: 4000
+max_output = 8000               # spec 1: 40000
 dedent = true
 blank_context = false
 group_dirs = true
@@ -434,13 +434,13 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `only_match`           | bool        | `false`        |
 | `highlight`            | string      | `"auto"`       |
 | `markers`              | two strings | `["⟦", "⟧"]`   |
-| `max_files`            | number      | `100`          |
-| `max_lines`            | number      | `500`          |
-| `max_matches`          | number      | `1000`         |
-| `max_matches_per_file` | number      | `50`           |
+| `max_files`            | number      | `20`, spec 1: `100` |
+| `max_lines`            | number      | `100`, spec 1: `500` |
+| `max_matches`          | number      | `200`, spec 1: `1000` |
+| `max_matches_per_file` | number      | `10`, spec 1: `50` |
 | `max_line_length`      | number      | `300`          |
-| `max_output_per_file`  | number      | `4000`         |
-| `max_output`           | number      | `40000`        |
+| `max_output_per_file`  | number      | `800`, spec 1: `4000` |
+| `max_output`           | number      | `8000`, spec 1: `40000` |
 | `dedent`               | bool        | `true`         |
 | `blank_context`        | bool        | `false`        |
 | `group_dirs`           | bool        | `true`         |
@@ -471,7 +471,9 @@ two non-empty strings, the opening and the closing marker; otherwise `invalid va
 strings are expected`, in a request `'output.markers' must be two non-empty strings`.
 
 `max_output` and `max_output_per_file` are in characters; a token is about 3–4 characters of code, so the default
-`max_output` is about 10–13 thousand tokens. `budget` is in tokens, converted with `chars_per_token`; tune it for the
+`max_output` is about 2–2.7 thousand tokens (spec 1: 10–13 thousand). The defaults of the limits are the ones of the
+spec version of the request, see [OUTPUT.md](OUTPUT.md#defaults-of-spec-2); `get_config` shows the ones of the
+current spec version. `budget` is in tokens, converted with `chars_per_token`; tune it for the
 tokenizer of your model. `chars_per_token` is a positive number, also with a fraction (`3.5`); otherwise
 `invalid value for 'output.chars_per_token': a positive number is expected`, in a request `'output.chars_per_token'
 must be a positive number`.
