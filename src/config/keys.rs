@@ -274,13 +274,14 @@ impl Key {
             Self::Threads | Self::MinDepth | Self::Context => Value::Whole(0),
             Self::FacetDepth => Value::Whole(2),
             Self::FacetLimit => Value::Whole(8),
-            Self::ResultCache | Self::MaxMatchesPerFile => Value::Whole(50),
-            Self::MaxFiles => Value::Whole(100),
-            Self::MaxLines => Value::Whole(500),
+            Self::ResultCache => Value::Whole(50),
+            Self::MaxFiles => Value::Whole(20),
+            Self::MaxLines => Value::Whole(100),
+            Self::MaxMatchesPerFile => Value::Whole(10),
             Self::MaxLineLength => Value::Whole(300),
-            Self::MaxOutputPerFile => Value::Whole(4000),
-            Self::MaxOutput => Value::Whole(40000),
-            Self::MaxMatches => Value::Whole(1000),
+            Self::MaxOutputPerFile => Value::Whole(800),
+            Self::MaxOutput => Value::Whole(8000),
+            Self::MaxMatches => Value::Whole(200),
             Self::MaxLevel | Self::GroupRepeated | Self::RepeatedLocations => Value::Whole(3),
             Self::FuzzyMinScore => Value::Number(0.5),
             Self::CharsPerToken => Value::Number(4.0),
@@ -323,11 +324,21 @@ impl Key {
         }
     }
 
-    /// The built-in default of the spec version `spec`: the default of `omit` is `[]` in spec 1 (OUTPUT.md#omit).
+    /// The built-in default of the spec version `spec`: in spec 1 the default of `omit` is `[]` (OUTPUT.md#omit) and
+    /// the limits of the output are the larger ones (OUTPUT.md#defaults-of-spec-2).
     #[must_use]
     pub fn default_for(self, spec: u32) -> Value {
+        if spec >= 2 {
+            return self.default_value();
+        }
         match self {
-            Self::Omit if spec < 2 => Value::List(Vec::new()),
+            Self::Omit => Value::List(Vec::new()),
+            Self::MaxFiles => Value::Whole(100),
+            Self::MaxLines => Value::Whole(500),
+            Self::MaxMatches => Value::Whole(1000),
+            Self::MaxMatchesPerFile => Value::Whole(50),
+            Self::MaxOutputPerFile => Value::Whole(4000),
+            Self::MaxOutput => Value::Whole(40000),
             _ => self.default_value(),
         }
     }
@@ -1099,6 +1110,24 @@ mod tests {
         assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
         assert_eq!(Key::Omit.default_for(2), Key::Omit.default_value());
         assert_eq!(Key::Detail.default_for(1), Key::Detail.default_value());
+    }
+
+    #[test]
+    fn the_limits_per_spec() {
+        for (key, spec1, spec2) in [
+            (Key::MaxFiles, 100, 20),
+            (Key::MaxLines, 500, 100),
+            (Key::MaxMatches, 1000, 200),
+            (Key::MaxMatchesPerFile, 50, 10),
+            (Key::MaxOutputPerFile, 4000, 800),
+            (Key::MaxOutput, 40000, 8000),
+            (Key::MaxLineLength, 300, 300),
+            (Key::ResultCache, 50, 50),
+        ] {
+            assert_eq!(key.default_for(1), Value::Whole(spec1), "{key:?}");
+            assert_eq!(key.default_for(2), Value::Whole(spec2), "{key:?}");
+            assert_eq!(key.default_value(), Value::Whole(spec2), "{key:?}");
+        }
     }
 
     #[test]

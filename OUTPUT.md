@@ -69,13 +69,13 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `only_match`           | `true`, `false`                                 | `false`    | write the matches instead of their lines (`grep -o`), see [Only the matches](#only-the-matches) |
 | `highlight`            | `auto`, `none`, `columns`, `markers`            | `auto`     | how matches are marked, see [Highlight](#highlight)       |
 | `markers`              | two strings                                     | `["⟦", "⟧"]` | opening and closing marker of `highlight = markers`     |
-| `max_files`            | number                                          | `100`      | max files in the response                                 |
-| `max_lines`            | number                                          | `500`      | max matched lines in the response, context not counted    |
-| `max_matches`          | number                                          | `1000`     | max fragments in the response                             |
-| `max_matches_per_file` | number                                          | `50`       | max fragments per file (`grep -m`)                        |
+| `max_files`            | number                                          | `20`       | max files in the response; spec 1: `100` |
+| `max_lines`            | number                                          | `100`      | max matched lines in the response, context not counted; spec 1: `500` |
+| `max_matches`          | number                                          | `200`      | max fragments in the response; spec 1: `1000` |
+| `max_matches_per_file` | number                                          | `10`       | max fragments per file (`grep -m`); spec 1: `50` |
 | `max_line_length`      | number                                          | `300`      | longer lines are cut around the matches                   |
-| `max_output_per_file`  | number                                          | `4000`     | max characters of matched lines and context of one file   |
-| `max_output`           | number                                          | `40000`    | max characters of the whole response                      |
+| `max_output_per_file`  | number                                          | `800`      | max characters of matched lines and context of one file; spec 1: `4000` |
+| `max_output`           | number                                          | `8000`     | max characters of the whole response; spec 1: `40000` |
 | `dedent`               | `true`, `false`                                 | `true`     | remove the common indentation of every block, see [Compact output](#compact-output) |
 | `blank_context`        | `true`, `false`                                 | `false`    | keep empty context lines                                  |
 | `group_dirs`           | `true`, `false`                                 | `true`     | group files under directory headers (text format), see [Directory groups](#directory-groups) |
@@ -790,6 +790,19 @@ When a limit is hit:
 The files are sorted before the limits are applied, so `sort: "modified desc", max_files: 10` returns the 10 most
 recently changed matching files.
 
+### How to get more
+
+The default limits are small (see [Defaults of spec 2](#defaults-of-spec-2)): a broad query is cut early rather than
+returned in full. A cut response says how to get the rest, with no extra part:
+
+- `truncated: yes (...)` names the limits which cut it, and every name is the output option to raise in the request,
+  e.g. `"output": { "max_matches_per_file": 50 }` for a file marked `(cut)`
+- `next cursor: ...` is given for the limits of the whole response (`max_files`, `max_lines`, `max_matches`,
+  `max_output`): the same request with `output.cursor` returns the next page, see [Pagination](#pagination); a file
+  cut by `max_matches_per_file` or `max_output_per_file` has no cursor, the limit is raised instead
+- a result of more than 10 × `max_files` files (200 by default) gets the [funnel](#funnel) and the hints of a huge
+  result, which say where the matches are and how to narrow the query
+
 With `path`, `modified`, `size` and `matches` the files are ordered by the value, `asc` from the lowest, `desc` from
 the highest; `matches` counts the content fragments. Files with equal values are ordered by the full path, in
 ascending order also with `desc`; files without the value (the size of a directory, the date of a member of an
@@ -1329,8 +1342,13 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`
 - the `omit` of a request (and of a [batch](#batch) item) is added to the configured one instead of replacing it:
   `omit = ["legend"]` keeps the warnings left out; `show` takes parts back. In spec 1 it replaces the configured one
-- `"version": 1` in a request keeps the defaults of spec 1: `omit = []` when the configuration doesn't set it, no
-  rules, no `left_out`, the request `omit` replaces the configured one; a configured `omit` applies to both versions
+- the built-in [limits](#limits-and-truncation) are smaller: `max_files = 20`, `max_lines = 100`,
+  `max_matches = 200`, `max_matches_per_file = 10`, `max_output_per_file = 800`, `max_output = 8000` (spec 1: `100`,
+  `500`, `1000`, `50`, `4000`, `40000`), so one over-broad query costs about 2 thousand tokens instead of 10, and the
+  agent narrows it or pages on, see [How to get more](#how-to-get-more); `max_line_length` stays `300`
+- `"version": 1` in a request keeps the defaults of spec 1: `omit = []` and the limits of spec 1 when the
+  configuration doesn't set them, no rules, no `left_out`, the request `omit` replaces the configured one; a
+  configured `omit` or limit applies to both versions
 
 The request of the example above with the defaults of spec 2:
 
@@ -1504,7 +1522,8 @@ Several queries in one call: one round trip, one response.
   have stopped (a `detail = exists` query stops at its first match)
 - `budget` and `max_output` are for the whole response, split equally between the queries; what a query doesn't use
   goes to the next ones; a query which sets its own `output.budget` or `output.max_output` gets exactly that, the
-  rest is split between the others
+  rest is split between the others. With the default `max_output` of 8000 characters each of four queries gets at
+  least 2000; a query which needs more sets its own `output.max_output`
 - result ids, legends and funnels are per query, each where it applies (a `count` query has no legend)
 - in the text format every section starts with `== label ==` (the number of the query if it has no label) on its
   header line
@@ -1584,6 +1603,9 @@ written: /tmp/easy-peasy-mcp/todos.txt  lines: 1652  bytes: 98304
   the configuration are for the context of the agent; the other [limits](#limits-and-truncation) (`max_files`,
   `max_lines`, `max_matches`, `max_matches_per_file`, `max_line_length`) apply as usual, and a cut response has its
   `next_cursor`
+- the small built-in defaults of spec 2 are for the context of the agent too: `max_files`, `max_lines`,
+  `max_matches` and `max_matches_per_file` which neither the request nor the configuration sets have the built-in
+  defaults of spec 1 in a file (`100`, `500`, `1000`, `50`)
 - the read-only [`server.max_output_file_size`](CONFIG.md#server) (default `100M`) is a hard cap: it counts the
   characters of the listed files like `max_output` (their paths and lines, so the file can be a little bigger by the
   header, the legend and the warnings) and cuts the response like `max_output`; `truncated_by` names

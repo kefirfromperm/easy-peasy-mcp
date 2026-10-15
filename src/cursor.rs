@@ -78,6 +78,12 @@ pub fn request_hash(arguments: &Value) -> String {
     if let Some(output) = request.get_mut("output").and_then(Value::as_object_mut) {
         output.remove("cursor");
         output.remove("file");
+        // `"output": { "cursor": ... }` of the next page is the request without `output`
+        if output.is_empty()
+            && let Some(request) = request.as_object_mut()
+        {
+            request.remove("output");
+        }
     }
     let text = serde_json::to_string(&request).expect("a JSON value serializes");
     let mut hash: u32 = 0x811c_9dc5;
@@ -132,6 +138,15 @@ mod tests {
         let plain = json!({ "query": "x", "output": { "max_files": 2 } });
         let filed =
             json!({ "query": "x", "output": { "max_files": 2, "file": "a.txt", "cursor": "c" } });
+        assert_eq!(request_hash(&plain), request_hash(&filed));
+    }
+
+    #[test]
+    fn a_request_without_output_has_the_hash_of_its_next_page() {
+        let plain = json!({ "query": "x" });
+        let next = json!({ "query": "x", "output": { "cursor": "c" } });
+        assert_eq!(request_hash(&plain), request_hash(&next));
+        let filed = json!({ "query": "x", "output": { "file": true } });
         assert_eq!(request_hash(&plain), request_hash(&filed));
     }
 

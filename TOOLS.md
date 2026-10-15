@@ -73,7 +73,7 @@ The spec versions:
 | Version | Changes                                                                                               |
 |---------|-------------------------------------------------------------------------------------------------------|
 | `1`     | the first one: every part of the response is written unless `output.omit` leaves it out               |
-| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line; a repeated line with context lines grouped only with the same context ([OUTPUT.md](OUTPUT.md#repeated-lines-with-context)); the `omit` of a request is added to the configured one |
+| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line; a repeated line with context lines grouped only with the same context ([OUTPUT.md](OUTPUT.md#repeated-lines-with-context)); the `omit` of a request is added to the configured one; smaller default limits of the output (`max_files = 20`, `max_lines = 100`, `max_matches = 200`, `max_matches_per_file = 10`, `max_output_per_file = 800`, `max_output = 8000`) |
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
@@ -1175,7 +1175,7 @@ c.rs  unchanged
 ```
 
 - the lines are written as they are, without highlight, dedent or a limit of their length
-- `output.max_lines` (default: the configuration, 500) is the most `-` and `+` lines of the response: the files after
+- `output.max_lines` (default: the configuration, 100; spec 1: 500) is the most `-` and `+` lines of the response: the files after
   it are written without their lines, and the entries end with `… N more lines`
 - an unchanged entry counts as done for `isError`
 - JSON: `"replaced"`, `"matches"`, then `"unchanged"` when not 0; a changed file has `"matches"` and `"changes"`, each

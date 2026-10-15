@@ -601,13 +601,13 @@ easy-peasy-mcp --config config.toml
 {"query": "text has 'TODO'", "output": {"file": "page1.txt"}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output_file_size)  next cursor: eyJ2IjoxLCJoIjoiZjYyOTJhOTkiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
+files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output_file_size)  next cursor: eyJ2IjoxLCJoIjoiMWFkODBmOTAiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
 written: <output_dir>/page1.txt  lines: 14  bytes: 401
 
 warning: output_file_truncated
 ```
 ```text file page1.txt
-files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output_file_size)  next cursor: eyJ2IjoxLCJoIjoiZjYyOTJhOTkiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
+files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output_file_size)  next cursor: eyJ2IjoxLCJoIjoiMWFkODBmOTAiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
 #1 text has 'TODO'
 
 src/
@@ -626,7 +626,7 @@ warning: output_file_truncated
 2. the next page
 
 ```json request
-{"query": "text has 'TODO'", "output": {"file": "page2.txt", "cursor": "eyJ2IjoxLCJoIjoiZjYyOTJhOTkiLCJmIjoyLCJ0IjpbMyw0LDRdfQ"}}
+{"query": "text has 'TODO'", "output": {"file": "page2.txt", "cursor": "eyJ2IjoxLCJoIjoiMWFkODBmOTAiLCJmIjoyLCJ0IjpbMyw0LDRdfQ"}}
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r2

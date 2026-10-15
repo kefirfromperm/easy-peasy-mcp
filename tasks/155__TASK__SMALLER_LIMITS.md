@@ -1,6 +1,6 @@
 # Task 155: Smaller default output limits
 
-Status: not implemented
+Status: implemented, see [155__SUMMARY__SMALLER_LIMITS.md](155__SUMMARY__SMALLER_LIMITS.md)
 
 Depends on: task 101, task 141
 
