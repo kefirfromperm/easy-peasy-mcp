@@ -1,6 +1,6 @@
 # Task 146: The ids which are the same everywhere are left out
 
-Status: in progress
+Status: implemented, see [146__SUMMARY__IDS_SAME_EVERYWHERE.md](146__SUMMARY__IDS_SAME_EVERYWHERE.md)
 
 Depends on: task 141, task 143
 
