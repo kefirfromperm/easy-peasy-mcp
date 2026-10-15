@@ -1057,6 +1057,7 @@ writes `⇥N` before every block which has common whitespace.
 - the lines of the [repeated](#repeated-lines) section are written without their leading whitespace and have no
   `⇥N`; a file which follows starts with 0 as always
 - `omit = ["indent"]` leaves every `⇥N` out, the blocks stay dedented; JSON keeps `"indent"` on every block
+- `show = ["indent"]` (and `show = "all"`) writes `⇥N` before every dedented block, as spec 1 does
 
 ```
 lib.rs  lines: 2  matches: 2
@@ -1243,7 +1244,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   query has more than one [counted condition](#counted-conditions) (with one, the agent wrote it, and every `[#1]` and
   `#1:` repeats it) and only where they tell something apart, see [The same everywhere](#the-same-everywhere); with
   [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
-  only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line numbers show the gaps)
+  only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line
+  numbers show the gaps); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
   `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`
