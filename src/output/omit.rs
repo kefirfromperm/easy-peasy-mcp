@@ -122,24 +122,25 @@ impl Omit {
     }
 
     /// The parts a response of the spec version `spec` leaves out (OUTPUT.md#defaults-of-spec-2): these, in spec 2
-    /// also the parts of its rules — the legend, the conditions and the ids of the matches with at most one
-    /// `condition` (the ids with at most one of the `references` of `output.groups`, when it is set), the gaps without `context` lines while the line numbers are written — except the parts of `show`;
-    /// spec 1 has no line of the omitted warnings.
+    /// also the parts of its rules — the legend, the conditions and the ids of the matches unless the query has
+    /// `many_conditions` (the ids with at most one of the `references` of `output.groups`, when it is set), the gaps
+    /// without `context` lines while the line numbers are written — except the parts of `show`; spec 1 has no line
+    /// of the omitted warnings.
     #[must_use]
     pub fn effective(
         self,
         show: Self,
         spec: u32,
-        conditions: usize,
+        many_conditions: bool,
         context: bool,
         references: Option<usize>,
     ) -> Self {
         let mut omit = self;
         if spec >= 2 {
-            if conditions <= 1 {
+            if !many_conditions {
                 omit = omit.union(Self::from_parts(&[Part::Legend, Part::Conditions]));
             }
-            if references.unwrap_or(conditions) <= 1 {
+            if references.map_or(!many_conditions, |n| n <= 1) {
                 omit = omit.union(Self::from_parts(&[Part::MatchIds]));
             }
             if !context && !omit.has(Part::LineNumbers) {

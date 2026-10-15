@@ -1059,7 +1059,7 @@ impl Engine {
         let omit = omit(settings).effective(
             Omit::from_value(settings.value(Key::Show)),
             spec,
-            query.legend.len(),
+            query.many_conditions,
             blocks.before + blocks.after > 0,
             references,
         );

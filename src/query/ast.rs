@@ -364,6 +364,23 @@ impl Expr {
         }
     }
 
+    /// The conditions the agent wrote which can produce ids (OUTPUT.md#counted-conditions): a group counts what is
+    /// inside it, at least one; a condition under `not` counts nothing.
+    pub fn counted(&self) -> usize {
+        match self {
+            Self::Or(items) | Self::Xor(items) | Self::And(items) => {
+                items.iter().map(Self::counted).sum()
+            }
+            Self::Not(_) => 0,
+            Self::Group(inner) => inner.counted(),
+            Self::Node(node) => match &node.kind {
+                NodeKind::Condition(_) => 1,
+                NodeKind::Line(inner) | NodeKind::Group(inner) => inner.counted().max(1),
+                NodeKind::Near(near) => (near.a.counted() + near.b.counted()).max(1),
+            },
+        }
+    }
+
     /// Calls `f` for every node in the order of appearance.
     pub fn visit_nodes(&self, f: &mut impl FnMut(&Node)) {
         match self {
