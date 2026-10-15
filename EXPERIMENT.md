@@ -215,7 +215,10 @@ real question, what the task cost.
 | Examples | 4 (E151.1–E151.4) | 10 (E151.1–E151.10) |
 | Tests | lib 359 + all targets pass | lib 358 + all targets pass |
 | Clippy, fmt | ✅ | ✅ |
-| Kept to its tool rules | ❌ ~7 times (`grep`/`head` on cargo output), once `git ls-tree` to list files | ✅ |
+| Context: start → end | 31.5K → 131K (+15.2K from loading the 6 easy-peasy tool schemas) | 31.3K → 120K |
+| All tool results | ~121K chars (Read 86K, find 16K, Bash 12K) | ~119K chars (Bash 100K, Read 18K) |
+| Edits | 19 `Edit`, 6 `Write` | 3 `Edit`, 3 `Write`, 3 `sed -i`, 1 heredoc, 3 `python3` scripts |
+| Kept to its tool rules | ❌ ~7 times (`grep`/`head` on cargo output), once `git ls-tree` to list files | ❌ 3 multi-replacement edits with `python3` (a 4th refused by the worktree guard) |
 
 - **Quality:** the same design: `Part::Indent`, the leading spaces and tabs of the line where the match starts (the
   whole indentation also for a match inside or after it, the first line of a multiline match, a match at a line break
@@ -235,6 +238,10 @@ real question, what the task cost.
 - **B's friction:** structure-blind search: whole spec sections printed with `sed -n` ranges to find one table;
   the worktree guard refused three commands that only looked risky; checking literal tabs in examples needed
   `grep -cP '\t'`.
-- **Outcome:** the closest run so far: A cost ~10% more tokens (run 2: ~25%, run 1: ~30%) while receiving less than
-  half of B's tool output. B read more whole files; A spent more calls on the agent's own steps (9 commits, a fix
-  commit for two examples, a formatting commit).
+- **Why A cost more:** the tool schemas, not the searches. Loading the six easy-peasy tools (three never used) added
+  15.2K tokens to A's context, more than the whole 11.7K difference; without it A grew ~4K less than B. Both received
+  ~120K chars of tool results (both read AGENTS.md whole); A also read `src/template.rs` (12K, `rename` templates,
+  out of scope) and paid for two wrong examples and a separate fmt commit. A's 14 extra calls are edits: one `Edit`
+  per change, where B batched several replacements into one `python3` script.
+- **Outcome:** the closest run so far: A cost ~10% more tokens (run 2: ~25%, run 1: ~30%), all of it the fixed cost
+  of the tool schemas, which runs 1 and 2 paid too.
