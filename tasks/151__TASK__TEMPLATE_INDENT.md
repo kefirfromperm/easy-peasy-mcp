@@ -1,6 +1,6 @@
 # Task 151: The indentation of the line in a replace template
 
-Status: in progress
+Status: implemented, see [151__SUMMARY__TEMPLATE_INDENT.md](151__SUMMARY__TEMPLATE_INDENT.md)
 
 Depends on: task 129
 
