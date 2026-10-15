@@ -1099,8 +1099,10 @@ it with spaces or tabs.
 - a line break of the template is not followed by the indentation on its own: the template says where it goes, so a
   new line without `{indent}` starts at the first column
 - it is written as it is in the file: `/e` doesn't escape it; `/n` writes the whole new text in the naming style of
-  the match, which has no spaces or tabs, so it is left out there unless `"naming": false` Errors (`invalid_template`), with the position in the template, in JSON the field `replace` with the template as
-its text:
+  the match, which has no spaces or tabs, so it is left out there unless `"naming": false`
+
+Errors (`invalid_template`), with the position in the template, in JSON the field `replace` with the template as its
+text:
 
 | Example `@old`       | Message                                   | Hint                                                     |
 |----------------------|-------------------------------------------|----------------------------------------------------------|
@@ -1111,8 +1113,8 @@ its text:
 | `@old}`              | `unmatched '}'`                           | `write '}}' for a brace`                                 |
 
 The hint lists the group and its capture groups like the hint of `unknown_group`; for a placeholder which is not a
-group reference (`{name}`, `{}`) also `{indent}`. The position of a placeholder is
-the placeholder with its braces, of an unclosed `{` from it to the end, of `}` the character.
+group reference (`{name}`, `{}`) also `{indent}`. The position of a placeholder is the placeholder with its braces,
+of an unclosed `{` from it to the end, of `}` the character.
 
 **`/n`.** A match of a condition with `/n` gets the new text — the template with its placeholders filled in — in the
 naming style of the match: the new text is split into words like the value of `/n`
