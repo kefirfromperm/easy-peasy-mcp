@@ -1276,7 +1276,8 @@ main.rs  [#1]  lines: 1  matches: 1
 warning: binary_skipped (1): data.bin
 ```
 
-- `omit` is a list of parts or `"all"`; it is a request option and a [configuration key](CONFIG.md#output): the list of
+- `omit` is a list of parts or `"all"`; a list with `"all"` among its items is the list form of `"all"`: `["all"]` and
+  `["all", "legend"]` leave out every part, like `"all"`, in every spec version; it is a request option and a [configuration key](CONFIG.md#output): the list of
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
   own; in spec 2 the list of a request is added to the configured one, see [Defaults of spec 2](#defaults-of-spec-2).
   Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of parts
@@ -1323,7 +1324,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   working directory of `dir` once in the `in:` line when it is the only one and absolute, see
   [One working directory](#one-working-directory)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
-  part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
+  part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1, and a list with
+  `"all"` among its items (`["all"]`) is `"all"`, like in `omit`. Another value is
   `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`
 - the `omit` of a request (and of a [batch](#batch) item) is added to the configured one instead of replacing it:
   `omit = ["legend"]` keeps the warnings left out; `show` takes parts back. In spec 1 it replaces the configured one
