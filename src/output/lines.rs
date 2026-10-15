@@ -85,8 +85,8 @@ pub(super) fn lines_of(content: &Content, fragments: &[Fragment]) -> Vec<usize> 
 }
 
 /// The blocks as `N:text` for a matched line and `N-text` for a context line in the highlight style, `--` between
-/// blocks, `⇥N` before a dedented block; without the line numbers, the gaps and the `⇥N` lines which `omit` leaves
-/// out.
+/// blocks, `⇥N` before a dedented block — with `carry` (spec 2) only where the indentation differs from the one in
+/// effect, 0 at the start; without the line numbers, the gaps and the `⇥N` lines which `omit` leaves out.
 pub fn render(
     content: &Content,
     fragments: &[Fragment],
@@ -94,16 +94,24 @@ pub fn render(
     highlight: Highlight<'_>,
     max_line_length: usize,
     omit: Omit,
+    carry: bool,
 ) -> String {
     let parts = merge_overlapping(fragments);
     let mut out = String::new();
+    let mut in_effect = 0;
     for (i, block) in blocks.iter().enumerate() {
         if i > 0 && !omit.has(OmitPart::Gaps) {
             out.push_str("--\n");
         }
-        if block.indent > 0 && !omit.has(OmitPart::Indent) {
+        let changed = if carry {
+            block.indent != in_effect
+        } else {
+            block.indent > 0
+        };
+        if changed && !omit.has(OmitPart::Indent) {
             let _ = writeln!(out, "⇥{}", block.indent);
         }
+        in_effect = block.indent;
         let plain = match highlight {
             Highlight::Auto(open, close) => {
                 plain_lines(content, &parts, block, [open, close], max_line_length)
@@ -646,6 +654,7 @@ mod tests {
             Highlight::Markers("⟦", "⟧"),
             usize::MAX,
             super::super::omit::Omit::default(),
+            false,
         )
     }
 
@@ -737,7 +746,8 @@ mod tests {
                 &blocks,
                 Highlight::Columns,
                 usize::MAX,
-                Omit::default()
+                Omit::default(),
+                false
             ),
             "1:é = x x\n  @ 5..6 #1,#3  @ 7..8 #2/e0\n2:ab\n  @ 1..3:3 #1\n3:cd\n"
         );
@@ -748,7 +758,8 @@ mod tests {
                 &blocks,
                 Highlight::None,
                 usize::MAX,
-                Omit::default()
+                Omit::default(),
+                false
             ),
             "1:é = x x\n2:ab\n3:cd\n"
         );
@@ -850,6 +861,7 @@ mod tests {
                 Highlight::Markers("⟦", "⟧"),
                 usize::MAX,
                 omit,
+                false,
             )
         };
         assert_eq!(
@@ -859,6 +871,46 @@ mod tests {
         );
         let all = Omit::from_parts(&[OmitPart::LineNumbers, OmitPart::Gaps, OmitPart::Indent]);
         assert_eq!(render_omit(all), "one ⟦two⟧\nfive ⟦#1:two⟧\n");
+    }
+
+    #[test]
+    fn the_indentation_is_written_where_it_changes() {
+        let c = Content::from_bytes(b"    a\nx\n    b\nx\n        c\nx\nd\nx\n    e\n");
+        let fragments: Vec<Fragment> = ["a", "b", "c", "d", "e"]
+            .iter()
+            .map(|w| {
+                let i = c.text().find(w).unwrap();
+                frag(i..i + 1, &[])
+            })
+            .collect();
+        let blocks = super::super::blocks::blocks(
+            &c,
+            &fragments,
+            &super::super::BlockOptions {
+                dedent: true,
+                ..super::super::BlockOptions::default()
+            },
+        );
+        let omit = Omit::from_parts(&[OmitPart::Gaps]);
+        let render_carry = |carry| {
+            render(
+                &c,
+                &fragments,
+                &blocks,
+                Highlight::None,
+                usize::MAX,
+                omit,
+                carry,
+            )
+        };
+        assert_eq!(
+            render_carry(true),
+            "⇥4\n1:a\n3:b\n⇥8\n5:c\n⇥0\n7:d\n⇥4\n9:e\n"
+        );
+        assert_eq!(
+            render_carry(false),
+            "⇥4\n1:a\n⇥4\n3:b\n⇥8\n5:c\n7:d\n⇥4\n9:e\n"
+        );
     }
 
     #[test]
@@ -886,6 +938,7 @@ mod tests {
             Highlight::Auto("⟦", "⟧"),
             max,
             super::super::omit::Omit::default(),
+            false,
         )
     }
 

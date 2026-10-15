@@ -1059,8 +1059,9 @@ impl Engine {
         .filter(|_| search.funnel);
         let spec = self.spec_of(request);
         let blocks = block_options(settings);
+        let show = Omit::from_value(settings.value(Key::Show));
         let omit = omit(settings).effective(
-            Omit::from_value(settings.value(Key::Show)),
+            show,
             spec,
             Differ::of(&files).and(query.many_conditions),
             detail == Detail::Lines || (detail == Detail::Files && search.path_fragments),
@@ -1132,6 +1133,7 @@ impl Engine {
             omit,
             in_dirs: in_dirs.as_deref(),
             spec,
+            carry_indent: spec >= 2 && !show.has(Part::Indent),
         };
         let (text, response) = match budget {
             Some(budget) => {

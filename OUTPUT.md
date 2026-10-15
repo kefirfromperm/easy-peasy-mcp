@@ -369,7 +369,7 @@ config.rs  [#1 #2]  lines: 1  matches: 1
   limit was hit, the encoding if it is not UTF-8; with `meta` also type, size, date, language, kind and, with
   `sort = relevance`, the score:
   `file 2.1K 2026-10-08 14:03 rust source 0.82`
-- `⇥4` — the indentation removed from the block, see [Dedent](#dedent)
+- `⇥4` — the indentation removed from the block (in spec 2 also from the blocks after it), see [Dedent](#dedent)
 - `42:` — a matched line, `41-` — a context line, `--` — a gap between blocks, like in `grep`
 - warnings at the end, prefixed with `warning:`
 
@@ -1045,6 +1045,30 @@ src/server/handlers.rs  [#1]  lines: 1  matches: 1
 
 In JSON the block has `"indent": 12`.
 
+In spec 2 a `⇥N` holds for the blocks after it until the next one: it is written only where the removed indentation
+differs from the one in effect, so a file whose matched lines all have the same indentation has one `⇥N`. Spec 1
+writes `⇥N` before every block which has common whitespace.
+
+- every file starts with the indentation 0: the indentation in effect doesn't carry over to the next file, a
+  directory header or a page of a [cursor](#pagination), so every file reads on its own
+- a block without common whitespace after a dedented one gets `⇥0`
+- the `⇥N` line comes after the `--` of the gap, as always; without `gaps` (`omit`) the blocks follow each other and
+  `⇥N` still marks where the indentation changes
+- the lines of the [repeated](#repeated-lines) section are written without their leading whitespace and have no
+  `⇥N`; a file which follows starts with 0 as always
+- `omit = ["indent"]` leaves every `⇥N` out, the blocks stay dedented; JSON keeps `"indent"` on every block
+- `show = ["indent"]` (and `show = "all"`) writes `⇥N` before every dedented block, as spec 1 does
+
+```
+lib.rs  lines: 2  matches: 2
+⇥4
+2:let raw = read().⟦unwrap(⟧);
+4:parse(&text).⟦unwrap(⟧)
+main.rs  lines: 1  matches: 1
+⇥4
+2:let cfg = load().⟦unwrap(⟧);
+```
+
 ### Blank context lines
 
 With `blank_context = false` empty and whitespace-only context lines are skipped; the line numbers show the gap.
@@ -1220,7 +1244,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   query has more than one [counted condition](#counted-conditions) (with one, the agent wrote it, and every `[#1]` and
   `#1:` repeats it) and only where they tell something apart, see [The same everywhere](#the-same-everywhere); with
   [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
-  only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line numbers show the gaps)
+  only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line
+  numbers show the gaps); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
   `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`
@@ -1238,7 +1263,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4
@@ -1293,7 +1317,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4

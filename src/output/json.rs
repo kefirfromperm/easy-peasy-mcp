@@ -808,6 +808,7 @@ mod tests {
             omit: crate::output::Omit::default(),
             in_dirs: None,
             spec: 1,
+            carry_indent: false,
         }
         .to_json();
         let sep = std::path::MAIN_SEPARATOR;
