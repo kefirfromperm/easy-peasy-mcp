@@ -1,6 +1,6 @@
 # Task 150: The error of "all" in a list of parts says what to write
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 134
 
