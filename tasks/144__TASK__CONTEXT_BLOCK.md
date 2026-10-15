@@ -1,6 +1,6 @@
 # Task 144: Context to the end of the block: `output.after = "block"`
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80, task 134
 
