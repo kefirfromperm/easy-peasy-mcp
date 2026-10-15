@@ -160,7 +160,7 @@ Top level
 | Field           | Levels             | Meaning                                                            |
 |-----------------|--------------------|--------------------------------------------------------------------|
 | `version`       | all, JSON only     | version of the response format, see [TOOLS.md](TOOLS.md#versioning) |
-| `dirs`          | with `path_style = in_dir`, JSON only | the working directories the paths are relative to, see [Paths](#paths) |
+| `dirs`          | with `path_style = in_dir`, or one absolute working directory in spec 2, JSON only | the working directories the paths are relative to, see [Paths](#paths) |
 | `exists`        | all                | `true` if at least one file matches                                |
 | `result`        | `count` and higher | id of this result, see [Result ids](#result-ids); absent if `server.result_cache = 0` |
 | `detail_used`   | `count` and higher | only if the [budget](#budget) lowered the detail level              |
@@ -209,7 +209,8 @@ Per file
 
 - `relative`: relative to the working directory. With several working directories the directory is written before
   the path as it was given in the request: `dirs: ["../api", "../web"]` → `../api/src/main.rs`, `../web/src/app.ts`.
-  The working directory `.` is omitted: `src/main.rs`.
+  The working directory `.` is omitted: `src/main.rs`. In spec 2 one working directory given as an absolute path is
+  written once, as with `in_dir`, see [One working directory](#one-working-directory).
 - `absolute`: the full canonical path: the canonical working directory (symlinks resolved, without the `\\?\`
   prefix on Windows) and the path inside it, a symlink inside it not resolved. The paths of the warnings and the
   directory headers of the text format are absolute too.
@@ -239,7 +240,7 @@ in: /home/me/app/.claude/worktrees/agent-1/
 
 src/
 cache.rs  [#1]  lines: 2  matches: 2
-output/
+src/output/
 json.rs  [#1]  lines: 1  matches: 1
 ```
 
@@ -260,7 +261,43 @@ json.rs  [#1]  lines: 1  matches: 1
   directory as always
 - [omit](#omit): `dir` leaves out the `in:` lines (JSON `dirs` and `dir`); the paths stay relative to their working
   directory
-- `in_dir` is the default of no spec version yet: it changes the text layout, see [TOOLS.md](TOOLS.md#versioning)
+- `in_dir` is the default of no spec version: with one absolute working directory `relative` writes the paths like
+  it in spec 2, see [One working directory](#one-working-directory); with several the two differ
+
+#### One working directory
+
+In spec 2 `path_style = relative` (the default) with one working directory given as an absolute path (`/…`, `C:\…`,
+`~/…`) writes the paths as `in_dir` does: the directory once in the `in:` line, the paths of the files, the
+directory headers, the [repeated lines](#repeated-lines), the [warnings](#warnings), the `dir` facet and the hints
+relative to it, JSON `dirs`. A worktree outside the default directory costs no more than `.`:
+
+```json
+{ "dirs": ["/home/me/app/.claude/worktrees/agent-1"], "query": "text has 'cache'", "output": { "detail": "files" } }
+```
+
+```
+files: 2  lines: 3  matches: 3  result: r1
+in: /home/me/app/.claude/worktrees/agent-1/
+
+src/
+cache.rs  lines: 2  matches: 2
+src/output/
+json.rs  lines: 1  matches: 1
+```
+
+- a relative working directory is unchanged: `dirs: ["src"]` writes `src/parser/`, `src/`; it is short, and the
+  `in: src/` line with a `./` header for the files directly in it would cost more than it saves. The working
+  directory `.` is unchanged too
+- several working directories are unchanged: every path with its working directory before it, as in spec 1
+- [`within`](#refine-within) writes the paths of the working directories of the referred result, so a result of one
+  working directory is refined with the `in:` line; `since` compares the paths relative to the working directory, as
+  always
+- `path` conditions see the path relative to the working directory, as always; the [write tools](TOOLS.md#write-tools)
+  select their files by a query or a result id, so the rule doesn't change their selection, and their own responses
+  write the paths as before
+- [omit](#omit): `dir` leaves out the `in:` line, the paths stay relative to the working directory. It is a rule of
+  the [defaults of spec 2](#defaults-of-spec-2): `show = ["dir"]` (and `show = "all"`) writes the working directory
+  before every path, as spec 1 does; `"version": 1` too
 
 #### Duplicates
 
@@ -1152,7 +1189,7 @@ in spec 1 the default `[]` leaves out nothing.
 |----------------|---------------------------------------------------------------|----------------------------------------|
 | `counts`       | `files: N  lines: N  matches: N` of the header                | `counts`, `counts_exact`               |
 | `result`       | `result: r1` of the header                                    | `result`                               |
-| `dir`          | the `in:` lines of `path_style = in_dir`                      | `dirs`, `dir` of a file                |
+| `dir`          | the `in:` lines of `path_style = in_dir` and of one absolute working directory | `dirs`, `dir` of a file                |
 | `legend`       | the legend lines                                              | `legend`                               |
 | `funnel`       | `funnel:` with its steps, and the hints                       | `funnel`, `hints`                      |
 | `hints`        | `hints:` with its lines                                       | `hints`                                |
@@ -1245,7 +1282,9 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   `#1:` repeats it) and only where they tell something apart, see [The same everywhere](#the-same-everywhere); with
   [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
   only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line
-  numbers show the gaps); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent)
+  numbers show the gaps); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent); the
+  working directory of `dir` once in the `in:` line when it is the only one and absolute, see
+  [One working directory](#one-working-directory)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
   `invalid_option`: `'output.show' must be "all" or a list of parts (...)`, with the list of the parts of `omit`

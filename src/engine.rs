@@ -1040,8 +1040,10 @@ impl Engine {
         let result_id = (detail != Detail::Exists)
             .then(|| self.keep_result(settings, arguments, &working_dirs, &files))
             .flatten();
-        // `in_dir`: with one working directory the facets, the hints and the warnings are made of the short paths
-        let in_dirs = in_dirs(settings, &working_dirs);
+        let spec = self.spec_of(request);
+        let show = Omit::from_value(settings.value(Key::Show));
+        // the working directory once: with one the facets, the hints and the warnings are made of the short paths
+        let in_dirs = in_dirs(settings.text(Key::PathStyle), spec, show, &working_dirs);
         let one_dir = working_dirs.len() == 1;
         strip_in_dirs(
             in_dirs.as_deref().filter(|_| one_dir),
@@ -1057,9 +1059,7 @@ impl Engine {
             max_files,
         )
         .filter(|_| search.funnel);
-        let spec = self.spec_of(request);
         let blocks = block_options(settings);
-        let show = Omit::from_value(settings.value(Key::Show));
         let omit = omit(settings).effective(
             show,
             spec,
@@ -1793,9 +1793,23 @@ fn answers(sections: Sections<Answer>) -> (Sections<String>, Sections<Head>) {
         .unzip()
 }
 
-/// The working directories as given with `path_style = in_dir`, by their index.
-fn in_dirs(settings: &Settings, working_dirs: &[(PathBuf, PathBuf)]) -> Option<Vec<PathBuf>> {
-    (settings.text(Key::PathStyle) == "in_dir").then(|| {
+/// The working directories as given, by their index, when they are written once: with `path_style = in_dir`, and in
+/// spec 2 with `relative` and one working directory given as an absolute path, unless `show` has `dir`
+/// (OUTPUT.md#one-working-directory).
+fn in_dirs(
+    path_style: &str,
+    spec: u32,
+    show: Omit,
+    working_dirs: &[(PathBuf, PathBuf)],
+) -> Option<Vec<PathBuf>> {
+    let once = match (path_style, working_dirs) {
+        ("in_dir", _) => true,
+        ("relative", [(_, given)]) => {
+            spec >= 2 && (given.is_absolute() || given.starts_with("~")) && !show.has(Part::Dir)
+        }
+        _ => false,
+    };
+    once.then(|| {
         working_dirs
             .iter()
             .map(|(_, prefix)| prefix.clone())
@@ -2268,6 +2282,31 @@ mod tests {
             key(json!({ "query": "text has 'x'", "kinds": { "test": ["*.t"] } })),
             plain
         );
+    }
+
+    #[test]
+    fn one_working_directory_is_written_once() {
+        let dir = |p: &str| (PathBuf::from(p), PathBuf::from(p));
+        let one = [dir("/w")];
+        let two = [dir("/w"), dir("other")];
+        let none = Omit::default();
+        let show_dir = Omit::from_parts(&[Part::Dir]);
+        assert_eq!(
+            in_dirs("relative", 2, none, &one),
+            Some(vec![PathBuf::from("/w")])
+        );
+        assert_eq!(in_dirs("relative", 1, none, &one), None, "spec 1");
+        assert_eq!(in_dirs("relative", 2, none, &two), None, "several");
+        assert!(in_dirs("relative", 2, none, &[dir("~/w")]).is_some(), "~");
+        assert_eq!(
+            in_dirs("relative", 2, none, &[dir("src")]),
+            None,
+            "relative"
+        );
+        assert_eq!(in_dirs("relative", 2, none, &[dir("")]), None, ".");
+        assert_eq!(in_dirs("relative", 2, show_dir, &one), None, "show dir");
+        assert_eq!(in_dirs("absolute", 2, none, &one), None);
+        assert!(in_dirs("in_dir", 1, show_dir, &two).is_some(), "in_dir");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 # Task 148: Paths relative to the only working directory
 
-Status: not implemented
+Status: implemented, see [148__SUMMARY__ONE_DIR_RELATIVE.md](148__SUMMARY__ONE_DIR_RELATIVE.md)
 
 Depends on: task 90, task 137
 
@@ -41,7 +41,7 @@ A spec change first (its own commit; OUTPUT.md#paths), then the code.
 `148__EXAMPLES__ONE_DIR_RELATIVE.md` covers:
 
 - one absolute working directory: `files` and `lines` detail, a repeated line, text and JSON
-- one relative working directory other than `.`; `.`, unchanged
+- one relative working directory, unchanged (the spec step decided it); `.`, unchanged
 - two working directories, unchanged; `path_style = absolute`, unchanged
 - `"version": 1`, unchanged
 
