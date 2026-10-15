@@ -42,6 +42,9 @@ first, wherever they can do the job, instead of shell pipelines:
 - check the effect of a write tool with `git status` / `git diff`
 - fall back to the shell tools when easy-peasy can't express the request or isn't available; a case it should handle
   but doesn't is a bug or a missing feature, worth a task in `tasks/`
+- create such a task right away, without waiting to be asked, see [New tasks](#new-tasks): a bug, a missing feature,
+  and also a response that could carry the same information in fewer tokens (a repeated number, a redundant line or
+  path, a part the agent never uses) or a request that takes more calls or characters than it should
 
 ## Workflow
 
@@ -273,6 +276,19 @@ commit:
 The first task starts at `0.1.0`. The spec version is unrelated and changes only by the spec's own rules. Examples
 and tests never hard-code the server version: a test that checks `serverInfo` compares with `CARGO_PKG_VERSION`.
 
+### New tasks
+
+An agent that finds a bug, a missing feature or a way to save tokens (see [Agent tools](#agent-tools)) writes the
+task itself, without waiting to be asked:
+
+- `N__TASK__NAME.md` with the next free number, status `not implemented`, `Depends on`, and a goal that says how it was
+  found: the request, the response (or the part of it that matters) and, for a token saving, an estimate of the
+  characters or tokens saved per file and per response
+- a row in [tasks/README.md](tasks/README.md)
+- one commit on `master`, `Add task N: <title>`, with the finding in the body; when the agent is on a task branch, the
+  commit goes to `master` after that task is merged, so the task branch stays about its own task
+- the agent tells the user the number and the title; it doesn't implement the new task in passing
+
 ## Always a usable application
 
 After every task — at the summary commit and on `master` after the merge — the program builds, passes all tests and
@@ -412,4 +428,8 @@ And for a task:
 - the branch is merged into `master` only when the [definition of done](#definition-of-done) is met
 - as soon as the task is ready (the summary commit is done) and all the checks of the definition of done are green, the
   agent merges the branch into `master` with `git merge --no-ff` (`Merge task N: <title>`), without waiting to be asked
+- right after the merge, the agent builds and installs the new version from `master`, so the developer's machine always
+  runs the latest server: `./install.sh --build` (`install.bat --build` on Windows), then checks that
+  `easy-peasy-mcp --version` names the version of `Cargo.toml`; the install keeps a running server on its old binary,
+  so the agent tells the user to restart the MCP server (`/mcp` in Claude Code) to use the new one
 - a commit message says what and why in the imperative mood
