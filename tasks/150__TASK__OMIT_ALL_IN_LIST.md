@@ -1,6 +1,6 @@
 # Task 150: The error of "all" in a list of parts says what to write
 
-Status: in progress
+Status: implemented, see [150__SUMMARY__OMIT_ALL_IN_LIST.md](150__SUMMARY__OMIT_ALL_IN_LIST.md)
 
 Depends on: task 134
 
