@@ -264,7 +264,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 144 | [Context to the end of the block: `output.after = "block"`](144__TASK__CONTEXT_BLOCK.md) | 80, 134 | ✅ |
 | 145 | [One header per directory in relevance order](145__TASK__DIR_GROUPS_ONCE.md) | 85, 93 | ✅ |
 | 146 | [The ids which are the same everywhere are left out](146__TASK__IDS_SAME_EVERYWHERE.md) | 141, 143 | ✅ |
-| 147 | [The indentation written once per change](147__TASK__INDENT_CARRIED.md) | 84, 141 | 🚧 |
+| 147 | [The indentation written once per change](147__TASK__INDENT_CARRIED.md) | 84, 141 | ✅ |
 | 148 | [Paths relative to the only working directory](148__TASK__ONE_DIR_RELATIVE.md) | 90, 137 | ⬜ |
 | 149 | [A repeated line keeps the context which was asked for](149__TASK__REPEATED_WITH_CONTEXT.md) | 80, 86, 138 | ⬜ |
 | 150 | [The error of "all" in a list of parts says what to write](150__TASK__OMIT_ALL_IN_LIST.md) | 134 | ⬜ |
