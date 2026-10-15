@@ -163,6 +163,7 @@ fn trimmed<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::output::blocks::{After, BlockOptions};
     use crate::query::ast::CondId;
     use crate::search::FileMatches;
 
@@ -207,7 +208,7 @@ mod tests {
             file("  use x;  \n", "use", 1),
             file("use x;\nuse x;\n", "use", 1),
         ];
-        let r = repeated(&files, 0..files.len(), 3);
+        let r = repeated(&files, 0..files.len(), 3, None);
         assert_eq!(r.lines.len(), 1);
         assert_eq!(r.lines[0].content.text(), "use x;");
         assert_eq!(r.lines[0].fragments[0].range, 0..3);
@@ -219,9 +220,9 @@ mod tests {
         );
         let m = files[0].matches.as_ref().unwrap();
         assert_eq!(r.rest(0, &m.content, &m.fragments).len(), 1);
-        assert_eq!(repeated(&files, 0..files.len(), 4).lines.len(), 0);
+        assert_eq!(repeated(&files, 0..files.len(), 4, None).lines.len(), 0);
         assert!(
-            repeated(&files, 0..files.len(), 0).lines.is_empty(),
+            repeated(&files, 0..files.len(), 0, None).lines.is_empty(),
             "0 is off"
         );
     }
@@ -233,9 +234,9 @@ mod tests {
             file("use x;\n", "use", 2),
             file("use x;\n", "use", 1),
         ];
-        assert_eq!(repeated(&files, 0..files.len(), 3).lines.len(), 0);
+        assert_eq!(repeated(&files, 0..files.len(), 3, None).lines.len(), 0);
         assert_eq!(
-            repeated(&files, 0..files.len(), 2).lines[0].files,
+            repeated(&files, 0..files.len(), 2, None).lines[0].files,
             [(0, 0), (2, 0)]
         );
     }
@@ -247,7 +248,7 @@ mod tests {
             file("a\nb\n", "a\nb", 1),
             file("a\nb\n", "a\nb", 1),
         ];
-        assert_eq!(repeated(&files, 0..files.len(), 2).lines.len(), 0);
+        assert_eq!(repeated(&files, 0..files.len(), 2, None).lines.len(), 0);
     }
 
     #[test]
@@ -259,7 +260,7 @@ mod tests {
             file("a\n", "a", 1),
             file("a\n", "a", 1),
         ];
-        let r = repeated(&files, 0..files.len(), 2);
+        let r = repeated(&files, 0..files.len(), 2, None);
         let texts: Vec<&str> = r.lines.iter().map(|l| l.content.text()).collect();
         assert_eq!(texts, ["a", "b"]);
     }
@@ -274,7 +275,7 @@ mod tests {
             file("use y;\n", "use", 1),
         ];
         // the second page: the files 2 and 3
-        let r = repeated(&files, 2..4, 3);
+        let r = repeated(&files, 2..4, 3, None);
         let lines: Vec<Located> = r
             .lines
             .iter()
@@ -294,11 +295,101 @@ mod tests {
             "the left out lines are per listed file"
         );
         assert!(
-            repeated(&files, 3..4, 3)
+            repeated(&files, 3..4, 3, None)
                 .lines
                 .iter()
                 .all(|l| l.content.text() == "use y;"),
             "a line without a listed file is not repeated"
         );
+    }
+
+    fn around(before: usize, after: usize) -> BlockOptions {
+        BlockOptions {
+            before,
+            after: After::Lines(after),
+            blank_context: true,
+            ..BlockOptions::default()
+        }
+    }
+
+    #[test]
+    fn the_same_block_is_grouped_with_its_context() {
+        let files = [
+            file("a\nkey x\nb\n", "key", 1),
+            file("  a\n  key x \n  b\nz\n", "key", 1),
+            file("q\na\nkey x\nb\n", "key", 1),
+            file("a\nkey x\nc\n", "key", 1),
+        ];
+        let r = repeated(&files, 0..files.len(), 3, Some(&around(1, 1)));
+        assert_eq!(r.lines.len(), 1);
+        let line = &r.lines[0];
+        assert_eq!(
+            (line.before.as_slice(), line.content.text(), line.after.as_slice()),
+            (&["a".to_string()][..], "key x", &["b".to_string()][..]),
+            "without the common indentation and the trailing whitespace"
+        );
+        assert_eq!(line.fragments[0].range, 0..3);
+        assert_eq!(line.files, [(0, 1), (1, 1), (2, 2)]);
+        assert_eq!(line.count, 3, "the file with another context line is not counted");
+        let m = files[3].matches.as_ref().unwrap();
+        assert_eq!(r.rest(3, &m.content, &m.fragments).len(), 1, "it keeps its line");
+    }
+
+    #[test]
+    fn a_context_line_of_another_file_differs() {
+        let files = [
+            file("a\nkey\n", "key", 1),
+            file("b\nkey\n", "key", 1),
+            file("c\nkey\n", "key", 1),
+        ];
+        assert!(repeated(&files, 0..files.len(), 2, Some(&around(1, 0))).lines.is_empty());
+        assert_eq!(
+            repeated(&files, 0..files.len(), 3, None).lines.len(),
+            1,
+            "spec 1 groups by the line"
+        );
+    }
+
+    #[test]
+    fn a_block_with_another_matched_line_is_not_grouped() {
+        let files = [
+            file("key\nkey\n", "key", 1),
+            file("key\nkey\n", "key", 1),
+            file("key\nkey\n", "key", 1),
+        ];
+        assert!(repeated(&files, 0..files.len(), 2, Some(&around(1, 1))).lines.is_empty());
+    }
+
+    #[test]
+    fn a_fragment_in_the_common_indentation_is_not_grouped() {
+        let files = [
+            file("  a\n  key\n", "  key", 1),
+            file("  a\n  key\n", "  key", 1),
+        ];
+        assert!(repeated(&files, 0..files.len(), 2, Some(&around(1, 0))).lines.is_empty());
+    }
+
+    #[test]
+    fn the_blank_context_lines_follow_blank_context() {
+        let files = [
+            file("a\n\nkey\n", "key", 1),
+            file("a\n  \nkey\n", "key", 1),
+        ];
+        let r = repeated(&files, 0..files.len(), 2, Some(&around(2, 0)));
+        assert_eq!(r.lines[0].before, ["a", ""]);
+        let without = BlockOptions {
+            blank_context: false,
+            ..around(2, 0)
+        };
+        let r = repeated(&files, 0..files.len(), 2, Some(&without));
+        assert_eq!(r.lines[0].before, ["a"]);
+    }
+
+    #[test]
+    fn a_block_of_only_the_line_is_the_line() {
+        let files = [file("key\n", "key", 1), file("  key\n", "key", 1)];
+        let r = repeated(&files, 0..files.len(), 2, Some(&around(1, 1)));
+        assert_eq!(r.lines.len(), 1);
+        assert!(r.lines[0].before.is_empty() && r.lines[0].after.is_empty());
     }
 }
