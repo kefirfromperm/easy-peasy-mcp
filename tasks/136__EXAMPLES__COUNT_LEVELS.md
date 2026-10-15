@@ -18,8 +18,9 @@ tests/load.rs      2026-10-01 10:00
 
 File contents are in `tests/fixtures/count-by/`: `src/lib.rs` has `unwrap(` twice in line 2 and once in line 4,
 `src/main.rs` once in line 2, `tests/load.rs` once in lines 3, 4 and 5; `docs/notes.md` is `begin`, `end`, `begin`,
-`end`. With `sort = relevance` the files of `text has 'unwrap('` are in the order `src/lib.rs`, `tests/load.rs`,
-`src/main.rs`.
+`end`. With `sort = relevance` the files of `text has 'unwrap('` are scored in the order `src/lib.rs`,
+`tests/load.rs`, `src/main.rs`; with `group_dirs` (the default) the files of `src/` are together: `src/lib.rs`,
+`src/main.rs`, `tests/load.rs` (task 145).
 
 ### count-by-many
 
@@ -102,10 +103,9 @@ files: 3  lines: 6  matches: 7  result: r2
 
 src/
 lib.rs  lines: 2  matches: 3
+main.rs  lines: 1  matches: 1
 tests/
 load.rs  lines: 3  matches: 3
-src/
-main.rs  lines: 1  matches: 1
 ```
 
 3. per line
@@ -120,14 +120,13 @@ src/
 lib.rs  lines: 2  matches: 3
   2: 2
   4: 1
+main.rs  lines: 1  matches: 1
+  2: 1
 tests/
 load.rs  lines: 3  matches: 3
   3: 1
   4: 1
   5: 1
-src/
-main.rs  lines: 1  matches: 1
-  2: 1
 ```
 
 4. the lines themselves: `detail = lines` ignores `count_by`
@@ -146,16 +145,15 @@ lib.rs  [#1]  lines: 2  matches: 3
 --
 ⇥4
 4:parse(&text).⟦#1:unwrap(⟧)
+main.rs  [#1]  lines: 1  matches: 1
+⇥4
+2:let cfg = load().⟦#1:unwrap(⟧);
 tests/
 load.rs  [#1]  lines: 3  matches: 3
 ⇥4
 3:load().⟦#1:unwrap(⟧);
 4:load().⟦#1:unwrap(⟧);
 5:load().⟦#1:unwrap(⟧);
-src/
-main.rs  [#1]  lines: 1  matches: 1
-⇥4
-2:let cfg = load().⟦#1:unwrap(⟧);
 ```
 
 ## E136.2 The grains in JSON
@@ -184,8 +182,8 @@ Fixture: `count-by`
   "counts": {"files": 3, "lines": 6, "matches": 7},
   "files": [
     {"path": "src/lib.rs", "lines": 2, "matches": 3},
-    {"path": "tests/load.rs", "lines": 3, "matches": 3},
-    {"path": "src/main.rs", "lines": 1, "matches": 1}
+    {"path": "src/main.rs", "lines": 1, "matches": 1},
+    {"path": "tests/load.rs", "lines": 3, "matches": 3}
   ]
 }
 ```
@@ -204,9 +202,9 @@ Fixture: `count-by`
   "files": [
     {"path": "src/lib.rs", "lines": 2, "matches": 3,
       "matched_lines": [{"n": 2, "matches": 2}, {"n": 4, "matches": 1}]},
+    {"path": "src/main.rs", "lines": 1, "matches": 1, "matched_lines": [{"n": 2, "matches": 1}]},
     {"path": "tests/load.rs", "lines": 3, "matches": 3,
-      "matched_lines": [{"n": 3, "matches": 1}, {"n": 4, "matches": 1}, {"n": 5, "matches": 1}]},
-    {"path": "src/main.rs", "lines": 1, "matches": 1, "matched_lines": [{"n": 2, "matches": 1}]}
+      "matched_lines": [{"n": 3, "matches": 1}, {"n": 4, "matches": 1}, {"n": 5, "matches": 1}]}
   ]
 }
 ```
@@ -225,10 +223,9 @@ files: 3  lines: 6  matches: 7  result: r1
 
 src/
 lib.rs  lines: 2  matches: 3
+main.rs  lines: 1  matches: 1
 tests/
 load.rs  lines: 3  matches: 3
-src/
-main.rs  lines: 1  matches: 1
 ```
 
 ## E136.4 The parts of `omit`
@@ -245,10 +242,9 @@ result: r1
 
 src/
 lib.rs  lines: 2  matches: 3
+main.rs  lines: 1  matches: 1
 tests/
 load.rs  lines: 3  matches: 3
-src/
-main.rs  lines: 1  matches: 1
 ```
 
 2. `file_counts`: the paths alone
@@ -261,10 +257,9 @@ files: 3  lines: 6  matches: 7  result: r2
 
 src/
 lib.rs
+main.rs
 tests/
 load.rs
-src/
-main.rs
 ```
 
 3. `line_numbers`: the counts of the lines
@@ -279,13 +274,12 @@ src/
 lib.rs  lines: 2  matches: 3
   2
   1
+main.rs  lines: 1  matches: 1
+  1
 tests/
 load.rs  lines: 3  matches: 3
   1
   1
-  1
-src/
-main.rs  lines: 1  matches: 1
   1
 ```
 
@@ -301,14 +295,13 @@ src/
 lib.rs  lines: 2  matches: 3
   2
   4
+main.rs  lines: 1  matches: 1
+  2
 tests/
 load.rs  lines: 3  matches: 3
   3
   4
   5
-src/
-main.rs  lines: 1  matches: 1
-  2
 ```
 
 5. both: no lines are written
@@ -321,10 +314,9 @@ files: 3  lines: 6  matches: 7  result: r5
 
 src/
 lib.rs  lines: 2  matches: 3
+main.rs  lines: 1  matches: 1
 tests/
 load.rs  lines: 3  matches: 3
-src/
-main.rs  lines: 1  matches: 1
 ```
 
 6. all
@@ -335,10 +327,9 @@ main.rs  lines: 1  matches: 1
 ```text response
 src/
 lib.rs
+main.rs
 tests/
 load.rs
-src/
-main.rs
 ```
 
 7. the line numbers in JSON, without the counts of the files
@@ -354,8 +345,8 @@ main.rs
   "counts": {"files": 3, "lines": 6, "matches": 7},
   "files": [
     {"path": "src/lib.rs", "matched_lines": [{"n": 2}, {"n": 4}]},
-    {"path": "tests/load.rs", "matched_lines": [{"n": 3}, {"n": 4}, {"n": 5}]},
-    {"path": "src/main.rs", "matched_lines": [{"n": 2}]}
+    {"path": "src/main.rs", "matched_lines": [{"n": 2}]},
+    {"path": "tests/load.rs", "matched_lines": [{"n": 3}, {"n": 4}, {"n": 5}]}
   ]
 }
 ```
@@ -373,8 +364,8 @@ main.rs
   "counts": {"files": 3, "lines": 6, "matches": 7},
   "files": [
     {"path": "src/lib.rs", "lines": 2, "matches": 3, "matched_lines": [{"matches": 2}, {"matches": 1}]},
-    {"path": "tests/load.rs", "lines": 3, "matches": 3, "matched_lines": [{"matches": 1}, {"matches": 1}, {"matches": 1}]},
-    {"path": "src/main.rs", "lines": 1, "matches": 1, "matched_lines": [{"matches": 1}]}
+    {"path": "src/main.rs", "lines": 1, "matches": 1, "matched_lines": [{"matches": 1}]},
+    {"path": "tests/load.rs", "lines": 3, "matches": 3, "matched_lines": [{"matches": 1}, {"matches": 1}, {"matches": 1}]}
   ]
 }
 ```
@@ -385,7 +376,7 @@ main.rs
 {"query": "text has 'unwrap('", "output": {"detail": "count", "count_by": "line", "omit": "all", "format": "json"}}
 ```
 ```json response
-{"version": 1, "exists": true, "files": [{"path": "src/lib.rs"}, {"path": "tests/load.rs"}, {"path": "src/main.rs"}]}
+{"version": 1, "exists": true, "files": [{"path": "src/lib.rs"}, {"path": "src/main.rs"}, {"path": "tests/load.rs"}]}
 ```
 
 ## E136.5 A multiline match and a `line( ... )` group
@@ -793,10 +784,9 @@ files: 3  lines: 6  matches: 7  result: r1
 
 src/
 lib.rs  lines: 2  matches: 3
+main.rs  lines: 1  matches: 1
 tests/
 load.rs  lines: 3  matches: 3
-src/
-main.rs  lines: 1  matches: 1
 ```
 
 ## E136.10 For the session and per query
@@ -876,14 +866,13 @@ src/
 lib.rs  lines: 2  matches: 3
   2: 2
   4: 1
+main.rs  lines: 1  matches: 1
+  2: 1
 tests/
 load.rs  lines: 3  matches: 3
   3: 1
   4: 1
   5: 1
-src/
-main.rs  lines: 1  matches: 1
-  2: 1
 ```
 
 2. a file is added, another one removed

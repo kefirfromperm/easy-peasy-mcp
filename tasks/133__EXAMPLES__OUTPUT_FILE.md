@@ -32,7 +32,7 @@ The file holds the response as it would be returned; the tool returns its header
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r1
-written: <output_dir>/todos.txt  lines: 16  bytes: 337
+written: <output_dir>/todos.txt  lines: 15  bytes: 332
 ```
 ```text file todos.txt
 files: 3  lines: 4  matches: 4  result: r1
@@ -41,16 +41,15 @@ files: 3  lines: 4  matches: 4  result: r1
 src/
 b.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:TODO⟧ remove
-./
-notes.md  [#1]  lines: 1  matches: 1
-2:⟦#1:TODO⟧ write the docs
-src/
 a.rs  [#1]  lines: 2  matches: 2
 ⇥4
 2:// ⟦#1:TODO⟧ split this function into parse and check
 --
 ⇥4
 4:// ⟦#1:TODO⟧ rename x
+./
+notes.md  [#1]  lines: 1  matches: 1
+2:⟦#1:TODO⟧ write the docs
 ```
 
 ## E133.2 `true` names the file by the result id; JSON
@@ -66,7 +65,7 @@ The summary has the fields of the header and `file`, `lines`, `bytes`.
 {"version":1,"exists":true,"result":"r1","counts":{"files":3,"lines":4,"matches":4},"file":"<output_dir>/r1.json","lines":1,"bytes":808}
 ```
 ```json file r1.json
-{"version":1,"exists":true,"result":"r1","counts":{"files":3,"lines":4,"matches":4},"legend":{"#1":"text has 'TODO'"},"files":[{"path":"src/b.rs","lines":1,"matches":1,"conditions":["#1"],"blocks":[{"lines":[{"n":1,"text":"// TODO remove","fragments":[{"col":[4,8],"text":"TODO","ids":["#1"]}]}]}]},{"path":"notes.md","lines":1,"matches":1,"conditions":["#1"],"blocks":[{"lines":[{"n":2,"text":"TODO write the docs","fragments":[{"col":[1,5],"text":"TODO","ids":["#1"]}]}]}]},{"path":"src/a.rs","lines":2,"matches":2,"conditions":["#1"],"blocks":[{"indent":4,"lines":[{"n":2,"text":"// TODO split this function into parse and check","fragments":[{"col":[8,12],"text":"TODO","ids":["#1"]}]}]},{"indent":4,"lines":[{"n":4,"text":"// TODO rename x","fragments":[{"col":[8,12],"text":"TODO","ids":["#1"]}]}]}]}]}
+{"version":1,"exists":true,"result":"r1","counts":{"files":3,"lines":4,"matches":4},"legend":{"#1":"text has 'TODO'"},"files":[{"path":"src/b.rs","lines":1,"matches":1,"conditions":["#1"],"blocks":[{"lines":[{"n":1,"text":"// TODO remove","fragments":[{"col":[4,8],"text":"TODO","ids":["#1"]}]}]}]},{"path":"src/a.rs","lines":2,"matches":2,"conditions":["#1"],"blocks":[{"indent":4,"lines":[{"n":2,"text":"// TODO split this function into parse and check","fragments":[{"col":[8,12],"text":"TODO","ids":["#1"]}]}]},{"indent":4,"lines":[{"n":4,"text":"// TODO rename x","fragments":[{"col":[8,12],"text":"TODO","ids":["#1"]}]}]}]},{"path":"notes.md","lines":1,"matches":1,"conditions":["#1"],"blocks":[{"lines":[{"n":2,"text":"TODO write the docs","fragments":[{"col":[1,5],"text":"TODO","ids":["#1"]}]}]}]}]}
 ```
 
 ## E133.3 `true` without a result id
@@ -141,11 +140,12 @@ files: 3  lines: 4  matches: 4  result: r1  truncated: yes (max_output)  next cu
 src/
 b.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:TODO⟧ remove
-./
-notes.md  [#1]  lines: 1  matches: 1
-2:⟦#1:TODO⟧ write the docs
-src/
 a.rs  [#1]  lines: 2  matches: 2
+⇥4
+2:// ⟦#1:TODO⟧ split this function into parse and check
+--
+⇥4
+4:// ⟦#1:TODO⟧ rename x
 ```
 
 3. in a file
@@ -155,7 +155,7 @@ a.rs  [#1]  lines: 2  matches: 2
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r2
-written: <output_dir>/all.txt  lines: 16  bytes: 337
+written: <output_dir>/all.txt  lines: 15  bytes: 332
 ```
 ```text file all.txt
 files: 3  lines: 4  matches: 4  result: r2
@@ -164,16 +164,15 @@ files: 3  lines: 4  matches: 4  result: r2
 src/
 b.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:TODO⟧ remove
-./
-notes.md  [#1]  lines: 1  matches: 1
-2:⟦#1:TODO⟧ write the docs
-src/
 a.rs  [#1]  lines: 2  matches: 2
 ⇥4
 2:// ⟦#1:TODO⟧ split this function into parse and check
 --
 ⇥4
 4:// ⟦#1:TODO⟧ rename x
+./
+notes.md  [#1]  lines: 1  matches: 1
+2:⟦#1:TODO⟧ write the docs
 ```
 
 4. the limit in the request
@@ -183,7 +182,7 @@ a.rs  [#1]  lines: 2  matches: 2
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r3  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiYWEwODc3OGEiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
-written: <output_dir>/page1.txt  lines: 11  bytes: 334
+written: <output_dir>/page1.txt  lines: 12  bytes: 359
 ```
 ```text file page1.txt
 files: 3  lines: 4  matches: 4  result: r3  truncated: yes (max_output)  next cursor: eyJ2IjoxLCJoIjoiYWEwODc3OGEiLCJmIjoyLCJ0IjpbMyw0LDRdfQ
@@ -192,11 +191,12 @@ files: 3  lines: 4  matches: 4  result: r3  truncated: yes (max_output)  next cu
 src/
 b.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:TODO⟧ remove
-./
-notes.md  [#1]  lines: 1  matches: 1
-2:⟦#1:TODO⟧ write the docs
-src/
 a.rs  [#1]  lines: 2  matches: 2
+⇥4
+2:// ⟦#1:TODO⟧ split this function into parse and check
+--
+⇥4
+4:// ⟦#1:TODO⟧ rename x
 ```
 
 5. the next page
@@ -206,19 +206,15 @@ a.rs  [#1]  lines: 2  matches: 2
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r4
-written: <output_dir>/page2.txt  lines: 10  bytes: 202
+written: <output_dir>/page2.txt  lines: 6  bytes: 134
 ```
 ```text file page2.txt
 files: 3  lines: 4  matches: 4  result: r4
 #1 text has 'TODO'
 
-src/
-a.rs  [#1]  lines: 2  matches: 2
-⇥4
-2:// ⟦#1:TODO⟧ split this function into parse and check
---
-⇥4
-4:// ⟦#1:TODO⟧ rename x
+./
+notes.md  [#1]  lines: 1  matches: 1
+2:⟦#1:TODO⟧ write the docs
 ```
 
 ## E133.5 Directories of the path, an absolute path, a file replaced
