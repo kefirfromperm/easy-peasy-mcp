@@ -1541,6 +1541,26 @@ mod tests {
         assert_eq!(order, [1, 0]);
     }
 
+    #[test]
+    fn the_counted_conditions() {
+        let many = |q: &str| parse(q, &SENSITIVE).unwrap().many_conditions;
+        assert!(!many(""));
+        assert!(!many("text has 'x'"));
+        assert!(!many("line(text = 'x')"));
+        assert!(!many("((text has 'x'))"));
+        assert!(!many("text has 'x' and not text has 'y'"));
+        assert!(!many("line(not text starts '#' and not len > 9)"));
+        assert!(!many("not (text has 'x' or text has 'y')"));
+        assert!(many("text has 'x' or text has 'y'"));
+        assert!(many("near(text has 'a', text has 'b', 2)"));
+        assert!(many("line(text has 'a' and text has 'b')"));
+        assert!(many("name ~ '*.rs' and line(text has 'x')"));
+        // a label keeps the legend
+        assert!(many("text has 'x' @x"));
+        assert!(many("(text has 'x') @x"));
+        assert!(many("text has 'x' and not text has 'y' @y"));
+    }
+
     fn variations(q: &str) -> Vec<(String, Vec<String>)> {
         parse(q, &SENSITIVE)
             .unwrap()
