@@ -1102,6 +1102,24 @@ mod tests {
     }
 
     #[test]
+    fn the_limits_per_spec() {
+        for (key, spec1, spec2) in [
+            (Key::MaxFiles, 100, 20),
+            (Key::MaxLines, 500, 100),
+            (Key::MaxMatches, 1000, 200),
+            (Key::MaxMatchesPerFile, 50, 10),
+            (Key::MaxOutputPerFile, 4000, 800),
+            (Key::MaxOutput, 40000, 8000),
+            (Key::MaxLineLength, 300, 300),
+            (Key::ResultCache, 50, 50),
+        ] {
+            assert_eq!(key.default_for(1), Value::Whole(spec1), "{key:?}");
+            assert_eq!(key.default_for(2), Value::Whole(spec2), "{key:?}");
+            assert_eq!(key.default_value(), Value::Whole(spec2), "{key:?}");
+        }
+    }
+
+    #[test]
     fn positive_numbers() {
         use serde_json::json;
         let item = |text: &str| {

@@ -136,6 +136,15 @@ mod tests {
     }
 
     #[test]
+    fn a_request_without_output_has_the_hash_of_its_next_page() {
+        let plain = json!({ "query": "x" });
+        let next = json!({ "query": "x", "output": { "cursor": "c" } });
+        assert_eq!(request_hash(&plain), request_hash(&next));
+        let filed = json!({ "query": "x", "output": { "file": true } });
+        assert_eq!(request_hash(&plain), request_hash(&filed));
+    }
+
+    #[test]
     fn encoded_and_decoded() {
         let request = json!({
             "query": "text has 'TODO'",
