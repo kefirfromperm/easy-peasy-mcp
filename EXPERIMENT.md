@@ -201,3 +201,40 @@ real question, what the task cost.
 - **Merged:** A, with a commit that adds `"all"` and `more_lines` to the items of `omit` and `show` in the `find`
   schema (and E117.2). Version 0.147.0. Tasks 153 (a hint for `=` with a wildcard pattern) and 154 (the legend of a
   `line(...)` without one entry per sub-condition).
+
+### Run 3 — task 151 `{indent}` in replace templates, server 0.147.0, 2026-10-15
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 131K | 120K |
+| Tool calls | 77 | 63 |
+| Time | 13.6 min | 13.0 min |
+| Search output received | ~22–26K chars (1 `get_config`, 16 `find`, 2 `replace`) | ~60–65K chars (~22 commands); ~10–15K from searches, the rest `cat`/`sed -n` of AGENTS.md, TOOLS.md, examples |
+| Commits | 9 | 6 |
+| Diff | 14 files, +417/−12 (src: +78/−2) | 14 files, +534/−19 (src: +75/−12) |
+| Examples | 4 (E151.1–E151.4) | 10 (E151.1–E151.10) |
+| Tests | lib 359 + all targets pass | lib 358 + all targets pass |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ ~7 times (`grep`/`head` on cargo output), once `git ls-tree` to list files | ✅ |
+
+- **Quality:** the same design: `Part::Indent`, the leading spaces and tabs of the line where the match starts (the
+  whole indentation also for a match inside or after it, the first line of a multiline match, a match at a line break
+  belongs to the line it ends), no indentation after a template line break on its own, not escaped by `/e`. They
+  differ in two places:
+  - the hint: A adds `{indent}` to every `invalid_template` hint (E129.12 changed); B only to `unknown placeholder`
+    and `empty placeholder`, not to a wrong group reference (E129.12 kept)
+  - `/n`: B leaves `{indent}` out of a restyled `/n` match (its tabs would end up inside a word of the name) and
+    says so in the spec; A leaves `/n` as before
+  - A computes the indentation inside `expand`; B passes it in, which changes the signature and every test call
+  - B's spec lost a paragraph break: the last `{indent}` bullet runs into "Errors (`invalid_template`) …"
+    (TOOLS.md:1108); both leave one new line over 120 columns
+- **A's friction:** `replace` writes the absolute directory as a header (`/home/…/agent-…/src/`) where `find` writes
+  `in:` once and relative paths (reproduced); `count_by = "file"` with one file repeats the totals on its file line
+  (reproduced); `⇥N` markers make code listings noisy (as specified). The base commit was stale again (6ff6d67); both
+  arms reset to master.
+- **B's friction:** structure-blind search: whole spec sections printed with `sed -n` ranges to find one table;
+  the worktree guard refused three commands that only looked risky; checking literal tabs in examples needed
+  `grep -cP '\t'`.
+- **Outcome:** the closest run so far: A cost ~10% more tokens (run 2: ~25%, run 1: ~30%) while receiving less than
+  half of B's tool output. B read more whole files; A spent more calls on the agent's own steps (9 commits, a fix
+  commit for two examples, a formatting commit).
