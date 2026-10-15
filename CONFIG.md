@@ -453,8 +453,9 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 
 `omit`: `"all"` or a list of the parts of [OUTPUT.md](OUTPUT.md#omit), otherwise `invalid value for 'output.omit':
 "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups,
-line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected`. `get_config` shows `omit = "all"` or
-the list, the default of the current spec version. `show` takes the same values (`invalid value for 'output.show'`),
+line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected`. A list with `"all"`
+among its items (`["all"]`, `["all", "legend"]`) is `"all"`, in the config file and in `update_config` too, which
+answers with `omit = "all"`. `get_config` shows `omit = "all"` or the list, the default of the current spec version. `show` takes the same values (`invalid value for 'output.show'`),
 see [OUTPUT.md](OUTPUT.md#defaults-of-spec-2).
 
 `groups`: a list of [group references](QUERY.md#group-references), otherwise `invalid value for 'output.groups': a
