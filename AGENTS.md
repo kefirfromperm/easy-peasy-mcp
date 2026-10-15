@@ -20,6 +20,29 @@ The specification is the contract. Code, tests and examples follow it, never the
 - Never implement behavior the spec doesn't describe. If a task needs something new, add it to the spec first.
 - Follow the spec's own versioning rules (TOOLS.md#versioning): spec version `1` is not broken by any task.
 
+## Agent tools
+
+When the **easy-peasy** MCP server (this project's own server) is registered in the agent's client, use its tools
+first, wherever they can do the job, instead of shell pipelines:
+
+| Job                                              | easy-peasy tool | Instead of                                   |
+|--------------------------------------------------|-----------------|----------------------------------------------|
+| find files, find text in files, count matches    | `find`          | `grep`, `rg`, `find`, `git grep`, `ls -R`    |
+| replace text in one or many files                | `replace`       | `sed -i`, `grep -l … \| xargs sed`, `perl -pi` |
+| rename or move files by a pattern                | `rename`        | `mv` loops, `git mv` scripts                 |
+| copy files                                       | `copy`          | `cp` loops                                   |
+| delete files (to the trash)                      | `delete`        | `rm`, `find … -delete`                       |
+
+- call `get_config` once per session (with a `section`, the whole config is large); its header names the server
+  version, which can lag the version in `Cargo.toml`
+- `replace`, `rename`, `copy` and `delete` on a selection you haven't seen: first with `dry_run = true`, then for real
+  with `expect` (files) or `expect_matches`, so a selection that changed in between fails instead of doing the wrong
+  thing; a `find` result id (`result = "r12"`) reuses exactly the files you looked at
+- a single known edit in one file is still a plain editor edit; easy-peasy is for edits selected by a query
+- check the effect of a write tool with `git status` / `git diff`
+- fall back to the shell tools when easy-peasy can't express the request or isn't available; a case it should handle
+  but doesn't is a bug or a missing feature, worth a task in `tasks/`
+
 ## Workflow
 
 Development goes task by task. Every task lives in `tasks/` as a set of numbered files. `N` is the task number
