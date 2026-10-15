@@ -371,9 +371,11 @@ easy-peasy-mcp
                           "line_counts",
                           "gaps",
                           "indent",
+                          "more_lines",
                           "locations",
                           "warnings",
-                          "left_out"
+                          "left_out",
+                          "all"
                         ]
                       }
                     },
@@ -405,9 +407,11 @@ easy-peasy-mcp
                           "line_counts",
                           "gaps",
                           "indent",
+                          "more_lines",
                           "locations",
                           "warnings",
-                          "left_out"
+                          "left_out",
+                          "all"
                         ]
                       }
                     },

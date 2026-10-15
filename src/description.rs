@@ -141,14 +141,14 @@ const FIND_SCHEMA: &str = r##"{
         "path_style": { "enum": ["relative", "absolute", "in_dir"], "description": "in_dir: the working directory written once, the paths relative to it." },
         "omit": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings", "left_out"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "more_lines", "locations", "warnings", "left_out", "all"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to leave out, or \"all\"."
         },
         "show": {
           "anyOf": [
-            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "locations", "warnings", "left_out"] } },
+            { "type": "array", "items": { "enum": ["counts", "result", "dir", "legend", "funnel", "hints", "conditions", "file_counts", "match_ids", "groups", "line_numbers", "line_counts", "gaps", "indent", "more_lines", "locations", "warnings", "left_out", "all"] } },
             { "enum": ["all"] }
           ],
           "description": "Parts of the response to show whatever omit says, or \"all\"."
