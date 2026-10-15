@@ -384,7 +384,7 @@ mod tests {
             listed_lines(&all, &files),
             [vec![0, 1, 3], vec![0, 1, 2, 3]]
         );
-        assert!(all.truncated_by.is_empty());
+        assert_eq!(all.truncated_by.len(), 0);
         let one = Listing::new(
             &files,
             &Repeated::default(),
@@ -573,7 +573,7 @@ mod tests {
             0,
         );
         assert_eq!(all.shown, 2);
-        assert!(all.truncated_by.is_empty());
+        assert_eq!(all.truncated_by.len(), 0);
         let paths = Listing::without_lines(&files, &limits(1));
         assert_eq!(paths.shown, 1);
         assert_eq!(Listing::without_lines(&files, &limits(0)).shown, 0);

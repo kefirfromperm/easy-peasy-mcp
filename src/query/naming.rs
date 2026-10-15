@@ -147,7 +147,7 @@ mod tests {
         assert_eq!(words("utf8decode"), ["utf8decode"]);
         assert_eq!(words("v2API"), ["v2", "api"]);
         assert_eq!(words("ÉtéChaud"), ["été", "chaud"]);
-        assert!(words("_-.").is_empty());
+        assert_eq!(words("_-.").len(), 0);
     }
 
     #[test]

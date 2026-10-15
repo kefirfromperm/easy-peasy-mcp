@@ -1820,7 +1820,7 @@ mod tests {
         assert_eq!(settings.opt_whole(Key::MaxDepth), Some(5));
         assert!(settings.bool(Key::FollowSymlinks));
         assert!(settings.bool(Key::Hidden));
-        assert!(settings.list(Key::IgnoreFiles).is_empty());
+        assert_eq!(settings.list(Key::IgnoreFiles).len(), 0);
         assert!(!settings.bool(Key::GitExcludes));
         assert_eq!(settings.list(Key::IgnorePaths), ["~/i"]);
         assert_eq!(settings.allow_update_source, Source::File("c.toml".into()));

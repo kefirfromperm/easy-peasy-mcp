@@ -916,7 +916,7 @@ mod tests {
             .map(|(_, id)| id.to_string())
             .collect();
         assert_eq!(ids, ["@g"]);
-        assert!(f.group_ids(&[3]).is_empty());
+        assert_eq!(f.group_ids(&[3]).len(), 0);
     }
 
     #[test]
@@ -944,7 +944,7 @@ mod tests {
             captures: false,
             ..pattern
         };
-        assert!(plain.sub_groups("pub fn a", 0).is_empty());
+        assert_eq!(plain.sub_groups("pub fn a", 0).len(), 0);
     }
 
     #[test]

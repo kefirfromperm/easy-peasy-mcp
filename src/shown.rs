@@ -288,7 +288,7 @@ mod tests {
         // the whole group keeps its sub-groups, the match of a sub-group has none
         let m = files[0].matches.as_ref().unwrap();
         assert_eq!(m.fragments[0].groups.len(), 1);
-        assert!(m.fragments[1].groups.is_empty());
+        assert_eq!(m.fragments[1].groups.len(), 0);
     }
 
     #[test]

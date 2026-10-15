@@ -219,7 +219,7 @@ mod tests {
         );
         let m = files[0].matches.as_ref().unwrap();
         assert_eq!(r.rest(0, &m.content, &m.fragments).len(), 1);
-        assert!(repeated(&files, 0..files.len(), 4).lines.is_empty());
+        assert_eq!(repeated(&files, 0..files.len(), 4).lines.len(), 0);
         assert!(
             repeated(&files, 0..files.len(), 0).lines.is_empty(),
             "0 is off"
@@ -233,7 +233,7 @@ mod tests {
             file("use x;\n", "use", 2),
             file("use x;\n", "use", 1),
         ];
-        assert!(repeated(&files, 0..files.len(), 3).lines.is_empty());
+        assert_eq!(repeated(&files, 0..files.len(), 3).lines.len(), 0);
         assert_eq!(
             repeated(&files, 0..files.len(), 2).lines[0].files,
             [(0, 0), (2, 0)]
@@ -247,7 +247,7 @@ mod tests {
             file("a\nb\n", "a\nb", 1),
             file("a\nb\n", "a\nb", 1),
         ];
-        assert!(repeated(&files, 0..files.len(), 2).lines.is_empty());
+        assert_eq!(repeated(&files, 0..files.len(), 2).lines.len(), 0);
     }
 
     #[test]
