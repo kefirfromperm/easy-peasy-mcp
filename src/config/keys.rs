@@ -1023,7 +1023,7 @@ mod tests {
             Type::Omit.parse_json(&json!("all")),
             Some(Value::Text("all".into()))
         );
-        assert_eq!(Type::Omit.parse_json(&json!(["all"])), None);
+        assert_eq!(Type::Omit.parse_json(&json!(["all", "colour"])), None);
         assert_eq!(
             Type::Omit
                 .check_json("output.omit", &json!("none"))
@@ -1033,6 +1033,36 @@ mod tests {
         );
         assert_eq!(Key::Omit.default_for(1), Value::List(vec![]));
         assert_eq!(Value::Text("all".into()).to_toml().unwrap(), "\"all\"");
+    }
+
+    #[test]
+    fn a_list_with_all_is_all() {
+        use serde_json::json;
+        let item = |text: &str| {
+            let doc = toml_edit::Document::parse(format!("x = {text}")).unwrap();
+            doc.as_table()["x"].clone()
+        };
+        let all = Value::Text("all".into());
+        for list in [
+            json!(["all"]),
+            json!(["legend", "all"]),
+            json!(["all", "all"]),
+        ] {
+            assert_eq!(Type::Omit.parse_json(&list), Some(all.clone()), "{list}");
+        }
+        for list in ["['all']", "['all', 'legend']"] {
+            assert_eq!(
+                Type::Omit.check_toml(&item(list)),
+                Ok(all.clone()),
+                "{list}"
+            );
+        }
+        let expected = "\"all\" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected";
+        assert_eq!(
+            Type::Omit.check_toml(&item("['all', 'colour']")),
+            Err(expected.into())
+        );
+        assert_eq!(Type::Omit.parse_json(&json!(["all", "colour"])), None);
     }
 
     #[test]
