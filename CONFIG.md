@@ -138,7 +138,7 @@ facet_limit = 8
 meta = false
 context = 0
 # before = 0                    # not set: equal to `context`
-# after = 0                     # not set: equal to `context`
+# after = 0                     # not set: equal to `context`; "block": to the end of the block
 path_fragments = false
 groups = []                     # the group references whose matches are shown; []: all
 only_match = false              # true: the matches instead of their lines (grep -o)
@@ -428,7 +428,7 @@ Defaults of the `output` field of the request. The meaning of every key is in [O
 | `meta`                 | bool        | `false`        |
 | `context`              | number      | `0`            |
 | `before`               | number      | `context`      |
-| `after`                | number      | `context`      |
+| `after`                | number or `"block"` | `context` |
 | `path_fragments`       | bool        | `false`        |
 | `groups`               | list        | `[]`           |
 | `only_match`           | bool        | `false`        |

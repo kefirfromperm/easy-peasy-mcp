@@ -217,7 +217,7 @@ EXAMPLES
         "meta": { "type": "boolean" },
         "context": { "type": "integer", "minimum": 0 },
         "before": { "type": "integer", "minimum": 0 },
-        "after": { "type": "integer", "minimum": 0 },
+        "after": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "const": "block" }], "description": "Lines after a matched line, or \"block\": to the end of its indented block." },
         "path_fragments": { "type": "boolean" },
         "groups": { "type": "array", "items": { "type": "string" }, "description": "Group references (@ser, #2, @def.fname): show only their matches." },
         "only_match": { "type": "boolean", "description": "Write the matches instead of their lines, like grep -o." },
