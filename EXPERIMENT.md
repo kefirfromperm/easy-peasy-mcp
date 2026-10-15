@@ -43,6 +43,10 @@ The easy-peasy server's working directory is the main checkout, not the agent's 
 the absolute path of its worktree on every call (and should never touch the main checkout). This makes arm A's paths
 absolute, which costs tokens (see task 148, which writes such a directory once).
 
+The agent worktree can start on an old commit, not on `master` (run 2: both started on 6ff6d67, task 130, without
+the task file). Both agents noticed it and ran `git reset --hard master` on their branch first; check `git log -1` of
+each branch base when comparing.
+
 ## Prompts
 
 Replace `N`, the task file and the branch names.
@@ -167,3 +171,30 @@ real question, what the task cost.
   `CONFIG.md`.
 - **Outcome:** B merged. Tasks 148 (paths relative to the only working directory), 149 (a repeated line keeps its
   context), 150 (the error of "all" in a list of parts), 151 (the indentation in a replace template).
+
+### Run 2 — task 150 "all" in a list of parts, server 0.146.0, 2026-10-15
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 122K | 98K |
+| Tool calls | 62 | 51 |
+| Time | 9.5 min | 11.6 min |
+| Search output received | ~30–35K chars (15 easy-peasy calls) | ~12K chars (~20 commands); Read ~30K more |
+| Commits | 6 | 6 |
+| Diff | 10 files, +400/−18 (src: +49/−10) | 10 files, +382/−15 (src: +37/−7) |
+| Examples | 8 (adds wrong values, a list with another part) | 6 |
+| Tests | lib 357 + all targets pass | lib 356 + all targets pass |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ once (grep on cargo output), then `cut`/`head` | ✅ |
+
+- **Quality:** the same decision (accept a list with `"all"` as `"all"`, minor bump to 0.147.0) and the same code: a
+  helper `omit_list` in `src/config/keys.rs` in place of `are_parts`. B left the old doc line of `are_parts` above
+  the new one. Neither updated the `find` schema (`src/description.rs`, TOOLS.md): its array items still exclude
+  `"all"` (and `more_lines`, missing since task 144).
+- **A's friction:** two over-broad queries cost ~21K of the ~33K chars: `text has 'show'` also matched `shown` (needs
+  `/w`) and `name ~ '1[34]?__…'` (`?` is any character); `name = '149__TASK__*'` used `=` with wildcards and found
+  nothing; the legend lists the sub-conditions of a `line(...)`.
+- **B's friction:** an error text built by `format!` needed a second grep; long example lines needed `cut -c1-200`;
+  a path in a shell variable was refused by the worktree guard.
+- **Outcome:** a cheaper run than run 1 for both arms; easy-peasy still cost ~25% more tokens, mostly from the
+  agent's own over-broad patterns rather than from the response format.
