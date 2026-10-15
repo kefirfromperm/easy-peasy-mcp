@@ -198,3 +198,6 @@ real question, what the task cost.
   a path in a shell variable was refused by the worktree guard.
 - **Outcome:** a cheaper run than run 1 for both arms; easy-peasy still cost ~25% more tokens, mostly from the
   agent's own over-broad patterns rather than from the response format.
+- **Merged:** A, with a commit that adds `"all"` and `more_lines` to the items of `omit` and `show` in the `find`
+  schema (and E117.2). Version 0.147.0. Tasks 153 (a hint for `=` with a wildcard pattern) and 154 (the legend of a
+  `line(...)` without one entry per sub-condition).
