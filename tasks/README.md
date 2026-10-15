@@ -270,3 +270,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 150 | [The error of "all" in a list of parts says what to write](150__TASK__OMIT_ALL_IN_LIST.md) | 134 | ✅ |
 | 151 | [The indentation of the line in a replace template](151__TASK__TEMPLATE_INDENT.md) | 129 | ⬜ |
 | 152 | [The number of matches left out when it is the number of lines](152__TASK__MATCHES_EQUAL_LINES.md) | 134, 141 | ⬜ |
+| 153 | [A hint for `=` with a wildcard pattern](153__TASK__EQUALS_WITH_WILDCARDS.md) | 103 | ⬜ |
