@@ -1733,6 +1733,59 @@ mod tests {
 
     use super::*;
 
+    /// The options of a search of `tmp` with the defaults of the walk.
+    fn options(progress: &std::sync::Arc<Progress>) -> SearchOptions {
+        let engine = crate::Engine::new(crate::EngineOptions::new(PathBuf::from(".")));
+        let mut options = engine.default_search_options();
+        options.progress = Some(std::sync::Arc::clone(progress));
+        options
+    }
+
+    #[test]
+    fn shared_search_answers_like_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("a.rs"), "fn a() {}\n").unwrap();
+        std::fs::write(tmp.path().join("b.md"), "a b\n").unwrap();
+        std::fs::write(tmp.path().join("c.txt"), "c\n").unwrap();
+        let parse = crate::query::ParseOptions {
+            case_insensitive_paths: false,
+            now: jiff::Timestamp::UNIX_EPOCH,
+            time_zone: jiff::tz::TimeZone::UTC,
+            languages: std::sync::Arc::new(LanguageTable::builtin()),
+            backslash_separator: false,
+            max_escape_level: 3,
+            fuzzy_min_score: 0.5,
+        };
+        let first = crate::query::parse("text has 'a'", &parse).unwrap();
+        let second = crate::query::parse("name ~ '*.md' or text has 'c'", &parse).unwrap();
+        let alone = std::sync::Arc::new(Progress::default());
+        let alone_options = options(&alone);
+        let expected: Vec<Vec<PathBuf>> = [&first, &second]
+            .iter()
+            .map(|q| {
+                search(tmp.path(), q, &alone_options)
+                    .files
+                    .into_iter()
+                    .map(|f| f.rel)
+                    .collect()
+            })
+            .collect();
+        let shared = std::sync::Arc::new(Progress::default());
+        let shared_options = options(&shared);
+        let results = search_shared(
+            tmp.path(),
+            &[(&first, &shared_options), (&second, &shared_options)],
+        );
+        let found: Vec<Vec<PathBuf>> = results
+            .into_iter()
+            .map(|r| r.files.into_iter().map(|f| f.rel).collect())
+            .collect();
+        assert_eq!(found, expected);
+        assert_eq!(alone.scanned(), 6, "every query alone scans the three files");
+        assert_eq!(shared.scanned(), 3, "a shared walk scans every file once");
+        assert_eq!(shared.matched(), 3, "a.rs, b.md and c.txt once each");
+    }
+
     #[test]
     #[cfg(windows)]
     fn hard_links_have_the_same_file_id() {

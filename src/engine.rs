@@ -1097,6 +1097,14 @@ impl Engine {
         }
     }
 
+    /// The search options of the session settings, for the tests of the search.
+    #[cfg(test)]
+    pub(crate) fn default_search_options(&self) -> SearchOptions {
+        let settings = self.settings();
+        let languages = Arc::new(LanguageTable::new(settings.language_list()));
+        self.search_options(&settings, None, false, languages)
+    }
+
     /// Keeps the result for `within` and `since`; its id, `None` when the result cache is off.
     fn keep_result(
         &self,
@@ -1939,6 +1947,35 @@ fn fingerprint(file: &search::Found) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn walk_keys() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::create_dir(tmp.path().join("src")).unwrap();
+        let engine = Engine::new(EngineOptions::new(tmp.path().to_path_buf()));
+        let key = |arguments: Value| {
+            engine
+                .prepare(&arguments, None, false)
+                .unwrap()
+                .walk_key()
+        };
+        let plain = key(json!({ "query": "text has 'a'" }));
+        assert!(plain.is_some(), "a walk");
+        assert_eq!(
+            key(json!({ "query": "name ~ '*.rs'", "output": { "detail": "count" } })),
+            plain,
+            "the output is not part of the walk"
+        );
+        assert_ne!(key(json!({ "query": "text has 'x'", "dirs": ["src"] })), plain);
+        assert_ne!(
+            key(json!({ "query": "text has 'x'", "traversal": { "hidden": true } })),
+            plain
+        );
+        assert_ne!(
+            key(json!({ "query": "text has 'x'", "kinds": { "test": ["*.t"] } })),
+            plain
+        );
+    }
 
     #[test]
     fn searches_share_the_threads() {

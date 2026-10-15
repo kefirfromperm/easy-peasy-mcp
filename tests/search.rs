@@ -210,3 +210,28 @@ fn a_working_directory_in_the_home_directory() {
     assert!(!out.is_error, "{}", out.text);
     assert!(out.text.starts_with("files: 1  "), "{}", out.text);
 }
+
+#[test]
+fn a_batch_reads_every_file_once() {
+    let tmp = tempfile::tempdir().unwrap();
+    for name in ["a.txt", "b.txt", "c.txt"] {
+        fs::write(tmp.path().join(name), "x\n").unwrap();
+    }
+    let mut options = EngineOptions::new(tmp.path().to_path_buf());
+    options.git_global_excludes = false;
+    options.read_delay = Some(std::time::Duration::from_millis(400));
+    let engine = Engine::new(options);
+    let start = std::time::Instant::now();
+    let out = engine.find(&json!({
+        "queries": [{ "query": "text has 'x'" }, { "query": "text has 'y'" }, { "query": "text has 'x\n'" }],
+        "output": { "detail": "count" }
+    }));
+    let elapsed = start.elapsed();
+    assert!(!out.is_error, "{}", out.text);
+    // one read of 400ms per file, in parallel; three walks would take at least 1.2s
+    assert!(
+        elapsed < std::time::Duration::from_millis(1100),
+        "{elapsed:?}: {}",
+        out.text
+    );
+}
