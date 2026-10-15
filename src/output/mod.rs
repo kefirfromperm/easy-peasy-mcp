@@ -536,6 +536,7 @@ impl Response<'_> {
                 self.highlight,
                 self.limits.max_line_length,
                 self.omit,
+                self.spec >= 2,
             ));
         }
     }
