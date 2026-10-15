@@ -185,7 +185,7 @@ mod tests {
             file("  use x;  \n", "use", 1),
             file("use x;\nuse x;\n", "use", 1),
         ];
-        let r = repeated(&files, 3);
+        let r = repeated(&files, 0..files.len(), 3);
         assert_eq!(r.lines.len(), 1);
         assert_eq!(r.lines[0].content.text(), "use x;");
         assert_eq!(r.lines[0].fragments[0].range, 0..3);
@@ -197,8 +197,8 @@ mod tests {
         );
         let m = files[0].matches.as_ref().unwrap();
         assert_eq!(r.rest(0, &m.content, &m.fragments).len(), 1);
-        assert!(repeated(&files, 4).lines.is_empty());
-        assert!(repeated(&files, 0).lines.is_empty(), "0 is off");
+        assert!(repeated(&files, 0..files.len(), 4).lines.is_empty());
+        assert!(repeated(&files, 0..files.len(), 0).lines.is_empty(), "0 is off");
     }
 
     #[test]
@@ -208,8 +208,8 @@ mod tests {
             file("use x;\n", "use", 2),
             file("use x;\n", "use", 1),
         ];
-        assert!(repeated(&files, 3).lines.is_empty());
-        assert_eq!(repeated(&files, 2).lines[0].files, [(0, 0), (2, 0)]);
+        assert!(repeated(&files, 0..files.len(), 3).lines.is_empty());
+        assert_eq!(repeated(&files, 0..files.len(), 2).lines[0].files, [(0, 0), (2, 0)]);
     }
 
     #[test]
@@ -219,7 +219,7 @@ mod tests {
             file("a\nb\n", "a\nb", 1),
             file("a\nb\n", "a\nb", 1),
         ];
-        assert!(repeated(&files, 2).lines.is_empty());
+        assert!(repeated(&files, 0..files.len(), 2).lines.is_empty());
     }
 
     #[test]
@@ -231,8 +231,42 @@ mod tests {
             file("a\n", "a", 1),
             file("a\n", "a", 1),
         ];
-        let r = repeated(&files, 2);
+        let r = repeated(&files, 0..files.len(), 2);
         let texts: Vec<&str> = r.lines.iter().map(|l| l.content.text()).collect();
         assert_eq!(texts, ["a", "b"]);
+    }
+
+    #[test]
+    fn files_which_are_not_listed_count() {
+        let files = [
+            file("use x;\n", "use", 1),
+            file("use x;\nuse y;\n", "use", 1),
+            file("use x;\nuse y;\n", "use", 1),
+            file("use y;\n", "use", 1),
+        ];
+        // the second page: the files 2 and 3
+        let r = repeated(&files, 2..4, 3);
+        let lines: Vec<(&str, usize, &[(usize, usize)])> = r
+            .lines
+            .iter()
+            .map(|l| (l.content.text(), l.count, l.files.as_slice()))
+            .collect();
+        assert_eq!(
+            lines,
+            [("use x;", 3, &[(2, 0)][..]), ("use y;", 3, &[(2, 1), (3, 0)][..])],
+            "all the files counted, the listed ones located"
+        );
+        let m = files[3].matches.as_ref().unwrap();
+        assert!(
+            r.rest(1, &m.content, &m.fragments).is_empty(),
+            "the left out lines are per listed file"
+        );
+        assert!(
+            repeated(&files, 3..4, 3)
+                .lines
+                .iter()
+                .all(|l| l.content.text() == "use y;"),
+            "a line without a listed file is not repeated"
+        );
     }
 }
