@@ -262,7 +262,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 142 | [The number of files of a repeated line](142__TASK__REPEATED_COUNT.md) | 86, 138 | ✅ |
 | 143 | [The legend rule counts the conditions an agent wrote](143__TASK__CONDITIONS_RULE.md) | 141 | ✅ |
 | 144 | [Context to the end of the block: `output.after = "block"`](144__TASK__CONTEXT_BLOCK.md) | 80, 134 | ✅ |
-| 145 | [One header per directory in relevance order](145__TASK__DIR_GROUPS_ONCE.md) | 85, 93 | ⬜ |
+| 145 | [One header per directory in relevance order](145__TASK__DIR_GROUPS_ONCE.md) | 85, 93 | 🚧 |
 | 146 | [The ids which are the same everywhere are left out](146__TASK__IDS_SAME_EVERYWHERE.md) | 141, 143 | ⬜ |
 | 147 | [The indentation written once per change](147__TASK__INDENT_CARRIED.md) | 84, 141 | ⬜ |
 | 148 | [Paths relative to the only working directory](148__TASK__ONE_DIR_RELATIVE.md) | 90, 137 | ⬜ |

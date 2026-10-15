@@ -1,6 +1,6 @@
 # Task 145: One header per directory in relevance order
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 85, task 93
 
