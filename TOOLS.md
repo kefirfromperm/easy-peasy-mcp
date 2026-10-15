@@ -912,6 +912,7 @@ Select the files with exactly one of:
 replace = {"@old": "template"}: the matches of the group @old are replaced; a group is a condition, line( ... ),
   near( ... ) or ( ... ) @name of the query. The other conditions only select the files.
   {@old} the match, {@old.1} {@old.fname} the groups of a =~ regex; {{ and }} are braces
+  {indent} the spaces and tabs at the start of the line of the match: {"@old": "{@old}\n{indent}new line"}
   e.g. query "text =~ `fn (?<f>\w+)_old\(` @def", replace {"@def": "fn {@def.f}_new("}
 Only the matches which made the file match are replaced: in line( ... ) and near( ... ) the matched lines;
   matches skipped by /c stay. /n writes the new text in the naming style of each match: 'parse query' /n to
@@ -1079,23 +1080,41 @@ files which are not skipped have another number of matches to replace, before an
 |--------------------|-----------------------------------------------------------------------------------------|
 | `{@old}`, `{#3}`   | the text of the match of the group                                                      |
 | `{@old.1}`, `{@old.fname}` | a capture group of the match of a `text =~` condition, empty when it didn't take part |
+| `{indent}`         | the indentation of the line where the match starts: its spaces and tabs before the first other character |
 | `{{`, `}}`         | a literal brace                                                                         |
 | a line break       | the line break of the file: its first one, `\n` in a file without one                   |
 
 A template refers only to the group of its key and to its capture groups: a match of another group is not tied to this
-one. Errors (`invalid_template`), with the position in the template, in JSON the field `replace` with the template as
-its text:
+one.
+
+**`{indent}`.** It works with every group and lets one template insert a line in files and lines of any indentation:
+`{"@item": "{@item}\n{indent}\"more_lines\","}` adds `"more_lines",` under every matched `"left_out",`, indented like
+it with spaces or tabs.
+
+- it is the whole indentation of the line, also when the match starts after it (in the middle of the line) or inside
+  it (a regex which takes `^\s*` into the match): the template can write the indentation back that the match took
+- a match over several lines gets the indentation of its first line; a line of `line( ... )` without a text match
+  gets the indentation of that line
+- a line which starts with another character has no indentation: `{indent}` is empty
+- a line break of the template is not followed by the indentation on its own: the template says where it goes, so a
+  new line without `{indent}` starts at the first column
+- it is written as it is in the file: `/e` doesn't escape it; `/n` writes the whole new text in the naming style of
+  the match, which has no spaces or tabs, so it is left out there unless `"naming": false`
+
+Errors (`invalid_template`), with the position in the template, in JSON the field `replace` with the template as its
+text:
 
 | Example `@old`       | Message                                   | Hint                                                     |
 |----------------------|-------------------------------------------|----------------------------------------------------------|
 | `{@x}_v2`            | `'{@x}' is not '@old' or its sub-group`   | `the placeholders of '@old' are {@old}, {@old.1}, {@old.fname}` |
-| `{name}`             | `unknown placeholder 'name'`              | the same                                                 |
+| `{name}`             | `unknown placeholder 'name'`              | `the placeholders of '@old' are {@old}, {@old.1}, {@old.fname}, {indent}` |
 | `{}`                 | `empty placeholder`                       | the same                                                 |
 | `{@old`              | `unclosed '{'`                            | `write '{{' for a brace`                                 |
 | `@old}`              | `unmatched '}'`                           | `write '}}' for a brace`                                 |
 
-The hint lists the group and its capture groups like the hint of `unknown_group`. The position of a placeholder is
-the placeholder with its braces, of an unclosed `{` from it to the end, of `}` the character.
+The hint lists the group and its capture groups like the hint of `unknown_group`; for a placeholder which is not a
+group reference (`{name}`, `{}`) also `{indent}`. The position of a placeholder is the placeholder with its braces,
+of an unclosed `{` from it to the end, of `}` the character.
 
 **`/n`.** A match of a condition with `/n` gets the new text — the template with its placeholders filled in — in the
 naming style of the match: the new text is split into words like the value of `/n`

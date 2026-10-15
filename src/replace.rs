@@ -164,6 +164,8 @@ enum Part {
     Text(String),
     /// The match of the group (`None`) or one of its sub-groups by its reference, `@def.1`.
     Ref(Option<String>),
+    /// `{indent}`: the indentation of the line where the match starts.
+    Indent,
 }
 
 /// A checked template of a group.
@@ -176,9 +178,11 @@ impl Template {
     /// Parses `text`, the template of the group `id` whose sub-groups are `subs`; the error has its byte range in
     /// `text`.
     fn parse(text: &str, id: &str, subs: &[String]) -> Result<Self, QueryError> {
-        let hint = || {
+        // `{indent}` is listed for a placeholder which is not a group reference
+        let hint = |indent: bool| {
             let placeholders: Vec<String> = std::iter::once(id)
                 .chain(subs.iter().map(String::as_str))
+                .chain(indent.then_some("indent"))
                 .map(|r| format!("{{{r}}}"))
                 .collect();
             format!("the placeholders of '{id}' are {}", placeholders.join(", "))
@@ -225,25 +229,27 @@ impl Template {
                             "empty placeholder",
                             span,
                         )
-                        .hint(hint()));
+                        .hint(hint(true)));
                     } else if name == id {
                         Part::Ref(None)
                     } else if subs.iter().any(|s| s == name) {
                         Part::Ref(Some(name.to_string()))
+                    } else if name == "indent" {
+                        Part::Indent
                     } else if name.starts_with(['@', '#']) {
                         return Err(QueryError::new(
                             ErrorCode::InvalidTemplate,
                             format!("'{{{name}}}' is not '{id}' or its sub-group"),
                             span,
                         )
-                        .hint(hint()));
+                        .hint(hint(false)));
                     } else {
                         return Err(QueryError::new(
                             ErrorCode::InvalidTemplate,
                             format!("unknown placeholder '{name}'"),
                             span,
                         )
-                        .hint(hint()));
+                        .hint(hint(true)));
                     };
                     if !literal.is_empty() {
                         parts.push(Part::Text(std::mem::take(&mut literal)));
@@ -259,13 +265,14 @@ impl Template {
         Ok(Self { parts })
     }
 
-    /// The new text of `fragment` of `content`: the literal parts escaped `escape` (a style and a level) and the
-    /// references as matched.
+    /// The new text of `fragment` of `content`: the literal parts escaped `escape` (a style and a level), the
+    /// references as matched and `{indent}` as `indent`.
     fn expand(
         &self,
         content: &Content,
         fragment: &Fragment,
         escape: Option<(Style, u8)>,
+        indent: &str,
     ) -> String {
         let text = content.text();
         let mut out = String::new();
@@ -283,6 +290,7 @@ impl Template {
                         out.push_str(&text[group.range.clone()]);
                     }
                 }
+                Part::Indent => out.push_str(indent),
             }
         }
         out
@@ -391,8 +399,15 @@ fn replacements(
                 _ => None,
             });
             let escape = pattern.and_then(|p| p.escape_style).zip(f.escape);
-            let mut text = rule.template.expand(content, f, escape);
-            if rule.naming && pattern.is_some_and(|p| p.naming) {
+            // the naming style of a /n match has no spaces or tabs: no indentation there
+            let restyle = rule.naming && pattern.is_some_and(|p| p.naming);
+            let indent = if restyle {
+                ""
+            } else {
+                indentation(content.text(), f.range.start)
+            };
+            let mut text = rule.template.expand(content, f, escape, indent);
+            if restyle {
                 text = naming::restyle(&text, &content.text()[f.range.clone()]);
             }
             Replacement {
@@ -401,6 +416,13 @@ fn replacements(
             }
         })
         .collect())
+}
+
+/// The indentation of the line of `text` where `start` is: its spaces and tabs before the first other character.
+fn indentation(text: &str, start: usize) -> &str {
+    let line = text[..start].rfind('\n').map_or(0, |n| n + 1);
+    let rest = &text[line..];
+    &rest[..rest.len() - rest.trim_start_matches([' ', '\t']).len()]
 }
 
 /// What `replace` does with a file.
@@ -740,10 +762,17 @@ mod tests {
             }],
         };
         assert_eq!(
-            template.expand(&content, &fragment, None),
+            template.expand(&content, &fragment, None, ""),
             "{fn} load_v2() fn load(a)"
         );
+        let indented = Template::parse("{@def}\n{indent}{{indent}}", "@def", &[]).unwrap();
+        assert_eq!(
+            indented.expand(&content, &fragment, None, "\t "),
+            "fn load(a)\n\t {indent}"
+        );
         let hint = "  hint: the placeholders of '@def' are {@def}, {@def.1}, {@def.fname}\n";
+        let all =
+            "  hint: the placeholders of '@def' are {@def}, {@def.1}, {@def.fname}, {indent}\n";
         assert_eq!(
             template_error("{@x}_v2"),
             format!(
@@ -753,10 +782,13 @@ mod tests {
         assert_eq!(
             template_error("a{name}"),
             format!(
-                "error[invalid_template]: unknown placeholder 'name'\n  a{{name}}\n   ^^^^^^\n{hint}"
+                "error[invalid_template]: unknown placeholder 'name'\n  a{{name}}\n   ^^^^^^\n{all}"
             )
         );
-        assert!(template_error("{}").starts_with("error[invalid_template]: empty placeholder\n"));
+        assert_eq!(
+            template_error("{}"),
+            format!("error[invalid_template]: empty placeholder\n  {{}}\n  ^^\n{all}")
+        );
         assert_eq!(
             template_error("x{@def"),
             "error[invalid_template]: unclosed '{'\n  x{@def\n   ^^^^^\n  hint: write '{{' for a brace\n"
@@ -778,9 +810,39 @@ mod tests {
             groups: Vec::new(),
         };
         assert_eq!(
-            template.expand(&content, &fragment, Some((Style::Backslash, 1))),
+            template.expand(&content, &fragment, Some((Style::Backslash, 1)), ""),
             r#"\"role\": \"x\""#
         );
+        // the indentation is text of the file: not escaped
+        let indented = Template::parse("{@r}\n{indent}\"y\"", "@r", &[]).unwrap();
+        assert_eq!(
+            indented.expand(&content, &fragment, Some((Style::Backslash, 1)), "\t"),
+            "x\\n\t\\\"y\\\""
+        );
+    }
+
+    #[test]
+    fn the_indentation_of_the_line_of_a_match() {
+        let text = "fn a() {\n    let x = 1;\n\t\t\"y\",\n \t z\nw\n";
+        let at = |needle: &str| text.find(needle).unwrap();
+        // the first line has none
+        assert_eq!(indentation(text, 0), "");
+        assert_eq!(indentation(text, at("a()")), "");
+        // a match after the indentation, in the middle of the line
+        assert_eq!(indentation(text, at("let")), "    ");
+        assert_eq!(indentation(text, at("= 1")), "    ");
+        // tabs, mixed
+        assert_eq!(indentation(text, at("\"y\"")), "\t\t");
+        assert_eq!(indentation(text, at("z")), " \t ");
+        // a match which starts inside the indentation: the whole indentation
+        assert_eq!(indentation(text, at("\t\t")), "\t\t");
+        assert_eq!(indentation(text, at("\t\t") + 1), "\t\t");
+        // a match which starts at a line break belongs to the line the break ends
+        assert_eq!(indentation(text, at(";\n") + 1), "    ");
+        // a line which starts with another character
+        assert_eq!(indentation(text, at("w")), "");
+        // the end of the text
+        assert_eq!(indentation(text, text.len()), "");
     }
 
     fn fragment(range: Range<usize>, ids: &[&str]) -> Fragment {
