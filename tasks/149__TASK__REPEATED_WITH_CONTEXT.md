@@ -1,6 +1,6 @@
 # Task 149: A repeated line keeps the context which was asked for
 
-Status: in progress
+Status: implemented, see [149__SUMMARY__REPEATED_WITH_CONTEXT.md](149__SUMMARY__REPEATED_WITH_CONTEXT.md)
 
 Depends on: task 80, task 86, task 138
 
