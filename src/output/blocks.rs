@@ -107,7 +107,9 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
 pub fn context(content: &Content, m: usize, options: &BlockOptions) -> (usize, usize) {
     let hi = match options.after {
         After::Block => block_end(content, m),
-        After::Lines(after) => (m + after).min(content.line_count().saturating_sub(1)).max(m),
+        After::Lines(after) => (m + after)
+            .min(content.line_count().saturating_sub(1))
+            .max(m),
     };
     (m.saturating_sub(options.before), hi)
 }

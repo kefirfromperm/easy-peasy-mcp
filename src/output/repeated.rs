@@ -147,7 +147,7 @@ struct Block<'a> {
     after: Vec<String>,
 }
 
-/// The matched line `line` (one of the `matched` lines) with its block of `context` lines, without the common leading
+/// The matched line `line` (one of the `matched` lines) with its block of context lines made with `options`, without the common leading
 /// whitespace of the block and the trailing whitespace of every line; without context lines the line without its
 /// leading and trailing whitespace. `None` if it is not grouped: another matched line in its block, a fragment in
 /// the common leading whitespace, or one of [`trimmed`].
@@ -156,7 +156,7 @@ fn block<'a>(
     fragments: &[Fragment],
     matched: &[usize],
     line: usize,
-    context: Option<&BlockOptions>,
+    options: Option<&BlockOptions>,
 ) -> Option<Block<'a>> {
     let alone = || {
         let (text, fragments) = trimmed(content, fragments, line, None)?;
@@ -167,7 +167,7 @@ fn block<'a>(
             after: Vec::new(),
         })
     };
-    let Some(options) = context else {
+    let Some(options) = options else {
         return alone();
     };
     let (lo, hi) = blocks::context(content, line, options);
@@ -422,15 +422,26 @@ mod tests {
         assert_eq!(r.lines.len(), 1);
         let line = &r.lines[0];
         assert_eq!(
-            (line.before.as_slice(), line.content.text(), line.after.as_slice()),
+            (
+                line.before.as_slice(),
+                line.content.text(),
+                line.after.as_slice()
+            ),
             (&["a".to_string()][..], "key x", &["b".to_string()][..]),
             "without the common indentation and the trailing whitespace"
         );
         assert_eq!(line.fragments[0].range, 0..3);
         assert_eq!(line.files, [(0, 1), (1, 1), (2, 2)]);
-        assert_eq!(line.count, 3, "the file with another context line is not counted");
+        assert_eq!(
+            line.count, 3,
+            "the file with another context line is not counted"
+        );
         let m = files[3].matches.as_ref().unwrap();
-        assert_eq!(r.rest(3, &m.content, &m.fragments).len(), 1, "it keeps its line");
+        assert_eq!(
+            r.rest(3, &m.content, &m.fragments).len(),
+            1,
+            "it keeps its line"
+        );
     }
 
     #[test]
@@ -440,7 +451,12 @@ mod tests {
             file("b\nkey\n", "key", 1),
             file("c\nkey\n", "key", 1),
         ];
-        assert!(repeated(&files, 0..files.len(), 2, Some(&around(1, 0))).lines.is_empty());
+        assert_eq!(
+            repeated(&files, 0..files.len(), 2, Some(&around(1, 0)))
+                .lines
+                .len(),
+            0
+        );
         assert_eq!(
             repeated(&files, 0..files.len(), 3, None).lines.len(),
             1,
@@ -455,7 +471,12 @@ mod tests {
             file("key\nkey\n", "key", 1),
             file("key\nkey\n", "key", 1),
         ];
-        assert!(repeated(&files, 0..files.len(), 2, Some(&around(1, 1))).lines.is_empty());
+        assert_eq!(
+            repeated(&files, 0..files.len(), 2, Some(&around(1, 1)))
+                .lines
+                .len(),
+            0
+        );
     }
 
     #[test]
@@ -464,15 +485,17 @@ mod tests {
             file("  a\n  key\n", "  key", 1),
             file("  a\n  key\n", "  key", 1),
         ];
-        assert!(repeated(&files, 0..files.len(), 2, Some(&around(1, 0))).lines.is_empty());
+        assert_eq!(
+            repeated(&files, 0..files.len(), 2, Some(&around(1, 0)))
+                .lines
+                .len(),
+            0
+        );
     }
 
     #[test]
     fn the_blank_context_lines_follow_blank_context() {
-        let files = [
-            file("a\n\nkey\n", "key", 1),
-            file("a\n  \nkey\n", "key", 1),
-        ];
+        let files = [file("a\n\nkey\n", "key", 1), file("a\n  \nkey\n", "key", 1)];
         let r = repeated(&files, 0..files.len(), 2, Some(&around(2, 0)));
         assert_eq!(r.lines[0].before, ["a", ""]);
         let without = BlockOptions {
