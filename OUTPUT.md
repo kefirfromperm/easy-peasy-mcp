@@ -1272,9 +1272,10 @@ A query of several counted conditions joined with `and` gives every file the sam
   `or`; one file has nothing to tell apart
 - `match_ids`: when the ids of two matches of the result differ: the content fragments and the
   [path fragments](#path-fragments), compared as sets of ids; the escape levels are not compared
-- `legend`: when the conditions are written, or the ids of the matches are written and the response shows matches
-  (`lines` detail, or path fragments in `files` detail); in `facets` detail it explains the `condition` facet, so it
-  is written when the conditions are
+- `legend`: when the conditions differ, or the ids of the matches differ (with `groups`: are written) and the
+  response shows matches (`lines` detail, or path fragments in `files` detail); in `facets` detail it explains the
+  `condition` facet, so it is written when the conditions differ. A part brought back by `show` doesn't bring the
+  legend with it
 - "the result" is all its matched files, not only the listed ones: the pages of a [cursor](#pagination), `max_files`
   and the [budget](#budget) don't change the decision; with `since` it is the new result, not only the differences.
   [`groups`](#shown-groups) decides `match_ids` by its references, as above; `count` detail writes no ids
