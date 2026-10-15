@@ -260,6 +260,6 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 140 | [The write tools say how to select directories and symlinks](140__TASK__WRITE_SELECTION_TYPES.md) | 125 | ✅ |
 | 141 | [Useful output by default: the default of `output.omit`](141__TASK__OUTPUT_DEFAULTS.md) | 134 | ✅ |
 | 142 | [The number of files of a repeated line](142__TASK__REPEATED_COUNT.md) | 86, 138 | ✅ |
-| 143 | [The legend rule counts the conditions an agent wrote](143__TASK__CONDITIONS_RULE.md) | 141 | ⬜ |
+| 143 | [The legend rule counts the conditions an agent wrote](143__TASK__CONDITIONS_RULE.md) | 141 | 🚧 |
 | 144 | [Context to the end of the block: `output.after = "block"`](144__TASK__CONTEXT_BLOCK.md) | 80, 134 | ⬜ |
 | 145 | [One header per directory in relevance order](145__TASK__DIR_GROUPS_ONCE.md) | 85, 93 | ⬜ |
