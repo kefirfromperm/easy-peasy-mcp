@@ -73,7 +73,7 @@ The spec versions:
 | Version | Changes                                                                                               |
 |---------|-------------------------------------------------------------------------------------------------------|
 | `1`     | the first one: every part of the response is written unless `output.omit` leaves it out               |
-| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines, the only working directory once in the `in:` line; the `omit` of a request is added to the configured one |
+| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line; the `omit` of a request is added to the configured one |
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
