@@ -24,6 +24,8 @@ The same in both arms:
 - the task, the base commit, the model and the workflow (AGENTS.md: task branch, plan, examples, tests first,
   summary, status, version bump, at least 5 commits, tests and clippy green, no merge, no push)
 - `Read` for a file already located (with `offset`/`limit`), `Edit` for a single known edit, `Write` for new files
+- `python3` scripts that edit or write files (several replacements in one call), not for searching or reading: run 3
+  showed it saves calls, and arm B used it although its rules didn't allow it
 - Bash for `cargo build/test/clippy/fmt`, `git` (not `git grep` in A) and running the built binary
 - neither arm uses rustrover-index / intellij-index or the Glob/Grep tools
 - neither arm validates easy-peasy results against grep or writes `EASY_PEASY_STATS.local.md`: this overrides
@@ -63,9 +65,10 @@ TOOL RULES (strict):
   mcp__easy-peasy__rename,mcp__easy-peasy__copy,mcp__easy-peasy__delete"). Do NOT use grep, rg, sed, awk, find, ls,
   cat, head, tail, git grep, Glob/Grep, or rustrover-index/intellij-index.
 - Multi-file mechanical changes: easy-peasy replace/rename/copy/delete (dry_run first). Single known edits: Edit tool.
-  New files: Write. Reading a file you located: Read tool (use offset/limit, read only what you need).
-- Bash is allowed ONLY for: cargo build/test/clippy/fmt, git (status/diff/add/commit/branch, but not git grep), and
-  running the built binary.
+  New files: Write. Several edits at once: a python3 script that edits or writes files (not for searching or
+  reading). Reading a file you located: Read tool (use offset/limit, read only what you need).
+- Bash is allowed ONLY for: cargo build/test/clippy/fmt, git (status/diff/add/commit/branch, but not git grep),
+  running the built binary, and python3 scripts that edit or write files.
 - You work in a git worktree. The easy-peasy server's default dir is the MAIN checkout, not your worktree: always pass
   `dirs` with the absolute path of your worktree (run `pwd` once to learn it). Never touch the main checkout at
   /home/vsamolovskikh/myprojects/easy-peasy-mcp.
@@ -93,8 +96,9 @@ TOOL RULES (strict):
   cat, head, tail, wc, git grep. Do NOT use the easy-peasy MCP tools, rustrover-index/intellij-index, or the Glob/Grep
   tools. This overrides CLAUDE.local.md's "easy-peasy first" rule for this experiment; don't write
   EASY_PEASY_STATS.local.md.
-- Edits: Edit tool, Write for new files, or sed for multi-file mechanical changes. Read tool is allowed for reading a
-  located file (use offset/limit, read only what you need).
+- Edits: Edit tool, Write for new files, sed for multi-file mechanical changes, or a python3 script that edits or
+  writes files (not for searching or reading). Read tool is allowed for reading a located file (use offset/limit,
+  read only what you need).
 - Bash also for cargo build/test/clippy/fmt and git.
 - You work in a git worktree; work only there (run `pwd` once). Never touch the main checkout at
   /home/vsamolovskikh/myprojects/easy-peasy-mcp.
@@ -245,3 +249,7 @@ real question, what the task cost.
   per change, where B batched several replacements into one `python3` script.
 - **Outcome:** the closest run so far: A cost ~10% more tokens (run 2: ~25%, run 1: ~30%), all of it the fixed cost
   of the tool schemas, which runs 1 and 2 paid too.
+- **Merged:** B (10 examples, `/n` handled, E129.12 kept), with a commit that restores the paragraph break after the
+  last `{indent}` bullet. Version 0.148.0. Tasks 156 (smaller tool descriptions and schemas), 157 (paths relative to
+  the only working directory in the write tools), 158 (the counts of the only file are not repeated). From run 4 both
+  arms may edit and write files with `python3` scripts.
