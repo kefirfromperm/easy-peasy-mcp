@@ -240,7 +240,7 @@ in: /home/me/app/.claude/worktrees/agent-1/
 
 src/
 cache.rs  [#1]  lines: 2  matches: 2
-output/
+src/output/
 json.rs  [#1]  lines: 1  matches: 1
 ```
 
@@ -281,7 +281,7 @@ in: /home/me/app/.claude/worktrees/agent-1/
 
 src/
 cache.rs  lines: 2  matches: 2
-output/
+src/output/
 json.rs  lines: 1  matches: 1
 ```
 
