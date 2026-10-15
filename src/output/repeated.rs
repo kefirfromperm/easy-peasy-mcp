@@ -1,6 +1,7 @@
 //! Matched lines repeated in many files, printed once (OUTPUT.md#repeated-lines).
 
 use std::collections::HashMap;
+use std::ops::Range;
 
 use super::Fragment;
 use super::lines::lines_of;
@@ -14,19 +15,24 @@ pub struct RepeatedLine {
     pub content: Content,
     /// Its fragments in `content`.
     pub fragments: Vec<Fragment>,
-    /// Its files in their order: the index of the file and the 0-based index of its first such line.
+    /// Its listed files in their order: the index of the file among all the files and the 0-based index of its first
+    /// such line.
     pub files: Vec<(usize, usize)>,
+    /// The number of all the files of the result which have it, listed or not.
+    pub count: usize,
 }
 
 /// The repeated lines of the files and, per file, the lines which are left out of it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Repeated {
     pub lines: Vec<RepeatedLine>,
+    /// Per listed file, the indexes of its lines which are left out.
     removed: Vec<Vec<usize>>,
 }
 
 impl Repeated {
-    /// The fragments of the file `file` which are not on its repeated lines.
+    /// The fragments of the listed file `file` (its index among the listed files) which are not on its repeated
+    /// lines.
     pub fn rest(&self, file: usize, content: &Content, fragments: &[Fragment]) -> Vec<Fragment> {
         match self.removed.get(file) {
             Some(lines) if !lines.is_empty() => fragments
@@ -39,50 +45,66 @@ impl Repeated {
     }
 }
 
+/// A line of `repeated` while the files are read: the last file counted and its lines in the listed files.
+struct Group {
+    line: RepeatedLine,
+    last: Option<usize>,
+    removed: Vec<(usize, usize)>,
+}
+
 /// The matched lines which are identical without their leading and trailing whitespace, with the same fragments, in
-/// at least `min` files (`0`: none). A line touched by a multiline fragment or with a fragment only in its leading or
-/// trailing whitespace is never repeated. The lines are ordered by the number of files, more first, then by their
-/// first file.
-pub fn repeated(files: &[Found], min: usize) -> Repeated {
+/// at least `min` of all the `files` (`0`: none) and in at least one of the `listed` ones (OUTPUT.md#repeated-lines).
+/// A line touched by a multiline fragment or with a fragment only in its leading or trailing whitespace is never
+/// repeated. The lines are ordered by the number of files, more first, then by their first listed file.
+pub fn repeated(files: &[Found], listed: Range<usize>, min: usize) -> Repeated {
     let mut result = Repeated {
         lines: Vec::new(),
-        removed: vec![Vec::new(); files.len()],
+        removed: vec![Vec::new(); listed.len()],
     };
     if min == 0 {
         return result;
     }
     let mut keys: HashMap<(String, String), usize> = HashMap::new();
-    let mut groups: Vec<(RepeatedLine, Vec<(usize, usize)>)> = Vec::new();
+    let mut groups: Vec<Group> = Vec::new();
     for (index, file) in files.iter().enumerate() {
         let Some(m) = &file.matches else {
             continue;
         };
+        let is_listed = listed.contains(&index);
         for line in lines_of(&m.content, &m.fragments) {
             let Some((text, fragments)) = trimmed(&m.content, &m.fragments, line) else {
                 continue;
             };
             let key = (text.to_string(), format!("{fragments:?}"));
             let group = *keys.entry(key).or_insert_with(|| {
-                groups.push((
-                    RepeatedLine {
+                groups.push(Group {
+                    line: RepeatedLine {
                         content: Content::from_text(text.to_string()),
                         fragments,
                         files: Vec::new(),
+                        count: 0,
                     },
-                    Vec::new(),
-                ));
+                    last: None,
+                    removed: Vec::new(),
+                });
                 groups.len() - 1
             });
-            let (repeated, all) = &mut groups[group];
-            if repeated.files.last().is_none_or(|(f, _)| *f != index) {
-                repeated.files.push((index, line));
+            let group = &mut groups[group];
+            if group.last != Some(index) {
+                group.last = Some(index);
+                group.line.count += 1;
+                if is_listed {
+                    group.line.files.push((index, line));
+                }
             }
-            all.push((index, line));
+            if is_listed {
+                group.removed.push((index - listed.start, line));
+            }
         }
     }
-    for (line, all) in groups {
-        if line.files.len() >= min {
-            for (file, index) in all {
+    for Group { line, removed, .. } in groups {
+        if line.count >= min && !line.files.is_empty() {
+            for (file, index) in removed {
                 result.removed[file].push(index);
             }
             result.lines.push(line);
@@ -90,7 +112,7 @@ pub fn repeated(files: &[Found], min: usize) -> Repeated {
     }
     result
         .lines
-        .sort_by_key(|l| (std::cmp::Reverse(l.files.len()), l.files[0]));
+        .sort_by_key(|l| (std::cmp::Reverse(l.count), l.files[0]));
     result
 }
 
@@ -185,7 +207,7 @@ mod tests {
             file("  use x;  \n", "use", 1),
             file("use x;\nuse x;\n", "use", 1),
         ];
-        let r = repeated(&files, 3);
+        let r = repeated(&files, 0..files.len(), 3);
         assert_eq!(r.lines.len(), 1);
         assert_eq!(r.lines[0].content.text(), "use x;");
         assert_eq!(r.lines[0].fragments[0].range, 0..3);
@@ -197,8 +219,11 @@ mod tests {
         );
         let m = files[0].matches.as_ref().unwrap();
         assert_eq!(r.rest(0, &m.content, &m.fragments).len(), 1);
-        assert!(repeated(&files, 4).lines.is_empty());
-        assert!(repeated(&files, 0).lines.is_empty(), "0 is off");
+        assert!(repeated(&files, 0..files.len(), 4).lines.is_empty());
+        assert!(
+            repeated(&files, 0..files.len(), 0).lines.is_empty(),
+            "0 is off"
+        );
     }
 
     #[test]
@@ -208,8 +233,11 @@ mod tests {
             file("use x;\n", "use", 2),
             file("use x;\n", "use", 1),
         ];
-        assert!(repeated(&files, 3).lines.is_empty());
-        assert_eq!(repeated(&files, 2).lines[0].files, [(0, 0), (2, 0)]);
+        assert!(repeated(&files, 0..files.len(), 3).lines.is_empty());
+        assert_eq!(
+            repeated(&files, 0..files.len(), 2).lines[0].files,
+            [(0, 0), (2, 0)]
+        );
     }
 
     #[test]
@@ -219,7 +247,7 @@ mod tests {
             file("a\nb\n", "a\nb", 1),
             file("a\nb\n", "a\nb", 1),
         ];
-        assert!(repeated(&files, 2).lines.is_empty());
+        assert!(repeated(&files, 0..files.len(), 2).lines.is_empty());
     }
 
     #[test]
@@ -231,8 +259,46 @@ mod tests {
             file("a\n", "a", 1),
             file("a\n", "a", 1),
         ];
-        let r = repeated(&files, 2);
+        let r = repeated(&files, 0..files.len(), 2);
         let texts: Vec<&str> = r.lines.iter().map(|l| l.content.text()).collect();
         assert_eq!(texts, ["a", "b"]);
+    }
+
+    #[test]
+    fn files_which_are_not_listed_count() {
+        type Located<'a> = (&'a str, usize, &'a [(usize, usize)]);
+        let files = [
+            file("use x;\n", "use", 1),
+            file("use x;\nuse y;\n", "use", 1),
+            file("use x;\nuse y;\n", "use", 1),
+            file("use y;\n", "use", 1),
+        ];
+        // the second page: the files 2 and 3
+        let r = repeated(&files, 2..4, 3);
+        let lines: Vec<Located> = r
+            .lines
+            .iter()
+            .map(|l| (l.content.text(), l.count, l.files.as_slice()))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                ("use x;", 3, &[(2, 0)][..]),
+                ("use y;", 3, &[(2, 1), (3, 0)][..])
+            ],
+            "all the files counted, the listed ones located"
+        );
+        let m = files[3].matches.as_ref().unwrap();
+        assert!(
+            r.rest(1, &m.content, &m.fragments).is_empty(),
+            "the left out lines are per listed file"
+        );
+        assert!(
+            repeated(&files, 3..4, 3)
+                .lines
+                .iter()
+                .all(|l| l.content.text() == "use y;"),
+            "a line without a listed file is not repeated"
+        );
     }
 }

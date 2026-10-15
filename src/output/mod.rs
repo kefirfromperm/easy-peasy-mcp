@@ -598,11 +598,16 @@ impl Response<'_> {
 
     /// The files which are listed: the first `max_files` from the start of the page.
     fn listed(&self) -> &[Found] {
+        &self.files[self.listed_range()]
+    }
+
+    /// The indexes of the listed files among all the files.
+    fn listed_range(&self) -> std::ops::Range<usize> {
         if self.lists() {
-            let rest = &self.files[self.page_start()..];
-            &rest[..rest.len().min(self.files_limit())]
+            let start = self.page_start();
+            start..start + (self.files.len() - start).min(self.files_limit())
         } else {
-            &[]
+            0..0
         }
     }
 
@@ -698,7 +703,7 @@ impl Response<'_> {
     /// The repeated lines of the files, only in `lines` detail.
     fn repeated(&self) -> repeated::Repeated {
         if self.detail == Detail::Lines {
-            repeated::repeated(self.listed(), self.group_repeated)
+            repeated::repeated(self.files, self.listed_range(), self.group_repeated)
         } else {
             repeated::Repeated::default()
         }
@@ -715,13 +720,13 @@ impl Response<'_> {
             let _ = write!(
                 out,
                 "  ×{} {}",
-                line.files.len(),
+                line.count,
                 lines::shown_line(&line.content, &line.fragments, 0, 0, self.highlight),
             );
             if !self.omit.has(Part::Locations) {
                 let mut locations = self.locations(line, count);
-                if count < line.files.len() {
-                    locations.push(format!("… {} more", line.files.len() - count));
+                if count < line.count {
+                    locations.push(format!("… {} more", line.count - count));
                 }
                 let _ = write!(out, "    {}", locations.join(", "));
             }

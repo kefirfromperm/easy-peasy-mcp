@@ -345,7 +345,7 @@ impl Response<'_> {
                         usize::MAX,
                     );
                     Repeated {
-                        count: line.files.len(),
+                        count: line.count,
                         text: shown.text,
                         fragments: shown.fragments,
                         locations: if self.omit.has(Part::Locations) {
