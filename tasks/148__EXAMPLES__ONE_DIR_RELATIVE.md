@@ -1,7 +1,7 @@
 # Examples for task 148
 
-In spec 2 `path_style = relative` (the default) with one working directory other than `.` writes the directory once
-in the `in:` line and the paths relative to it, as `in_dir` does (OUTPUT.md#one-working-directory). The examples are
+In spec 2 `path_style = relative` (the default) with one working directory given as an absolute path writes the
+directory once in the `in:` line and the paths relative to it, as `in_dir` does (OUTPUT.md#one-working-directory). The examples are
 written for the current spec version 2.
 
 ## Fixtures
@@ -99,26 +99,25 @@ Fixture: `one-dir`
 }
 ```
 
-## E148.3 A relative working directory
+## E148.3 A relative working directory is unchanged
 
 Fixture: `one-dir`
 
-1. `proj/src`: the same rule, the files directly in it under `./`
+1. `proj/src`: the directory before the paths, shorter than `in: proj/src/` with a `./` header
 
 ```json request
 {"dirs": ["proj/src"], "query": "text has 'cache'", "output": {"detail": "files"}}
 ```
 ```text response
 files: 3  lines: 4  matches: 4  result: r1
-in: proj/src/
 
-./
+proj/src/
 a.rs  lines: 2  matches: 2
 b.rs  lines: 1  matches: 1
 c.rs  lines: 1  matches: 1
 ```
 
-2. `.` is unchanged: no line
+2. `.`: no line
 
 ```json request
 {"query": "text has 'cache'", "output": {"detail": "files"}}

@@ -41,7 +41,7 @@ A spec change first (its own commit; OUTPUT.md#paths), then the code.
 `148__EXAMPLES__ONE_DIR_RELATIVE.md` covers:
 
 - one absolute working directory: `files` and `lines` detail, a repeated line, text and JSON
-- one relative working directory other than `.`; `.`, unchanged
+- one relative working directory, unchanged (the spec step decided it); `.`, unchanged
 - two working directories, unchanged; `path_style = absolute`, unchanged
 - `"version": 1`, unchanged
 

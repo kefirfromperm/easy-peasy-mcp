@@ -6,11 +6,13 @@ The spec step ([OUTPUT.md#one-working-directory](../OUTPUT.md#one-working-direct
 working directory in spec 2 write the paths as `in_dir`, so the code reuses `in_dir` as it is:
 
 - `engine.rs`: `in_dirs` decides from the path style, the spec version, `show` and the number of working directories:
-  `in_dir` always; `relative` in spec 2 with exactly one working directory, unless `show` has `dir`. Everything
+  `in_dir` always; `relative` in spec 2 with exactly one working directory given as an absolute path (or with `~`),
+  unless `show` has `dir`. Everything
   downstream (the `in:` line, the stripped paths of the files, warnings, facets, hints, repeated locations, JSON
   `dirs`, `since`) already follows `in_dirs`
 - `respond` computes `spec` and `show` before `in_dirs`
-- the working directory `.` goes the same way as with `in_dir`: no line, the paths unchanged
+- a relative working directory, `.` among them, is unchanged: a second spec commit narrowed the rule after E135.4
+  and E135.5 showed `in: src/` with a `./` header costing more than the header `src/`
 - `within`: its working directories are the ones of the referred result, so the rule follows their number
 - the write tools keep the files of a result with their full relative paths (`keep_result` runs before the paths are
   stripped), so `result = "rN"` is unchanged; their responses don't use `in_dirs`
@@ -21,7 +23,7 @@ keeps as they are.
 ## Tests
 
 - unit: `engine::tests::one_working_directory_is_written_once` — `in_dirs` for `relative` in spec 1 and 2, one and
-  two working directories, `show = ["dir"]`, `in_dir`, `absolute`
+  two working directories, an absolute, a `~` and a relative one, `show = ["dir"]`, `in_dir`, `absolute`
 - examples: E148.1–E148.6; earlier spec 2 examples with one working directory other than `.` would change (none are
   known: the spec 2 examples search the fixture root)
 
