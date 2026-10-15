@@ -264,3 +264,25 @@ error[invalid_template]: '{@other}' is not '@item' or its sub-group
   ^^^^^^^^
   hint: the placeholders of '@item' are {@item}
 ```
+
+## E151.10 `/n` leaves the indentation out
+
+`/n` writes the new text in the naming style of the match, an identifier without spaces or tabs: `{indent}` is empty.
+
+Fixture: `template-indent`
+
+```text command
+easy-peasy-mcp --allow-write
+```
+
+```json request replace
+{"query": "name = 'tabs.json' and text has 'left out' /n @item", "replace": {"@item": "{indent}more lines"}, "dry_run": true}
+```
+```text response
+dry run  would replace: 1  matches: 1
+
+data/
+tabs.json  matches: 1
+-3:		"left_out",
++3:		"more_lines",
+```

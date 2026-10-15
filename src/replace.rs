@@ -740,10 +740,17 @@ mod tests {
             }],
         };
         assert_eq!(
-            template.expand(&content, &fragment, None),
+            template.expand(&content, &fragment, None, ""),
             "{fn} load_v2() fn load(a)"
         );
+        let indented = Template::parse("{@def}\n{indent}{{indent}}", "@def", &[]).unwrap();
+        assert_eq!(
+            indented.expand(&content, &fragment, None, "\t "),
+            "fn load(a)\n\t {indent}"
+        );
         let hint = "  hint: the placeholders of '@def' are {@def}, {@def.1}, {@def.fname}\n";
+        let all =
+            "  hint: the placeholders of '@def' are {@def}, {@def.1}, {@def.fname}, {indent}\n";
         assert_eq!(
             template_error("{@x}_v2"),
             format!(
@@ -753,10 +760,13 @@ mod tests {
         assert_eq!(
             template_error("a{name}"),
             format!(
-                "error[invalid_template]: unknown placeholder 'name'\n  a{{name}}\n   ^^^^^^\n{hint}"
+                "error[invalid_template]: unknown placeholder 'name'\n  a{{name}}\n   ^^^^^^\n{all}"
             )
         );
-        assert!(template_error("{}").starts_with("error[invalid_template]: empty placeholder\n"));
+        assert_eq!(
+            template_error("{}"),
+            format!("error[invalid_template]: empty placeholder\n  {{}}\n  ^^\n{all}")
+        );
         assert_eq!(
             template_error("x{@def"),
             "error[invalid_template]: unclosed '{'\n  x{@def\n   ^^^^^\n  hint: write '{{' for a brace\n"
@@ -778,9 +788,39 @@ mod tests {
             groups: Vec::new(),
         };
         assert_eq!(
-            template.expand(&content, &fragment, Some((Style::Backslash, 1))),
+            template.expand(&content, &fragment, Some((Style::Backslash, 1)), ""),
             r#"\"role\": \"x\""#
         );
+        // the indentation is text of the file: not escaped
+        let indented = Template::parse("{@r}\n{indent}\"y\"", "@r", &[]).unwrap();
+        assert_eq!(
+            indented.expand(&content, &fragment, Some((Style::Backslash, 1)), "\t"),
+            "x\\n\t\\\"y\\\""
+        );
+    }
+
+    #[test]
+    fn the_indentation_of_the_line_of_a_match() {
+        let text = "fn a() {\n    let x = 1;\n\t\t\"y\",\n \t z\nw\n";
+        let at = |needle: &str| text.find(needle).unwrap();
+        // the first line has none
+        assert_eq!(indentation(text, 0), "");
+        assert_eq!(indentation(text, at("a()")), "");
+        // a match after the indentation, in the middle of the line
+        assert_eq!(indentation(text, at("let")), "    ");
+        assert_eq!(indentation(text, at("= 1")), "    ");
+        // tabs, mixed
+        assert_eq!(indentation(text, at("\"y\"")), "\t\t");
+        assert_eq!(indentation(text, at("z")), " \t ");
+        // a match which starts inside the indentation: the whole indentation
+        assert_eq!(indentation(text, at("\t\t")), "\t\t");
+        assert_eq!(indentation(text, at("\t\t") + 1), "\t\t");
+        // a match which starts at a line break belongs to the line the break ends
+        assert_eq!(indentation(text, at(";\n") + 1), "    ");
+        // a line which starts with another character
+        assert_eq!(indentation(text, at("w")), "");
+        // the end of the text
+        assert_eq!(indentation(text, text.len()), "");
     }
 
     fn fragment(range: Range<usize>, ids: &[&str]) -> Fragment {
