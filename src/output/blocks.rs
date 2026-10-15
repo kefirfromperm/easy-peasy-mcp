@@ -21,6 +21,14 @@ pub struct BlockOptions {
     pub only_match: bool,
 }
 
+impl BlockOptions {
+    /// Whether a matched line gets context lines: `before` or `after` above 0, or `after = "block"`.
+    #[must_use]
+    pub fn has_context(&self) -> bool {
+        self.before > 0 || self.after != After::Lines(0)
+    }
+}
+
 /// The context after a matched line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum After {
@@ -59,14 +67,9 @@ pub struct Block {
 /// touches or overlaps makes one block.
 pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions) -> Vec<Block> {
     let matched = lines_of(content, fragments);
-    let last = content.line_count().saturating_sub(1);
     let mut ranges: Vec<(usize, usize)> = Vec::new();
     for &m in &matched {
-        let lo = m.saturating_sub(options.before);
-        let hi = match options.after {
-            After::Block => block_end(content, m),
-            After::Lines(after) => (m + after).min(last).max(m),
-        };
+        let (lo, hi) = context(content, m, options);
         match ranges.last_mut() {
             Some((_, end)) if lo <= *end + 1 => *end = (*end).max(hi),
             _ => ranges.push((lo, hi)),
@@ -97,6 +100,16 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
             block
         })
         .collect()
+}
+
+/// The first and the last line of the context of the matched line `m`: `before` lines before it and `after` lines or
+/// its block after it, fewer at the start and the end of the content.
+pub fn context(content: &Content, m: usize, options: &BlockOptions) -> (usize, usize) {
+    let hi = match options.after {
+        After::Block => block_end(content, m),
+        After::Lines(after) => (m + after).min(content.line_count().saturating_sub(1)).max(m),
+    };
+    (m.saturating_sub(options.before), hi)
 }
 
 /// The blocks without the lines from the line `until` on; a block left without lines is dropped.
@@ -171,7 +184,7 @@ fn is_closing(text: &str) -> bool {
 
 /// The common leading spaces and tabs of the lines of a block which are not blank, in bytes, cut back to the start of
 /// a fragment which starts in them.
-fn indent(content: &Content, lines: &[BlockLine], fragments: &[Fragment]) -> usize {
+pub(super) fn indent(content: &Content, lines: &[BlockLine], fragments: &[Fragment]) -> usize {
     let mut common: Option<&str> = None;
     for line in lines {
         let text = content.line(line.index);

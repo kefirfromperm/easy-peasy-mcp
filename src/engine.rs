@@ -1065,7 +1065,7 @@ impl Engine {
             spec,
             Differ::of(&files).and(query.many_conditions),
             detail == Detail::Lines || (detail == Detail::Files && search.path_fragments),
-            blocks.before > 0 || blocks.after != After::Lines(0),
+            blocks.has_context(),
             references,
         );
         let hints = if shown.is_some() && !omit.has(Part::Hints) {

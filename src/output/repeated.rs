@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use super::Fragment;
+use super::blocks::{self, BlockLine, BlockOptions};
 use super::lines::lines_of;
 use crate::content::Content;
 use crate::search::Found;
@@ -11,7 +12,10 @@ use crate::search::Found;
 /// A matched line repeated in many files.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepeatedLine {
-    /// The line without its leading and trailing whitespace, as a content of one line.
+    /// The context lines before it, without the common leading whitespace of its block and their trailing whitespace.
+    pub before: Vec<String>,
+    /// The line without its leading (or, with context, the common leading of its block) and trailing whitespace, as a
+    /// content of one line.
     pub content: Content,
     /// Its fragments in `content`.
     pub fragments: Vec<Fragment>,
@@ -20,6 +24,8 @@ pub struct RepeatedLine {
     pub files: Vec<(usize, usize)>,
     /// The number of all the files of the result which have it, listed or not.
     pub count: usize,
+    /// The context lines after it, like `before`.
+    pub after: Vec<String>,
 }
 
 /// The repeated lines of the files and, per file, the lines which are left out of it.
@@ -55,8 +61,15 @@ struct Group {
 /// The matched lines which are identical without their leading and trailing whitespace, with the same fragments, in
 /// at least `min` of all the `files` (`0`: none) and in at least one of the `listed` ones (OUTPUT.md#repeated-lines).
 /// A line touched by a multiline fragment or with a fragment only in its leading or trailing whitespace is never
-/// repeated. The lines are ordered by the number of files, more first, then by their first listed file.
-pub fn repeated(files: &[Found], listed: Range<usize>, min: usize) -> Repeated {
+/// repeated. With a `context` which has context lines the whole block of a line is compared
+/// (OUTPUT.md#repeated-lines-with-context). The lines are ordered by the number of files, more first, then by their
+/// first listed file.
+pub fn repeated(
+    files: &[Found],
+    listed: Range<usize>,
+    min: usize,
+    context: Option<&BlockOptions>,
+) -> Repeated {
     let mut result = Repeated {
         lines: Vec::new(),
         removed: vec![Vec::new(); listed.len()],
@@ -64,25 +77,34 @@ pub fn repeated(files: &[Found], listed: Range<usize>, min: usize) -> Repeated {
     if min == 0 {
         return result;
     }
-    let mut keys: HashMap<(String, String), usize> = HashMap::new();
+    let context = context.filter(|o| o.has_context());
+    let mut keys: HashMap<(Vec<String>, String, String, Vec<String>), usize> = HashMap::new();
     let mut groups: Vec<Group> = Vec::new();
     for (index, file) in files.iter().enumerate() {
         let Some(m) = &file.matches else {
             continue;
         };
         let is_listed = listed.contains(&index);
-        for line in lines_of(&m.content, &m.fragments) {
-            let Some((text, fragments)) = trimmed(&m.content, &m.fragments, line) else {
+        let matched = lines_of(&m.content, &m.fragments);
+        for &line in &matched {
+            let Some(block) = block(&m.content, &m.fragments, &matched, line, context) else {
                 continue;
             };
-            let key = (text.to_string(), format!("{fragments:?}"));
+            let key = (
+                block.before.clone(),
+                block.text.to_string(),
+                format!("{:?}", block.fragments),
+                block.after.clone(),
+            );
             let group = *keys.entry(key).or_insert_with(|| {
                 groups.push(Group {
                     line: RepeatedLine {
-                        content: Content::from_text(text.to_string()),
-                        fragments,
+                        before: block.before,
+                        content: Content::from_text(block.text.to_string()),
+                        fragments: block.fragments,
                         files: Vec::new(),
                         count: 0,
+                        after: block.after,
                     },
                     last: None,
                     removed: Vec::new(),
@@ -116,17 +138,89 @@ pub fn repeated(files: &[Found], listed: Range<usize>, min: usize) -> Repeated {
     result
 }
 
-/// The line `line` without its leading and trailing whitespace and the fragments which touch it, relative to that
-/// text; `None` if a fragment touches another line too or is only in the whitespace.
+/// A matched line as it is compared with the lines of the other files: its text and fragments with the context lines
+/// of its block.
+struct Block<'a> {
+    before: Vec<String>,
+    text: &'a str,
+    fragments: Vec<Fragment>,
+    after: Vec<String>,
+}
+
+/// The matched line `line` (one of the `matched` lines) with its block of `context` lines, without the common leading
+/// whitespace of the block and the trailing whitespace of every line; without context lines the line without its
+/// leading and trailing whitespace. `None` if it is not grouped: another matched line in its block, a fragment in
+/// the common leading whitespace, or one of [`trimmed`].
+fn block<'a>(
+    content: &'a Content,
+    fragments: &[Fragment],
+    matched: &[usize],
+    line: usize,
+    context: Option<&BlockOptions>,
+) -> Option<Block<'a>> {
+    let alone = || {
+        let (text, fragments) = trimmed(content, fragments, line, None)?;
+        Some(Block {
+            before: Vec::new(),
+            text,
+            fragments,
+            after: Vec::new(),
+        })
+    };
+    let Some(options) = context else {
+        return alone();
+    };
+    let (lo, hi) = blocks::context(content, line, options);
+    if matched.iter().any(|&m| m != line && (lo..=hi).contains(&m)) {
+        return None;
+    }
+    let lines: Vec<BlockLine> = (lo..=hi)
+        .map(|index| BlockLine {
+            index,
+            matched: index == line,
+        })
+        .filter(|l| l.matched || options.blank_context || !content.line(l.index).trim().is_empty())
+        .collect();
+    if lines.len() == 1 {
+        return alone();
+    }
+    let indent = blocks::indent(content, &lines, &[]);
+    let (text, fragments) = trimmed(content, fragments, line, Some(indent))?;
+    let texts = |range: &mut dyn Iterator<Item = &BlockLine>| -> Vec<String> {
+        range
+            .map(|l| {
+                let text = content.line(l.index);
+                if text.trim().is_empty() {
+                    String::new()
+                } else {
+                    text[indent..].trim_end().to_string()
+                }
+            })
+            .collect()
+    };
+    Some(Block {
+        before: texts(&mut lines.iter().filter(|l| l.index < line)),
+        text,
+        fragments,
+        after: texts(&mut lines.iter().filter(|l| l.index > line)),
+    })
+}
+
+/// The line `line` without its leading whitespace (`indent` bytes of it when given) and its trailing whitespace, and
+/// the fragments which touch it, relative to that text; `None` if a fragment touches another line too, is only in the
+/// whitespace or, with `indent`, starts in the removed whitespace.
 fn trimmed<'a>(
     content: &'a Content,
     fragments: &[Fragment],
     line: usize,
+    indent: Option<usize>,
 ) -> Option<(&'a str, Vec<Fragment>)> {
     let (start, _) = content.line_range(line);
     let full = content.line(line);
-    let text = full.trim();
-    let from = start + (full.len() - full.trim_start().len());
+    let skip = indent.unwrap_or(full.len() - full.trim_start().len());
+    // a whitespace-only matched line can be shorter than the common indentation of its block
+    let text = full.get(skip..)?.trim_end();
+    let from = start + skip;
     let to = from + text.len();
     let mut out = Vec::new();
     for f in fragments {
@@ -136,7 +230,11 @@ fn trimmed<'a>(
             continue;
         }
         let range = f.range.start.max(from)..f.range.end.min(to);
-        if first != last || range.start > range.end || (range.is_empty() && !f.range.is_empty()) {
+        if first != last
+            || range.start > range.end
+            || (range.is_empty() && !f.range.is_empty())
+            || (indent.is_some() && f.range.start < from)
+        {
             return None;
         }
         let shifted = |r: &std::ops::Range<usize>| {
