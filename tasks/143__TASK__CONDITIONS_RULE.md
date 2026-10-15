@@ -1,6 +1,6 @@
 # Task 143: The legend rule counts the conditions an agent wrote
 
-Status: not implemented
+Status: implemented, see [143__SUMMARY__CONDITIONS_RULE.md](143__SUMMARY__CONDITIONS_RULE.md)
 
 Depends on: task 141
 

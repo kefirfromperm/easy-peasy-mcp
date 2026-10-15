@@ -73,6 +73,9 @@ pub struct Query {
     /// The capture groups of the `text =~` conditions which have some: the name of every group by its number,
     /// group 1 first (QUERY.md#regex-groups).
     pub sub_groups: Vec<(CondId, Vec<Option<String>>)>,
+    /// Whether the query has more than one counted condition: the spec 2 rule writes the legend, the
+    /// conditions of the files and the ids of the matches only then (OUTPUT.md#counted-conditions).
+    pub many_conditions: bool,
 }
 
 impl Query {
@@ -298,6 +301,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
     if let Some(first) = errors.into_iter().min_by_key(|e| e.span.start) {
         return Err(first);
     }
+    let many_conditions = expr.as_ref().is_some_and(|expr| expr.counted() > 1);
     let mut has_type = false;
     let mut needs = Needs::default();
     if let Some(expr) = &expr {
@@ -372,6 +376,7 @@ pub fn parse(text: &str, options: &ParseOptions) -> Result<Query, QueryError> {
         funnel,
         narrowing,
         sub_groups,
+        many_conditions,
     })
 }
 
@@ -1539,6 +1544,26 @@ mod tests {
         let q = parse("text has 'x' and lang = rust", &SENSITIVE).unwrap();
         let order: Vec<usize> = q.funnel.unwrap().steps.iter().map(|s| s.item).collect();
         assert_eq!(order, [1, 0]);
+    }
+
+    #[test]
+    fn the_counted_conditions() {
+        let many = |q: &str| parse(q, &SENSITIVE).unwrap().many_conditions;
+        assert!(!many(""));
+        assert!(!many("text has 'x'"));
+        assert!(!many("line(text = 'x')"));
+        assert!(!many("((text has 'x'))"));
+        assert!(!many("text has 'x' and not text has 'y'"));
+        assert!(!many("line(not text starts '#' and not len > 9)"));
+        assert!(!many("not (text has 'x' or text has 'y')"));
+        assert!(many("text has 'x' or text has 'y'"));
+        assert!(many("near(text has 'a', text has 'b', 2)"));
+        assert!(many("line(text has 'a' and text has 'b')"));
+        assert!(many("name ~ '*.rs' and line(text has 'x')"));
+        // a label adds nothing
+        assert!(!many("text has 'x' @x"));
+        assert!(!many("(text has 'x') @x"));
+        assert!(many("(text has 'x' or text has 'y') @x"));
     }
 
     fn variations(q: &str) -> Vec<(String, Vec<String>)> {

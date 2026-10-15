@@ -122,24 +122,25 @@ impl Omit {
     }
 
     /// The parts a response of the spec version `spec` leaves out (OUTPUT.md#defaults-of-spec-2): these, in spec 2
-    /// also the parts of its rules — the legend, the conditions and the ids of the matches with at most one
-    /// `condition` (the ids with at most one of the `references` of `output.groups`, when it is set), the gaps without `context` lines while the line numbers are written — except the parts of `show`;
-    /// spec 1 has no line of the omitted warnings.
+    /// also the parts of its rules — the legend, the conditions and the ids of the matches unless the query has
+    /// `many_conditions` (the ids with at most one of the `references` of `output.groups`, when it is set), the gaps
+    /// without `context` lines while the line numbers are written — except the parts of `show`; spec 1 has no line
+    /// of the omitted warnings.
     #[must_use]
     pub fn effective(
         self,
         show: Self,
         spec: u32,
-        conditions: usize,
+        many_conditions: bool,
         context: bool,
         references: Option<usize>,
     ) -> Self {
         let mut omit = self;
         if spec >= 2 {
-            if conditions <= 1 {
+            if !many_conditions {
                 omit = omit.union(Self::from_parts(&[Part::Legend, Part::Conditions]));
             }
-            if references.unwrap_or(conditions) <= 1 {
+            if references.map_or(!many_conditions, |n| n <= 1) {
                 omit = omit.union(Self::from_parts(&[Part::MatchIds]));
             }
             if !context && !omit.has(Part::LineNumbers) {
@@ -188,36 +189,36 @@ mod tests {
     fn the_rules_of_spec_2_and_show() {
         let none = Omit::default();
         let parts = Omit::from_parts;
-        // one condition, no context lines
-        let one = none.effective(none, 2, 1, false, None);
+        // one counted condition, no context lines
+        let one = none.effective(none, 2, false, false, None);
         for part in [Part::Legend, Part::Conditions, Part::MatchIds, Part::Gaps] {
             assert!(one.has(part), "{part:?}");
         }
         assert!(!one.has(Part::Warnings) && !one.has(Part::LeftOut));
-        // several conditions, context lines
-        let several = none.effective(none, 2, 2, true, None);
+        // several counted conditions, context lines
+        let several = none.effective(none, 2, true, true, None);
         assert!(Part::ALL.iter().all(|p| !several.has(*p)));
         // without line numbers the gaps stay
         assert!(
             !parts(&[Part::LineNumbers])
-                .effective(none, 2, 2, false, None)
+                .effective(none, 2, true, false, None)
                 .has(Part::Gaps)
         );
         // show wins over omit and the rules
         let shown = parts(&[Part::Warnings]).effective(
             parts(&[Part::Warnings, Part::Legend]),
             2,
-            1,
+            false,
             false,
             None,
         );
         assert!(
             !shown.has(Part::Warnings) && !shown.has(Part::Legend) && shown.has(Part::Conditions)
         );
-        assert_eq!(none.effective(Omit::all(), 2, 1, false, None), none);
+        assert_eq!(none.effective(Omit::all(), 2, false, false, None), none);
         // spec 1: no rules, no line of the omitted warnings
         assert_eq!(
-            none.effective(none, 1, 1, false, None),
+            none.effective(none, 1, false, false, None),
             parts(&[Part::LeftOut])
         );
         assert_eq!(
@@ -230,15 +231,15 @@ mod tests {
     fn the_ids_of_the_matches_follow_the_references_of_groups() {
         let none = Omit::default();
         // one reference: the ids are left out, the legend of several conditions stays
-        let one = none.effective(none, 2, 3, false, Some(1));
+        let one = none.effective(none, 2, true, false, Some(1));
         assert!(one.has(Part::MatchIds) && !one.has(Part::Legend) && !one.has(Part::Conditions));
         // two references of one condition: the ids stay, the legend of one condition is left out
-        let two = none.effective(none, 2, 1, false, Some(2));
+        let two = none.effective(none, 2, false, false, Some(2));
         assert!(!two.has(Part::MatchIds) && two.has(Part::Legend));
         // spec 1 has no rules
         assert!(
             !none
-                .effective(none, 1, 3, false, Some(1))
+                .effective(none, 1, true, false, Some(1))
                 .has(Part::MatchIds)
         );
     }
