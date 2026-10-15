@@ -1,6 +1,6 @@
 # Task 145: One header per directory in relevance order
 
-Status: not implemented
+Status: implemented, see [145__SUMMARY__DIR_GROUPS_ONCE.md](145__SUMMARY__DIR_GROUPS_ONCE.md)
 
 Depends on: task 85, task 93
 

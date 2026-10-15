@@ -78,7 +78,7 @@ except `cursor` and `file`, which have no default and are not configuration keys
 | `max_output`           | number                                          | `40000`    | max characters of the whole response                      |
 | `dedent`               | `true`, `false`                                 | `true`     | remove the common indentation of every block, see [Compact output](#compact-output) |
 | `blank_context`        | `true`, `false`                                 | `false`    | keep empty context lines                                  |
-| `group_dirs`           | `true`, `false`                                 | `true`     | text format: group files under directory headers          |
+| `group_dirs`           | `true`, `false`                                 | `true`     | group files under directory headers (text format), see [Directory groups](#directory-groups) |
 | `group_repeated`       | number                                          | `3`        | a matched line repeated in this many files is printed once; `0` — off |
 | `repeated_locations`   | number                                          | `3`        | the locations written for a repeated line; `0` — all of them, see [Repeated lines](#repeated-lines) |
 | `sort`                 | `relevance`, or `path`, `modified`, `size`, `matches` + `asc` / `desc` | `relevance` | order of files, see [Relevance](#relevance); equal values are ordered by the full path |
@@ -805,6 +805,8 @@ The score of a file, from 0 to 1, combines:
   from the clock, so the pages of a [cursor](#pagination) keep their order; equal scores are ordered by the full path
 - with `meta` every file shows its `score`; with another `sort` there is no score
 - the weights are internal and may be tuned without a new spec version: the order is a ranking, not a contract
+- with `group_dirs = true` (the default) the files are [grouped by directory](#directory-groups) after the scores:
+  every spec version
 
 ## Funnel
 
@@ -1022,7 +1024,8 @@ Values are sorted by count, more than `facet_limit` values end with `… 5 more 
 ## Compact output
 
 Options which save tokens. `dedent`, `blank_context` and `group_dirs` lose no information; `group_repeated` shows
-only a few locations of a repeated line, `repeated_locations` how many. `group_dirs` changes only the text format, the others change both formats.
+only a few locations of a repeated line, `repeated_locations` how many. The headers of `group_dirs` are in the text format
+only, the order of its [directory groups](#directory-groups) in both; the others change both formats.
 
 ### Dedent
 
@@ -1061,8 +1064,15 @@ mod.rs  [#1]  lines: 1  matches: 1
 ...
 ```
 
-- a header is written whenever the directory differs from the one of the previous file, so with `sort = relevance`
-  the same directory can get several headers
+- a header is written whenever the directory differs from the one of the previous file
+- with `sort = relevance` the files of a directory are put together, so every directory gets one header: the
+  directories in the order of their most relevant file, the files of a directory in their relevance order. The most
+  relevant file stays the first one. A member of an archive is in the directory of its header (`logs.zip!/app/`)
+- the grouped order is the order of the result in both formats (JSON has no headers, but its `files` are in the same
+  order), of the [cursor](#pagination) (a page continues in the grouped order) and of `max_files`, the
+  [budget](#budget) and the cut of a [listing](#limits-and-truncation), which take the files in this order
+- `group_dirs = false` keeps the order of the scores; the other sorts (`path`, `modified`, `size`, `matches`) are not
+  regrouped: with `sort = path asc` the files of a directory are together anyway
 - files directly in a working directory are under the header of that directory as written in the request: `./` for
   `.`, `../api/` for `../api`
 - on Windows the header ends with `\`, like the paths

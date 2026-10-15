@@ -1,6 +1,7 @@
 //! The order of the files (OUTPUT.md#options, OUTPUT.md#limits-and-truncation).
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use crate::search::Found;
 
@@ -77,6 +78,22 @@ pub fn sort_files(files: &mut [Found], sort: Sort) {
     });
 }
 
+/// Puts the files of a directory together (OUTPUT.md#directory-groups): the directories in the order of their first
+/// file, the files of a directory in the order they had. Used with `sort = relevance` and `group_dirs = true`.
+pub fn group_by_dir(files: &mut Vec<Found>) {
+    let mut first: HashMap<(usize, String), usize> = HashMap::new();
+    let mut keyed: Vec<(usize, Found)> = std::mem::take(files)
+        .into_iter()
+        .enumerate()
+        .map(|(index, file)| {
+            let (dir, _) = super::split_found(&file);
+            (*first.entry((file.root, dir)).or_insert(index), file)
+        })
+        .collect();
+    keyed.sort_by_key(|(first, _)| *first);
+    files.extend(keyed.into_iter().map(|(_, file)| file));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -132,5 +149,76 @@ mod tests {
         assert_eq!(order(&files, "relevance"), ["a", "b", "c", "d"]);
         assert!(Sort::parse("size desc").needs_meta());
         assert!(!Sort::parse("matches desc").needs_meta());
+    }
+
+    fn grouped(files: &[Found]) -> Vec<String> {
+        let mut files = files.to_vec();
+        group_by_dir(&mut files);
+        files
+            .iter()
+            .map(|f| {
+                let path = f.rel.to_string_lossy().into_owned();
+                let member = f.member.as_deref().map(|m| format!("!/{m}"));
+                format!("{}{path}{}", f.root, member.unwrap_or_default())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_files_of_a_directory_together() {
+        let files = [
+            file("src/a.rs", None, None),
+            file("lib/b.rs", None, None),
+            file("src/c.rs", None, None),
+            file("app/d.rs", None, None),
+            file("lib/e.rs", None, None),
+            file("top.rs", None, None),
+            file("src/sub/f.rs", None, None),
+            file("src/g.rs", None, None),
+        ];
+        assert_eq!(
+            grouped(&files),
+            [
+                "0src/a.rs",
+                "0src/c.rs",
+                "0src/g.rs",
+                "0lib/b.rs",
+                "0lib/e.rs",
+                "0app/d.rs",
+                "0top.rs",
+                "0src/sub/f.rs"
+            ]
+        );
+        assert_eq!(grouped(&[]).len(), 0);
+    }
+
+    #[test]
+    fn archive_members_and_roots_have_their_own_header() {
+        let member = |rel: &str, name: &str| {
+            let mut f = file(rel, None, None);
+            f.member = Some(name.to_string());
+            f
+        };
+        let mut other_root = file("src/b.rs", None, None);
+        other_root.root = 1;
+        let files = [
+            member("logs.zip", "app/x.log"),
+            file("src/a.rs", None, None),
+            member("logs.zip", "y.log"),
+            other_root,
+            member("logs.zip", "app/z.log"),
+            file("src/c.rs", None, None),
+        ];
+        assert_eq!(
+            grouped(&files),
+            [
+                "0logs.zip!/app/x.log",
+                "0logs.zip!/app/z.log",
+                "0src/a.rs",
+                "0src/c.rs",
+                "0logs.zip!/y.log",
+                "1src/b.rs"
+            ]
+        );
     }
 }

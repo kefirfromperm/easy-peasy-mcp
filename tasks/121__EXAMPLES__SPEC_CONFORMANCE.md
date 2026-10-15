@@ -4671,12 +4671,11 @@ files: 3  lines: 3  matches: 3  result: r1
 src/
 client.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:Deprecated⟧: kept for old clients
+api.rs  [#1]  lines: 1  matches: 1
+3:#[⟦#1:deprecated⟧(note = "use fetch_v2")]
 logs/
 app.log.gz  [#1]  lines: 1  matches: 1
 2:2026-10-01 10:05 WARN ⟦#1:DEPRECATED⟧ endpoint /v1/users called
-src/
-api.rs  [#1]  lines: 1  matches: 1
-3:#[⟦#1:deprecated⟧(note = "use fetch_v2")]
 ```
 
 2. Without the fields
@@ -4692,15 +4691,14 @@ files: 4  lines: 4  matches: 4  result: r2
 src/
 client.rs  [#1]  lines: 1  matches: 1
 1:// ⟦#1:Deprecated⟧: kept for old clients
+api.rs  [#1]  lines: 1  matches: 1
+3:#[⟦#1:deprecated⟧(note = "use fetch_v2")]
 target/debug/
 bindings.rs  [#1]  lines: 1  matches: 1
 1:#[⟦#1:deprecated⟧]
 vendor/acme/log/
 log.go  [#1]  lines: 1  matches: 1
 1:// ⟦#1:Deprecated⟧: use log/slog.
-src/
-api.rs  [#1]  lines: 1  matches: 1
-3:#[⟦#1:deprecated⟧(note = "use fetch_v2")]
 
 warning: binary_skipped (1): logs/app.log.gz
 ```
