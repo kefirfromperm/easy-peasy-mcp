@@ -398,11 +398,9 @@ The header says that the search stopped, and the line of the omitted warnings na
 ```
 ```text response
 files: 1  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
-#1 type = dir
-#2 text has 'x'
 
 ./
-sub/  [#1]
+sub/
 
 warnings left out: timeout
 ```

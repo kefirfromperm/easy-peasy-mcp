@@ -94,7 +94,7 @@ files: 1  lines: 2  matches: 2  result: r1
 #2 text has 'is_empty'
 
 src/
-lib.rs  [#1 #2]  lines: 2  matches: 2
+lib.rs  lines: 2  matches: 2
 3:pub ⟦#1:fn load(⟧path: &str) -> String {
 4-    let raw = read(path);
 5:    if raw.⟦#2:is_empty⟧() {
