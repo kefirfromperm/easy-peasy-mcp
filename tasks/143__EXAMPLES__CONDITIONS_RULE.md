@@ -23,7 +23,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4
@@ -72,7 +71,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4
@@ -115,7 +113,6 @@ main.rs  [@u #1 #2]  lines: 2  matches: 2
 lib.rs  [@u #1]  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦@u,#1:unwrap(⟧);
-⇥4
 4:parse(&text).⟦@u,#1:unwrap(⟧)
 
 warnings left out: binary_skipped (1)
@@ -135,7 +132,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 
 warnings left out: binary_skipped (1)
@@ -160,7 +156,6 @@ src/
 lib.rs  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
-⇥4
 4:parse(&text).⟦unwrap(⟧)
 main.rs  lines: 1  matches: 1
 ⇥4
