@@ -17,8 +17,8 @@ use crate::hints;
 use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
-    After, BlockOptions, Change, CountBy, Detail, Highlight, Hint, Limits, Omit, Page, Part,
-    Response, Since, Sort, group_by_dir, sort_files,
+    After, BlockOptions, Change, CountBy, Detail, Differ, Highlight, Hint, Limits, Omit, Page,
+    Part, Response, Since, Sort, group_by_dir, sort_files,
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
@@ -1062,7 +1062,8 @@ impl Engine {
         let omit = omit(settings).effective(
             Omit::from_value(settings.value(Key::Show)),
             spec,
-            query.many_conditions,
+            Differ::of(&files).and(query.many_conditions),
+            detail == Detail::Lines || (detail == Detail::Files && search.path_fragments),
             blocks.before > 0 || blocks.after != After::Lines(0),
             references,
         );
