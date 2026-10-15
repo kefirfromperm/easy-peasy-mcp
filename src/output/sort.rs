@@ -1,6 +1,7 @@
 //! The order of the files (OUTPUT.md#options, OUTPUT.md#limits-and-truncation).
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use crate::search::Found;
 
@@ -75,6 +76,22 @@ pub fn sort_files(files: &mut [Found], sort: Sort) {
         (None, Some(_)) => Ordering::Greater,
         (None, None) => Ordering::Equal,
     });
+}
+
+/// Puts the files of a directory together (OUTPUT.md#directory-groups): the directories in the order of their first
+/// file, the files of a directory in the order they had. Used with `sort = relevance` and `group_dirs = true`.
+pub fn group_by_dir(files: &mut Vec<Found>) {
+    let mut first: HashMap<(usize, String), usize> = HashMap::new();
+    let mut keyed: Vec<(usize, Found)> = std::mem::take(files)
+        .into_iter()
+        .enumerate()
+        .map(|(index, file)| {
+            let (dir, _) = super::split_found(&file);
+            (*first.entry((file.root, dir)).or_insert(index), file)
+        })
+        .collect();
+    keyed.sort_by_key(|(first, _)| *first);
+    files.extend(keyed.into_iter().map(|(_, file)| file));
 }
 
 #[cfg(test)]
@@ -172,12 +189,12 @@ mod tests {
                 "0src/sub/f.rs"
             ]
         );
-        assert!(grouped(&[]).is_empty());
+        assert_eq!(grouped(&[]).len(), 0);
     }
 
     #[test]
     fn archive_members_and_roots_have_their_own_header() {
-        let mut member = |rel: &str, name: &str| {
+        let member = |rel: &str, name: &str| {
             let mut f = file(rel, None, None);
             f.member = Some(name.to_string());
             f

@@ -18,7 +18,7 @@ use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
     After, BlockOptions, Change, CountBy, Detail, Highlight, Hint, Limits, Omit, Page, Part,
-    Response, Since, Sort, sort_files,
+    Response, Since, Sort, group_by_dir, sort_files,
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
@@ -993,9 +993,12 @@ impl Engine {
                 search_dirs(&runs[0].1.working_dirs, &searches)
             }
         };
-        for ((_, run), result) in runs.iter().zip(&mut results) {
+        for ((settings, run), result) in runs.iter().zip(&mut results) {
             if run.sort == Sort::Relevance {
                 relevance::rank(&mut result.files, &run.query.ranking);
+                if settings.bool(Key::GroupDirs) {
+                    group_by_dir(&mut result.files);
+                }
             } else {
                 sort_files(&mut result.files, run.sort);
             }
