@@ -121,6 +121,8 @@ warnings left out: binary_skipped (1)
 
 Fixture: `omit`
 
+`name ~ '*.rs'` leaves `data.bin` out before it is read, so there is no warning.
+
 ```json request
 {"query": "name ~ '*.rs' and line(text has 'unwrap(')"}
 ```
@@ -139,8 +141,6 @@ lib.rs  [#1 #2]  lines: 2  matches: 2
 main.rs  [#1 #2]  lines: 1  matches: 1
 ⇥4
 2:let cfg = load().⟦#2,#3:unwrap(⟧);
-
-warnings left out: binary_skipped (1)
 ```
 
 ## E143.6 JSON
