@@ -273,3 +273,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 153 | [A hint for `=` with a wildcard pattern](153__TASK__EQUALS_WITH_WILDCARDS.md) | 103 | ⬜ |
 | 154 | [The legend of a `line(...)` without one entry per sub-condition](154__TASK__LINE_LEGEND.md) | 143, 146 | ⬜ |
 | 155 | [Smaller default output limits](155__TASK__SMALLER_LIMITS.md) | 101, 141 | ⬜ |
+| 156 | [Smaller tool descriptions and schemas](156__TASK__SMALLER_TOOL_SCHEMAS.md) | 125, 126, 127, 129 | ⬜ |
