@@ -185,3 +185,24 @@ mixed.rs  [#1 #2]  lines: 4  matches: 4
 --
 8:⟦#2:let⟧ w = 0;
 ```
+
+## E147.8 Every `⇥N` back with `show`
+
+Fixture: `indent`
+
+```json request
+{"query": "name = 'mixed.rs' and text has 'let'", "output": {"show": ["indent"]}}
+```
+```text response
+files: 1  lines: 4  matches: 4  result: r1
+
+src/
+mixed.rs  lines: 4  matches: 4
+⇥4
+2:⟦let⟧ x = 1;
+⇥8
+4:⟦let⟧ y = x;
+⇥4
+6:⟦let⟧ z = x;
+8:⟦let⟧ w = 0;
+```

@@ -243,6 +243,7 @@ lib.rs  [#1]  lines: 2  matches: 2
 ⇥4
 2:let raw = read().⟦#1:unwrap(⟧);
 --
+⇥4
 4:parse(&text).⟦#1:unwrap(⟧)
 main.rs  [#1]  lines: 1  matches: 1
 ⇥4
