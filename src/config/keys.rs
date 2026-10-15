@@ -570,7 +570,7 @@ impl Type {
             Self::Omit => match item.as_str() {
                 Some("all") => Some(Value::Text("all".to_string())),
                 Some(_) => None,
-                None => toml_strings(item).filter(|p| are_parts(p)).map(Value::List),
+                None => toml_strings(item).and_then(omit_list),
             },
             Self::Choice(values) => item
                 .as_str()
@@ -647,9 +647,7 @@ impl Type {
             Self::Omit => match value.as_str() {
                 Some("all") => Some(Value::Text("all".to_string())),
                 Some(_) => None,
-                None => json_strings(value)
-                    .filter(|p| are_parts(p))
-                    .map(Value::List),
+                None => json_strings(value).and_then(omit_list),
             },
             Self::Choice(values) => value
                 .as_str()
@@ -692,11 +690,22 @@ fn omit_values() -> String {
     format!("\"all\" or a list of parts ({})", parts.join(", "))
 }
 
-/// Whether the strings are parts of `output.omit`.
-fn are_parts(items: &[String]) -> bool {
-    items
-        .iter()
-        .all(|p| crate::output::omit::Part::find(p).is_some())
+/// The value of a list of `output.omit` or `output.show`: `"all"` when it is among the items, which is the list form
+/// of `"all"` (OUTPUT.md#omit); `None` when an item is neither a part nor `"all"`.
+fn omit_list(items: Vec<String>) -> Option<Value> {
+    let mut all = false;
+    for item in &items {
+        if item == "all" {
+            all = true;
+        } else if crate::output::omit::Part::find(item).is_none() {
+            return None;
+        }
+    }
+    Some(if all {
+        Value::Text("all".to_string())
+    } else {
+        Value::List(items)
+    })
 }
 
 /// Whether the strings are facets.
