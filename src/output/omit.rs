@@ -1,6 +1,9 @@
 //! The parts of a response which `output.omit` leaves out (OUTPUT.md#omit).
 
+use std::collections::HashSet;
+
 use crate::config::KeyValue;
+use crate::query::ast::CondId;
 use crate::search::Found;
 
 /// A part of a response which can be left out, in the order of the table of OUTPUT.md#omit.
@@ -92,8 +95,19 @@ pub struct Differ {
 impl Differ {
     /// What differs between all the files of a result.
     #[must_use]
-    pub fn of(_files: &[Found]) -> Self {
-        Self::default()
+    pub fn of(files: &[Found]) -> Self {
+        let conditions = files.iter().map(|f| ids(f.conditions.iter()));
+        let match_ids = files.iter().flat_map(|f| {
+            let content = f.matches.iter().flat_map(|m| &m.fragments);
+            let path = f.path_fragments.iter().flat_map(|p| &p.fragments);
+            content
+                .chain(path)
+                .map(|f| ids(f.ids.iter().map(|(_, id)| id)))
+        });
+        Self {
+            conditions: differ(conditions),
+            match_ids: differ(match_ids),
+        }
     }
 
     /// Nothing differs unless `many`: the rule of the counted conditions.
@@ -101,6 +115,17 @@ impl Differ {
     pub fn and(self, many: bool) -> Self {
         if many { self } else { Self::default() }
     }
+}
+
+/// A set of ids, whatever their order.
+fn ids<'a>(ids: impl Iterator<Item = &'a CondId>) -> HashSet<&'a CondId> {
+    ids.collect()
+}
+
+/// Whether two of the sets differ.
+fn differ<'a>(mut sets: impl Iterator<Item = HashSet<&'a CondId>>) -> bool {
+    sets.next()
+        .is_some_and(|first| sets.any(|set| set != first))
 }
 
 /// The parts a response leaves out; none by default.
@@ -148,8 +173,9 @@ impl Omit {
     }
 
     /// The parts a response of the spec version `spec` leaves out (OUTPUT.md#defaults-of-spec-2): these, in spec 2
-    /// also the parts of its rules — the legend, the conditions and the ids of the matches unless the query has
-    /// `many_conditions` (the ids with at most one of the `references` of `output.groups`, when it is set), the gaps
+    /// also the parts of its rules — the conditions and the ids of the matches unless they `differ` (the ids with at
+    /// most one of the `references` of `output.groups`, when it is set), the legend unless the conditions or, when
+    /// the response has `matches_shown`, the ids of the matches are written, the gaps
     /// without `context` lines while the line numbers are written — except the parts of `show`; spec 1 has no line
     /// of the omitted warnings.
     #[must_use]
@@ -165,10 +191,15 @@ impl Omit {
         let mut omit = self;
         if spec >= 2 {
             if !differ.conditions {
-                omit = omit.union(Self::from_parts(&[Part::Legend, Part::Conditions]));
+                omit = omit.union(Self::from_parts(&[Part::Conditions]));
             }
             if references.map_or(!differ.match_ids, |n| n <= 1) {
                 omit = omit.union(Self::from_parts(&[Part::MatchIds]));
+            }
+            // the legend explains the ids which the rules write, not the ones `show` brings back
+            let ids = differ.match_ids && references.is_none_or(|n| n > 1) && matches_shown;
+            if !differ.conditions && !ids {
+                omit = omit.union(Self::from_parts(&[Part::Legend]));
             }
             if !context && !omit.has(Part::LineNumbers) {
                 omit = omit.union(Self::from_parts(&[Part::Gaps]));
