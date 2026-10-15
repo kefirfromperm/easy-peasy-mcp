@@ -2,7 +2,7 @@
 
 The rule of spec 2 for the legend, the conditions of the files and the ids of the matches counts the conditions the
 agent wrote (OUTPUT.md#counted-conditions): a group counts what is inside it, a condition under `not` counts nothing,
-a label keeps the legend. The examples are written for the current spec version 2.
+a label adds nothing. The examples are written for the current spec version 2.
 
 ## Fixtures
 
@@ -54,7 +54,7 @@ main.rs  [#1]  lines: 2  matches: 2
 warnings left out: binary_skipped (1)
 ```
 
-## E143.3 A label keeps the legend
+## E143.3 A label counts nothing
 
 Fixture: `omit`
 
@@ -65,18 +65,16 @@ Fixture: `omit`
 ```
 ```text response
 files: 2  lines: 3  matches: 3  result: r1
-@u (text has 'unwrap(')
-#1 text has 'unwrap('
 
 src/
-lib.rs  [@u]  lines: 2  matches: 2
+lib.rs  lines: 2  matches: 2
 ⇥4
-2:let raw = read().⟦@u,#1:unwrap(⟧);
+2:let raw = read().⟦unwrap(⟧);
 ⇥4
-4:parse(&text).⟦@u,#1:unwrap(⟧)
-main.rs  [@u]  lines: 1  matches: 1
+4:parse(&text).⟦unwrap(⟧)
+main.rs  lines: 1  matches: 1
 ⇥4
-2:let cfg = load().⟦@u,#1:unwrap(⟧);
+2:let cfg = load().⟦unwrap(⟧);
 
 warnings left out: binary_skipped (1)
 ```
@@ -88,11 +86,35 @@ warnings left out: binary_skipped (1)
 ```
 ```text response
 files: 2  lines: 3  matches: 3  result: r2
-@u text has 'unwrap('
 
 src/
-lib.rs  [@u]  lines: 2  matches: 2
-main.rs  [@u]  lines: 1  matches: 1
+lib.rs  lines: 2  matches: 2
+main.rs  lines: 1  matches: 1
+
+warnings left out: binary_skipped (1)
+```
+
+3. a bracket group with a label around two conditions
+
+```json request
+{"query": "(text has 'unwrap(' or text has 'TODO') @u"}
+```
+```text response
+files: 2  lines: 4  matches: 4  result: r3
+@u (text has 'unwrap(' or text has 'TODO')
+#1 text has 'unwrap('
+#2 text has 'TODO'
+
+src/
+main.rs  [@u #1 #2]  lines: 2  matches: 2
+⇥4
+2:let cfg = load().⟦@u,#1:unwrap(⟧);
+3:// ⟦@u,#2:TODO⟧ handle the error
+lib.rs  [@u #1]  lines: 2  matches: 2
+⇥4
+2:let raw = read().⟦@u,#1:unwrap(⟧);
+⇥4
+4:parse(&text).⟦@u,#1:unwrap(⟧)
 
 warnings left out: binary_skipped (1)
 ```
@@ -177,10 +199,9 @@ Fixture: `omit`
   "exists": true,
   "result": "r2",
   "counts": {"files": 2, "lines": 3, "matches": 3},
-  "legend": {"@u": "text has 'unwrap('"},
   "files": [
-    {"path": "src/lib.rs", "lines": 2, "matches": 2, "conditions": ["@u"]},
-    {"path": "src/main.rs", "lines": 1, "matches": 1, "conditions": ["@u"]}
+    {"path": "src/lib.rs", "lines": 2, "matches": 2},
+    {"path": "src/main.rs", "lines": 1, "matches": 1}
   ],
   "left_out": {"warnings": {"binary_skipped": 1}}
 }
