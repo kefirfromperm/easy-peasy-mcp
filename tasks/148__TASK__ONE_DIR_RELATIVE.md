@@ -1,6 +1,6 @@
 # Task 148: Paths relative to the only working directory
 
-Status: in progress
+Status: implemented, see [148__SUMMARY__ONE_DIR_RELATIVE.md](148__SUMMARY__ONE_DIR_RELATIVE.md)
 
 Depends on: task 90, task 137
 
