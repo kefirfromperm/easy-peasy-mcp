@@ -2271,6 +2271,24 @@ mod tests {
     }
 
     #[test]
+    fn one_working_directory_is_written_once() {
+        let dir = |p: &str| (PathBuf::from(p), PathBuf::from(p));
+        let one = [dir("/w")];
+        let two = [dir("/w"), dir("other")];
+        let none = Omit::default();
+        let show_dir = Omit::from_parts(&[Part::Dir]);
+        assert_eq!(
+            in_dirs("relative", 2, none, &one),
+            Some(vec![PathBuf::from("/w")])
+        );
+        assert_eq!(in_dirs("relative", 1, none, &one), None, "spec 1");
+        assert_eq!(in_dirs("relative", 2, none, &two), None, "several");
+        assert_eq!(in_dirs("relative", 2, show_dir, &one), None, "show dir");
+        assert_eq!(in_dirs("absolute", 2, none, &one), None);
+        assert!(in_dirs("in_dir", 1, show_dir, &two).is_some(), "in_dir");
+    }
+
+    #[test]
     fn searches_share_the_threads() {
         let slots = std::sync::Arc::new(Slots::default());
         let never = || false;
