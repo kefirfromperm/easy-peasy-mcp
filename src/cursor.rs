@@ -78,6 +78,12 @@ pub fn request_hash(arguments: &Value) -> String {
     if let Some(output) = request.get_mut("output").and_then(Value::as_object_mut) {
         output.remove("cursor");
         output.remove("file");
+        // `"output": { "cursor": ... }` of the next page is the request without `output`
+        if output.is_empty()
+            && let Some(request) = request.as_object_mut()
+        {
+            request.remove("output");
+        }
     }
     let text = serde_json::to_string(&request).expect("a JSON value serializes");
     let mut hash: u32 = 0x811c_9dc5;
