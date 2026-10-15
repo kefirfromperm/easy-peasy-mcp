@@ -17,8 +17,8 @@ use crate::hints;
 use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
-    BlockOptions, Change, CountBy, Detail, Highlight, Hint, Limits, Omit, Page, Part, Response,
-    Since, Sort, sort_files,
+    After, BlockOptions, Change, CountBy, Detail, Highlight, Hint, Limits, Omit, Page, Part,
+    Response, Since, Sort, sort_files,
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
@@ -1060,7 +1060,7 @@ impl Engine {
             Omit::from_value(settings.value(Key::Show)),
             spec,
             query.many_conditions,
-            blocks.before + blocks.after > 0,
+            blocks.before > 0 || blocks.after != After::Lines(0),
             references,
         );
         let hints = if shown.is_some() && !omit.has(Part::Hints) {
@@ -2101,10 +2101,15 @@ fn block_options(settings: &Settings) -> BlockOptions {
         };
     }
     let context = settings.whole(Key::Context);
+    // `after` is a number, `"block"` (OUTPUT.md#block-context) or not set
+    let after = match settings.value(Key::After) {
+        config::KeyValue::Whole(n) => After::Lines(*n),
+        config::KeyValue::Text(_) => After::Block,
+        _ => After::Lines(context),
+    };
     BlockOptions {
         before: settings.opt_whole(Key::Before).unwrap_or(context),
-        after: settings.opt_whole(Key::After).unwrap_or(context),
-        after_block: false,
+        after,
         blank_context: settings.bool(Key::BlankContext),
         dedent: settings.bool(Key::Dedent),
         only_match: false,

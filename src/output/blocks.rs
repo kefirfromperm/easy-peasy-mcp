@@ -10,11 +10,8 @@ use super::Fragment;
 pub struct BlockOptions {
     /// Context lines before every matched line.
     pub before: usize,
-    /// Context lines after every matched line.
-    pub after: usize,
-    /// The context after every matched line goes on to the end of its block, instead of `after` lines
-    /// (OUTPUT.md#block-context).
-    pub after_block: bool,
+    /// The context after every matched line.
+    pub after: After,
     /// Keep the empty and whitespace-only context lines.
     pub blank_context: bool,
     /// Remove the common leading whitespace of every block.
@@ -22,6 +19,21 @@ pub struct BlockOptions {
     /// Write the matches instead of their lines (OUTPUT.md#only-the-matches); the blocks are then made without
     /// context and dedent.
     pub only_match: bool,
+}
+
+/// The context after a matched line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum After {
+    /// This many lines.
+    Lines(usize),
+    /// To the end of the block which the line opens (OUTPUT.md#block-context).
+    Block,
+}
+
+impl Default for After {
+    fn default() -> Self {
+        Self::Lines(0)
+    }
 }
 
 /// A line of a block: its 0-based index in the content and whether it is matched (or context).
@@ -51,7 +63,10 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
     let mut ranges: Vec<(usize, usize)> = Vec::new();
     for &m in &matched {
         let lo = m.saturating_sub(options.before);
-        let hi = (m + options.after).min(last).max(m);
+        let hi = match options.after {
+            After::Block => block_end(content, m),
+            After::Lines(after) => (m + after).min(last).max(m),
+        };
         match ranges.last_mut() {
             Some((_, end)) if lo <= *end + 1 => *end = (*end).max(hi),
             _ => ranges.push((lo, hi)),
@@ -61,7 +76,7 @@ pub fn blocks(content: &Content, fragments: &[Fragment], options: &BlockOptions)
         .into_iter()
         .map(|(lo, hi)| Block {
             indent: 0,
-            end: None,
+            end: (options.after == After::Block).then_some(hi),
             more: 0,
             lines: (lo..=hi)
                 .map(|index| BlockLine {
@@ -93,9 +108,65 @@ pub fn before(blocks: Vec<Block>, until: Option<usize>) -> Vec<Block> {
         .into_iter()
         .filter_map(|mut block| {
             block.lines.retain(|line| line.index < until);
+            if let Some(end) = block.end.filter(|end| *end >= until) {
+                block.more = end + 1 - until;
+            }
             (!block.lines.is_empty()).then_some(block)
         })
         .collect()
+}
+
+/// The last line of the block which the matched line `m` opens (OUTPUT.md#block-context): the lines after it up to the
+/// first non-blank line indented at most as much, without the blank lines at the end; a closing line indented as much
+/// is included and, followed by a line indented more, goes on. `m` itself when it opens no block.
+fn block_end(content: &Content, m: usize) -> usize {
+    let count = content.line_count();
+    let own = indentation(content.line(m));
+    let next_indent = |from: usize| {
+        (from + 1..count)
+            .map(|i| content.line(i))
+            .find(|text| !text.trim().is_empty())
+            .map(indentation)
+    };
+    let mut end = m;
+    let mut i = m;
+    while next_indent(i).is_some_and(|n| n > own) {
+        i += 1;
+        while i < count {
+            let text = content.line(i);
+            if !text.trim().is_empty() {
+                if indentation(text) <= own {
+                    break;
+                }
+                end = i;
+            }
+            i += 1;
+        }
+        if i == count || indentation(content.line(i)) != own || !is_closing(content.line(i)) {
+            break;
+        }
+        end = i;
+    }
+    end
+}
+
+/// The number of leading spaces and tabs of a line.
+fn indentation(text: &str) -> usize {
+    text.len() - text.trim_start_matches([' ', '\t']).len()
+}
+
+/// Whether a line closes a block: after its indentation it starts with a closing bracket or `</`, or its first word is
+/// `end`, `fi`, `done` or `esac`.
+fn is_closing(text: &str) -> bool {
+    let text = text.trim_start_matches([' ', '\t']);
+    if text.starts_with(['}', ')', ']']) || text.starts_with("</") {
+        return true;
+    }
+    let word = text
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .next()
+        .unwrap_or_default();
+    matches!(word, "end" | "fi" | "done" | "esac")
 }
 
 /// The common leading spaces and tabs of the lines of a block which are not blank, in bytes, cut back to the start of
@@ -164,7 +235,7 @@ mod tests {
         );
         let one = BlockOptions {
             before: 1,
-            after: 1,
+            after: After::Lines(1),
             ..BlockOptions::default()
         };
         assert_eq!(
@@ -177,7 +248,7 @@ mod tests {
         // touching context: 3+2 = 5 and 8-2 = 6
         let two = BlockOptions {
             before: 2,
-            after: 2,
+            after: After::Lines(2),
             ..BlockOptions::default()
         };
         assert_eq!(blocks(&c, &fragments, &two).len(), 1);
@@ -188,7 +259,7 @@ mod tests {
                 &first,
                 &BlockOptions {
                     before: 3,
-                    after: 1,
+                    after: After::Lines(1),
                     ..BlockOptions::default()
                 }
             )),
@@ -199,7 +270,7 @@ mod tests {
         let around = [at(&blank, 2)];
         let wide = BlockOptions {
             before: 2,
-            after: 2,
+            after: After::Lines(2),
             ..BlockOptions::default()
         };
         assert_eq!(
@@ -217,7 +288,7 @@ mod tests {
                 &end,
                 &BlockOptions {
                     before: 0,
-                    after: 5,
+                    after: After::Lines(5),
                     ..BlockOptions::default()
                 }
             )),
@@ -251,7 +322,7 @@ mod tests {
         let ac = [late(0, 4), late(3, 6)];
         let context = BlockOptions {
             before: 3,
-            after: 0,
+            after: After::Lines(0),
             blank_context: true,
             dedent: true,
             ..BlockOptions::default()
@@ -274,8 +345,7 @@ mod tests {
 
     const BLOCK: BlockOptions = BlockOptions {
         before: 0,
-        after: 0,
-        after_block: true,
+        after: After::Block,
         blank_context: false,
         dedent: false,
         only_match: false,
@@ -373,8 +443,7 @@ mod tests {
         let whole = before(blocks(&c, &[at(&c, 14)], &BLOCK), Some(21));
         assert_eq!(whole[0].more, 0);
         let numbers = BlockOptions {
-            after: 6,
-            after_block: false,
+            after: After::Lines(6),
             ..BLOCK
         };
         let cut = before(blocks(&c, &[at(&c, 14)], &numbers), Some(19));

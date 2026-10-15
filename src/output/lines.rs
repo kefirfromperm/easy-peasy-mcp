@@ -134,6 +134,9 @@ pub fn render(
                 push_columns(&mut out, content, fragments, line.index);
             }
         }
+        if block.more > 0 && !omit.has(OmitPart::MoreLines) {
+            let _ = writeln!(out, "… {} more lines of the block", block.more);
+        }
     }
     out
 }

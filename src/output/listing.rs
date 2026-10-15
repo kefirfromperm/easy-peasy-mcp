@@ -499,7 +499,7 @@ mod tests {
         assert_eq!(listing.truncated_by, ["max_output_per_file"]);
         // the context line of four characters counts
         let context = BlockOptions {
-            after: 1,
+            after: crate::output::After::Lines(1),
             ..BlockOptions::default()
         };
         let limits = Limits {
