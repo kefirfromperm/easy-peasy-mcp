@@ -36,6 +36,8 @@ warnings left out: binary_skipped (1)
 
 Fixture: `omit`
 
+The ids of the matches differ, the conditions of the only file don't: since task 146 `[#1]` is left out.
+
 ```json request
 {"query": "near(text has 'unwrap(', text has 'TODO', 1)"}
 ```
@@ -46,7 +48,7 @@ files: 1  lines: 2  matches: 2  result: r1
 #3 text has 'TODO'
 
 src/
-main.rs  [#1]  lines: 2  matches: 2
+main.rs  lines: 2  matches: 2
 ⇥4
 2:let cfg = load().⟦#1,#2:unwrap(⟧);
 3:// ⟦#1,#3:TODO⟧ handle the error
@@ -145,24 +147,24 @@ Fixture: `omit`
 
 `name ~ '*.rs'` leaves `data.bin` out before it is read, so there is no warning.
 
+Two counted conditions, but every file has `[#1 #2]` and every match `#2,#3`: since task 146 they are left out
+(OUTPUT.md#the-same-everywhere).
+
 ```json request
 {"query": "name ~ '*.rs' and line(text has 'unwrap(')"}
 ```
 ```text response
 files: 2  lines: 3  matches: 3  result: r1
-#1 name ~ '*.rs'
-#2 line(text has 'unwrap(')
-#3 text has 'unwrap('
 
 src/
-lib.rs  [#1 #2]  lines: 2  matches: 2
+lib.rs  lines: 2  matches: 2
 ⇥4
-2:let raw = read().⟦#2,#3:unwrap(⟧);
+2:let raw = read().⟦unwrap(⟧);
 ⇥4
-4:parse(&text).⟦#2,#3:unwrap(⟧)
-main.rs  [#1 #2]  lines: 1  matches: 1
+4:parse(&text).⟦unwrap(⟧)
+main.rs  lines: 1  matches: 1
 ⇥4
-2:let cfg = load().⟦#2,#3:unwrap(⟧);
+2:let cfg = load().⟦unwrap(⟧);
 ```
 
 ## E143.6 JSON

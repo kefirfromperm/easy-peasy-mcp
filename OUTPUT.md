@@ -1218,8 +1218,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   hidden: the header has `truncated: yes (timeout)`, and the line names the code
 - rules of parts which carry nothing in a search: `legend`, `conditions` and `match_ids` are written only when the
   query has more than one [counted condition](#counted-conditions) (with one, the agent wrote it, and every `[#1]` and
-  `#1:` repeats it), with [`groups`](#shown-groups) `match_ids` instead only when the list has more than
-  one reference; `gaps`
+  `#1:` repeats it) and only where they tell something apart, see [The same everywhere](#the-same-everywhere); with
+  [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
   only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line numbers show the gaps)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1. Another value is
@@ -1262,6 +1262,46 @@ The rule of the legend counts the conditions the agent wrote which can produce i
 - a bracket group with a label `( ... ) @name` counts what is inside it, at least one, like `line( ... )`; a label
   adds nothing: with one counted condition its ids are the same in every file and match, also `@name`, which the
   agent wrote to refer to the group (in [`groups`](#shown-groups), in a [write tool](TOOLS.md#write-tools))
+
+#### The same everywhere
+
+A query of several counted conditions joined with `and` gives every file the same `[#1 #2]` and every match the same
+`#2,#3:`: they tell nothing apart. So the ids are written only when they differ:
+
+- `conditions`: when the [conditions](#file-conditions) of two files of the result differ, e.g. the branches of an
+  `or`; one file has nothing to tell apart
+- `match_ids`: when the ids of two matches of the result differ: the content fragments and the
+  [path fragments](#path-fragments), compared as sets of ids; the escape levels are not compared
+- `legend`: when the conditions differ, or the ids of the matches differ (with `groups`: are written) and the
+  response shows matches (`lines` detail, or path fragments in `files` detail); in `facets` detail it explains the
+  `condition` facet, so it is written when the conditions differ. A part brought back by `show` doesn't bring the
+  legend with it
+- "the result" is all its matched files, not only the listed ones: the pages of a [cursor](#pagination), `max_files`
+  and the [budget](#budget) don't change the decision; with `since` it is the new result, not only the differences.
+  [`groups`](#shown-groups) decides `match_ids` by its references, as above; `count` detail writes no ids
+- the JSON format follows the same rule: `legend`, `conditions` of a file, `ids` of a fragment
+- `show` brings each part back as always: `show = ["conditions"]` writes the conditions of every file
+
+```json
+{ "query": "name ~ '*.rs' and line(text has 'unwrap(')" }
+```
+
+```
+files: 2  lines: 3  matches: 3  result: r1
+
+src/
+lib.rs  lines: 2  matches: 2
+⇥4
+2:let raw = read().⟦unwrap(⟧);
+⇥4
+4:parse(&text).⟦unwrap(⟧)
+main.rs  lines: 1  matches: 1
+⇥4
+2:let cfg = load().⟦unwrap(⟧);
+```
+
+`line(text has 'unwrap(' or text has 'TODO')` keeps the legend and the ids of the matches, which tell `unwrap(` from
+`TODO`, and leaves out the `[#1]` of every file.
 
 ## Result ids
 

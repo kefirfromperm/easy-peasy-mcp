@@ -170,14 +170,9 @@ Fixture: `query-groups`
 
 ```text response
 files: 1  lines: 2  matches: 2  result: r1
-#1 line((text has 'load' or text has 'parse') and text has 'fn')
-@call (text has 'load' or text has 'parse')
-#2 text has 'load'
-#3 text has 'parse'
-#4 text has 'fn'
 
 ./
-lib.rs  [#1]  lines: 2  matches: 2
+lib.rs  lines: 2  matches: 2
 1:pub fn ⟦load⟧_config(path: &Path) -> Config {
 5:fn ⟦parse⟧(path: &Path) -> Config {
 ```
@@ -194,12 +189,9 @@ Fixture: `query-groups`
 
 ```text response
 files: 1  lines: 1  matches: 1  result: r1
-#1 near(text has 'parse', text has 'todo', 1)
-@p text has 'parse'
-@t text has 'todo'
 
 ./
-lib.rs  [#1]  lines: 1  matches: 1
+lib.rs  lines: 1  matches: 1
 ⇥4
 6:⟦todo⟧!()
 ```

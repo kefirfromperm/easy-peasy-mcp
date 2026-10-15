@@ -1,6 +1,10 @@
 //! The parts of a response which `output.omit` leaves out (OUTPUT.md#omit).
 
+use std::collections::HashSet;
+
 use crate::config::KeyValue;
+use crate::query::ast::CondId;
+use crate::search::Found;
 
 /// A part of a response which can be left out, in the order of the table of OUTPUT.md#omit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +84,50 @@ impl Part {
     }
 }
 
+/// What tells the files and the matches of a result apart (OUTPUT.md#the-same-everywhere): different conditions of
+/// two files, different ids of two matches.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Differ {
+    pub conditions: bool,
+    pub match_ids: bool,
+}
+
+impl Differ {
+    /// What differs between all the files of a result.
+    #[must_use]
+    pub fn of(files: &[Found]) -> Self {
+        let conditions = files.iter().map(|f| ids(f.conditions.iter()));
+        let match_ids = files.iter().flat_map(|f| {
+            let content = f.matches.iter().flat_map(|m| &m.fragments);
+            let path = f.path_fragments.iter().flat_map(|p| &p.fragments);
+            content
+                .chain(path)
+                .map(|f| ids(f.ids.iter().map(|(_, id)| id)))
+        });
+        Self {
+            conditions: differ(conditions),
+            match_ids: differ(match_ids),
+        }
+    }
+
+    /// Nothing differs unless `many`: the rule of the counted conditions.
+    #[must_use]
+    pub fn and(self, many: bool) -> Self {
+        if many { self } else { Self::default() }
+    }
+}
+
+/// A set of ids, whatever their order.
+fn ids<'a>(ids: impl Iterator<Item = &'a CondId>) -> HashSet<&'a CondId> {
+    ids.collect()
+}
+
+/// Whether two of the sets differ.
+fn differ<'a>(mut sets: impl Iterator<Item = HashSet<&'a CondId>>) -> bool {
+    sets.next()
+        .is_some_and(|first| sets.any(|set| set != first))
+}
+
 /// The parts a response leaves out; none by default.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Omit(u32);
@@ -125,8 +173,9 @@ impl Omit {
     }
 
     /// The parts a response of the spec version `spec` leaves out (OUTPUT.md#defaults-of-spec-2): these, in spec 2
-    /// also the parts of its rules — the legend, the conditions and the ids of the matches unless the query has
-    /// `many_conditions` (the ids with at most one of the `references` of `output.groups`, when it is set), the gaps
+    /// also the parts of its rules — the conditions and the ids of the matches unless they `differ` (the ids with at
+    /// most one of the `references` of `output.groups`, when it is set), the legend unless the conditions or, when
+    /// the response has `matches_shown`, the ids of the matches are written, the gaps
     /// without `context` lines while the line numbers are written — except the parts of `show`; spec 1 has no line
     /// of the omitted warnings.
     #[must_use]
@@ -134,17 +183,23 @@ impl Omit {
         self,
         show: Self,
         spec: u32,
-        many_conditions: bool,
+        differ: Differ,
+        matches_shown: bool,
         context: bool,
         references: Option<usize>,
     ) -> Self {
         let mut omit = self;
         if spec >= 2 {
-            if !many_conditions {
-                omit = omit.union(Self::from_parts(&[Part::Legend, Part::Conditions]));
+            if !differ.conditions {
+                omit = omit.union(Self::from_parts(&[Part::Conditions]));
             }
-            if references.map_or(!many_conditions, |n| n <= 1) {
+            if references.map_or(!differ.match_ids, |n| n <= 1) {
                 omit = omit.union(Self::from_parts(&[Part::MatchIds]));
+            }
+            // the legend explains the ids which the rules write, not the ones `show` brings back
+            let ids = differ.match_ids && references.is_none_or(|n| n > 1) && matches_shown;
+            if !differ.conditions && !ids {
+                omit = omit.union(Self::from_parts(&[Part::Legend]));
             }
             if !context && !omit.has(Part::LineNumbers) {
                 omit = omit.union(Self::from_parts(&[Part::Gaps]));
@@ -160,6 +215,103 @@ impl Omit {
 mod tests {
     use super::*;
     use crate::config::KeyValue;
+    use crate::content::Content;
+    use crate::output::lines::Fragment;
+    use crate::query::ast::CondId;
+    use crate::search::{FileMatches, Found};
+
+    const BOTH: Differ = Differ {
+        conditions: true,
+        match_ids: true,
+    };
+
+    /// A file matched by the conditions `conditions` whose fragments have the ids `fragments`.
+    fn file(conditions: &[u32], fragments: &[&[u32]]) -> Found {
+        let id = |n: u32| (n as usize, CondId::Number(n));
+        let mut found = Found::path_only("f".into(), None);
+        found.conditions = conditions.iter().map(|n| id(*n).1).collect();
+        found.matches = Some(FileMatches {
+            content: Content::from_bytes(b"x x x x"),
+            fragments: fragments
+                .iter()
+                .enumerate()
+                .map(|(i, ids)| Fragment {
+                    range: 2 * i..2 * i + 1,
+                    ids: ids.iter().map(|n| id(*n)).collect(),
+                    escape: None,
+                    groups: Vec::new(),
+                })
+                .collect(),
+            lines: 1,
+        });
+        found
+    }
+
+    #[test]
+    fn what_differs_in_a_result() {
+        let same = [file(&[1, 2], &[&[2], &[2]]), file(&[1, 2], &[&[2]])];
+        assert_eq!(Differ::of(&same), Differ::default());
+        // the order of the ids doesn't matter
+        let reordered = [file(&[1, 2], &[&[2, 3]]), file(&[2, 1], &[&[3, 2]])];
+        assert_eq!(Differ::of(&reordered), Differ::default());
+        let branches = [file(&[1], &[]), file(&[2], &[&[2]])];
+        assert_eq!(
+            Differ::of(&branches),
+            Differ {
+                conditions: true,
+                match_ids: false
+            }
+        );
+        // the matches of one file can differ
+        let matches = [file(&[1], &[&[1, 2], &[1, 3]])];
+        assert_eq!(
+            Differ::of(&matches),
+            Differ {
+                conditions: false,
+                match_ids: true
+            }
+        );
+        assert_eq!(Differ::of(&[]), Differ::default());
+        assert_eq!(BOTH.and(false), Differ::default());
+        assert_eq!(BOTH.and(true), BOTH);
+    }
+
+    #[test]
+    fn the_parts_which_tell_nothing_apart() {
+        let none = Omit::default();
+        let conditions = Differ {
+            conditions: true,
+            match_ids: false,
+        };
+        let ids = Differ {
+            conditions: false,
+            match_ids: true,
+        };
+        // the files differ: the conditions and the legend
+        let o = none.effective(none, 2, conditions, true, false, None);
+        assert!(!o.has(Part::Conditions) && !o.has(Part::Legend) && o.has(Part::MatchIds));
+        // the matches differ: their ids and, when matches are shown, the legend
+        let o = none.effective(none, 2, ids, true, false, None);
+        assert!(o.has(Part::Conditions) && !o.has(Part::Legend) && !o.has(Part::MatchIds));
+        let o = none.effective(none, 2, ids, false, false, None);
+        assert!(o.has(Part::Conditions) && o.has(Part::Legend) && !o.has(Part::MatchIds));
+        // the conditions bring the legend without shown matches
+        assert!(
+            !none
+                .effective(none, 2, conditions, false, false, None)
+                .has(Part::Legend)
+        );
+        // show brings each part back
+        let o = none.effective(
+            Omit::from_parts(&[Part::Conditions]),
+            2,
+            Differ::default(),
+            true,
+            false,
+            None,
+        );
+        assert!(!o.has(Part::Conditions) && o.has(Part::Legend));
+    }
 
     #[test]
     fn parts_by_name() {
@@ -194,35 +346,39 @@ mod tests {
         let none = Omit::default();
         let parts = Omit::from_parts;
         // one counted condition, no context lines
-        let one = none.effective(none, 2, false, false, None);
+        let one = none.effective(none, 2, Differ::default(), true, false, None);
         for part in [Part::Legend, Part::Conditions, Part::MatchIds, Part::Gaps] {
             assert!(one.has(part), "{part:?}");
         }
         assert!(!one.has(Part::Warnings) && !one.has(Part::LeftOut));
         // several counted conditions, context lines
-        let several = none.effective(none, 2, true, true, None);
+        let several = none.effective(none, 2, BOTH, true, true, None);
         assert!(Part::ALL.iter().all(|p| !several.has(*p)));
         // without line numbers the gaps stay
         assert!(
             !parts(&[Part::LineNumbers])
-                .effective(none, 2, true, false, None)
+                .effective(none, 2, BOTH, true, false, None)
                 .has(Part::Gaps)
         );
         // show wins over omit and the rules
         let shown = parts(&[Part::Warnings]).effective(
             parts(&[Part::Warnings, Part::Legend]),
             2,
-            false,
+            Differ::default(),
+            true,
             false,
             None,
         );
         assert!(
             !shown.has(Part::Warnings) && !shown.has(Part::Legend) && shown.has(Part::Conditions)
         );
-        assert_eq!(none.effective(Omit::all(), 2, false, false, None), none);
+        assert_eq!(
+            none.effective(Omit::all(), 2, Differ::default(), true, false, None),
+            none
+        );
         // spec 1: no rules, no line of the omitted warnings
         assert_eq!(
-            none.effective(none, 1, false, false, None),
+            none.effective(none, 1, Differ::default(), true, false, None),
             parts(&[Part::LeftOut])
         );
         assert_eq!(
@@ -235,15 +391,15 @@ mod tests {
     fn the_ids_of_the_matches_follow_the_references_of_groups() {
         let none = Omit::default();
         // one reference: the ids are left out, the legend of several conditions stays
-        let one = none.effective(none, 2, true, false, Some(1));
+        let one = none.effective(none, 2, BOTH, true, false, Some(1));
         assert!(one.has(Part::MatchIds) && !one.has(Part::Legend) && !one.has(Part::Conditions));
         // two references of one condition: the ids stay, the legend of one condition is left out
-        let two = none.effective(none, 2, false, false, Some(2));
+        let two = none.effective(none, 2, Differ::default(), true, false, Some(2));
         assert!(!two.has(Part::MatchIds) && two.has(Part::Legend));
         // spec 1 has no rules
         assert!(
             !none
-                .effective(none, 1, true, false, Some(1))
+                .effective(none, 1, BOTH, true, false, Some(1))
                 .has(Part::MatchIds)
         );
     }

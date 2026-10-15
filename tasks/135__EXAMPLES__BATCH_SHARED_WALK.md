@@ -244,17 +244,15 @@ Fixture: `shared-walk`
 ```text response
 == any ==  exists: yes
 == lines ==  files: 2  lines: 3  matches: 3  result: r1
-#1 name ~ '*.rs'
-#2 text has 'parse_query'
 
 src/
-a.rs  [#1 #2]  lines: 2  matches: 2
-1:fn ⟦#2:parse_query⟧() {}
+a.rs  lines: 2  matches: 2
+1:fn ⟦parse_query⟧() {}
 ⇥4
-4:⟦#2:parse_query⟧();
-b.rs  [#1 #2]  lines: 1  matches: 1
+4:⟦parse_query⟧();
+b.rs  lines: 1  matches: 1
 ⇥4
-2:⟦#2:parse_query⟧();
+2:⟦parse_query⟧();
 ```
 
 ## E135.8 The progress of a shared walk
