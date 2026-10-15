@@ -1,6 +1,6 @@
 # Task 142: The number of files of a repeated line
 
-Status: in progress
+Status: implemented, see [142__SUMMARY__REPEATED_COUNT.md](142__SUMMARY__REPEATED_COUNT.md)
 
 Depends on: task 86, task 138
 
