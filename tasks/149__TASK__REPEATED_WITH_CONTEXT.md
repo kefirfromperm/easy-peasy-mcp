@@ -1,6 +1,6 @@
 # Task 149: A repeated line keeps the context which was asked for
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 80, task 86, task 138
 
