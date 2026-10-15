@@ -1,6 +1,6 @@
 # Task 155: Smaller default output limits
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 101, task 141
 
