@@ -111,91 +111,12 @@ easy-peasy-mcp
             },
             "traversal": {
               "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "min_depth": {
-                  "type": "integer",
-                  "minimum": 0
-                },
-                "max_depth": {
-                  "type": "integer",
-                  "minimum": 0
-                },
-                "follow_symlinks": {
-                  "type": "boolean"
-                },
-                "hidden": {
-                  "type": "boolean"
-                },
-                "ignore_files": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "git_excludes": {
-                  "type": "boolean"
-                },
-                "ignore_paths": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "exclude": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "path_case": {
-                  "enum": [
-                    "native",
-                    "sensitive",
-                    "insensitive"
-                  ]
-                },
-                "binary": {
-                  "enum": [
-                    "skip",
-                    "search",
-                    "exclude"
-                  ]
-                },
-                "max_file_size": {
-                  "type": "string"
-                },
-                "encoding": {
-                  "type": "string"
-                },
-                "fallback_encoding": {
-                  "type": "string"
-                },
-                "archives": {
-                  "enum": [
-                    "none",
-                    "compressed",
-                    "all"
-                  ]
-                },
-                "max_archive_size": {
-                  "type": "string"
-                },
-                "skip_generated": {
-                  "type": "boolean"
-                }
-              }
+              "description": "Keys of [traversal] of get_config, e.g. {\"hidden\": true, \"exclude\": [\"*.lock\"]}."
             },
             "output": {
               "type": "object",
-              "additionalProperties": false,
+              "description": "Keys of [output] of get_config. Also: format before sort path_style max_files max_lines max_matches max_matches_per_file max_line_length max_output max_output_per_file facets facet_depth facet_limit funnel meta markers dedent blank_context group_dirs group_repeated repeated_locations path_fragments chars_per_token.",
               "properties": {
-                "format": {
-                  "enum": [
-                    "text",
-                    "json"
-                  ]
-                },
                 "detail": {
                   "enum": [
                     "exists",
@@ -218,59 +139,27 @@ easy-peasy-mcp
                   "minimum": 100,
                   "description": "Max response size in tokens."
                 },
-                "chars_per_token": {
-                  "type": "number",
-                  "exclusiveMinimum": 0
-                },
-                "funnel": {
-                  "enum": [
-                    "auto",
-                    "always",
-                    "never"
-                  ]
-                },
-                "facets": {
-                  "type": "array",
-                  "items": {
-                    "enum": [
-                      "dir",
-                      "ext",
-                      "lang",
-                      "kind",
-                      "git",
-                      "condition"
-                    ]
-                  }
-                },
-                "facet_depth": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "facet_limit": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "meta": {
-                  "type": "boolean"
-                },
                 "context": {
                   "type": "integer",
                   "minimum": 0
                 },
-                "before": {
-                  "type": "integer",
-                  "minimum": 0
-                },
                 "after": {
-                  "anyOf": [{ "type": "integer", "minimum": 0 }, { "const": "block" }],
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "const": "block"
+                    }
+                  ],
                   "description": "Lines after a matched line, or \"block\": to the end of its indented block."
-                },
-                "path_fragments": {
-                  "type": "boolean"
                 },
                 "groups": {
                   "type": "array",
-                  "items": { "type": "string" },
+                  "items": {
+                    "type": "string"
+                  },
                   "description": "Group references (@ser, #2, @def.fname): show only their matches."
                 },
                 "only_match": {
@@ -285,143 +174,25 @@ easy-peasy-mcp
                     "markers"
                   ]
                 },
-                "markers": {
-                  "type": "array",
+                "omit": {
+                  "type": [
+                    "array",
+                    "string"
+                  ],
                   "items": {
                     "type": "string"
                   },
-                  "minItems": 2,
-                  "maxItems": 2
-                },
-                "max_files": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "max_lines": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "max_matches": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "max_matches_per_file": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "max_line_length": {
-                  "type": "integer",
-                  "minimum": 20
-                },
-                "max_output_per_file": {
-                  "type": "integer",
-                  "minimum": 100
-                },
-                "max_output": {
-                  "type": "integer",
-                  "minimum": 100
-                },
-                "dedent": {
-                  "type": "boolean"
-                },
-                "blank_context": {
-                  "type": "boolean"
-                },
-                "group_dirs": {
-                  "type": "boolean"
-                },
-                "group_repeated": {
-                  "type": "integer",
-                  "minimum": 0
-                },
-                "repeated_locations": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "description": "The locations written for a repeated line; 0: all of them."
-                },
-                "sort": {
-                  "type": "string",
-                  "pattern": "^(relevance|(path|modified|size|matches) (asc|desc))$"
-                },
-                "path_style": {
-                  "enum": [
-                    "relative",
-                    "absolute",
-                    "in_dir"
-                  ],
-                  "description": "in_dir: the working directory written once, the paths relative to it."
-                },
-                "omit": {
-                  "anyOf": [
-                    {
-                      "type": "array",
-                      "items": {
-                        "enum": [
-                          "counts",
-                          "result",
-                          "dir",
-                          "legend",
-                          "funnel",
-                          "hints",
-                          "conditions",
-                          "file_counts",
-                          "match_ids",
-                          "groups",
-                          "line_numbers",
-                          "line_counts",
-                          "gaps",
-                          "indent",
-                          "more_lines",
-                          "locations",
-                          "warnings",
-                          "left_out",
-                          "all"
-                        ]
-                      }
-                    },
-                    {
-                      "enum": [
-                        "all"
-                      ]
-                    }
-                  ],
-                  "description": "Parts of the response to leave out, or \"all\"."
+                  "description": "Parts to leave out, or \"all\": counts result dir legend funnel hints conditions file_counts match_ids groups line_numbers line_counts gaps indent more_lines locations warnings left_out."
                 },
                 "show": {
-                  "anyOf": [
-                    {
-                      "type": "array",
-                      "items": {
-                        "enum": [
-                          "counts",
-                          "result",
-                          "dir",
-                          "legend",
-                          "funnel",
-                          "hints",
-                          "conditions",
-                          "file_counts",
-                          "match_ids",
-                          "groups",
-                          "line_numbers",
-                          "line_counts",
-                          "gaps",
-                          "indent",
-                          "more_lines",
-                          "locations",
-                          "warnings",
-                          "left_out",
-                          "all"
-                        ]
-                      }
-                    },
-                    {
-                      "enum": [
-                        "all"
-                      ]
-                    }
+                  "type": [
+                    "array",
+                    "string"
                   ],
-                  "description": "Parts of the response to show whatever omit says, or \"all\"."
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Parts to show whatever omit says, or \"all\"."
                 },
                 "cursor": {
                   "type": "string"
@@ -437,131 +208,23 @@ easy-peasy-mcp
             },
             "escape": {
               "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "max_level": {
-                  "type": "integer",
-                  "minimum": 0
-                }
-              }
+              "description": "Keys of [escape] of get_config: max_level."
             },
             "query_options": {
               "type": "object",
-              "additionalProperties": false,
-              "description": "The [query] section of the configuration.",
-              "properties": {
-                "fuzzy_min_score": {
-                  "type": "number",
-                  "minimum": 0,
-                  "maximum": 1
-                }
-              }
+              "description": "Keys of [query] of get_config: fuzzy_min_score."
             },
             "kinds": {
               "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "generated_markers": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "generated_marker_lines": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "generated": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "test": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "doc": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                },
-                "config": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
-                }
-              }
+              "description": "Keys of [kinds] of get_config, e.g. {\"test\": [\"spec/**\"]}."
             },
             "git": {
               "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "base": {
-                  "type": "string"
-                }
-              }
+              "description": "Keys of [git] of get_config: base."
             },
             "languages": {
               "type": "object",
-              "description": "Languages, replace the configured languages with the same name.",
-              "additionalProperties": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "extensions": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "names": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "shebangs": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "line_comments": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "block_comments": {
-                    "type": "array",
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "type": "string"
-                      },
-                      "minItems": 2,
-                      "maxItems": 2
-                    }
-                  },
-                  "nested_block_comments": {
-                    "type": "boolean"
-                  },
-                  "strings": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "source": {
-                    "type": "boolean"
-                  }
-                }
-              }
+              "description": "Languages like [languages] of get_config; replace the configured ones with the same name."
             }
           }
         },
