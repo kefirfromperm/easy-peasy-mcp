@@ -297,3 +297,7 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   to python and a heredoc; its own block parser broke on fences inside a response and had to be redone.
 - **Outcome:** the first run where A is cheaper: −11% tokens, −18% tool calls, −1.5 min. Run 3 was +10% for A, almost
   all of it the tool schemas that task 156 has since halved.
+- **Merged:** B (the whole-result rule, the multiline 0-and-2 case handled), rebased on master after task 156: the
+  conflicts in TOOLS.md, `src/description.rs` and E117.2 (the `omit` enums of the old schema are now the list of
+  parts in its description, with `match_counts`), E156.1, E156.5 and E156.6 updated for the new rule, version
+  0.151.0. Task 159 (long changed lines of `replace` cut around the change).
