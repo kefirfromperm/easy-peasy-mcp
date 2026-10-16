@@ -253,3 +253,47 @@ real question, what the task cost.
   last `{indent}` bullet. Version 0.148.0. Tasks 156 (smaller tool descriptions and schemas), 157 (paths relative to
   the only working directory in the write tools), 158 (the counts of the only file are not repeated). From run 4 both
   arms may edit and write files with `python3` scripts.
+
+### Run 4 — task 152 the number of matches left out when it is the number of lines, server 0.150.0, 2026-10-16
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 173K | 193K |
+| Tool calls | 88 | 107 |
+| Time | 26.0 min | 27.5 min |
+| Search output received | ~75–85K chars (1 `get_config`, ~22 `find`, 6 `replace`); ~10K of it two `replace` responses that print a 5K-char line whole | ~110–130K chars (~70 commands: ~38 `grep`, ~15 `sed -n`, `awk`, `ls`, `cat`); ~15K greps of test logs |
+| Commits | 7 | 7 |
+| Diff | 38 files, +1042/−560 (src: 4 files, +73/−17) | 38 files, +1203/−574 (src: 4 files, +147/−25) |
+| Examples | 9 (E152.1–E152.9) | 8 (E152.1–E152.8) |
+| Tests | 386 pass (all targets) | 387 pass (all targets) |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ once: a leftover `grep -c` in a commit command | ✅ |
+
+Total tokens are the whole run (reading, thinking, editing, cargo), not the search output alone. The schemas of task 156
+(−9.4K chars) were loaded by A in this run.
+
+- **Base:** both worktrees started on 662f4cf (task 155), before task 156 was merged, so both bumped to 0.150.0,
+  which task 156 already took; the merged branch needs a rebase on master (E117.2 and the `find` description conflict)
+  and 0.151.0.
+- **Quality:** both are complete and green, with a new `omit` part in the spec 2 defaults, JSON unchanged, the same
+  earlier examples fixed (E145.5 with `show`, E155.6 cursor, E155.7 sizes) and one line in the tool description. The
+  rule differs, the choice the task left to the spec step:
+  - A (`equal_matches`): every count on its own: a file's `matches: N` is left out when it is its `lines: N`, the
+    header's when it is the header's `lines: N`, `: 1` of `count_by = line` only while the line number is shown.
+    Saves more in mixed results; a left-out count says "one match per line" only for its own file. Not handled: a
+    file whose lines have 0 and 2 matches (a multiline match) is `lines: 2` and reads as one match per line.
+  - B (`match_counts`): all or nothing: the counts are left out only when every matched line of the whole result has
+    exactly one match (cursor pages, `max_files` and the budget don't change it), so a response without `matches:`
+    means one match per line everywhere; the 0-and-2 case keeps the counts. A whole new OUTPUT.md section with the
+    edge cases; twice the code. Quirk: `: 1` of `count_by = line` belongs to `line_counts` and `match_counts`, so
+    `show = ["line_counts"]` alone doesn't bring it back (in the spec).
+- **A's friction:** `replace` prints a changed line whole: a 20-char change in the 4.8K-char JSON line of E117.2 is
+  ~9.6K chars of dry run (reproduced on 0.150.0, no `max_line_length` in the write tools); a legend with
+  `highlight = "none"` (reproduced, task 154); `repeated:` with 3 locations (as specified, `repeated_locations`);
+  `detail = count` without a text condition gives `lines: 0` (as specified); no backreferences in Rust regex (out of
+  scope); finding failing examples meant parsing the cargo log (out of scope).
+- **B's friction:** greps over the startup test log matched single-line JSON-RPC messages (one 41KB result); whole
+  sections read with `sed -n` ranges; the worktree guard refused a `for` loop around `sed -i`, a shell variable passed
+  to python and a heredoc; its own block parser broke on fences inside a response and had to be redone.
+- **Outcome:** the first run where A is cheaper: −11% tokens, −18% tool calls, −1.5 min. Run 3 was +10% for A, almost
+  all of it the tool schemas that task 156 has since halved.
