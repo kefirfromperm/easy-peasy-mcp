@@ -370,10 +370,11 @@ impl Response<'_> {
         } else {
             if !self.omit.has(Part::Counts) {
                 let (lines, matches) = self.totals();
-                parts.push(format!(
-                    "files: {}  lines: {lines}  matches: {matches}",
-                    self.file_count()
-                ));
+                let mut counts = format!("files: {}  lines: {lines}", self.file_count());
+                if !self.omit.has(Part::MatchCounts) {
+                    let _ = write!(counts, "  matches: {matches}");
+                }
+                parts.push(counts);
             }
             if let Some(id) = self.result_id.filter(|_| !self.omit.has(Part::Result)) {
                 parts.push(format!("result: {id}"));
@@ -495,7 +496,10 @@ impl Response<'_> {
             .as_ref()
             .filter(|_| !self.omit.has(Part::FileCounts))
         {
-            let _ = write!(out, "  lines: {}  matches: {}", m.lines, m.fragments.len());
+            let _ = write!(out, "  lines: {}", m.lines);
+            if !self.omit.has(Part::MatchCounts) {
+                let _ = write!(out, "  matches: {}", m.fragments.len());
+            }
         }
         if listing.cut[index] {
             out.push_str("  (cut)");
@@ -546,7 +550,8 @@ impl Response<'_> {
     /// The counts of the listed lines of a file in `count_by = line`: `  42: 2`, without the parts left out.
     fn push_line_counts(&self, out: &mut String, content: &Content, fragments: &[Fragment]) {
         let numbers = !self.omit.has(Part::LineNumbers);
-        let counts = !self.omit.has(Part::LineCounts);
+        // in the text format the count of a line belongs to both parts (OUTPUT.md#one-match-per-line)
+        let counts = !self.omit.has(Part::LineCounts) && !self.omit.has(Part::MatchCounts);
         if !numbers && !counts {
             return;
         }

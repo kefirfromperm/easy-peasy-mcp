@@ -72,7 +72,7 @@ fn initialize_list_and_find() {
     assert_eq!(
         call["result"]["content"],
         json!([{ "type": "text", "text": format!(
-            "files: 1  lines: 0  matches: 0  result: r1\n\n.{}\nCargo.toml\n",
+            "files: 1  lines: 0  result: r1\n\n.{}\nCargo.toml\n",
             std::path::MAIN_SEPARATOR
         ) }])
     );
@@ -91,7 +91,7 @@ fn initialize_list_and_find() {
     );
     let text = second["result"]["content"][0]["text"].as_str().unwrap();
     assert!(
-        text.starts_with("files: 1  lines: 0  matches: 0  result: r2\n"),
+        text.starts_with("files: 1  lines: 0  result: r2\n"),
         "{text}"
     );
 
