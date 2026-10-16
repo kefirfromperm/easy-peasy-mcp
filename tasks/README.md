@@ -276,3 +276,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 156 | [Smaller tool descriptions and schemas](156__TASK__SMALLER_TOOL_SCHEMAS.md) | 125, 126, 127, 129 | ✅ |
 | 157 | [Paths relative to the only working directory in the write tools](157__TASK__WRITE_TOOLS_RELATIVE.md) | 148, 125, 126, 127, 129 | ⬜ |
 | 158 | [The counts of the only file are not repeated](158__TASK__ONE_FILE_COUNTS.md) | 136, 141 | ⬜ |
+| 159 | [Long changed lines of `replace` cut around the change](159__TASK__WRITE_TOOLS_LONG_LINES.md) | 129, 155 | ⬜ |
