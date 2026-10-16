@@ -33,21 +33,21 @@ Fixture: `shared-walk`
 ```
 
 ```text response
-== defs ==  files: 1  lines: 1  matches: 1  result: r1
+== defs ==  files: 1  lines: 1  result: r1
 
 src/
-a.rs  lines: 1  matches: 1
+a.rs  lines: 1
 1:⟦fn parse_query(⟧) {}
 
 warnings left out: decode_errors (1)
-== calls ==  files: 2  lines: 2  matches: 2  result: r2
+== calls ==  files: 2  lines: 2  result: r2
 
 src/
-a.rs  lines: 1  matches: 1
-b.rs  lines: 1  matches: 1
+a.rs  lines: 1
+b.rs  lines: 1
 
 warnings left out: decode_errors (1)
-== docs ==  files: 1  lines: 1  matches: 1  result: r3
+== docs ==  files: 1  lines: 1  result: r3
 ```
 
 ## E135.2 The same queries alone
@@ -63,10 +63,10 @@ Fixture: `shared-walk`
 ```
 
 ```text response
-files: 1  lines: 1  matches: 1  result: r1
+files: 1  lines: 1  result: r1
 
 src/
-a.rs  lines: 1  matches: 1
+a.rs  lines: 1
 1:⟦fn parse_query(⟧) {}
 
 warnings left out: decode_errors (1)
@@ -79,11 +79,11 @@ warnings left out: decode_errors (1)
 ```
 
 ```text response
-files: 2  lines: 2  matches: 2  result: r2
+files: 2  lines: 2  result: r2
 
 src/
-a.rs  lines: 1  matches: 1
-b.rs  lines: 1  matches: 1
+a.rs  lines: 1
+b.rs  lines: 1
 
 warnings left out: decode_errors (1)
 ```
@@ -95,7 +95,7 @@ warnings left out: decode_errors (1)
 ```
 
 ```text response
-files: 1  lines: 1  matches: 1  result: r3
+files: 1  lines: 1  result: r3
 ```
 
 ## E135.3 The warnings of the shared walk
@@ -109,21 +109,21 @@ Fixture: `shared-walk`
 ```
 
 ```text response
-== text ==  files: 3  lines: 4  matches: 4  result: r1
+== text ==  files: 3  lines: 4  result: r1
 
 docs/
-n.md  lines: 1  matches: 1
+n.md  lines: 1
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
 
 warning: decode_errors (1): data.bin
-== names ==  files: 2  lines: 0  matches: 0  result: r2
+== names ==  files: 2  lines: 0  result: r2
 
 src/
 a.rs
 b.rs
-== count ==  files: 2  lines: 3  matches: 3  result: r3
+== count ==  files: 2  lines: 3  result: r3
 
 warning: decode_errors (1): data.bin
 ```
@@ -137,29 +137,29 @@ Fixture: `shared-walk`
 ```
 
 ```text response
-== all ==  files: 3  lines: 4  matches: 4  result: r1
+== all ==  files: 3  lines: 4  result: r1
 
 docs/
-n.md  lines: 1  matches: 1
+n.md  lines: 1
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
 
 warnings left out: decode_errors (1)
-== src ==  files: 2  lines: 3  matches: 3  result: r2
+== src ==  files: 2  lines: 3  result: r2
 
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-== hidden ==  files: 4  lines: 5  matches: 5  result: r3
+a.rs  lines: 2
+b.rs  lines: 1
+== hidden ==  files: 4  lines: 5  result: r3
 
 .hidden/
-h.rs  lines: 1  matches: 1
+h.rs  lines: 1
 docs/
-n.md  lines: 1  matches: 1
+n.md  lines: 1
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
 
 warnings left out: decode_errors (1)
 ```
@@ -175,11 +175,11 @@ Fixture: `shared-walk`
 ```
 
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
 ```
 
 2. hidden
@@ -189,15 +189,15 @@ b.rs  lines: 1  matches: 1
 ```
 
 ```text response
-files: 4  lines: 5  matches: 5  result: r2
+files: 4  lines: 5  result: r2
 
 .hidden/
-h.rs  lines: 1  matches: 1
+h.rs  lines: 1
 docs/
-n.md  lines: 1  matches: 1
+n.md  lines: 1
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
 
 warnings left out: decode_errors (1)
 ```
@@ -215,18 +215,18 @@ Slow reads: `300ms`
 ```
 
 ```text response
-== short ==  files: 0  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
+== short ==  files: 0  lines: 0  result: r1  truncated: yes (timeout)
 funnel:
   text has 'parse_query'                 0
 
 warnings left out: timeout
-== long ==  files: 3  lines: 4  matches: 4  result: r2
+== long ==  files: 3  lines: 4  result: r2
 
 docs/
-n.md  lines: 1  matches: 1
+n.md  lines: 1
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
 
 warnings left out: decode_errors (1)
 ```
@@ -243,14 +243,14 @@ Fixture: `shared-walk`
 
 ```text response
 == any ==  exists: yes
-== lines ==  files: 2  lines: 3  matches: 3  result: r1
+== lines ==  files: 2  lines: 3  result: r1
 
 src/
-a.rs  lines: 2  matches: 2
+a.rs  lines: 2
 1:fn ⟦parse_query⟧() {}
 ⇥4
 4:⟦parse_query⟧();
-b.rs  lines: 1  matches: 1
+b.rs  lines: 1
 ⇥4
 2:⟦parse_query⟧();
 ```
@@ -283,7 +283,7 @@ easy-peasy-mcp --config conf/o.toml
 ```
 
 ```json receive
-{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "== 1 ==  files: 3  lines: 4  matches: 4  result: r1\n\nwarnings left out: decode_errors (1)\n== 2 ==  files: 2  lines: 3  matches: 3  result: r2\n\nwarnings left out: decode_errors (1)\n== 3 ==  files: 3  lines: 4  matches: 5  result: r3\n\nwarnings left out: decode_errors (1)\n"}], "isError": false}}
+{"jsonrpc": "2.0", "id": 2, "result": {"content": [{"type": "text", "text": "== 1 ==  files: 3  lines: 4  result: r1\n\nwarnings left out: decode_errors (1)\n== 2 ==  files: 2  lines: 3  result: r2\n\nwarnings left out: decode_errors (1)\n== 3 ==  files: 3  lines: 4  matches: 5  result: r3\n\nwarnings left out: decode_errors (1)\n"}], "isError": false}}
 ```
 
 ```json never

@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 
+use super::lines::line_counts;
 use crate::config::KeyValue;
 use crate::query::ast::CondId;
 use crate::search::Found;
@@ -17,6 +18,7 @@ pub enum Part {
     Hints,
     Conditions,
     FileCounts,
+    MatchCounts,
     MatchIds,
     Groups,
     LineNumbers,
@@ -31,7 +33,7 @@ pub enum Part {
 
 impl Part {
     /// All parts in the order of the spec.
-    pub const ALL: [Part; 18] = [
+    pub const ALL: [Part; 19] = [
         Self::Counts,
         Self::Result,
         Self::Dir,
@@ -40,6 +42,7 @@ impl Part {
         Self::Hints,
         Self::Conditions,
         Self::FileCounts,
+        Self::MatchCounts,
         Self::MatchIds,
         Self::Groups,
         Self::LineNumbers,
@@ -64,6 +67,7 @@ impl Part {
             Self::Hints => "hints",
             Self::Conditions => "conditions",
             Self::FileCounts => "file_counts",
+            Self::MatchCounts => "match_counts",
             Self::MatchIds => "match_ids",
             Self::Groups => "groups",
             Self::LineNumbers => "line_numbers",
@@ -85,11 +89,13 @@ impl Part {
 }
 
 /// What tells the files and the matches of a result apart (OUTPUT.md#the-same-everywhere): different conditions of
-/// two files, different ids of two matches.
+/// two files, different ids of two matches; and whether a matched line has another number of matches than one
+/// (OUTPUT.md#one-match-per-line).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Differ {
     pub conditions: bool,
     pub match_ids: bool,
+    pub match_counts: bool,
 }
 
 impl Differ {
@@ -104,16 +110,29 @@ impl Differ {
                 .chain(path)
                 .map(|f| ids(f.ids.iter().map(|(_, id)| id)))
         });
+        let match_counts = files.iter().filter_map(|f| f.matches.as_ref()).any(|m| {
+            line_counts(&m.content, &m.fragments)
+                .into_iter()
+                .any(|(_, count)| count != 1)
+        });
         Self {
             conditions: differ(conditions),
             match_ids: differ(match_ids),
+            match_counts,
         }
     }
 
-    /// Nothing differs unless `many`: the rule of the counted conditions.
+    /// No ids differ unless `many`: the rule of the counted conditions; the counts of the matches stay.
     #[must_use]
     pub fn and(self, many: bool) -> Self {
-        if many { self } else { Self::default() }
+        if many {
+            self
+        } else {
+            Self {
+                match_counts: self.match_counts,
+                ..Self::default()
+            }
+        }
     }
 }
 
@@ -176,8 +195,8 @@ impl Omit {
     /// also the parts of its rules — the conditions and the ids of the matches unless they `differ` (the ids with at
     /// most one of the `references` of `output.groups`, when it is set), the legend unless the conditions or, when
     /// the response has `matches_shown`, the ids of the matches are written, the gaps
-    /// without `context` lines while the line numbers are written — except the parts of `show`; spec 1 has no line
-    /// of the omitted warnings.
+    /// without `context` lines while the line numbers are written, the counts of the matches when every matched line
+    /// has one match — except the parts of `show`; spec 1 has no line of the omitted warnings.
     #[must_use]
     pub fn effective(
         self,
@@ -201,6 +220,9 @@ impl Omit {
             if !differ.conditions && !ids {
                 omit = omit.union(Self::from_parts(&[Part::Legend]));
             }
+            if !differ.match_counts {
+                omit = omit.union(Self::from_parts(&[Part::MatchCounts]));
+            }
             if !context && !omit.has(Part::LineNumbers) {
                 omit = omit.union(Self::from_parts(&[Part::Gaps]));
             }
@@ -223,7 +245,83 @@ mod tests {
     const BOTH: Differ = Differ {
         conditions: true,
         match_ids: true,
+        match_counts: true,
     };
+
+    /// A file of the content `content` with a fragment of the id 1 over each of `ranges` (start, end).
+    fn spans(content: &str, ranges: &[(usize, usize)]) -> Found {
+        let mut found = Found::path_only("f".into(), None);
+        found.matches = Some(FileMatches {
+            content: Content::from_bytes(content.as_bytes()),
+            fragments: ranges
+                .iter()
+                .map(|&(start, end)| Fragment {
+                    range: start..end,
+                    ids: vec![(1, CondId::Number(1))],
+                    escape: None,
+                    groups: Vec::new(),
+                })
+                .collect(),
+            lines: 1,
+        });
+        found
+    }
+
+    #[test]
+    fn one_match_per_line() {
+        // one match in every line of every file
+        let one = [spans("a\na\n", &[(0, 1), (2, 3)]), spans("a\n", &[(0, 1)])];
+        assert!(!Differ::of(&one).match_counts);
+        // two matches in a line of one file
+        let two = [
+            spans("a\n", &[(0, 1)]),
+            spans("a\naa\n", &[(0, 1), (2, 3), (3, 4)]),
+        ];
+        assert!(Differ::of(&two).match_counts);
+        // 0 and 2 add up like 1 and 1: a multiline match continues into line 2
+        assert!(Differ::of(&[spans("a a\nb\n", &[(0, 1), (2, 5)])]).match_counts);
+        // no matched lines
+        assert!(!Differ::of(&[Found::path_only("f".into(), None)]).match_counts);
+        assert!(!Differ::of(&[]).match_counts);
+        // the rule of the counted conditions doesn't change it
+        assert!(BOTH.and(false).match_counts);
+    }
+
+    #[test]
+    fn the_rule_of_the_match_counts() {
+        let none = Omit::default();
+        let parts = Omit::from_parts;
+        let one = Differ::default();
+        let other = Differ {
+            match_counts: true,
+            ..Differ::default()
+        };
+        assert!(
+            none.effective(none, 2, one, true, false, None)
+                .has(Part::MatchCounts)
+        );
+        assert!(
+            !none
+                .effective(none, 2, other, true, false, None)
+                .has(Part::MatchCounts)
+        );
+        // spec 1 has no rules, show brings the part back, omit leaves it out whatever the matches
+        assert!(
+            !none
+                .effective(none, 1, one, true, false, None)
+                .has(Part::MatchCounts)
+        );
+        assert!(
+            !none
+                .effective(parts(&[Part::MatchCounts]), 2, one, true, false, None)
+                .has(Part::MatchCounts)
+        );
+        assert!(
+            parts(&[Part::MatchCounts])
+                .effective(none, 2, other, true, false, None)
+                .has(Part::MatchCounts)
+        );
+    }
 
     /// A file matched by the conditions `conditions` whose fragments have the ids `fragments`.
     fn file(conditions: &[u32], fragments: &[&[u32]]) -> Found {
@@ -249,7 +347,7 @@ mod tests {
 
     #[test]
     fn what_differs_in_a_result() {
-        let same = [file(&[1, 2], &[&[2], &[2]]), file(&[1, 2], &[&[2]])];
+        let same = [file(&[1, 2], &[&[2]]), file(&[1, 2], &[&[2]])];
         assert_eq!(Differ::of(&same), Differ::default());
         // the order of the ids doesn't matter
         let reordered = [file(&[1, 2], &[&[2, 3]]), file(&[2, 1], &[&[3, 2]])];
@@ -259,7 +357,8 @@ mod tests {
             Differ::of(&branches),
             Differ {
                 conditions: true,
-                match_ids: false
+                match_ids: false,
+                match_counts: false
             }
         );
         // the matches of one file can differ
@@ -268,11 +367,18 @@ mod tests {
             Differ::of(&matches),
             Differ {
                 conditions: false,
-                match_ids: true
+                match_ids: true,
+                match_counts: true
             }
         );
         assert_eq!(Differ::of(&[]), Differ::default());
-        assert_eq!(BOTH.and(false), Differ::default());
+        assert_eq!(
+            BOTH.and(false),
+            Differ {
+                match_counts: true,
+                ..Differ::default()
+            }
+        );
         assert_eq!(BOTH.and(true), BOTH);
     }
 
@@ -281,11 +387,11 @@ mod tests {
         let none = Omit::default();
         let conditions = Differ {
             conditions: true,
-            match_ids: false,
+            ..Differ::default()
         };
         let ids = Differ {
-            conditions: false,
             match_ids: true,
+            ..Differ::default()
         };
         // the files differ: the conditions and the legend
         let o = none.effective(none, 2, conditions, true, false, None);
@@ -315,7 +421,8 @@ mod tests {
 
     #[test]
     fn parts_by_name() {
-        assert_eq!(Part::ALL.len(), 18);
+        assert_eq!(Part::ALL.len(), 19);
+        assert_eq!(Part::find("match_counts"), Some(Part::MatchCounts));
         assert_eq!(Part::find("left_out"), Some(Part::LeftOut));
         assert_eq!(Part::find("more_lines"), Some(Part::MoreLines));
         assert_eq!(Part::find("dir"), Some(Part::Dir));
@@ -324,7 +431,7 @@ mod tests {
         assert_eq!(Part::LineNumbers.name(), "line_numbers");
         assert_eq!(
             Part::ALL.map(Part::name).join(", "),
-            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out"
+            "counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out"
         );
         assert_eq!(Part::find("line_counts"), Some(Part::LineCounts));
     }

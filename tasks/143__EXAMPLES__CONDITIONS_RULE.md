@@ -17,14 +17,14 @@ Fixture: `omit`
 {"query": "line(text has 'unwrap(')"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 
@@ -41,13 +41,13 @@ The ids of the matches differ, the conditions of the only file don't: since task
 {"query": "near(text has 'unwrap(', text has 'TODO', 1)"}
 ```
 ```text response
-files: 1  lines: 2  matches: 2  result: r1
+files: 1  lines: 2  result: r1
 #1 near(text has 'unwrap(', text has 'TODO', 1)
 #2 text has 'unwrap('
 #3 text has 'TODO'
 
 src/
-main.rs  lines: 2  matches: 2
+main.rs  lines: 2
 ⇥4
 2:let cfg = load().⟦#1,#2:unwrap(⟧);
 3:// ⟦#1,#3:TODO⟧ handle the error
@@ -65,14 +65,14 @@ Fixture: `omit`
 {"query": "(text has 'unwrap(') @u"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 
@@ -85,11 +85,11 @@ warnings left out: binary_skipped (1)
 {"query": "text has 'unwrap(' @u", "output": {"detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r2
+files: 2  lines: 3  result: r2
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -100,17 +100,17 @@ warnings left out: binary_skipped (1)
 {"query": "(text has 'unwrap(' or text has 'TODO') @u"}
 ```
 ```text response
-files: 2  lines: 4  matches: 4  result: r3
+files: 2  lines: 4  result: r3
 @u (text has 'unwrap(' or text has 'TODO')
 #1 text has 'unwrap('
 #2 text has 'TODO'
 
 src/
-main.rs  [@u #1 #2]  lines: 2  matches: 2
+main.rs  [@u #1 #2]  lines: 2
 ⇥4
 2:let cfg = load().⟦@u,#1:unwrap(⟧);
 3:// ⟦@u,#2:TODO⟧ handle the error
-lib.rs  [@u #1]  lines: 2  matches: 2
+lib.rs  [@u #1]  lines: 2
 ⇥4
 2:let raw = read().⟦@u,#1:unwrap(⟧);
 4:parse(&text).⟦@u,#1:unwrap(⟧)
@@ -126,10 +126,10 @@ Fixture: `omit`
 {"query": "text has 'unwrap(' and not text has 'TODO'"}
 ```
 ```text response
-files: 1  lines: 2  matches: 2  result: r1
+files: 1  lines: 2  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
@@ -150,14 +150,14 @@ Two counted conditions, but every file has `[#1 #2]` and every match `#2,#3`: si
 {"query": "name ~ '*.rs' and line(text has 'unwrap(')"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 ```
@@ -212,13 +212,13 @@ Fixture: `omit`
 {"query": "line(text has 'unwrap(')", "output": {"show": ["legend"], "detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 #1 line(text has 'unwrap(')
 #2 text has 'unwrap('
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```

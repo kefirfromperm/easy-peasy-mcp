@@ -149,7 +149,10 @@ main.rs  lines: 1  matches: 1
 - the other details ignore `count_by`
 - [omit](#omit): `counts` leaves out the totals, `file_counts` the counts of a file (with `file` the paths alone are
   left), `line_numbers` the line numbers of the lines (`  2`), `line_counts` their counts (`  42`): with
-  `line_counts` the lines are the list of the matched line numbers; without both the lines are not written
+  `line_counts` the lines are the list of the matched line numbers; without both the lines are not written;
+  `match_counts` the `matches: N` of the totals and of the files and, in the text format, the counts of the lines.
+  In spec 2 the text format leaves `match_counts` out when every matched line has one match, see
+  [One match per line](#one-match-per-line)
 
 ## Response
 
@@ -276,13 +279,13 @@ relative to it, JSON `dirs`. A worktree outside the default directory costs no m
 ```
 
 ```
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 in: /home/me/app/.claude/worktrees/agent-1/
 
 src/
-cache.rs  lines: 2  matches: 2
+cache.rs  lines: 2
 src/output/
-json.rs  lines: 1  matches: 1
+json.rs  lines: 1
 ```
 
 - a relative working directory is unchanged: `dirs: ["src"]` writes `src/parser/`, `src/`; it is short, and the
@@ -574,10 +577,10 @@ and comments.
 ```
 
 ```
-files: 1  lines: 1  matches: 1  result: r1
+files: 1  lines: 1  result: r1
 
 src/
-lib.rs  lines: 1  matches: 1
+lib.rs  lines: 1
 3:pub ⟦fn load(⟧path: &str) -> String {
 4-    let raw = read(path);
 5-    if raw.is_empty() {
@@ -674,10 +677,10 @@ with its line number, like `grep -o`:
 ```
 
 ```
-files: 1  lines: 2  matches: 2  result: r1
+files: 1  lines: 2  result: r1
 
 ./
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 1:load_config
 5:parse
 ```
@@ -1110,11 +1113,11 @@ writes `⇥N` before every block which has common whitespace.
 - `show = ["indent"]` (and `show = "all"`) writes `⇥N` before every dedented block, as spec 1 does
 
 ```
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 ```
@@ -1245,6 +1248,7 @@ in spec 1 the default `[]` leaves out nothing.
 | `hints`        | `hints:` with its lines                                       | `hints`                                |
 | `conditions`   | `[#1 #2]` after a path                                        | `conditions` of a file                 |
 | `file_counts`  | `lines: N  matches: N` after a path                           | `lines` and `matches` of a file        |
+| `match_counts` | `matches: N` of the header and after a path, `: 2` of `42: 2` of `count_by = line` | —             |
 | `match_ids`    | the ids and escape levels of a match: `⟦unwrap(⟧`, `@ 44..51` | `ids` and `escape` of a fragment, `ids` of its groups |
 | `groups`       | —                                                             | `groups` of a fragment                 |
 | `line_numbers` | `42:` and `41-` before a line, `42` of `42: 2` of `count_by = line` | `n` of a line                    |
@@ -1294,8 +1298,8 @@ warning: binary_skipped (1): data.bin
   a request replaces the configured one, like the other lists, and every query of a [batch](#batch) can have its
   own; in spec 2 the list of a request is added to the configured one, see [Defaults of spec 2](#defaults-of-spec-2).
   Another value, an unknown part among them, is `invalid_option`: `'output.omit' must be "all" or a list of parts
-  (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts,
-  gaps, indent, more_lines, locations, warnings, left_out)`; in `update_config` `invalid_value` with the same list in the hint
+  (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers,
+  line_counts, gaps, indent, more_lines, locations, warnings, left_out)`; in `update_config` `invalid_value` with the same list in the hint
 - never left out: `version` and `exists` of JSON and `exists: yes` of the text format, the frame of the response; the
   truncation, `truncated: yes (...)` and `next cursor: ...` (`truncated`, `truncated_by`, `next_cursor`), so an
   incomplete result never looks complete, also with `"all"`; `detail: ... (budget N)` and `since: ...  unchanged: N`
@@ -1333,7 +1337,8 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   `#1:` repeats it) and only where they tell something apart, see [The same everywhere](#the-same-everywhere); with
   [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
   only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line
-  numbers show the gaps); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent); the
+  numbers show the gaps); `match_counts` (text format) only when a matched line of the result has another number of
+  matches than one, see [One match per line](#one-match-per-line); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent); the
   working directory of `dir` once in the `in:` line when it is the only one and absolute, see
   [One working directory](#one-working-directory)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
@@ -1353,14 +1358,14 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
 The request of the example above with the defaults of spec 2:
 
 ```
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 
@@ -1407,20 +1412,62 @@ A query of several counted conditions joined with `and` gives every file the sam
 ```
 
 ```
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 ```
 
 `line(text has 'unwrap(' or text has 'TODO')` keeps the legend and the ids of the matches, which tell `unwrap(` from
 `TODO`, and leaves out the `[#1]` of every file.
+
+#### One match per line
+
+Most searches find one match per line: a name, a call, a key. Then every `matches: N` repeats the `lines: N` before
+it. So in spec 2 the text format leaves out the part `match_counts` when every matched line of the result has
+exactly one match:
+
+- the header is `files: 2  lines: 3` and a file `lib.rs  lines: 2`; with `count_by = line` the lines are the list
+  of the matched line numbers (`  42`), as with `line_counts` left out
+- a response without `matches:` means one match in every matched line; a `matches: N` in a response means that a
+  line of the result has another number: two matches, or `0` (a line which a multiline match only continues into).
+  Then every count is written, also `lines: 1  matches: 1` of a file with one match per line, so a number left out
+  is never mistaken for a missing one; also when the `lines` and the `matches` of every file are the same numbers
+  (`0` and `2` add up like `1` and `1`)
+- a result without matched lines (names only, or no file) has no line with another number: `files: 4  lines: 0`
+- "the result" is all its matched files, as in [The same everywhere](#the-same-everywhere): the pages of a
+  [cursor](#pagination), `max_files` and the [budget](#budget) don't change the decision; with `since` it is the new
+  result
+- the JSON format keeps `matches`: the part has no JSON, a number costs little there, and a missing field would
+  cost more to explain than it saves
+- `show = ["match_counts"]` (and `show = "all"`, `"version": 1`) writes the numbers; `omit = ["match_counts"]`
+  leaves them out whatever the matches; `counts`, `file_counts` and `line_counts` leave out what they always do. In
+  the text format the `: 1` of `count_by = line` belongs to both `line_counts` and `match_counts`: it is written
+  when neither is left out, so `show = ["line_counts"]` alone doesn't bring it back
+
+```json
+{ "query": "text has 'unwrap('", "output": { "detail": "count", "count_by": "line" } }
+```
+
+```
+files: 2  lines: 3  result: r1
+
+src/
+lib.rs  lines: 2
+  2
+  4
+main.rs  lines: 1
+  2
+```
+
+With one more `unwrap(` in line 2 of `lib.rs` every count is written, as in
+[Counts per file and per line](#counts-per-file-and-per-line).
 
 ## Result ids
 

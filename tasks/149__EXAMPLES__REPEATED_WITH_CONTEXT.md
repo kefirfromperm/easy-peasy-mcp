@@ -31,22 +31,22 @@ The fence is in all the files, its context differs: every file has it with its c
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r1
+files: 4  lines: 4  result: r1
 
 ./
-a.md  lines: 1  matches: 1
+a.md  lines: 1
 3-## Tree
 4:⟦```text⟧ tree
 5-src/a.rs
-b.md  lines: 1  matches: 1
+b.md  lines: 1
 3-## Tree
 4:⟦```text⟧ tree
 5-src/b.rs
-c.md  lines: 1  matches: 1
+c.md  lines: 1
 3-## Tree
 4:⟦```text⟧ tree
 5-src/c.rs
-d.md  lines: 1  matches: 1
+d.md  lines: 1
 3-## Tree
 4:⟦```text⟧ tree
 5-src/d.rs
@@ -63,7 +63,7 @@ The block of `d.md` is the same without its common indentation; `c.md` has `end.
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r1
+files: 4  lines: 4  result: r1
 
 repeated:
   ×3 a.md:7, b.md:7, d.md:9
@@ -71,7 +71,7 @@ repeated:
     :⟦Status:⟧ done
     -end
 ./
-c.md  lines: 1  matches: 1
+c.md  lines: 1
 6-```
 7:⟦Status:⟧ done
 8-end.
@@ -88,7 +88,7 @@ The line before is the same in all four files.
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r1
+files: 4  lines: 4  result: r1
 
 repeated:
   ×4 a.md:7, b.md:7, c.md:7, … 1 more
@@ -107,14 +107,14 @@ Fixture: `repeated-context`
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r1
+files: 4  lines: 4  result: r1
 
 repeated:
   ×3 a.md:7, b.md:7, d.md:9
     :⟦Status:⟧ done
     -end
 ./
-c.md  lines: 1  matches: 1
+c.md  lines: 1
 7:⟦Status:⟧ done
 8-end.
 ```
@@ -127,7 +127,7 @@ c.md  lines: 1  matches: 1
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r2
+files: 4  lines: 4  result: r2
 
 repeated:
   ×4 ⟦Status:⟧ done    a.md:7, b.md:7, c.md:7, … 1 more
@@ -142,7 +142,7 @@ Fixture: `repeated-context`
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r1
+files: 4  lines: 4  result: r1
 
 repeated:
   ×4 ⟦Status:⟧ done    a.md:7, b.md:7, c.md:7, … 1 more
@@ -177,22 +177,22 @@ Fixture: `repeated-context`
 ```
 
 ```text response
-files: 4  lines: 8  matches: 8  result: r1
+files: 4  lines: 8  result: r1
 
 ./
-a.md  lines: 2  matches: 2
+a.md  lines: 2
 6-```
 7:⟦Status⟧: done
 8:⟦end⟧
-b.md  lines: 2  matches: 2
+b.md  lines: 2
 6-```
 7:⟦Status⟧: done
 8:⟦end⟧
-c.md  lines: 2  matches: 2
+c.md  lines: 2
 6-```
 7:⟦Status⟧: done
 8:⟦end⟧.
-d.md  lines: 2  matches: 2
+d.md  lines: 2
 ⇥2
 8-```
 9:⟦Status⟧: done
@@ -208,7 +208,7 @@ Fixture: `repeated-context`
 ```
 
 ```text response
-files: 4  lines: 4  matches: 4  result: r1
+files: 4  lines: 4  result: r1
 
 repeated:
   ×4

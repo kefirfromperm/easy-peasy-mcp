@@ -45,20 +45,20 @@ Fixture: `dir-groups`
 {"query": "line(text =~ `todo [a-e]`)"}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r1
+files: 5  lines: 5  result: r1
 
 src/
-a.rs  lines: 1  matches: 1
+a.rs  lines: 1
 1:// ⟦todo a⟧
-c.rs  lines: 1  matches: 1
+c.rs  lines: 1
 1:// ⟦todo c⟧
 lib/
-b.rs  lines: 1  matches: 1
+b.rs  lines: 1
 1:// ⟦todo b⟧
-e.rs  lines: 1  matches: 1
+e.rs  lines: 1
 1:// ⟦todo e⟧
 app/
-d.rs  lines: 1  matches: 1
+d.rs  lines: 1
 1:// ⟦todo d⟧
 ```
 
@@ -72,16 +72,16 @@ Fixture: `dir-groups`
 {"query": "line(text =~ `todo [a-e]`)", "output": {"detail": "files"}}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r1
+files: 5  lines: 5  result: r1
 
 src/
-a.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 1
+c.rs  lines: 1
 lib/
-b.rs  lines: 1  matches: 1
-e.rs  lines: 1  matches: 1
+b.rs  lines: 1
+e.rs  lines: 1
 app/
-d.rs  lines: 1  matches: 1
+d.rs  lines: 1
 ```
 
 2. `detail = count` with `count_by = file`
@@ -90,16 +90,16 @@ d.rs  lines: 1  matches: 1
 {"query": "line(text =~ `todo [a-e]`)", "output": {"detail": "count", "count_by": "file"}}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r2
+files: 5  lines: 5  result: r2
 
 src/
-a.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 1
+c.rs  lines: 1
 lib/
-b.rs  lines: 1  matches: 1
-e.rs  lines: 1  matches: 1
+b.rs  lines: 1
+e.rs  lines: 1
 app/
-d.rs  lines: 1  matches: 1
+d.rs  lines: 1
 ```
 
 ## E145.3 JSON in the same order
@@ -139,13 +139,13 @@ Fixture: `dir-groups`
 {"query": "line(text =~ `todo [a-e]`)", "output": {"detail": "files", "max_files": 3}}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNjNiY2M4OWQiLCJmIjozLCJ0IjpbNSw1LDVdfQ
+files: 5  lines: 5  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNjNiY2M4OWQiLCJmIjozLCJ0IjpbNSw1LDVdfQ
 
 src/
-a.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 1
+c.rs  lines: 1
 lib/
-b.rs  lines: 1  matches: 1
+b.rs  lines: 1
 ```
 
 2. the next page
@@ -154,12 +154,12 @@ b.rs  lines: 1  matches: 1
 {"query": "line(text =~ `todo [a-e]`)", "output": {"detail": "files", "max_files": 3, "cursor": "eyJ2IjoxLCJoIjoiNjNiY2M4OWQiLCJmIjozLCJ0IjpbNSw1LDVdfQ"}}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r2
+files: 5  lines: 5  result: r2
 
 lib/
-e.rs  lines: 1  matches: 1
+e.rs  lines: 1
 app/
-d.rs  lines: 1  matches: 1
+d.rs  lines: 1
 ```
 
 ## E145.5 A file list cut by the budget
@@ -172,10 +172,10 @@ fit, the files of `app/` are on the next page, which fits as requested.
 1. the first page
 
 ```json request
-{"query": "text has 'todo'", "output": {"budget": 115}}
+{"query": "text has 'todo'", "output": {"budget": 115, "show": ["match_counts"]}}
 ```
 ```text response
-files: 14  lines: 14  matches: 14  result: r1  detail: files (budget 115)  truncated: yes (budget)  next cursor: eyJ2IjoxLCJoIjoiOGIyYzc4YzEiLCJmIjoxMCwidCI6WzE0LDE0LDE0XX0
+files: 14  lines: 14  matches: 14  result: r1  detail: files (budget 115)  truncated: yes (budget)  next cursor: eyJ2IjoxLCJoIjoiMWYzZmJjOGMiLCJmIjoxMCwidCI6WzE0LDE0LDE0XX0
 
 src/
 a.rs  lines: 1  matches: 1
@@ -194,7 +194,7 @@ o.rs  lines: 1  matches: 1
 2. the next page
 
 ```json request
-{"query": "text has 'todo'", "output": {"budget": 115, "cursor": "eyJ2IjoxLCJoIjoiOGIyYzc4YzEiLCJmIjoxMCwidCI6WzE0LDE0LDE0XX0"}}
+{"query": "text has 'todo'", "output": {"budget": 115, "show": ["match_counts"], "cursor": "eyJ2IjoxLCJoIjoiMWYzZmJjOGMiLCJmIjoxMCwidCI6WzE0LDE0LDE0XX0"}}
 ```
 ```text response
 files: 14  lines: 14  matches: 14  result: r2
@@ -220,13 +220,13 @@ Fixture: `dir-groups`
 {"query": "line(text =~ `todo [a-e]`)", "output": {"detail": "files", "group_dirs": false}}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r1
+files: 5  lines: 5  result: r1
 
-src/a.rs  lines: 1  matches: 1
-lib/b.rs  lines: 1  matches: 1
-src/c.rs  lines: 1  matches: 1
-app/d.rs  lines: 1  matches: 1
-lib/e.rs  lines: 1  matches: 1
+src/a.rs  lines: 1
+lib/b.rs  lines: 1
+src/c.rs  lines: 1
+app/d.rs  lines: 1
+lib/e.rs  lines: 1
 ```
 
 2. `sort = path asc` is not regrouped: the files of a directory are together anyway
@@ -235,14 +235,14 @@ lib/e.rs  lines: 1  matches: 1
 {"query": "line(text =~ `todo [a-e]`)", "output": {"detail": "files", "sort": "path asc"}}
 ```
 ```text response
-files: 5  lines: 5  matches: 5  result: r2
+files: 5  lines: 5  result: r2
 
 app/
-d.rs  lines: 1  matches: 1
+d.rs  lines: 1
 lib/
-b.rs  lines: 1  matches: 1
-e.rs  lines: 1  matches: 1
+b.rs  lines: 1
+e.rs  lines: 1
 src/
-a.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 1
+c.rs  lines: 1
 ```

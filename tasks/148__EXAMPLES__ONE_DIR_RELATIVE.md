@@ -31,13 +31,13 @@ Fixture: `one-dir`
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'"}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r1
+files: 3  lines: 4  result: r1
 in: <fixture>/proj/
 
 repeated:
   ×3 use crate::⟦cache⟧;    src/a.rs:1, src/b.rs:1, src/c.rs:1
 src/
-a.rs  lines: 2  matches: 2
+a.rs  lines: 2
 2:fn a() { ⟦cache⟧(); }
 
 warnings left out: binary_skipped (1)
@@ -49,13 +49,13 @@ warnings left out: binary_skipped (1)
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"detail": "files", "show": ["warnings"]}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r2
+files: 3  lines: 4  result: r2
 in: <fixture>/proj/
 
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 
 warning: binary_skipped (1): data.bin
 ```
@@ -66,7 +66,7 @@ warning: binary_skipped (1): data.bin
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"detail": "facets"}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r3
+files: 3  lines: 4  result: r3
 in: <fixture>/proj/
 dir:        src/ 3
 lang:       rust 3
@@ -109,12 +109,12 @@ Fixture: `one-dir`
 {"dirs": ["proj/src"], "query": "text has 'cache'", "output": {"detail": "files"}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r1
+files: 3  lines: 4  result: r1
 
 proj/src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 ```
 
 2. `.`: no line
@@ -123,14 +123,14 @@ c.rs  lines: 1  matches: 1
 {"query": "text has 'cache'", "output": {"detail": "files"}}
 ```
 ```text response
-files: 4  lines: 5  matches: 5  result: r2
+files: 4  lines: 5  result: r2
 
 other/
-lib.rs  lines: 1  matches: 1
+lib.rs  lines: 1
 proj/src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -145,14 +145,14 @@ Fixture: `one-dir`
 {"dirs": ["<fixture>/proj", "other"], "query": "text has 'cache'", "output": {"detail": "files", "sort": "path asc"}}
 ```
 ```text response
-files: 4  lines: 5  matches: 5  result: r1
+files: 4  lines: 5  result: r1
 
 <fixture>/proj/src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 other/
-lib.rs  lines: 1  matches: 1
+lib.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -163,12 +163,12 @@ warnings left out: binary_skipped (1)
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"path_style": "absolute", "detail": "files"}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r2
+files: 3  lines: 4  result: r2
 
 <fixture>/proj/src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -183,12 +183,12 @@ Fixture: `one-dir`
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"detail": "files", "omit": ["dir"]}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r1
+files: 3  lines: 4  result: r1
 
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -199,12 +199,12 @@ warnings left out: binary_skipped (1)
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"detail": "files", "show": ["dir"]}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r2
+files: 3  lines: 4  result: r2
 
 <fixture>/proj/src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -236,13 +236,13 @@ Fixture: `one-dir`
 {"dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"detail": "files"}}
 ```
 ```text response
-files: 3  lines: 4  matches: 4  result: r1
+files: 3  lines: 4  result: r1
 in: <fixture>/proj/
 
 src/
-a.rs  lines: 2  matches: 2
-b.rs  lines: 1  matches: 1
-c.rs  lines: 1  matches: 1
+a.rs  lines: 2
+b.rs  lines: 1
+c.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -253,11 +253,11 @@ warnings left out: binary_skipped (1)
 {"within": "r1", "query": "text has 'fn'"}
 ```
 ```text response
-files: 1  lines: 1  matches: 1  result: r2
+files: 1  lines: 1  result: r2
 in: <fixture>/proj/
 
 src/
-a.rs  lines: 1  matches: 1
+a.rs  lines: 1
 2:⟦fn⟧ a() { cache(); }
 ```
 
@@ -273,7 +273,7 @@ remove proj/src/c.rs
 {"since": "r1", "dirs": ["<fixture>/proj"], "query": "text has 'cache'", "output": {"detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r3  since: r1  unchanged: 2
+files: 2  lines: 3  result: r3  since: r1  unchanged: 2
 in: <fixture>/proj/
 
 - src/c.rs

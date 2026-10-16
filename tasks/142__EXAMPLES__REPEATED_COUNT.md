@@ -35,18 +35,18 @@ Fixture: `repeated-count`
 ```
 
 ```text response
-files: 9  lines: 18  matches: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDRjNGVjZmUiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
+files: 9  lines: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDRjNGVjZmUiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
 
 repeated:
   ×6 ⟦use ⟧common;    a1.rs:1, a2.rs:1, a3.rs:1, … 3 more
 ./
-a1.rs  lines: 2  matches: 2
+a1.rs  lines: 2
 2:⟦use ⟧a1;
-a2.rs  lines: 2  matches: 2
+a2.rs  lines: 2
 2:⟦use ⟧a2;
-a3.rs  lines: 2  matches: 2
+a3.rs  lines: 2
 2:⟦use ⟧a3;
-a4.rs  lines: 2  matches: 2
+a4.rs  lines: 2
 2:⟦use ⟧a4;
 ```
 
@@ -59,18 +59,18 @@ Fixture: `repeated-count`
 ```
 
 ```text response
-files: 9  lines: 18  matches: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDJlZDE0NWYiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
+files: 9  lines: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDJlZDE0NWYiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
 
 repeated:
   ×6 ⟦use ⟧common;    a1.rs:1, a2.rs:1, a3.rs:1, a4.rs:1, … 2 more
 ./
-a1.rs  lines: 2  matches: 2
+a1.rs  lines: 2
 2:⟦use ⟧a1;
-a2.rs  lines: 2  matches: 2
+a2.rs  lines: 2
 2:⟦use ⟧a2;
-a3.rs  lines: 2  matches: 2
+a3.rs  lines: 2
 2:⟦use ⟧a3;
-a4.rs  lines: 2  matches: 2
+a4.rs  lines: 2
 2:⟦use ⟧a4;
 ```
 
@@ -99,18 +99,18 @@ Fixture: `repeated-count`
 ```
 
 ```text response
-files: 9  lines: 18  matches: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDRjNGVjZmUiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
+files: 9  lines: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDRjNGVjZmUiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
 
 repeated:
   ×6 ⟦use ⟧common;    a1.rs:1, a2.rs:1, a3.rs:1, … 3 more
 ./
-a1.rs  lines: 2  matches: 2
+a1.rs  lines: 2
 2:⟦use ⟧a1;
-a2.rs  lines: 2  matches: 2
+a2.rs  lines: 2
 2:⟦use ⟧a2;
-a3.rs  lines: 2  matches: 2
+a3.rs  lines: 2
 2:⟦use ⟧a3;
-a4.rs  lines: 2  matches: 2
+a4.rs  lines: 2
 2:⟦use ⟧a4;
 ```
 
@@ -121,19 +121,19 @@ a4.rs  lines: 2  matches: 2
 ```
 
 ```text response
-files: 9  lines: 18  matches: 18  result: r2  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDRjNGVjZmUiLCJmIjo4LCJ0IjpbOSwxOCwxOF19
+files: 9  lines: 18  result: r2  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMDRjNGVjZmUiLCJmIjo4LCJ0IjpbOSwxOCwxOF19
 
 repeated:
   ×6 ⟦use ⟧common;    a5.rs:1, a6.rs:1, … 4 more
   ×3 ⟦use ⟧late;    z1.rs:1, z2.rs:1, … 1 more
 ./
-a5.rs  lines: 2  matches: 2
+a5.rs  lines: 2
 2:⟦use ⟧a5;
-a6.rs  lines: 2  matches: 2
+a6.rs  lines: 2
 2:⟦use ⟧a6;
-z1.rs  lines: 2  matches: 2
+z1.rs  lines: 2
 2:⟦use ⟧z1;
-z2.rs  lines: 2  matches: 2
+z2.rs  lines: 2
 2:⟦use ⟧z2;
 ```
 
@@ -144,12 +144,12 @@ z2.rs  lines: 2  matches: 2
 ```
 
 ```text response
-files: 9  lines: 18  matches: 18  result: r3
+files: 9  lines: 18  result: r3
 
 repeated:
   ×3 ⟦use ⟧late;    z3.rs:1, … 2 more
 ./
-z3.rs  lines: 2  matches: 2
+z3.rs  lines: 2
 2:⟦use ⟧z3;
 ```
 
@@ -162,17 +162,17 @@ Fixture: `repeated-count`
 ```
 
 ```text response
-files: 9  lines: 18  matches: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNTRmYTJhZmMiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
+files: 9  lines: 18  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNTRmYTJhZmMiLCJmIjo0LCJ0IjpbOSwxOCwxOF19
 
 repeated:
   ×6 ⟦use ⟧common;    a1.rs:1, a2.rs:1, a3.rs:1, … 3 more
 ./
-a1.rs  lines: 2  matches: 2
+a1.rs  lines: 2
 2:⟦use ⟧a1;
-a2.rs  lines: 2  matches: 2
+a2.rs  lines: 2
 2:⟦use ⟧a2;
-a3.rs  lines: 2  matches: 2
+a3.rs  lines: 2
 2:⟦use ⟧a3;
-a4.rs  lines: 2  matches: 2
+a4.rs  lines: 2
 2:⟦use ⟧a4;
 ```

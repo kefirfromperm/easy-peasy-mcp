@@ -29,14 +29,14 @@ Fixture: `omit`
 {"query": "text has 'unwrap('"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 
@@ -77,16 +77,16 @@ lines the line numbers show the gap between the lines 2 and 4.
 {"query": "text has 'unwrap(' or text has 'TODO'"}
 ```
 ```text response
-files: 2  lines: 4  matches: 4  result: r1
+files: 2  lines: 4  result: r1
 #1 text has 'unwrap('
 #2 text has 'TODO'
 
 src/
-main.rs  [#1 #2]  lines: 2  matches: 2
+main.rs  [#1 #2]  lines: 2
 ⇥4
 2:let cfg = load().⟦#1:unwrap(⟧);
 3:// ⟦#2:TODO⟧ handle the error
-lib.rs  [#1]  lines: 2  matches: 2
+lib.rs  [#1]  lines: 2
 ⇥4
 2:let raw = read().⟦#1:unwrap(⟧);
 4:parse(&text).⟦#1:unwrap(⟧)
@@ -104,7 +104,7 @@ Fixture: `omit`
 {"query": "text has 'zzz'"}
 ```
 ```text response
-files: 0  lines: 0  matches: 0  result: r1
+files: 0  lines: 0  result: r1
 funnel:
   text has 'zzz'                         0
 
@@ -132,11 +132,11 @@ Fixture: `omit`
 {"query": "text has 'unwrap('", "output": {"detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -199,14 +199,14 @@ Fixture: `omit`
 {"query": "text has 'unwrap('", "output": {"show": ["warnings"]}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 
@@ -219,12 +219,12 @@ warning: binary_skipped (1): data.bin
 {"query": "text has 'unwrap('", "output": {"show": ["legend"], "detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r2
+files: 2  lines: 3  result: r2
 #1 text has 'unwrap('
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 ```
@@ -262,15 +262,15 @@ Fixture: `omit`
 {"query": "text has 'unwrap('", "output": {"omit": ["line_numbers"]}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 let raw = read().⟦unwrap(⟧);
 --
 parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 let cfg = load().⟦unwrap(⟧);
 
@@ -310,10 +310,10 @@ Fixture: `gaps`
 {"query": "text has 'unwrap('"}
 ```
 ```text response
-files: 1  lines: 2  matches: 2  result: r1
+files: 1  lines: 2  result: r1
 
 ./
-far.rs  lines: 2  matches: 2
+far.rs  lines: 2
 1:a.⟦unwrap(⟧);
 6:f.⟦unwrap(⟧);
 ```
@@ -324,10 +324,10 @@ far.rs  lines: 2  matches: 2
 {"query": "text has 'unwrap('", "output": {"context": 1}}
 ```
 ```text response
-files: 1  lines: 2  matches: 2  result: r2
+files: 1  lines: 2  result: r2
 
 ./
-far.rs  lines: 2  matches: 2
+far.rs  lines: 2
 1:a.⟦unwrap(⟧);
 2-b
 --
@@ -345,14 +345,14 @@ Fixture: `omit`
 {"query": "text has 'unwrap('", "output": {"omit": ["left_out"]}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 ```
@@ -392,7 +392,7 @@ The header says that the search stopped, and the line of the omitted warnings na
 {"timeout": "200ms", "query": "type = dir or text has 'x'"}
 ```
 ```text response
-files: 1  lines: 0  matches: 0  result: r1  truncated: yes (timeout)
+files: 1  lines: 0  result: r1  truncated: yes (timeout)
 
 ./
 sub/
@@ -502,11 +502,11 @@ omit = []    # was ['warnings']
 {"query": "text has 'unwrap('", "output": {"detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warning: binary_skipped (1): data.bin
 ```
@@ -567,14 +567,14 @@ Every item adds its `omit` to the shared one and has its own `show`.
 {"output": {"detail": "files", "omit": ["result"]}, "queries": [{"label": "plain", "query": "text has 'unwrap('"}, {"label": "bare", "query": "text has 'unwrap('", "output": {"omit": ["file_counts"]}}, {"label": "full", "query": "text has 'unwrap('", "output": {"show": "all"}}]}
 ```
 ```text response
-== plain ==  files: 2  lines: 3  matches: 3
+== plain ==  files: 2  lines: 3
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warnings left out: binary_skipped (1)
-== bare ==  files: 2  lines: 3  matches: 3
+== bare ==  files: 2  lines: 3
 
 src/
 lib.rs
@@ -601,7 +601,7 @@ Fixture: `omit`
 {"query": "text has 'unwrap('", "output": {"show": "none"}}
 ```
 ```text error
-error[invalid_option]: 'output.show' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
+error[invalid_option]: 'output.show' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
 ```
 
 2. `show` in `update_config`
@@ -611,7 +611,7 @@ error[invalid_option]: 'output.show' must be "all" or a list of parts (counts, r
 ```
 ```text error
 error[invalid_value]: invalid value for 'output.show'
-  hint: "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected
+  hint: "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected
 ```
 
 3. a spec version which doesn't exist

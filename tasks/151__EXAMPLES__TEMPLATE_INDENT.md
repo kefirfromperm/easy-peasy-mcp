@@ -92,18 +92,18 @@ two.json  matches: 1
 {"query": "text has 'more_lines'", "output": {"sort": "path asc", "highlight": "none", "dedent": false, "context": 1}}
 ```
 ```text response
-files: 3  lines: 3  matches: 3  result: r1
+files: 3  lines: 3  result: r1
 
 data/
-four.json  lines: 1  matches: 1
+four.json  lines: 1
 3-        "left_out",
 4:        "more_lines",
 5-        "funnel"
-tabs.json  lines: 1  matches: 1
+tabs.json  lines: 1
 3-		"left_out",
 4:		"more_lines",
 5-		"legend"
-two.json  lines: 1  matches: 1
+two.json  lines: 1
 3-    "left_out",
 4:    "more_lines",
 5-    "warnings"
