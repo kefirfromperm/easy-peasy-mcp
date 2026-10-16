@@ -1,6 +1,6 @@
 # Task 156: Smaller tool descriptions and schemas
 
-Status: in progress
+Status: implemented, see [156__SUMMARY__SMALLER_TOOL_SCHEMAS.md](156__SUMMARY__SMALLER_TOOL_SCHEMAS.md)
 
 Depends on: task 125, task 126, task 127, task 129
 
