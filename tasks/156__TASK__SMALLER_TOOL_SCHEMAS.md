@@ -1,6 +1,6 @@
 # Task 156: Smaller tool descriptions and schemas
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 125, task 126, task 127, task 129
 
