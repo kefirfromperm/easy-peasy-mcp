@@ -386,7 +386,11 @@ mod tests {
     #[test]
     fn schemas_stay_small() {
         // TOOLS.md#what-the-schemas-describe: the objects of configuration keys are named, not described key by key
-        assert!(size(&find_schema()) <= 3600, "find: {}", size(&find_schema()));
+        assert!(
+            size(&find_schema()) <= 3600,
+            "find: {}",
+            size(&find_schema())
+        );
         for (tool, schema) in [
             ("delete", delete_schema()),
             ("rename", rename_schema()),
@@ -400,14 +404,30 @@ mod tests {
     #[test]
     fn configuration_objects_are_named_only() {
         let find = find_schema();
-        for field in ["traversal", "escape", "query_options", "kinds", "git", "languages"] {
+        for field in [
+            "traversal",
+            "escape",
+            "query_options",
+            "kinds",
+            "git",
+            "languages",
+        ] {
             let object = &find["properties"][field];
             assert_eq!(object["type"], "object", "{field}");
             assert!(object.get("properties").is_none(), "{field}");
             assert!(object.get("additionalProperties").is_none(), "{field}");
         }
-        assert!(find["properties"]["output"].get("additionalProperties").is_none());
-        for schema in [delete_schema(), rename_schema(), copy_schema(), replace_schema()] {
+        assert!(
+            find["properties"]["output"]
+                .get("additionalProperties")
+                .is_none()
+        );
+        for schema in [
+            delete_schema(),
+            rename_schema(),
+            copy_schema(),
+            replace_schema(),
+        ] {
             for field in ["traversal", "kinds", "languages"] {
                 assert_eq!(
                     schema["properties"][field],
