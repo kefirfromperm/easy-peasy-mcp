@@ -150,6 +150,7 @@ output.budget = N tokens: the server picks the richest detail which fits. By def
 Text response: "42:" matched line, "41-" context line, "--" gap between blocks of context, ⟦text⟧ a match, ⇥N removed
 indentation; with several conditions a legend, [#1 @x] matched conditions and ⟦ids:text⟧; empty or huge results come
 with a funnel and hints how to fix the query. Warnings are left out by default ("warnings left out: ...").
+No "matches: N" in a text response: every matched line has one match.
 output.omit = ['line_numbers', ...] or 'all' leaves more parts out, output.show = ['warnings', ...] or 'all' adds them.
 output.groups = ['@x', '#2', '@re.name'] shows only the matches of these groups (also a capture group of =~);
 output.only_match = true writes only the matched text, like grep -o.
@@ -216,7 +217,7 @@ EXAMPLES
         "highlight": { "enum": ["auto", "none", "columns", "markers"] },
         "omit": {
           "type": ["array", "string"], "items": { "type": "string" },
-          "description": "Parts to leave out, or \"all\": counts result dir legend funnel hints conditions file_counts match_ids groups line_numbers line_counts gaps indent more_lines locations warnings left_out."
+          "description": "Parts to leave out, or \"all\": counts result dir legend funnel hints conditions file_counts match_counts match_ids groups line_numbers line_counts gaps indent more_lines locations warnings left_out."
         },
         "show": { "type": ["array", "string"], "items": { "type": "string" }, "description": "Parts to show whatever omit says, or \"all\"." },
         "cursor": { "type": "string" },
