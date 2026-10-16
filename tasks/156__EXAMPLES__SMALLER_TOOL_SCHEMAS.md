@@ -68,7 +68,7 @@ easy-peasy-mcp --allow-write
                 "detail": { "enum": ["exists", "count", "facets", "files", "lines"] },
                 "omit": {
                   "type": ["array", "string"], "items": { "type": "string" },
-                  "description": "Parts to leave out, or \"all\": counts result dir legend funnel hints conditions file_counts match_ids groups line_numbers line_counts gaps indent more_lines locations warnings left_out."
+                  "description": "Parts to leave out, or \"all\": counts result dir legend funnel hints conditions file_counts match_counts match_ids groups line_numbers line_counts gaps indent more_lines locations warnings left_out."
                 },
                 "show": { "type": ["array", "string"], "items": { "type": "string" }, "description": "Parts to show whatever omit says, or \"all\"." }
               }
@@ -197,11 +197,11 @@ Fixture: `smaller-schemas`
 {"query": "text has 'colour'", "output": {"group_dirs": false, "sort": "path desc"}}
 ```
 ```text response
-files: 2  lines: 2  matches: 2  result: r1
+files: 2  lines: 2  result: r1
 
-src/settings.toml  lines: 1  matches: 1
+src/settings.toml  lines: 1
 1:⟦colour⟧ = "red"
-spec/colour_spec.rs  lines: 1  matches: 1
+spec/colour_spec.rs  lines: 1
 1:test ⟦colour⟧
 ```
 
@@ -217,7 +217,7 @@ Fixture: `smaller-schemas`
 {"query": "kind = test", "kinds": {"test": ["spec/**"]}, "output": {"detail": "files"}}
 ```
 ```text response
-files: 1  lines: 0  matches: 0  result: r1
+files: 1  lines: 0  result: r1
 
 spec/
 colour_spec.rs

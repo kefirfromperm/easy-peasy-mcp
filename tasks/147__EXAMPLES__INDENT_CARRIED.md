@@ -27,14 +27,14 @@ Fixture: `indent`
 {"query": "name ~ '{one,two}.rs' and text has 'let'"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-one.rs  lines: 2  matches: 2
+one.rs  lines: 2
 ⇥4
 2:⟦let⟧ a = 1;
 4:⟦let⟧ b = 2;
-two.rs  lines: 1  matches: 1
+two.rs  lines: 1
 ⇥4
 2:⟦let⟧ c = 3;
 ```
@@ -47,10 +47,10 @@ Fixture: `indent`
 {"query": "name = 'mixed.rs' and text has 'let'"}
 ```
 ```text response
-files: 1  lines: 4  matches: 4  result: r1
+files: 1  lines: 4  result: r1
 
 src/
-mixed.rs  lines: 4  matches: 4
+mixed.rs  lines: 4
 ⇥4
 2:⟦let⟧ x = 1;
 ⇥8
@@ -71,10 +71,10 @@ Both blocks have the indentation 4: one `⇥4`, the gap between them as always.
 {"query": "name = 'deep.rs' and text has 'let'", "output": {"context": 1}}
 ```
 ```text response
-files: 1  lines: 2  matches: 2  result: r1
+files: 1  lines: 2  result: r1
 
 src/
-deep.rs  lines: 2  matches: 2
+deep.rs  lines: 2
 ⇥4
 2-fn f() {
 3:    ⟦let⟧ a = 1;
@@ -93,10 +93,10 @@ Fixture: `indent`
 {"query": "name = 'mixed.rs' and text has 'let'", "output": {"omit": ["indent"]}}
 ```
 ```text response
-files: 1  lines: 4  matches: 4  result: r1
+files: 1  lines: 4  result: r1
 
 src/
-mixed.rs  lines: 4  matches: 4
+mixed.rs  lines: 4
 2:⟦let⟧ x = 1;
 4:⟦let⟧ y = x;
 6:⟦let⟧ z = x;
@@ -113,16 +113,16 @@ Fixture: `indent`
 {"query": "name ~ '{one,two}.rs' and text =~ 'let|run'", "output": {"group_repeated": 2}}
 ```
 ```text response
-files: 2  lines: 5  matches: 5  result: r1
+files: 2  lines: 5  result: r1
 
 repeated:
   ×2 ⟦run⟧();    src/one.rs:3, src/two.rs:3
 src/
-one.rs  lines: 3  matches: 3
+one.rs  lines: 3
 ⇥4
 2:⟦let⟧ a = 1;
 4:⟦let⟧ b = 2;
-two.rs  lines: 2  matches: 2
+two.rs  lines: 2
 ⇥4
 2:⟦let⟧ c = 3;
 ```
@@ -137,10 +137,10 @@ Fixture: `indent`
 {"query": "name ~ '{one,two}.rs' and text has 'let'", "output": {"max_files": 1, "sort": "path asc"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMWY2Nzk4NDAiLCJmIjoxLCJ0IjpbMiwzLDNdfQ
+files: 2  lines: 3  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMWY2Nzk4NDAiLCJmIjoxLCJ0IjpbMiwzLDNdfQ
 
 src/
-one.rs  lines: 2  matches: 2
+one.rs  lines: 2
 ⇥4
 2:⟦let⟧ a = 1;
 4:⟦let⟧ b = 2;
@@ -152,10 +152,10 @@ one.rs  lines: 2  matches: 2
 {"query": "name ~ '{one,two}.rs' and text has 'let'", "output": {"max_files": 1, "sort": "path asc", "cursor": "eyJ2IjoxLCJoIjoiMWY2Nzk4NDAiLCJmIjoxLCJ0IjpbMiwzLDNdfQ"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r2
+files: 2  lines: 3  result: r2
 
 src/
-two.rs  lines: 1  matches: 1
+two.rs  lines: 1
 ⇥4
 2:⟦let⟧ c = 3;
 ```
@@ -194,10 +194,10 @@ Fixture: `indent`
 {"query": "name = 'mixed.rs' and text has 'let'", "output": {"show": ["indent"]}}
 ```
 ```text response
-files: 1  lines: 4  matches: 4  result: r1
+files: 1  lines: 4  result: r1
 
 src/
-mixed.rs  lines: 4  matches: 4
+mixed.rs  lines: 4
 ⇥4
 2:⟦let⟧ x = 1;
 ⇥8

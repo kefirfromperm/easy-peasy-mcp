@@ -65,18 +65,18 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 2  lines: 4  matches: 4  result: r1
+files: 2  lines: 4  result: r1
 @ser (text has 'serde' or text has 'serde_json')
 #1 text has 'serde'
 #2 text has 'serde_json'
 #3 text has 'apple'
 
 src/
-a.rs  [@ser #1 #3]  lines: 2  matches: 2
+a.rs  [@ser #1 #3]  lines: 2
 1:use ⟦#1:serde⟧::Deserialize;
 ⇥4
 4:let ⟦#3:apple⟧ = 1;
-b.rs  [@ser #1 #2 #3]  lines: 2  matches: 2
+b.rs  [@ser #1 #2 #3]  lines: 2
 1:use ⟦#1:serde⟧_json::Value;
 2:// ⟦#3:apple⟧ pie
 ```
@@ -93,14 +93,14 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 ./
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 1:load_config
 5:parse
 src/
-a.rs  lines: 1  matches: 1
+a.rs  lines: 1
 3:main
 ```
 
@@ -169,10 +169,10 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 1  lines: 2  matches: 2  result: r1
+files: 1  lines: 2  result: r1
 
 ./
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 1:pub fn ⟦load⟧_config(path: &Path) -> Config {
 5:fn ⟦parse⟧(path: &Path) -> Config {
 ```
@@ -188,10 +188,10 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 1  lines: 1  matches: 1  result: r1
+files: 1  lines: 1  result: r1
 
 ./
-lib.rs  lines: 1  matches: 1
+lib.rs  lines: 1
 ⇥4
 6:⟦todo⟧!()
 ```
@@ -210,14 +210,14 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 4  lines: 3  matches: 3  result: r1
+files: 4  lines: 3  result: r1
 @s text has 'serde'
 @f text has 'fn'
 
 ./
-lib.rs  [@f]  lines: 2  matches: 2
+lib.rs  [@f]  lines: 2
 src/
-a.rs  [@s @f]  lines: 1  matches: 1
+a.rs  [@s @f]  lines: 1
 b.rs  [@s]
 c.rs  [@s]
 ```
@@ -229,7 +229,7 @@ c.rs  [@s]
 ```
 
 ```text response
-files: 4  lines: 3  matches: 3  result: r2
+files: 4  lines: 3  result: r2
 ```
 
 ## E130.9 `max_matches` and the cursor count the shown matches
@@ -246,18 +246,18 @@ Fixture: `query-groups`
 ```
 
 ```text response
-files: 4  lines: 3  matches: 3  result: r1  truncated: yes (max_matches)  next cursor: eyJ2IjoxLCJoIjoiNWEyNDNhZTAiLCJmIjozLCJ0IjpbNCwzLDNdfQ
+files: 4  lines: 3  result: r1  truncated: yes (max_matches)  next cursor: eyJ2IjoxLCJoIjoiNWEyNDNhZTAiLCJmIjozLCJ0IjpbNCwzLDNdfQ
 @s text has 'serde'
 @f text has 'fn'
 
 ./
 lib.rs  [@f]
 src/
-a.rs  [@s @f]  lines: 1  matches: 1
+a.rs  [@s @f]  lines: 1
 1:use ⟦serde⟧::Deserialize;
-b.rs  [@s]  lines: 1  matches: 1
+b.rs  [@s]  lines: 1
 1:use ⟦serde⟧_json::Value;
-c.rs  [@s]  lines: 1  matches: 1
+c.rs  [@s]  lines: 1
 ```
 
 2. the next page: no `results_changed` warning
@@ -267,12 +267,12 @@ c.rs  [@s]  lines: 1  matches: 1
 ```
 
 ```text response
-files: 4  lines: 3  matches: 3  result: r2
+files: 4  lines: 3  result: r2
 @s text has 'serde'
 @f text has 'fn'
 
 src/
-c.rs  [@s]  lines: 1  matches: 1
+c.rs  [@s]  lines: 1
 1:use ⟦serde⟧::Serialize;
 ```
 
@@ -469,12 +469,12 @@ error[unknown_group]: unknown group '@ser'
 ```
 
 ```text response
-files: 2  lines: 2  matches: 2  result: r2
+files: 2  lines: 2  result: r2
 
 src/
-a.rs  lines: 1  matches: 1
+a.rs  lines: 1
 4:apple
-b.rs  lines: 1  matches: 1
+b.rs  lines: 1
 2:apple
 ```
 

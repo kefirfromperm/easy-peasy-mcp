@@ -318,5 +318,5 @@ error[invalid_value]: invalid value for 'output.repeated_locations'
 {"query": "text has 'std::'", "output": {"omit": ["location"]}}
 ```
 ```text error
-error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
+error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
 ```

@@ -91,11 +91,11 @@ The `omit` of an item is added to the shared one: `["result"]` and `["all"]` are
 {"output": {"detail": "files", "omit": ["result"]}, "queries": [{"label": "plain", "query": "text has 'unwrap('"}, {"label": "bare", "query": "text has 'unwrap('", "output": {"omit": ["all"]}}]}
 ```
 ```text response
-== plain ==  files: 2  lines: 3  matches: 3
+== plain ==  files: 2  lines: 3
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 
 warnings left out: binary_skipped (1)
 == bare ==  src/
@@ -236,7 +236,7 @@ An unknown part is an error, with `"all"` among the items too.
 {"query": "text has 'unwrap('", "output": {"omit": ["all", "colour"]}}
 ```
 ```text error
-error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
+error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out)
 ```
 
 2. `show` in `update_config`
@@ -246,5 +246,5 @@ error[invalid_option]: 'output.omit' must be "all" or a list of parts (counts, r
 ```
 ```text error
 error[invalid_value]: invalid value for 'output.show'
-  hint: "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected
+  hint: "all" or a list of parts (counts, result, dir, legend, funnel, hints, conditions, file_counts, match_counts, match_ids, groups, line_numbers, line_counts, gaps, indent, more_lines, locations, warnings, left_out) is expected
 ```

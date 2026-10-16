@@ -22,14 +22,14 @@ read, so there is no warning.
 {"query": "name ~ '*.rs' and text has 'unwrap('"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 ```
@@ -49,14 +49,14 @@ main.rs  lines: 1  matches: 1
 {"query": "name ~ '*.rs' and line(text has 'unwrap(')"}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r3
+files: 2  lines: 3  result: r3
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 2:let cfg = load().⟦unwrap(⟧);
 ```
@@ -72,12 +72,12 @@ only match has `#2` alone, so its ids are not.
 {"query": "name = 'lib.rs' or text has 'TODO'"}
 ```
 ```text response
-files: 2  lines: 1  matches: 1  result: r1
+files: 2  lines: 1  result: r1
 #1 name = 'lib.rs'
 #2 text has 'TODO'
 
 src/
-main.rs  [#2]  lines: 1  matches: 1
+main.rs  [#2]  lines: 1
 ⇥4
 3:// ⟦TODO⟧ handle the error
 lib.rs  [#1]
@@ -97,17 +97,17 @@ Every file has `[#1]`, the matches `#1,#2` or `#1,#3`.
 {"query": "line(text has 'unwrap(' or text has 'TODO')"}
 ```
 ```text response
-files: 2  lines: 4  matches: 4  result: r1
+files: 2  lines: 4  result: r1
 #1 line(text has 'unwrap(' or text has 'TODO')
 #2 text has 'unwrap('
 #3 text has 'TODO'
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦#1,#2:unwrap(⟧);
 4:parse(&text).⟦#1,#2:unwrap(⟧)
-main.rs  lines: 2  matches: 2
+main.rs  lines: 2
 ⇥4
 2:let cfg = load().⟦#1,#2:unwrap(⟧);
 3:// ⟦#1,#3:TODO⟧ handle the error
@@ -121,11 +121,11 @@ warnings left out: binary_skipped (1)
 {"query": "line(text has 'unwrap(' or text has 'TODO')", "output": {"detail": "files"}}
 ```
 ```text response
-files: 2  lines: 4  matches: 4  result: r2
+files: 2  lines: 4  result: r2
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 2  matches: 2
+lib.rs  lines: 2
+main.rs  lines: 2
 
 warnings left out: binary_skipped (1)
 ```
@@ -143,13 +143,13 @@ both pages write the ids.
 {"query": "line(text has 'unwrap(' or text has 'TODO')", "output": {"max_files": 1, "sort": "path asc"}}
 ```
 ```text response
-files: 2  lines: 4  matches: 4  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNjUwZGI1NmEiLCJmIjoxLCJ0IjpbMiw0LDRdfQ
+files: 2  lines: 4  result: r1  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiNjUwZGI1NmEiLCJmIjoxLCJ0IjpbMiw0LDRdfQ
 #1 line(text has 'unwrap(' or text has 'TODO')
 #2 text has 'unwrap('
 #3 text has 'TODO'
 
 src/
-lib.rs  lines: 2  matches: 2
+lib.rs  lines: 2
 ⇥4
 2:let raw = read().⟦#1,#2:unwrap(⟧);
 4:parse(&text).⟦#1,#2:unwrap(⟧)
@@ -163,13 +163,13 @@ warnings left out: binary_skipped (1)
 {"query": "line(text has 'unwrap(' or text has 'TODO')", "output": {"max_files": 1, "sort": "path asc", "cursor": "eyJ2IjoxLCJoIjoiNjUwZGI1NmEiLCJmIjoxLCJ0IjpbMiw0LDRdfQ"}}
 ```
 ```text response
-files: 2  lines: 4  matches: 4  result: r2
+files: 2  lines: 4  result: r2
 #1 line(text has 'unwrap(' or text has 'TODO')
 #2 text has 'unwrap('
 #3 text has 'TODO'
 
 src/
-main.rs  lines: 2  matches: 2
+main.rs  lines: 2
 ⇥4
 2:let cfg = load().⟦#1,#2:unwrap(⟧);
 3:// ⟦#1,#3:TODO⟧ handle the error
@@ -187,7 +187,7 @@ The conditions of the files are the same, so the legend is not written.
 {"query": "name ~ '*.rs' and text has 'unwrap('", "output": {"detail": "facets", "facets": ["condition"]}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 condition:  #1 2 · #2 2
 ```
 
@@ -201,13 +201,13 @@ Fixture: `omit`
 {"query": "name ~ '*.rs' and text has 'unwrap('", "output": {"show": ["legend"], "detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r1
+files: 2  lines: 3  result: r1
 #1 name ~ '*.rs'
 #2 text has 'unwrap('
 
 src/
-lib.rs  lines: 2  matches: 2
-main.rs  lines: 1  matches: 1
+lib.rs  lines: 2
+main.rs  lines: 1
 ```
 
 2. `conditions`
@@ -216,11 +216,11 @@ main.rs  lines: 1  matches: 1
 {"query": "name ~ '*.rs' and text has 'unwrap('", "output": {"show": ["conditions"], "detail": "files"}}
 ```
 ```text response
-files: 2  lines: 3  matches: 3  result: r2
+files: 2  lines: 3  result: r2
 
 src/
-lib.rs  [#1 #2]  lines: 2  matches: 2
-main.rs  [#1 #2]  lines: 1  matches: 1
+lib.rs  [#1 #2]  lines: 2
+main.rs  [#1 #2]  lines: 1
 ```
 
 3. `match_ids`
@@ -229,10 +229,10 @@ main.rs  [#1 #2]  lines: 1  matches: 1
 {"query": "name ~ '*.rs' and text has 'TODO'", "output": {"show": ["match_ids"]}}
 ```
 ```text response
-files: 1  lines: 1  matches: 1  result: r3
+files: 1  lines: 1  result: r3
 
 src/
-main.rs  lines: 1  matches: 1
+main.rs  lines: 1
 ⇥4
 3:// ⟦#2:TODO⟧ handle the error
 ```
