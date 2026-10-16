@@ -1,6 +1,6 @@
 # Task 152: The number of matches left out when it is the number of lines
 
-Status: in progress
+Status: implemented, see [152__SUMMARY__MATCHES_EQUAL_LINES.md](152__SUMMARY__MATCHES_EQUAL_LINES.md)
 
 Depends on: task 134, task 141
 
