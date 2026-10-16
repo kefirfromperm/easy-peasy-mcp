@@ -1715,6 +1715,15 @@ mod tests {
             format!("{head}  1\n  3\n  4\n")
         );
         assert_eq!(line_counts(&[Part::LineNumbers, Part::LineCounts]), head);
+        // match_counts: the matches of the totals, of the file and the counts of the lines
+        assert_eq!(
+            line_counts(&[Part::MatchCounts]),
+            "files: 1  lines: 3\n\nf  lines: 3\n  1\n  3\n  4\n"
+        );
+        assert_eq!(
+            line_counts(&[Part::MatchCounts, Part::LineNumbers]),
+            "files: 1  lines: 3\n\nf  lines: 3\n"
+        );
     }
 
     #[test]
