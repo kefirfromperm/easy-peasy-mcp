@@ -75,7 +75,7 @@ The spec versions:
 | Version | Changes                                                                                               |
 |---------|-------------------------------------------------------------------------------------------------------|
 | `1`     | the first one: every part of the response is written unless `output.omit` leaves it out               |
-| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the legend only with the conditions whose ids the response writes, the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line; a repeated line with context lines grouped only with the same context ([OUTPUT.md](OUTPUT.md#repeated-lines-with-context)); the `omit` of a request is added to the configured one; smaller default limits of the output (`max_files = 20`, `max_lines = 100`, `max_matches = 200`, `max_matches_per_file = 10`, `max_output_per_file = 800`, `max_output = 8000`) |
+| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the legend only with the conditions whose ids the response writes, the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line, in `find` and in the write tools ([One working directory of a write tool](#one-working-directory-of-a-write-tool)); a repeated line with context lines grouped only with the same context ([OUTPUT.md](OUTPUT.md#repeated-lines-with-context)); the `omit` of a request is added to the configured one; smaller default limits of the output (`max_files = 20`, `max_lines = 100`, `max_matches = 200`, `max_matches_per_file = 10`, `max_output_per_file = 800`, `max_output = 8000`) |
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
@@ -1021,6 +1021,8 @@ warning: file_changed (1): src/main.rs
 - the entries in path order, grouped by directory like `find` with `output.group_dirs`
   ([OUTPUT.md](OUTPUT.md#directory-groups)), directories ending with the separator; the paths are written like the
   paths of `find`; an empty selection has no entries part
+- in spec 2 one working directory given as an absolute path (`/…`, `C:\…`, `~/…`) is written once, as in `find`
+  ([OUTPUT.md](OUTPUT.md#one-working-directory)), see [One working directory](#one-working-directory-of-a-write-tool)
 - an entry which fails (permission, busy, vanished, ...) doesn't stop the others: it is listed with the kind of the
   error of the operating system, `old.rs  failed: permission denied`
 - the skipped entries are only in the warnings ([OUTPUT.md](OUTPUT.md#warnings)), with their codes
@@ -1052,6 +1054,41 @@ With `output.format = "json"` (`group_dirs` doesn't apply, the paths are full):
 Empty and default values are omitted: no `skipped` and `failed` when 0, no `permanent` and `dry_run` when false
 (`"permanent": true` comes before `dry_run`), no `files` and `warnings` when there are none. With `format = "json"` an
 error is the JSON document of [OUTPUT.md](OUTPUT.md#errors).
+
+#### One working directory of a write tool
+
+In spec 2 with `path_style = relative` (the default) and one working directory given as an absolute path (`/…`,
+`C:\…`, `~/…`) a write tool writes its paths as `find` does ([OUTPUT.md](OUTPUT.md#one-working-directory)): the
+directory once in the line `in: <dir>` right after the header, as it was given and with the separator at the end, and
+every path of the response relative to it — the entries, the directory headers, the targets of `rename` and `copy`,
+the paths of the warnings. A worktree outside the default directory costs no more than `.`:
+
+```json
+{ "dirs": ["/home/me/app/.claude/worktrees/agent-1"], "query": "path ~ 'src/*.rs' and text has 'old_name' @old", "replace": { "@old": "new_name" }, "dry_run": true }
+```
+
+```
+dry run  would replace: 1  matches: 1
+in: /home/me/app/.claude/worktrees/agent-1/
+
+src/
+lib.rs  matches: 1
+-3:fn old_name() {}
++3:fn new_name() {}
+```
+
+- the `in:` line is written in the dry run and in the real call, when the response has entries or warnings about
+  entries; an empty selection has only the header
+- with `result = "r12"` the working directory is the one of the result: a result of one absolute working directory
+  gets the `in:` line
+- a target is written relative to the working directory as `to` resolves it, a target outside of it with `..`:
+  `src/a.rs -> ../other/a.rs`; every path of the response resolves against the working directory again, so a `find`
+  or a write tool with the same `dirs` and `path ~ 'src/a.rs'` selects it
+- JSON: `"dirs": ["/home/me/app/.claude/worktrees/agent-1/"]` before `files`, the paths relative to it, as in `find`
+- unchanged: a relative working directory and `.`, several working directories, `"version": 1`, the configured
+  `output.show = ["dir"]` (the working directory before every path, as in spec 1); the configured `output.omit =
+  ["dir"]` leaves out the `in:` line (JSON `dirs`), the paths stay relative; the paths of an error (`rename_conflict`,
+  `copy_conflict`) are written as before
 
 ## Results
 

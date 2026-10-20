@@ -296,8 +296,8 @@ json.rs  lines: 1
   working directory is refined with the `in:` line; `since` compares the paths relative to the working directory, as
   always
 - `path` conditions see the path relative to the working directory, as always; the [write tools](TOOLS.md#write-tools)
-  select their files by a query or a result id, so the rule doesn't change their selection, and their own responses
-  write the paths as before
+  select their files by a query or a result id, so the rule doesn't change their selection; their own responses write
+  the working directory once too ([TOOLS.md](TOOLS.md#one-working-directory-of-a-write-tool))
 - [omit](#omit): `dir` leaves out the `in:` line, the paths stay relative to the working directory. It is a rule of
   the [defaults of spec 2](#defaults-of-spec-2): `show = ["dir"]` (and `show = "all"`) writes the working directory
   before every path, as spec 1 does; `"version": 1` too
