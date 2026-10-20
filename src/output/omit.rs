@@ -136,6 +136,57 @@ impl Differ {
     }
 }
 
+/// What a response writes of the ids (OUTPUT.md#the-legend-of-the-written-ids).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Written {
+    /// The conditions of the files are written.
+    pub conditions: bool,
+    /// The ids of the matches are written: the part `match_ids`, shown matches, a highlight which writes ids.
+    pub match_ids: bool,
+    /// The ids written in the `condition` facet.
+    pub facet: Vec<String>,
+}
+
+/// The entries of `legend` whose ids the response of the result `files` writes, and every labelled condition, in
+/// the order of the legend (OUTPUT.md#the-legend-of-the-written-ids).
+#[must_use]
+pub fn written_legend(
+    legend: &[(CondId, String)],
+    files: &[Found],
+    written: &Written,
+) -> Vec<(CondId, String)> {
+    let mut ids: HashSet<String> = written.facet.iter().cloned().collect();
+    for file in files {
+        if written.conditions {
+            ids.extend(file.conditions.iter().map(ToString::to_string));
+        }
+        if written.match_ids {
+            let content = file.matches.iter().flat_map(|m| &m.fragments);
+            let path = file.path_fragments.iter().flat_map(|p| &p.fragments);
+            for fragment in content.chain(path) {
+                ids.extend(fragment.ids.iter().map(|(_, id)| id.to_string()));
+            }
+        }
+    }
+    legend
+        .iter()
+        .filter(|(id, _)| {
+            if matches!(id, CondId::Label(_)) {
+                return true;
+            }
+            let id = id.to_string();
+            // a sub-group (`#2.1`) is explained by its condition
+            ids.contains(&id)
+                || ids.iter().any(|written| {
+                    written
+                        .strip_prefix(id.as_str())
+                        .is_some_and(|rest| rest.starts_with('.'))
+                })
+        })
+        .cloned()
+        .collect()
+}
+
 /// A set of ids, whatever their order.
 fn ids<'a>(ids: impl Iterator<Item = &'a CondId>) -> HashSet<&'a CondId> {
     ids.collect()
@@ -343,6 +394,82 @@ mod tests {
             lines: 1,
         });
         found
+    }
+
+    fn legend(ids: &[CondId]) -> Vec<(CondId, String)> {
+        ids.iter()
+            .map(|id| (id.clone(), format!("c{id}")))
+            .collect()
+    }
+
+    fn label(name: &str) -> CondId {
+        CondId::Label(name.into())
+    }
+
+    #[test]
+    fn the_legend_of_the_written_ids() {
+        let n = CondId::Number;
+        let all = legend(&[n(1), n(2), n(3), n(4)]);
+        let files = [file(&[1, 2], &[&[2, 3]]), file(&[1, 2], &[&[2, 4]])];
+        // nothing written: no entry
+        assert_eq!(written_legend(&all, &files, &Written::default()), []);
+        // the ids of the matches
+        let ids = Written {
+            match_ids: true,
+            ..Written::default()
+        };
+        assert_eq!(
+            written_legend(&all, &files, &ids),
+            legend(&[n(2), n(3), n(4)])
+        );
+        // the conditions of the files
+        let conditions = Written {
+            conditions: true,
+            ..Written::default()
+        };
+        assert_eq!(
+            written_legend(&all, &files, &conditions),
+            legend(&[n(1), n(2)])
+        );
+        // the condition facet
+        let facet = Written {
+            facet: vec!["#3".into(), "#1".into()],
+            ..Written::default()
+        };
+        assert_eq!(written_legend(&all, &files, &facet), legend(&[n(1), n(3)]));
+    }
+
+    #[test]
+    fn labels_stay_and_sub_groups_bring_their_condition() {
+        let n = CondId::Number;
+        let all = legend(&[label("rs"), n(1), label("def"), n(2)]);
+        let mut found = file(&[1], &[]);
+        found
+            .matches
+            .as_mut()
+            .expect("a file with matches")
+            .fragments = vec![Fragment {
+            range: 0..1,
+            ids: vec![(2, CondId::Sub("@def.fname".into()))],
+            escape: None,
+            groups: Vec::new(),
+        }];
+        assert_eq!(
+            written_legend(&all, &[found.clone()], &Written::default()),
+            legend(&[label("rs"), label("def")])
+        );
+        let all = legend(&[n(1), n(2)]);
+        found
+            .matches
+            .as_mut()
+            .expect("a file with matches")
+            .fragments[0]
+            .ids = vec![(2, CondId::Sub("#2.1".into()))];
+        let ids = Written {
+            match_ids: true,
+            ..Written::default()
+        };
+        assert_eq!(written_legend(&all, &[found], &ids), legend(&[n(2)]));
     }
 
     #[test]
