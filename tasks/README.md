@@ -281,3 +281,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 161 | [The skipped files a non-empty result names](161__TASK__SKIPPED_NAMED_FILES.md) | 60, 103, 129 | ⬜ |
 | 162 | [A hint for `in` with a list of names](162__TASK__NAME_IN_LIST_HINT.md) | 21, 153 | ⬜ |
 | 163 | [A hint for `/w` with a value that starts or ends with a space](163__TASK__WORD_VALUE_SPACES_HINT.md) | 23, 103 | ⬜ |
+| 164 | [A hint for `false` given to a list option](164__TASK__LIST_OPTION_BOOL_HINT.md) | 48 | ⬜ |
