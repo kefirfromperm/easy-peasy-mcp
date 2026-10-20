@@ -155,8 +155,36 @@ pub fn written_legend(
     files: &[Found],
     written: &Written,
 ) -> Vec<(CondId, String)> {
-    let _ = (files, written);
-    legend.to_vec()
+    let mut ids: HashSet<String> = written.facet.iter().cloned().collect();
+    for file in files {
+        if written.conditions {
+            ids.extend(file.conditions.iter().map(ToString::to_string));
+        }
+        if written.match_ids {
+            let content = file.matches.iter().flat_map(|m| &m.fragments);
+            let path = file.path_fragments.iter().flat_map(|p| &p.fragments);
+            for fragment in content.chain(path) {
+                ids.extend(fragment.ids.iter().map(|(_, id)| id.to_string()));
+            }
+        }
+    }
+    legend
+        .iter()
+        .filter(|(id, _)| {
+            if matches!(id, CondId::Label(_)) {
+                return true;
+            }
+            let id = id.to_string();
+            // a sub-group (`#2.1`) is explained by its condition
+            ids.contains(&id)
+                || ids.iter().any(|written| {
+                    written
+                        .strip_prefix(id.as_str())
+                        .is_some_and(|rest| rest.starts_with('.'))
+                })
+        })
+        .cloned()
+        .collect()
 }
 
 /// A set of ids, whatever their order.

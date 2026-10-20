@@ -18,7 +18,7 @@ use crate::languages::LanguageTable;
 use crate::output;
 use crate::output::{
     After, BlockOptions, Change, CountBy, Detail, Differ, Highlight, Hint, Limits, Omit, Page,
-    Part, Response, Since, Sort, group_by_dir, sort_files,
+    Part, Response, Since, Sort, Written, group_by_dir, sort_files, written_legend,
 };
 use crate::output_file::{self, FileTarget, Head};
 use crate::query::{self, ParseOptions};
@@ -1060,11 +1060,13 @@ impl Engine {
         )
         .filter(|_| search.funnel);
         let blocks = block_options(settings);
-        let omit = omit(settings).effective(
+        let matches_shown =
+            detail == Detail::Lines || (detail == Detail::Files && search.path_fragments);
+        let mut omit = omit(settings).effective(
             show,
             spec,
             Differ::of(&files).and(query.many_conditions),
-            detail == Detail::Lines || (detail == Detail::Files && search.path_fragments),
+            matches_shown,
             blocks.has_context(),
             references,
         );
@@ -1087,6 +1089,31 @@ impl Engine {
             &query.legend,
             settings.whole(Key::FacetDepth),
         );
+        let json = settings.text(Key::Format) == "json";
+        let highlight = highlight(settings, json);
+        // spec 2: the legend of the ids the response writes, unless `show` asks for all of it
+        let legend = if spec >= 2 && !omit.has(Part::Legend) && !show.has(Part::Legend) {
+            let facet_limit = settings.whole(Key::FacetLimit);
+            let written = Written {
+                conditions: !omit.has(Part::Conditions) && detail != Detail::Facets,
+                match_ids: !omit.has(Part::MatchIds)
+                    && matches_shown
+                    && !matches!(highlight, Highlight::None),
+                facet: facets
+                    .iter()
+                    .filter(|f| detail == Detail::Facets && f.name == "condition")
+                    .flat_map(|f| f.values.iter().take(facet_limit))
+                    .map(|(id, _)| id.clone())
+                    .collect(),
+            };
+            let legend = written_legend(&query.legend, &files, &written);
+            if legend.is_empty() {
+                omit = omit.union(Omit::from_parts(&[Part::Legend]));
+            }
+            legend
+        } else {
+            query.legend.clone()
+        };
         if !settings.bool(Key::Meta) {
             for file in &mut files {
                 file.meta = None;
@@ -1094,7 +1121,6 @@ impl Engine {
         }
         strip_in_dirs(in_dirs.as_deref().filter(|_| !one_dir), &mut files, None);
         let (files, since) = shown_files(since, files, omit, in_dirs.as_deref());
-        let json = settings.text(Key::Format) == "json";
         let (limits, budget) = if in_file {
             file_limits(settings, request)
         } else {
@@ -1114,7 +1140,7 @@ impl Engine {
                 0 => usize::MAX,
                 n => n,
             },
-            highlight: highlight(settings, json),
+            highlight,
             time_zone: self.options.time_zone.clone(),
             page,
             funnel: shown,
@@ -1126,7 +1152,7 @@ impl Engine {
             limits,
             blocks,
             result_id: result_id.as_deref(),
-            legend: &query.legend,
+            legend: &legend,
             files: &files,
             warnings: &warnings,
             timed_out,

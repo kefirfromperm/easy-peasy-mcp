@@ -28,7 +28,7 @@ use listing::{Listed, Listing};
 pub use sort::{Sort, group_by_dir, sort_files};
 
 pub use lines::{Fragment, SubMatch, matched_lines, merge_identical};
-pub use omit::{Differ, Omit, Part};
+pub use omit::{Differ, Omit, Part, Written, written_legend};
 
 /// How much a response returns (OUTPUT.md#detail-levels).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
