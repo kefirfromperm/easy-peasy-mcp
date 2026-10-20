@@ -217,6 +217,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
     }
 
