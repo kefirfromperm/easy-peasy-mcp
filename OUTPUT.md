@@ -912,6 +912,7 @@ looks for similar paths and names:
 | other case                         | `text has 'parseQuery' /i` → 2 files (`ParseQuery`)             |
 | other naming style                 | `text has 'parseQuery' /n` → 4 files (`parse_query`, `ParseQuery`) |
 | without `/w`, `has` instead of `=` | `name has 'config'` → 3 files                                   |
+| `~` instead of `=`                 | `name = '*.rs'` → `name ~ '*.rs'` 2 files (`lib.rs`, `main.rs`) |
 | the path instead of the name       | `name ~~ 'qryparser'` → `path ~~ 'qryparser'` 1 file (`src/query/parser.rs`) |
 | below the fuzzy threshold          | `name ~~ 'rsr': below query_options.fuzzy_min_score 0.6: parse.rs 0.55` |
 | skipped files                      | 5 matching files ignored by `.gitignore`, 2 generated, 1 too big |
@@ -936,8 +937,10 @@ The hints of an empty result in detail:
 
 - the variations are tried on the condition of the first step with 0 files (every branch of `or`), when it is one
   `text`, `name` or `path` condition with a string: `/i` (not with `/i`, `/n`, `~~`), `/n` (with `=`, `has`,
-  `starts`, `ends`, without `/e`, when the value has two words or more), without `/w`, `has` instead of `=`, `path ~~`
-  instead of `name ~~` (the name of a file has no directories); a
+  `starts`, `ends`, without `/e`, when the value has two words or more), without `/w`, `has` instead of `=`, `~`
+  instead of `=` (`name` and `path`, when the value has a wildcard character `*`, `?`, `[` or `{`: `=` compares the
+  whole value, see [QUERY.md](QUERY.md#wildcards); the modifiers of the condition stay), `path ~~` instead of
+  `name ~~` (the name of a file has no directories); a variation which is not a valid query is not tried; a
   variation is evaluated together with the steps before it and reported when it matches: the variation, the number
   of files (aligned with the funnel) and `file` / `files` with at most three examples — the distinct matched texts
   of a `text` condition, the names (`name`) or paths (`path`) of the files
@@ -953,7 +956,9 @@ The hints of an empty result in detail:
   (traversal.max_file_size)`, `N binary (traversal.binary)`; the ones with 0 are left out
 - similar names for `name = '...'`: the names of the files at most a third of their characters away, nearest first,
   at most three: `name = 'config.yml': similar: config.yaml`; for `path = '...'` / `path starts '...'` whose directory
-  doesn't exist, the similar directories: `path starts 'src/parsers/': no such directory, similar: src/parser/`
+  doesn't exist, the similar directories: `path starts 'src/parsers/': no such directory, similar: src/parser/`; not
+  for a name or a directory with a wildcard character (`name = '*.rs'`, `path = '**/main.rs'`): the `~` variation is
+  the hint there
 - the hints are in this order: the variations and the fuzzy scores of each step, `skipped:`, the similar names and
   directories of each step
 - in JSON `"hints"` after `funnel` is a list of the hint lines without the indent, a variation with two spaces before
