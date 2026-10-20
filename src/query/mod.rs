@@ -457,7 +457,8 @@ fn funnel_step(
 
 /// The variations of a `text`, `name` or `path` condition with a string: `/i` (not with `/i`, `/n`, `~~`), `/n`
 /// (with `=`, `has`, `starts`, `ends`, without `/e`, for a value of two words or more), without `/w`, `has` instead
-/// of `=`, `path ~~` instead of `name ~~`.
+/// of `=`, `~` instead of `=` (`name` and `path` with a wildcard character in the value), `path ~~` instead of
+/// `name ~~`.
 fn variations(text: &str, tokens: &[Token], node: &Node, c: &Condition) -> Vec<Variation> {
     let (Some((op, op_span)), Value::Str(value)) = (&c.op, &c.value) else {
         return Vec::new();
@@ -492,6 +493,11 @@ fn variations(text: &str, tokens: &[Token], node: &Node, c: &Condition) -> Vec<V
     if *op == Op::Eq {
         out.push(rewritten(text, tokens, node.tokens.clone(), |i| {
             (tokens[i].span == *op_span).then_some("has")
+        }));
+    }
+    if *op == Op::Eq && c.target != Target::Text && has_wildcard(&value.value) {
+        out.push(rewritten(text, tokens, node.tokens.clone(), |i| {
+            (tokens[i].span == *op_span).then_some("~")
         }));
     }
     let mut out: Vec<Variation> = out
@@ -536,20 +542,32 @@ fn rewritten(
     out
 }
 
+/// Whether a value of `=` has a character which would be a wildcard with `~` (QUERY.md#wildcards).
+fn has_wildcard(value: &str) -> bool {
+    value.contains(['*', '?', '[', '{'])
+}
+
 /// What the hints look up for a condition: the name of `name = '...'`, the directory of `path = '...'` or
-/// `path starts '...'`.
+/// `path starts '...'`; nothing for a name or a directory with a wildcard character.
 fn lookup(c: &Condition) -> Option<Lookup> {
     let (Some((op, _)), Value::Str(value)) = (&c.op, &c.value) else {
         return None;
     };
-    match (c.target, op) {
-        (Target::Name, Op::Eq) => Some(Lookup::Name(value.value.clone())),
+    let lookup = lookup_value(c.target, *op, &value.value)?;
+    match &lookup {
+        Lookup::Name(wanted) | Lookup::Dir(wanted) => (!has_wildcard(wanted)).then_some(lookup),
+    }
+}
+
+/// The name or the directory which the hints look up for a condition with a string.
+fn lookup_value(target: Target, op: Op, value: &str) -> Option<Lookup> {
+    match (target, op) {
+        (Target::Name, Op::Eq) => Some(Lookup::Name(value.to_string())),
         (Target::Path, Op::Starts) => {
-            let dir = value.value.trim_end_matches('/');
+            let dir = value.trim_end_matches('/');
             (!dir.is_empty()).then(|| Lookup::Dir(dir.to_string()))
         }
         (Target::Path, Op::Eq) => value
-            .value
             .rsplit_once('/')
             .map(|(dir, _)| Lookup::Dir(dir.to_string())),
         _ => None,
@@ -1621,7 +1639,12 @@ mod tests {
     fn tilde_instead_of_equals_for_a_wildcard_pattern() {
         assert_eq!(
             variations("name = '*.rs'")[0].1,
-            ["name = '*.rs' /i", "name has '*.rs'", "name ~ '*.rs'"]
+            [
+                "name = '*.rs' /i",
+                "name = '*.rs' /n",
+                "name has '*.rs'",
+                "name ~ '*.rs'"
+            ]
         );
         assert_eq!(
             variations("path = 'src/**' /i")[0].1,
