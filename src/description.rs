@@ -363,7 +363,8 @@ const REPLACE_SCHEMA: &str = r#"{
       "properties": {
         "format": { "enum": ["text", "json"] },
         "group_dirs": { "type": "boolean" },
-        "max_lines": { "type": "integer", "minimum": 1, "description": "Max changed lines shown." }
+        "max_lines": { "type": "integer", "minimum": 1, "description": "Max changed lines shown." },
+        "max_line_length": { "type": "integer", "minimum": 20 }
       }
     }
   }

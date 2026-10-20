@@ -75,7 +75,7 @@ The spec versions:
 | Version | Changes                                                                                               |
 |---------|-------------------------------------------------------------------------------------------------------|
 | `1`     | the first one: every part of the response is written unless `output.omit` leaves it out               |
-| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the legend only with the conditions whose ids the response writes, the only file of a result without its counts and its directory header ([OUTPUT.md](OUTPUT.md#one-file)), the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line, in `find` and in the write tools ([One working directory of a write tool](#one-working-directory-of-a-write-tool)); a repeated line with context lines grouped only with the same context ([OUTPUT.md](OUTPUT.md#repeated-lines-with-context)); the `omit` of a request is added to the configured one; smaller default limits of the output (`max_files = 20`, `max_lines = 100`, `max_matches = 200`, `max_matches_per_file = 10`, `max_output_per_file = 800`, `max_output = 8000`) |
+| `2`     | the current one: the header of a dry run of a write tool starts with `dry run  would <verb>:` ([Dry run](#dry-run)); the defaults of the output ([OUTPUT.md](OUTPUT.md#defaults-of-spec-2)): `omit = ["warnings"]` with the line `warnings left out: ...`, the legend, the conditions and the match ids only with more than one condition, the legend only with the conditions whose ids the response writes, the only file of a result without its counts and its directory header ([OUTPUT.md](OUTPUT.md#one-file)), the gaps only with context lines, the only working directory, given as an absolute path, once in the `in:` line, in `find` and in the write tools ([One working directory of a write tool](#one-working-directory-of-a-write-tool)); the long changed lines of `replace` cut around the change ([Result](#result-6)); a repeated line with context lines grouped only with the same context ([OUTPUT.md](OUTPUT.md#repeated-lines-with-context)); the `omit` of a request is added to the configured one; smaller default limits of the output (`max_files = 20`, `max_lines = 100`, `max_matches = 200`, `max_matches_per_file = 10`, `max_output_per_file = 800`, `max_output = 8000`) |
 - The JSON response has `"version"`. The text response doesn't, to save tokens: the agent knows what it asked for.
 - The `find` description and the server `instructions` say which spec version they describe.
 
@@ -753,7 +753,8 @@ dry_run = true: shows the changed lines and writes nothing. Use it for a selecti
       "properties": {
         "format": { "enum": ["text", "json"] },
         "group_dirs": { "type": "boolean" },
-        "max_lines": { "type": "integer", "minimum": 1, "description": "Max changed lines shown." }
+        "max_lines": { "type": "integer", "minimum": 1, "description": "Max changed lines shown." },
+        "max_line_length": { "type": "integer", "minimum": 20 }
       }
     }
   }
@@ -761,9 +762,9 @@ dry_run = true: shows the changed lines and writes nothing. Use it for a selecti
 ```
 
 `replace` is required; `result` and `query` exclude each other, one of them is required; `dirs`, `traversal`, `kinds`
-and `languages` work only with `query`. The other fields are optional; `output.format`, `output.group_dirs` and
-`output.max_lines` default to the configuration. The rules of the selection, the dry run and the response are in
-[Write tools](#write-tools).
+and `languages` work only with `query`. The other fields are optional; `output.format`, `output.group_dirs`,
+`output.max_lines` and `output.max_line_length` default to the configuration. The rules of the selection, the dry run
+and the response are in [Write tools](#write-tools).
 
 With `result` the files of the result are searched again with the `find` request of the result, like `within`
 ([OUTPUT.md](OUTPUT.md#result-ids)): its query, `traversal`, `kinds`, `languages`, `escape` and `query_options`; the
@@ -909,13 +910,20 @@ b.rs  matches: 1
 c.rs  unchanged
 ```
 
-- the lines are written as they are, without highlight, dedent or a limit of their length
+- the lines are written without highlight or dedent; a line longer than `output.max_line_length` (default: the
+  configuration, 300) is cut like a [long line](OUTPUT.md#long-lines) of `find`: an old line to windows around the
+  parts of the replaced matches in it, a new line around the parts of their new texts. Every part stays whole, with
+  `(max_line_length − characters of the parts) / (2 × parts)` characters on both sides, rounded down; windows which
+  touch or overlap are one; `…` is written where characters were left out. An empty new text (the match deleted) is
+  a part of no characters at its place; a line without a part keeps its first `max_line_length` characters. A line
+  of `max_line_length` characters or fewer is written whole. The dry run and the real call write the same lines
+- spec 1 writes the lines whole unless the request sets `output.max_line_length`
 - `output.max_lines` (default: the configuration, 100; spec 1: 500) is the most `-` and `+` lines of the response: the files after
   it are written without their lines, and the entries end with `… N more lines`
 - an unchanged entry counts as done for `isError`
 - JSON: `"replaced"`, `"matches"`, then `"unchanged"` when not 0; a changed file has `"matches"` and `"changes"`, each
-  `{ "line", "old", "new_line", "new" }` with the lines as arrays, an unchanged one `"unchanged": true`; the lines over
-  `max_lines` are left out of `changes` and counted in `"more_lines"` after `files`
+  `{ "line", "old", "new_line", "new" }` with the lines as arrays, whole (code reads them), an unchanged one
+  `"unchanged": true`; the lines over `max_lines` are left out of `changes` and counted in `"more_lines"` after `files`
 
 ```json
 {

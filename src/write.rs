@@ -1,5 +1,6 @@
 //! The write tools: their arguments, the selection, acting on it and the response (TOOLS.md#write-tools).
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -315,6 +316,9 @@ pub(crate) struct Outcome {
     pub selected: usize,
     /// `replace`: the most changed lines shown; `None` for the other tools.
     pub max_lines: Option<usize>,
+    /// `replace`: the changed lines longer than this are cut around the change in the text format (TOOLS.md#result-6);
+    /// `None`: whole.
+    pub max_line_length: Option<usize>,
     /// The only working directory, written once in the `in:` line (TOOLS.md#one-working-directory-of-a-write-tool).
     pub in_dir: Option<PathBuf>,
 }
@@ -555,23 +559,16 @@ impl Outcome {
                 }
                 out.push('\n');
                 for change in &acted.changes {
-                    let old = change
-                        .old
-                        .iter()
-                        .enumerate()
-                        .map(|(i, l)| ('-', change.line + i, l));
-                    let new = change
-                        .new
-                        .iter()
-                        .enumerate()
-                        .map(|(i, l)| ('+', change.new_line + i, l));
-                    for (sign, n, line) in old.chain(new) {
+                    for (sign, n, line, parts) in change.lines() {
                         if lines == 0 {
                             more += 1;
-                        } else {
-                            lines -= 1;
-                            let _ = writeln!(out, "{sign}{n}:{line}");
+                            continue;
                         }
+                        lines -= 1;
+                        let line = self.max_line_length.map_or(Cow::Borrowed(line), |max| {
+                            Cow::Owned(crate::output::cut_plain(line, parts, max))
+                        });
+                        let _ = writeln!(out, "{sign}{n}:{line}");
                     }
                 }
             }
@@ -934,6 +931,7 @@ mod tests {
             old: vec!["a".into(), "b".into()],
             new_line: 2,
             new: vec!["A".into()],
+            ..crate::replace::Change::default()
         };
         let outcome = Outcome {
             acted: vec![
@@ -971,6 +969,46 @@ mod tests {
         );
         assert_eq!(json["more_lines"], json!(2));
         assert!(json["files"][2].get("changes").is_none());
+    }
+
+    #[test]
+    fn long_changed_lines_cut_in_text_only() {
+        let old = format!("{}old{}", "a".repeat(30), "b".repeat(30));
+        let new = format!("{}new text{}", "a".repeat(30), "b".repeat(30));
+        let change = crate::replace::Change {
+            line: 1,
+            old: vec![old.clone(), "short".into()],
+            old_parts: vec![vec![30..33], vec![0..5]],
+            new_line: 1,
+            new: vec![new.clone()],
+            new_parts: vec![vec![30..38]],
+        };
+        let mut outcome = Outcome {
+            acted: vec![Acted {
+                shown: PathBuf::from("x.txt"),
+                matches: Some(1),
+                changes: vec![change],
+                ..Acted::default()
+            }],
+            selected: 1,
+            max_lines: Some(100),
+            max_line_length: Some(23),
+            ..Outcome::default()
+        };
+        // (23 − 3) / 2 = 10 and (23 − 8) / 2 = 7 characters on both sides
+        assert_eq!(
+            outcome.to_text("replaced", false, 2),
+            "replaced: 1  matches: 1\n\nx.txt  matches: 1\n-1:…aaaaaaaaaaoldbbbbbbbbbb…\n-2:short\n+1:…aaaaaaanew textbbbbbbb…\n"
+        );
+        let json: Value = serde_json::from_str(&outcome.to_json("replaced", 2)).unwrap();
+        assert_eq!(json["files"][0]["changes"][0]["old"][0], json!(old));
+        assert_eq!(json["files"][0]["changes"][0]["new"][0], json!(new));
+        outcome.max_line_length = None;
+        assert!(
+            outcome
+                .to_text("replaced", false, 2)
+                .contains(&format!("+1:{new}\n"))
+        );
     }
 
     #[test]

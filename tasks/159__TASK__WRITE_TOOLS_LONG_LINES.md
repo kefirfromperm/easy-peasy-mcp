@@ -1,6 +1,6 @@
 # Task 159: Long changed lines of `replace` cut around the change
 
-Status: not implemented
+Status: implemented, see [159__SUMMARY__WRITE_TOOLS_LONG_LINES.md](159__SUMMARY__WRITE_TOOLS_LONG_LINES.md)
 
 Depends on: task 129, task 155
 

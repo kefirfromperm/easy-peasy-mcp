@@ -36,7 +36,8 @@ pub(crate) const REPLACE_FIELDS: [&str; 13] = [
 ];
 
 /// The fields of `output` of `replace`.
-pub(crate) const OUTPUT_FIELDS: [&str; 3] = ["format", "group_dirs", "max_lines"];
+pub(crate) const OUTPUT_FIELDS: [&str; 4] =
+    ["format", "group_dirs", "max_lines", "max_line_length"];
 
 /// The fields of the `find` of a result which select its files again (TOOLS.md#replace).
 const RESULT_FIELDS: [&str; 7] = [
@@ -344,13 +345,55 @@ pub(crate) fn compile(spec: &Spec, query: &Query) -> Result<Vec<Rule>, Report> {
     Ok(rules)
 }
 
-/// A run of changed lines of a file (TOOLS.md#result-5): the old lines from `line`, the new ones from `new_line`.
+/// A run of changed lines of a file (TOOLS.md#result-6): the old lines from `line`, the new ones from `new_line`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Change {
     pub line: usize,
     pub old: Vec<String>,
+    /// Per old line, the byte ranges of the replaced matches in it.
+    pub old_parts: Vec<Vec<Range<usize>>>,
     pub new_line: usize,
     pub new: Vec<String>,
+    /// Per new line, the byte ranges of the new texts in it.
+    pub new_parts: Vec<Vec<Range<usize>>>,
+}
+
+impl Change {
+    /// The old lines, then the new ones, as `-` or `+`, the number of the line, its text and its parts.
+    pub(crate) fn lines(&self) -> impl Iterator<Item = (char, usize, &str, &[Range<usize>])> {
+        side('-', self.line, &self.old, &self.old_parts).chain(side(
+            '+',
+            self.new_line,
+            &self.new,
+            &self.new_parts,
+        ))
+    }
+}
+
+/// The lines of one side of a change from the line `first`, with their parts.
+fn side<'a>(
+    sign: char,
+    first: usize,
+    lines: &'a [String],
+    parts: &'a [Vec<Range<usize>>],
+) -> impl Iterator<Item = (char, usize, &'a str, &'a [Range<usize>])> {
+    lines.iter().enumerate().map(move |(i, line)| {
+        let parts = parts.get(i).map_or(&[][..], Vec::as_slice);
+        (sign, first + i, line.as_str(), parts)
+    })
+}
+
+/// The parts of `ranges` (byte ranges of a text) in the line `line` of it, relative to the line: the characters they
+/// share with it, a range without characters when it lies in the line.
+fn parts_in(ranges: &[Range<usize>], line: Range<usize>) -> Vec<Range<usize>> {
+    ranges
+        .iter()
+        .filter(|r| {
+            (r.start < line.end && r.end > line.start)
+                || (r.is_empty() && line.start <= r.start && r.start <= line.end)
+        })
+        .map(|r| r.start.max(line.start) - line.start..r.end.min(line.end) - line.start)
+        .collect()
 }
 
 /// A match to replace: its range in the normalized text and its new text, with `\n` line breaks.
@@ -526,11 +569,14 @@ fn changes(content: &Content, replacements: &[Replacement]) -> Vec<Change> {
     let old = content.text();
     let mut new = String::with_capacity(old.len());
     let mut at = 0;
+    let mut new_ranges = Vec::with_capacity(replacements.len());
     for r in replacements {
         new.push_str(&old[at..r.range.start]);
+        new_ranges.push(new.len()..new.len() + r.text.len());
         new.push_str(&r.text);
         at = r.range.end;
     }
+    let old_ranges: Vec<Range<usize>> = replacements.iter().map(|r| r.range.clone()).collect();
     new.push_str(&old[at..]);
     let mut runs: Vec<Range<usize>> = Vec::new();
     for r in replacements {
@@ -554,16 +600,28 @@ fn changes(content: &Content, replacements: &[Replacement]) -> Vec<Change> {
             let (_, end) = content.line_range(run.end);
             let new_start = start.saturating_add_signed(delta(start, false));
             let new_end = end.saturating_add_signed(delta(end, true));
+            let mut new_lines = Vec::new();
+            let mut new_parts = Vec::new();
+            let mut from = new_start;
+            for line in new[new_start..new_end].split('\n') {
+                new_parts.push(parts_in(&new_ranges, from..from + line.len()));
+                new_lines.push(line.to_string());
+                from += line.len() + 1;
+            }
             Change {
                 line: run.start + 1,
                 old: (run.start..=run.end)
                     .map(|i| content.line(i).to_string())
                     .collect(),
-                new_line: new[..new_start].matches('\n').count() + 1,
-                new: new[new_start..new_end]
-                    .split('\n')
-                    .map(str::to_string)
+                old_parts: (run.start..=run.end)
+                    .map(|i| {
+                        let (start, end) = content.line_range(i);
+                        parts_in(&old_ranges, start..end)
+                    })
                     .collect(),
+                new_line: new[..new_start].matches('\n').count() + 1,
+                new: new_lines,
+                new_parts,
             }
         })
         .collect()
@@ -580,6 +638,7 @@ pub(crate) struct How<'a> {
     pub dry_run: bool,
     pub expect_matches: Option<usize>,
     pub max_lines: usize,
+    pub max_line_length: Option<usize>,
 }
 
 /// The matches of the search by the shown path and the member of a file.
@@ -596,6 +655,7 @@ pub(crate) fn replace(
         dry_run: how.dry_run,
         selected: entries.len(),
         max_lines: Some(how.max_lines),
+        max_line_length: how.max_line_length,
         ..Outcome::default()
     };
     let mut planned = Vec::new();
@@ -946,6 +1006,8 @@ mod tests {
     }
 
     #[test]
+    // a list of one byte range is meant: the parts of a line
+    #[allow(clippy::single_range_in_vec_init)]
     fn runs_of_changed_lines() {
         let content = Content::from_text("a1\nb\nc1\nd1\ne\n".into());
         let runs = changes(
@@ -962,14 +1024,19 @@ mod tests {
                 Change {
                     line: 1,
                     old: vec!["a1".into()],
+                    old_parts: vec![vec![1..2]],
                     new_line: 1,
                     new: vec!["aX".into()],
+                    new_parts: vec![vec![1..2]],
                 },
                 Change {
                     line: 3,
                     old: vec!["c1".into(), "d1".into()],
+                    old_parts: vec![vec![1..2], vec![1..2]],
                     new_line: 3,
                     new: vec!["cY".into(), "Z".into(), "d".into()],
+                    // the deleted `1` of `d1` is a part of no characters
+                    new_parts: vec![vec![1..2], vec![0..1], vec![1..1]],
                 },
             ]
         );
@@ -980,15 +1047,22 @@ mod tests {
             [Change {
                 line: 1,
                 old: vec!["one".into(), "two".into()],
+                old_parts: vec![vec![2..3], vec![0..1]],
                 new_line: 1,
                 new: vec!["one-two".into()],
+                new_parts: vec![vec![2..5]],
             }]
         );
         // an insertion at the end of a line
-        assert_eq!(
-            changes(&content, &[replacement(13..13, "!")])[0].new,
-            ["three!"]
-        );
+        let inserted = &changes(&content, &[replacement(13..13, "!")])[0];
+        assert_eq!(inserted.new, ["three!"]);
+        assert_eq!(inserted.old_parts, [vec![5..5]]);
+        assert_eq!(inserted.new_parts, [vec![5..6]]);
+        // two matches in one line, the second one shifted by the first one
+        let content = Content::from_text("ab cd ab\n".into());
+        let two = &changes(&content, &[replacement(0..2, "xyz"), replacement(6..8, "")])[0];
+        assert_eq!(two.old_parts, [vec![0..2, 6..8]]);
+        assert_eq!(two.new_parts, [vec![0..3, 7..7]]);
     }
 
     #[test]

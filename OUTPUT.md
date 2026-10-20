@@ -603,6 +603,7 @@ gets `"cut": true`. `col` always refers to the original line.
   down; windows which touch or overlap are one; a context line keeps its first `max_line_length` characters
 - `…` is written where characters were left out, at the start, between the windows and at the end
 - JSON: `"cut": true` comes before the `text`; the lines of the [repeated lines](#repeated-lines) are not cut
+- the changed lines of `replace` are cut the same way around the change, see [TOOLS.md](TOOLS.md#result-6)
 
 A minified line with `max_line_length: 64` keeps `(64 − 6) / 2 = 29` characters on both sides of `unwrap`:
 
