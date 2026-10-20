@@ -274,7 +274,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 154 | [The legend of a `line(...)` without one entry per sub-condition](154__TASK__LINE_LEGEND.md) | 143, 146 | ✅ |
 | 155 | [Smaller default output limits](155__TASK__SMALLER_LIMITS.md) | 101, 141 | ✅ |
 | 156 | [Smaller tool descriptions and schemas](156__TASK__SMALLER_TOOL_SCHEMAS.md) | 125, 126, 127, 129 | ✅ |
-| 157 | [Paths relative to the only working directory in the write tools](157__TASK__WRITE_TOOLS_RELATIVE.md) | 148, 125, 126, 127, 129 | ⬜ |
+| 157 | [Paths relative to the only working directory in the write tools](157__TASK__WRITE_TOOLS_RELATIVE.md) | 148, 125, 126, 127, 129 | 🚧 |
 | 158 | [The counts of the only file are not repeated](158__TASK__ONE_FILE_COUNTS.md) | 136, 141 | ⬜ |
 | 159 | [Long changed lines of `replace` cut around the change](159__TASK__WRITE_TOOLS_LONG_LINES.md) | 129, 155 | ⬜ |
 | 160 | [No huge-result hints for a small `max_files` of the request](160__TASK__HUGE_HINTS_SMALL_MAX_FILES.md) | 102, 155 | ⬜ |
