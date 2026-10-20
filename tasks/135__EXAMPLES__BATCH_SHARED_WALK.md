@@ -263,7 +263,7 @@ few seconds; the progress grows by at most two between two notifications, so a c
 
 Fixture: `shared-walk`
 
-Slow reads: `700ms`
+Slow reads: `850ms`
 
 ```toml conf/o.toml
 [server]
