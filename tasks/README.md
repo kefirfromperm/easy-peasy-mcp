@@ -279,3 +279,4 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 159 | [Long changed lines of `replace` cut around the change](159__TASK__WRITE_TOOLS_LONG_LINES.md) | 129, 155 | ⬜ |
 | 160 | [No huge-result hints for a small `max_files` of the request](160__TASK__HUGE_HINTS_SMALL_MAX_FILES.md) | 102, 155 | ⬜ |
 | 161 | [The skipped files a non-empty result names](161__TASK__SKIPPED_NAMED_FILES.md) | 60, 103, 129 | ⬜ |
+| 162 | [A hint for `in` with a list of names](162__TASK__NAME_IN_LIST_HINT.md) | 21, 153 | ⬜ |
