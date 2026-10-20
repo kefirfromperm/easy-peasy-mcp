@@ -32,7 +32,8 @@ Server version: `0.154.0`.
 
 ## Deviations from the plan
 
-- none
+- no `Outcome::in_line` field: whether the `in:` line is written is the `line` parameter of `relative_to`, which
+  leaves `in_dir` empty with the configured `omit = ["dir"]`
 
 ## Tests
 
