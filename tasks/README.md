@@ -271,7 +271,7 @@ Status column repeats it: ✅ implemented, 🚧 in progress, ⬜ not implemented
 | 151 | [The indentation of the line in a replace template](151__TASK__TEMPLATE_INDENT.md) | 129 | ✅ |
 | 152 | [The number of matches left out when it is the number of lines](152__TASK__MATCHES_EQUAL_LINES.md) | 134, 141 | ✅ |
 | 153 | [A hint for `=` with a wildcard pattern](153__TASK__EQUALS_WITH_WILDCARDS.md) | 103 | ✅ |
-| 154 | [The legend of a `line(...)` without one entry per sub-condition](154__TASK__LINE_LEGEND.md) | 143, 146 | ⬜ |
+| 154 | [The legend of a `line(...)` without one entry per sub-condition](154__TASK__LINE_LEGEND.md) | 143, 146 | 🚧 |
 | 155 | [Smaller default output limits](155__TASK__SMALLER_LIMITS.md) | 101, 141 | ✅ |
 | 156 | [Smaller tool descriptions and schemas](156__TASK__SMALLER_TOOL_SCHEMAS.md) | 125, 126, 127, 129 | ✅ |
 | 157 | [Paths relative to the only working directory in the write tools](157__TASK__WRITE_TOOLS_RELATIVE.md) | 148, 125, 126, 127, 129 | ⬜ |
