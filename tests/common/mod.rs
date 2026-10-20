@@ -156,19 +156,16 @@ pub struct Exchange {
     pub log: Vec<Value>,
     /// Per message of the log whether a `receive` took it.
     taken: Vec<bool>,
-    /// Whether every `\` of the strings of a message is read as `/`: an example of the Linux conventions on Windows
-    /// (AGENTS.md).
+    /// Whether every `\` of the strings of a message and of the block it is matched with is read as `/`: an example of
+    /// the Linux conventions on Windows (AGENTS.md). The log keeps the messages as they are, so the response of a tool
+    /// call is compared once, as its own JSON document.
     pub slashed: bool,
 }
 
 impl Exchange {
     /// Adds a message read before the exchange started, e.g. the response to `initialize`.
     pub fn record(&mut self, message: Value) {
-        self.log.push(if self.slashed {
-            slashed_json(message)
-        } else {
-            message
-        });
+        self.log.push(message);
         self.taken.push(false);
     }
 
@@ -183,7 +180,7 @@ impl Exchange {
         let deadline = std::time::Instant::now() + timeout;
         loop {
             if let Some(i) =
-                (0..self.log.len()).find(|&i| !self.taken[i] && matches(expected, &self.log[i]))
+                (0..self.log.len()).find(|&i| !self.taken[i] && self.like(expected, &self.log[i]))
             {
                 self.taken[i] = true;
                 return Some(self.log[i].clone());
@@ -203,7 +200,19 @@ impl Exchange {
                 Err(_) => break,
             }
         }
-        self.log.iter().find(|m| matches(pattern, m)).cloned()
+        self.log.iter().find(|m| self.like(pattern, m)).cloned()
+    }
+
+    /// Whether `message` matches the block `expected`, both slashed when the exchange is.
+    fn like(&self, expected: &Value, message: &Value) -> bool {
+        if self.slashed {
+            matches(
+                &slashed_json(expected.clone()),
+                &slashed_json(message.clone()),
+            )
+        } else {
+            matches(expected, message)
+        }
     }
 
     /// Sends a request and waits for its response.
