@@ -330,8 +330,11 @@ impl Engine {
             .map_err(|p| p.request_report())?;
         let limit = write.request.timeout.or_else(|| settings.timeout());
         let deadline = limit.filter(|l| !l.is_zero()).map(|l| arrival + l);
-        let (entries, timed_out) = match write.selection {
-            write::Selection::Result(id) => (result_entries(&self.kept(id)?), false),
+        let (entries, timed_out, working_dirs) = match write.selection {
+            write::Selection::Result(id) => {
+                let kept = self.kept(id)?;
+                (result_entries(&kept), false, kept.working_dirs.clone())
+            }
             write::Selection::Query => {
                 let run = self.run(
                     &write.request,
@@ -351,6 +354,7 @@ impl Engine {
                 (
                     found_entries(&run.working_dirs, run.result.files),
                     timed_out,
+                    run.working_dirs,
                 )
             }
         };
@@ -359,6 +363,7 @@ impl Engine {
             deadline,
             entries,
             timed_out,
+            working_dirs,
         })
     }
 
@@ -377,6 +382,7 @@ impl Engine {
             deadline,
             entries,
             timed_out,
+            working_dirs,
         } = self.selection(&write, arrival, progress)?;
         let mut outcome = write::Outcome {
             dry_run: write.dry_run,
@@ -410,7 +416,14 @@ impl Engine {
                 },
             );
         }
-        Ok(write_output(&outcome, "deleted", &settings, json, version))
+        Ok(write_output(
+            outcome,
+            "deleted",
+            &settings,
+            &working_dirs,
+            json,
+            version,
+        ))
     }
 
     /// `rename` or `copy` with writing allowed: the selection, `expect`, the plan and its conflicts, then the renames
@@ -431,6 +444,7 @@ impl Engine {
             deadline,
             entries,
             timed_out,
+            working_dirs,
         } = self.selection(&write, arrival, progress)?;
         let outcome = if timed_out {
             // nothing is changed when the selection is incomplete
@@ -460,9 +474,10 @@ impl Engine {
             )?
         };
         Ok(write_output(
-            &outcome,
+            outcome,
             mode.count(),
             &settings,
+            &working_dirs,
             json,
             version,
         ))
@@ -510,9 +525,12 @@ impl Engine {
             }
         }
         let timed_out = run.result.timed_out;
-        let entries = match &kept {
-            Some(kept) => result_entries(kept),
-            None => found_entries(&run.working_dirs, std::mem::take(&mut run.result.files)),
+        let (entries, working_dirs) = match &kept {
+            Some(kept) => (result_entries(kept), kept.working_dirs.clone()),
+            None => (
+                found_entries(&run.working_dirs, std::mem::take(&mut run.result.files)),
+                run.working_dirs.clone(),
+            ),
         };
         let max_lines = settings.whole(Key::MaxLines);
         let outcome = if timed_out {
@@ -545,7 +563,14 @@ impl Engine {
                 },
             )?
         };
-        Ok(write_output(&outcome, "replaced", &settings, json, version))
+        Ok(write_output(
+            outcome,
+            "replaced",
+            &settings,
+            &working_dirs,
+            json,
+            version,
+        ))
     }
 
     /// The `find` tool.
@@ -1453,6 +1478,8 @@ struct Selected {
     deadline: Option<std::time::Instant>,
     entries: Vec<write::Entry>,
     timed_out: bool,
+    /// The working directories of the selection: of the query, or of the kept result.
+    working_dirs: Vec<(PathBuf, PathBuf)>,
 }
 
 /// Whether a write tool must stop: its deadline passed or it was cancelled.
@@ -1461,14 +1488,23 @@ fn stopped(deadline: Option<std::time::Instant>, progress: Option<&Arc<Progress>
         || progress.is_some_and(|p| p.is_cancelled())
 }
 
-/// The response of a write tool whose count is named `verb`.
+/// The response of a write tool whose count is named `verb`: in spec 2 the only working directory, given as an
+/// absolute path, once in the `in:` line (TOOLS.md#one-working-directory-of-a-write-tool).
 fn write_output(
-    outcome: &write::Outcome,
+    mut outcome: write::Outcome,
     verb: &str,
     settings: &Settings,
+    working_dirs: &[(PathBuf, PathBuf)],
     json: bool,
     version: u32,
 ) -> ToolOutput {
+    let style = settings.text(Key::PathStyle);
+    let show = Omit::from_value(settings.value(Key::Show));
+    if style == "relative"
+        && let Some([dir]) = in_dirs(style, version, show, working_dirs).as_deref()
+    {
+        outcome.relative_to(dir, !omit(settings).has(Part::Dir));
+    }
     let text = if json {
         outcome.to_json(verb, version)
     } else {

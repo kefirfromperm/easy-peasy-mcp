@@ -967,7 +967,7 @@ pub fn display_found(file: &Found) -> String {
 }
 
 /// A working directory in an `in:` line: as given with the separator at the end, `./` for `.`.
-fn dir_name(dir: &Path) -> String {
+pub(crate) fn dir_name(dir: &Path) -> String {
     let name = display_path(dir, true);
     if name.len() == SEP.len_utf8() && !dir.has_root() {
         format!(".{SEP}")
