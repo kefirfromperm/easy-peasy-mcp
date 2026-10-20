@@ -432,3 +432,5 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   with a shell variable; JSON key order needed `cargo tree` and a failing test.
 - **Outcome:** B cheaper: A cost +11% tokens, +23% tool calls and +5.6 min, with less than half of B's search
   output: the extra cost is not in the search responses. No new tasks.
+- **Merged:** A (the configured `path_style`, `show` and `omit` of `find` respected, 9 examples on the fixture of
+  task 148), with a commit that corrects the deviations of its summary. Version 0.154.0.
