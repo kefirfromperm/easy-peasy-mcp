@@ -320,6 +320,10 @@ match across lines: `text starts '#!/bin/bash'` is a file whose first line start
 
 Only for `path` and `name`. The pattern must match the whole value.
 
+`=` takes no wildcards: `name = '*.rs'` is a file named `*.rs`. When such a condition leaves the result empty and the
+`~` form matches, the hints of the empty result suggest it, e.g. `name ~ '*.rs'  2 files: lib.rs, main.rs`
+([OUTPUT.md](OUTPUT.md#hints)).
+
 | Pattern  | Matches                                            |
 |----------|----------------------------------------------------|
 | `*`      | any characters except `/`                          |
