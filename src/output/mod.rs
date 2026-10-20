@@ -475,13 +475,14 @@ impl Response<'_> {
         current: &mut Option<String>,
     ) {
         let change = self.change(index);
+        let alone = self.alone();
         if let Some(change) = change {
             let _ = write!(out, "{} {}", change.mark(), display_found(file));
             if change == Change::Removed {
                 out.push('\n');
                 return;
             }
-        } else if self.group_dirs {
+        } else if self.group_dirs && !alone.path {
             let (dir, name) = split_found(file);
             if current.as_deref() != Some(dir.as_str()) {
                 out.push_str(&dir);
@@ -505,7 +506,7 @@ impl Response<'_> {
         if let Some(m) = file
             .matches
             .as_ref()
-            .filter(|_| !self.omit.has(Part::FileCounts))
+            .filter(|_| !self.omit.has(Part::FileCounts) && !alone.counts)
         {
             let _ = write!(out, "  lines: {}", m.lines);
             if !self.omit.has(Part::MatchCounts) {
@@ -605,6 +606,18 @@ impl Response<'_> {
                 }
             }
             Highlight::None => {}
+        }
+    }
+
+    /// What the text format leaves out of the only file of the result (OUTPUT.md#one-file): nothing with
+    /// `count_by = line`, the counts only when the header writes them.
+    fn alone(&self) -> OneFile {
+        if self.detail == Detail::Count && self.count_by == CountBy::Line {
+            return OneFile::default();
+        }
+        OneFile {
+            path: self.one_file.path,
+            counts: self.one_file.counts && !self.omit.has(Part::Counts),
         }
     }
 
@@ -1801,7 +1814,7 @@ mod tests {
             files: &files,
             warnings: &Warnings::default(),
             timed_out: false,
-            omit: Omit::from_parts(&[&[Part::Conditions][..], omit].concat()),
+            omit: Omit::from_parts(&[&[Part::Conditions, Part::MatchIds][..], omit].concat()),
             in_dirs: None,
             spec: 2,
             carry_indent: false,
@@ -1827,7 +1840,7 @@ mod tests {
         );
         assert_eq!(
             one_file_text(Detail::Lines, CountBy::Total, &[], both),
-            format!("{head}src/f\n1:a ⟦x⟧ ⟦x⟧\n")
+            format!("{head}src/f\n1:a ⟦#1:x⟧ ⟦#1:x⟧\n")
         );
         // the path alone, the counts brought back by `show`
         let path = OneFile {
