@@ -1,6 +1,6 @@
 # Task 157: Paths relative to the only working directory in the write tools
 
-Status: in progress
+Status: implemented, see [157__SUMMARY__WRITE_TOOLS_RELATIVE.md](157__SUMMARY__WRITE_TOOLS_RELATIVE.md)
 
 Depends on: task 148, task 125, task 126, task 127, task 129
 
