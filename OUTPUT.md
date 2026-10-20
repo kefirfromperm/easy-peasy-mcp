@@ -1345,9 +1345,9 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line
   numbers show the gaps); `match_counts` (text format) only when a matched line of the result has another number of
   matches than one, see [One match per line](#one-match-per-line); the counts of a file and its directory header
-  only with more than one file in the result, see [One file](#one-file); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent); the
-  working directory of `dir` once in the `in:` line when it is the only one and absolute, see
-  [One working directory](#one-working-directory)
+  only with more than one file in the result, see [One file](#one-file); the `⇥N` of `indent` only where the
+  indentation changes, see [Dedent](#dedent); the working directory of `dir` once in the `in:` line when it is the
+  only one and absolute, see [One working directory](#one-working-directory)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1, and a list with
   `"all"` among its items (`["all"]`) is `"all"`, like in `omit`. Another value is
