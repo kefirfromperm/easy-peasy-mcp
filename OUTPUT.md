@@ -374,7 +374,8 @@ Empty and default values are omitted: no `truncated`, `truncated_by` and `next_c
 `counts_exact` when the counts are exact, no `warnings` when there are none, no `files` and `legend` when nothing
 matches, no `lines`, `matches` and `conditions` of a file when they are 0 or empty, etc. `indent` is the indentation
 removed by [dedent](#dedent); `col` refers to the original line. The document is written without whitespace between
-its tokens (the examples are indented for reading); `legend` lists the ids in the order of the query. A warning is
+its tokens (the examples are indented for reading); `legend` lists the ids in the order of the query (in spec 2 the
+ids the response writes, see [The legend of the written ids](#the-legend-of-the-written-ids)). A warning is
 `{ "code", "count", "paths" }`, a warning which is not about entries only `{ "code" }`. With `format = "json"` an
 error is the JSON document of [Errors](#errors); `position.col` is 1-based.
 
@@ -427,7 +428,8 @@ tokens of the condition with their original spelling (keyword case, quotes, esca
 breaks or comments between two tokens are written as one space and tokens written without a gap stay without one.
 `NAME   ~\n'*.rs'` is in the legend as `NAME ~ '*.rs'`, `line( text has 'a' @x )` as `line( text has 'a' )`. The
 legend lists the conditions in the order of appearance in the query. It is a part of the `facets`, `files` and `lines` details when at least one file matches; an empty result has no legend,
-there are no ids to explain.
+there are no ids to explain. In spec 2 it lists only the conditions whose ids the response writes, see
+[The legend of the written ids](#the-legend-of-the-written-ids).
 
 ### File conditions
 
@@ -1405,7 +1407,8 @@ A query of several counted conditions joined with `and` gives every file the sam
 - `legend`: when the conditions differ, or the ids of the matches differ (with `groups`: are written) and the
   response shows matches (`lines` detail, or path fragments in `files` detail); in `facets` detail it explains the
   `condition` facet, so it is written when the conditions differ. A part brought back by `show` doesn't bring the
-  legend with it
+  legend with it. A written legend lists only the ids the response writes, see
+  [The legend of the written ids](#the-legend-of-the-written-ids)
 - "the result" is all its matched files, not only the listed ones: the pages of a [cursor](#pagination), `max_files`
   and the [budget](#budget) don't change the decision; with `since` it is the new result, not only the differences.
   [`groups`](#shown-groups) decides `match_ids` by its references, as above; `count` detail writes no ids
@@ -1431,6 +1434,49 @@ main.rs  lines: 1
 
 `line(text has 'unwrap(' or text has 'TODO')` keeps the legend and the ids of the matches, which tell `unwrap(` from
 `TODO`, and leaves out the `[#1]` of every file.
+
+#### The legend of the written ids
+
+The legend explains the ids of the response; an entry whose id is written nowhere repeats the query the agent has
+just written. So in spec 2 a written legend lists only these conditions, in the order of the query:
+
+- the ids of the [conditions](#file-conditions) of the files, when the part `conditions` is written
+- the ids of the matches, when the part `match_ids` is written and the response shows them: the content fragments in
+  `lines` detail and the [path fragments](#path-fragments), with a [highlight](#highlight) which writes ids
+  (`markers`, `columns`, `auto`; `none` writes none, in JSON either); a sub-group of [`groups`](#shown-groups)
+  (`@def.fname`) is explained by its condition (`@def`)
+- the ids of the `condition` facet in `facets` detail
+- a condition with a label (`@name`): the agent named it to refer to it, it stays whenever the legend is written
+
+"The response" is the whole result, as in [The same everywhere](#the-same-everywhere): the ids of the matched files
+of every page, also of a line which `auto` writes without markers; the ids of a shown match with `groups` are its
+references. A legend left with no entry is not written. So a
+condition which only selects files (`lang = rust`) and the conditions inside a `line( ... )`, `near( ... )` or a
+bracket group are listed only where an id of theirs is written:
+
+```json
+{ "query": "name ~ '*.rs' and line(text has 'unwrap(' or text has 'TODO')" }
+```
+
+```
+files: 2  lines: 4  result: r1
+#2 line(text has 'unwrap(' or text has 'TODO')
+#3 text has 'unwrap('
+#4 text has 'TODO'
+
+src/
+lib.rs  lines: 2
+⇥4
+2:let raw = read().⟦#2,#3:unwrap(⟧);
+4:parse(&text).⟦#2,#3:unwrap(⟧)
+main.rs  lines: 2
+⇥4
+2:let cfg = load().⟦#2,#3:unwrap(⟧);
+3:// ⟦#2,#4:TODO⟧ handle the error
+```
+
+With `highlight = "none"` no id is written: no legend, unless a condition has a label, which stays alone. `show = ["legend"]` writes every condition, as in spec 1;
+`"version": 1` is unchanged.
 
 #### One match per line
 
