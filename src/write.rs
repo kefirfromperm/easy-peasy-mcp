@@ -928,6 +928,86 @@ mod tests {
     }
 
     #[test]
+    fn one_working_directory_is_written_once() {
+        let dir = PathBuf::from("w/proj");
+        let outcome = || {
+            let mut outcome = Outcome {
+                acted: vec![
+                    Acted {
+                        shown: dir.join("src/a.rs"),
+                        to: Some(PathBuf::from("w/other/a.rs")),
+                        ..Acted::default()
+                    },
+                    Acted {
+                        shown: dir.join("src/b.rs"),
+                        to: Some(dir.join("lib/b.rs")),
+                        ..Acted::default()
+                    },
+                ],
+                skipped: 1,
+                selected: 3,
+                ..Outcome::default()
+            };
+            outcome
+                .warnings
+                .add(WarningCode::FileChanged, dir.join("src/c.rs"), false);
+            outcome
+        };
+        let sep = std::path::MAIN_SEPARATOR;
+        let mut once = outcome();
+        once.relative_to(&dir, true);
+        assert_eq!(
+            once.to_text("renamed", true, 2),
+            format!(
+                "renamed: 2  skipped: 1\nin: w{sep}proj{sep}\n\nsrc{sep}\na.rs -> ..{sep}other{sep}a.rs\nb.rs -> lib{sep}b.rs\n\nwarning: file_changed (1): src{sep}c.rs\n"
+            )
+        );
+        let json: Value = serde_json::from_str(&once.to_json("renamed", 2)).unwrap();
+        assert_eq!(json["dirs"], json!([format!("w{sep}proj{sep}")]));
+        assert_eq!(json["files"][0]["path"], json!(format!("src{sep}a.rs")));
+        assert_eq!(
+            json["files"][0]["to"],
+            json!(format!("..{sep}other{sep}a.rs"))
+        );
+        let mut without_line = outcome();
+        without_line.relative_to(&dir, false);
+        assert!(
+            without_line
+                .to_text("renamed", true, 2)
+                .starts_with(&format!("renamed: 2  skipped: 1\n\nsrc{sep}\n"))
+        );
+        assert!(
+            serde_json::from_str::<Value>(&without_line.to_json("renamed", 2)).unwrap()["dirs"]
+                .is_null()
+        );
+        let mut empty = Outcome::default();
+        empty.relative_to(&dir, true);
+        assert_eq!(empty.to_text("deleted", true, 2), "deleted: 0\n");
+        assert!(
+            serde_json::from_str::<Value>(&empty.to_json("deleted", 2)).unwrap()["dirs"]
+                .is_null()
+        );
+    }
+
+    #[test]
+    fn relative_targets() {
+        let base = Path::new("w/proj");
+        assert_eq!(
+            relative(Path::new("w/proj/src/a.rs"), base),
+            Path::new("src/a.rs")
+        );
+        assert_eq!(
+            relative(Path::new("w/other/a.rs"), base),
+            Path::new("../other/a.rs")
+        );
+        assert_eq!(relative(Path::new("x/a.rs"), base), Path::new("../../x/a.rs"));
+        assert_eq!(
+            relative(Path::new("w/proj/a.rs"), Path::new("w/x/../proj")),
+            Path::new("a.rs")
+        );
+    }
+
+    #[test]
     fn an_allowed_root_itself_is_never_changed() {
         let roots = [PathBuf::from("/p"), PathBuf::from("/p/q")];
         assert!(may_change(Path::new("/p/a.txt"), &roots));
