@@ -344,3 +344,49 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
 - **Outcome:** A cost +33% tokens, +63% tool calls and +4.8 min, the widest gap since run 1, on the smallest task so
   far: a short task leaves the fixed costs (tool schemas, absolute worktree paths, a spec fix commit) less work to
   pay back. A's branch is the more complete one (the directory lookups, the spec note in #wildcards).
+
+### Run 6 — task 154 the legend of a `line(...)` without one entry per sub-condition, server 0.152.4, 2026-10-20
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 137K | 145K |
+| Tool calls | 65 | 65 |
+| Time | 13.7 min | 18.1 min |
+| Search output received | ~22K chars (1 `get_config`, 13 `find`, 5 `replace`: 2 dry runs) | ~45–50K chars (~22 search commands: ~14 `grep`, ~8 `sed -n`, `ls`, `cat`/`head`, `wc`; ~8 Read); ~25K of it the whole AGENTS.md |
+| Commits | 6 | 6 |
+| Diff | 12 files, +556/−15 (src: 3 files, +158/−6) | 12 files, +636/−15 (src: 3 files, +160/−7) |
+| Examples | 7 (E154.1–E154.7) | 7 (E154.1–E154.7) |
+| Tests | 393 pass (all targets) | 393 pass (all targets) |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ 3 slips: `ls tests/*.rs`, `wc -l`, `tail`/`grep` on cargo output | ✅ |
+
+Total tokens are the whole run (reading, thinking, editing, cargo), not the search output alone.
+
+- **Base:** both worktrees started on 551112a, the current master: pushing master after every merge (from run 6)
+  fixed the stale base of runs 2–5.
+- **Quality:** the same design in the same place: `Written` and `written_legend()` in `src/output/omit.rs`, the
+  legend filtered in `respond` (`src/engine.rs`) over the whole result, a label always kept, a sub-group
+  (`@def.fname`) bringing its condition, `show = ["legend"]` and spec 1 unchanged, no earlier example changed. They
+  differ in:
+  - `highlight = "none"`: A changes the legend rule (the ids of the matches count only with a highlight that writes
+    them), so the legend part is left out whole and a labelled condition goes with it; B filters the entries and
+    leaves out a legend with none left, so `@w text has '…'` stays alone (reproduced on both binaries). The task
+    keeps labels out of scope: B follows it
+  - `facets` detail: B lists the ids the `condition` facet writes (`facet_limit` respected); A lists the conditions
+    of all files, so `facet_limit = 1` gives `#1 #2 #3` for a facet line that shows only `#1` (reproduced)
+  - B also mentions the rule in the JSON format section; B leaves one OUTPUT.md prose line of 163 columns; A leaves
+    a stale doc comment on its test legend (`@x text =~ ...`)
+- **A's friction:**
+  - the version bump `replace` on `path ~ 'Cargo.{toml,lock}'` silently skipped `Cargo.lock`:
+    `traversal.skip_generated` (default `true`) treats it as generated, and a non-empty result says nothing about
+    skipped files, even with `show = ["warnings"]` (reproduced); `cargo build` updated it instead
+  - `name in ('Cargo.toml','Cargo.lock')` → `operator_not_allowed` with no hint to `name ~ '{a,b}'` (reproduced)
+  - the spec 2 limits (`max_matches_per_file = 10`, `max_output_per_file = 800`) cut heading listings (as
+    specified); `⇥N` lines between scattered matches (as specified, dedent); no way to print a whole file (out of
+    scope, Read); the task's own bug seen live (a six-entry legend with `highlight = "none"`)
+- **B's friction:** `grep -rn -i legend src` gave 127 hits, mostly tests, cut to 170 columns by hand; listing the
+  spec 2 example files needed a `for` loop with `grep -q`; the worktree guard refused a `cd; python3` heredoc; it
+  wrote its own MCP client to get exact responses for the examples (A used the tests); one flaky
+  `startup_examples` failure under load, not reproduced.
+- **Outcome:** A cheaper on every count for the second time: −6% tokens, the same tool calls, −4.4 min, with half
+  the search output. B's branch is the more faithful one (labels kept with `highlight = "none"`, the facet limit).
