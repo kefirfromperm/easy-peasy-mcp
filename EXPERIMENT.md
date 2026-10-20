@@ -301,3 +301,45 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   conflicts in TOOLS.md, `src/description.rs` and E117.2 (the `omit` enums of the old schema are now the list of
   parts in its description, with `match_counts`), E156.1, E156.5 and E156.6 updated for the new rule, version
   0.151.0. Task 159 (long changed lines of `replace` cut around the change).
+
+### Run 5 — task 153 a hint for `=` with a wildcard pattern, server 0.151.0, 2026-10-20
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 133K | 100K |
+| Tool calls | 78 | 48 |
+| Time | 15.9 min | 11.1 min |
+| Search output received | ~25–30K chars (1 `get_config`, 19 `find` calls, 21 queries); ~8K of it one over-broad `count_by = file` | ~75–85K chars in all (~22 search commands: ~13 `grep`, ~8 `sed -n`, `ls`, `find`); most of it whole reads of AGENTS.md, OUTPUT.md, QUERY.md, `src/hints.rs` |
+| Commits | 7 | 6 |
+| Diff | 14 files, +401/−13 (src: +92/−6) | 14 files, +377/−12 (src: +71/−4) |
+| Examples | 8 (E153.1–E153.8) | 9 (E153.1–E153.9) |
+| Tests | lib 362, 387 in all targets pass | lib 361 + all targets pass |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ ~13 `grep`/`head`/`tail` on cargo output | ✅ |
+
+Total tokens are the whole run (reading, thinking, editing, cargo), not the search output alone.
+
+- **Base:** both worktrees started on 662f4cf (task 155) again, before tasks 156 and 152 were merged, and neither
+  reset to master; both bumped to 0.150.0. The merged branch needs a rebase (conflicts only in `Cargo.toml`,
+  `Cargo.lock`, `tasks/README.md`), version 0.152.0, and its examples re-run under task 152's `match_counts` rule.
+- **Quality:** the same design in the same place: one more variation of task 103 in `variations`
+  (`src/query/mod.rs`), `~` in place of `=` for `name` / `path` when the value has `*`, `?`, `[` or `{`, right after
+  `has instead of =`, the modifiers kept, `text =` left out, `src/hints.rs` unchanged, the same `has_wildcard`.
+  Both also drop the similar-names hint for a wildcard value. They differ in:
+  - lookups: A also drops the similar directories of a directory with a wildcard (`path = '**/x.rs'`,
+    `path starts 'src/*/'`); B only the similar names, so `path = '**/x.rs'` still looks up the directory `**`
+  - `/n`: B leaves the variation out with `/n` explicitly; A keeps it, and the existing rule (a variation that doesn't
+    parse is not tried) leaves it out, which A writes into the spec
+  - the spec note: A in QUERY.md#wildcards (inline: the spec test reads untagged blocks as queries, which cost A a fix
+    commit), B in QUERY.md#gotchas; B leaves one OUTPUT.md line of 151 columns
+  - examples: B has one more (`/i` kept, its own example); both test a file really named `*.rs` (Linux only)
+- **A's friction:** `dirs` can't be a file (`error[dir_not_found] … is not a directory`, reproduced; as specified,
+  `path = '…'` does it); the hints of a huge result with `max_files = 1` set on purpose (`dir:`, `lang:`,
+  `narrow with:`, reproduced on 0.151.0: as specified, the threshold is 10 × `max_files`); the legend of a
+  `line(A or B or C)` (task 154); `(cut)` of `max_output_per_file` led to a Read (as specified); the worktree guard
+  refused a `cd … && python3 - <<EOF` heredoc.
+- **B's friction:** a two-stage grep for JSON examples with a funnel found nothing; finding a function took a grep and
+  two wide `sed -n` ranges; `ls tests/fixtures` printed 152 names.
+- **Outcome:** A cost +33% tokens, +63% tool calls and +4.8 min, the widest gap since run 1, on the smallest task so
+  far: a short task leaves the fixed costs (tool schemas, absolute worktree paths, a spec fix commit) less work to
+  pay back. A's branch is the more complete one (the directory lookups, the spec note in #wildcards).
