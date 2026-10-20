@@ -1,6 +1,6 @@
 # Task 153: A hint for `=` with a wildcard pattern
 
-Status: in progress
+Status: implemented, see [153__SUMMARY__EQUALS_WITH_WILDCARDS.md](153__SUMMARY__EQUALS_WITH_WILDCARDS.md)
 
 Depends on: task 103
 
