@@ -524,3 +524,5 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   with a heredoc and a `for` loop around `sed`.
 - **Outcome:** B cheaper: A cost +16% tokens, +24% tool calls and +1.8 min, with a quarter of B's search output.
   No new tasks.
+- **Merged:** B (JSON lines whole, spec 1 cut only on request), with a commit that wraps two TOOLS.md lines at 120
+  columns. Version 0.156.0.
