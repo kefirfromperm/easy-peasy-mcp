@@ -1,6 +1,6 @@
 # Task 158: The counts of the only file are not repeated
 
-Status: not implemented
+Status: in progress
 
 Depends on: task 136, task 141
 
