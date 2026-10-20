@@ -390,3 +390,5 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   `startup_examples` failure under load, not reproduced.
 - **Outcome:** A cheaper on every count for the second time: −6% tokens, the same tool calls, −4.4 min, with half
   the search output. B's branch is the more faithful one (labels kept with `highlight = "none"`, the facet limit).
+- **Merged:** B, with a commit that wraps two OUTPUT.md lines at 120 columns. Version 0.153.0. Tasks 161 (the
+  skipped files a non-empty result names) and 162 (a hint for `in` with a list of names).
