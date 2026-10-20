@@ -763,8 +763,8 @@ dry_run = true: shows the changed lines and writes nothing. Use it for a selecti
 
 `replace` is required; `result` and `query` exclude each other, one of them is required; `dirs`, `traversal`, `kinds`
 and `languages` work only with `query`. The other fields are optional; `output.format`, `output.group_dirs`,
-`output.max_lines` and `output.max_line_length` default to the configuration. The rules of the selection, the dry run and the response are in
-[Write tools](#write-tools).
+`output.max_lines` and `output.max_line_length` default to the configuration. The rules of the selection, the dry run
+and the response are in [Write tools](#write-tools).
 
 With `result` the files of the result are searched again with the `find` request of the result, like `within`
 ([OUTPUT.md](OUTPUT.md#result-ids)): its query, `traversal`, `kinds`, `languages`, `escape` and `query_options`; the
@@ -922,8 +922,8 @@ c.rs  unchanged
   it are written without their lines, and the entries end with `… N more lines`
 - an unchanged entry counts as done for `isError`
 - JSON: `"replaced"`, `"matches"`, then `"unchanged"` when not 0; a changed file has `"matches"` and `"changes"`, each
-  `{ "line", "old", "new_line", "new" }` with the lines as arrays, whole (code reads them), an unchanged one `"unchanged": true`; the lines over
-  `max_lines` are left out of `changes` and counted in `"more_lines"` after `files`
+  `{ "line", "old", "new_line", "new" }` with the lines as arrays, whole (code reads them), an unchanged one
+  `"unchanged": true`; the lines over `max_lines` are left out of `changes` and counted in `"more_lines"` after `files`
 
 ```json
 {
