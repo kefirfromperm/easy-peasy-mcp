@@ -392,3 +392,43 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   the search output. B's branch is the more faithful one (labels kept with `highlight = "none"`, the facet limit).
 - **Merged:** B, with a commit that wraps two OUTPUT.md lines at 120 columns. Version 0.153.0. Tasks 161 (the
   skipped files a non-empty result names) and 162 (a hint for `in` with a list of names).
+
+### Run 7 — task 157 paths relative to the only working directory in the write tools, server 0.153.0, 2026-10-20
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 148K | 133K |
+| Tool calls | 74 | 60 |
+| Time | 18.0 min | 12.4 min |
+| Search output received | ~18–22K chars (1 `get_config`, ~30 `find`, no write tool) | ~45–55K chars (~22 search commands: ~16 `grep`, ~10 `sed -n`, `ls`, `find`, `wc`, `cat`; ~6 Read); ~25K of it the whole AGENTS.md |
+| Commits | 6 | 8 |
+| Diff | 12 files, +686/−19 (src: 3 files, +176/−12) | 16 files, +652/−16 (src: 2 files, +162/−7) |
+| Examples | 9 (E157.1–E157.9, the `one-dir` fixture of task 148) | 7 (E157.1–E157.7, a new fixture `write-one-dir`) |
+| Tests | lib 370 + all targets pass | lib 370 + all targets pass |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ 2 slips: a `grep -c` in a commit command, `grep -E` on `cargo build` output | ✅ (by its report) |
+
+Total tokens are the whole run (reading, thinking, editing, cargo), not the search output alone.
+
+- **Base:** both worktrees started on cdc05a8, the current master.
+- **Quality:** the same design and almost the same code: `Selected` carries the working directories, `write_output`
+  takes the outcome by value and applies task 148's `in_dirs`, `Outcome.in_dir` and `Outcome::relative_to` in
+  `src/write.rs`, a lexical relative path with `..` for a target outside, the `in:` line only when the response writes
+  a path (entries or warnings), JSON `"dirs"`, the paths of `rename_conflict` errors unchanged. They differ in:
+  - the configuration: A applies the rule only with the configured `path_style = relative` and without a configured
+    `show = ["dir"]`, and a configured `omit = ["dir"]` drops the `in:` line, as in `find`; B always writes it in
+    spec 2 and says so ("the write tools have no `path_style` and no `omit`"). Reproduced on both binaries with a
+    `--config`: with `path_style = "absolute"` A keeps the absolute headers, B writes `in:` (the task leaves
+    `path_style = absolute` out of scope)
+  - A's relative path strips the prefix first, then normalizes both; B's compares the components as they are
+  - B also updates the paths a write tool accepts (TOOLS.md) and the JSON note; A states `dirs` before `files` (true
+    by the alphabetical key order, which B checked with `cargo tree`)
+- **A's friction (all reproduced on 0.153.0, as specified):** an outline query cut by `max_matches_per_file = 10`
+  although `max_output_per_file` was raised; a query without a text condition shows no lines with `context`, so
+  dumping small files needed `line(text =~ "^")` (Read is the tool for it); `name in (...)` (task 162); labels show
+  no matched condition with `highlight = "none"` (as specified).
+- **B's friction:** spec sections read by `grep -n '^#'` and guessed `sed -n` ranges that over-fetched; a grep for
+  absolute `dirs` in earlier examples needed `-A1` around the request; the worktree guard refused a compound command
+  with a shell variable; JSON key order needed `cargo tree` and a failing test.
+- **Outcome:** B cheaper: A cost +11% tokens, +23% tool calls and +5.6 min, with less than half of B's search
+  output: the extra cost is not in the search responses. No new tasks.
