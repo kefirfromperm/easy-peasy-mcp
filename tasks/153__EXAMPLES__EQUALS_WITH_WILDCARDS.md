@@ -43,7 +43,7 @@ Fixture: `equals-wildcards`
 ```
 
 ```text response
-files: 0  lines: 0  matches: 0  result: r1
+files: 0  lines: 0  result: r1
 funnel:
   name = '*.rs'                          0
 hints:
@@ -59,7 +59,7 @@ Fixture: `equals-wildcards`
 ```
 
 ```text response
-files: 0  lines: 0  matches: 0  result: r1
+files: 0  lines: 0  result: r1
 funnel:
   path = 'src/**'                        0
 hints:
@@ -77,7 +77,7 @@ Fixture: `equals-wildcards`
 ```
 
 ```text response
-files: 0  lines: 0  matches: 0  result: r1
+files: 0  lines: 0  result: r1
 funnel:
   name = '*.py'                          0
 ```
@@ -95,7 +95,7 @@ Platform: `linux`
 ```
 
 ```text response
-files: 1  lines: 0  matches: 0  result: r1
+files: 1  lines: 0  result: r1
 
 src/
 *.rs
@@ -113,7 +113,7 @@ Fixture: `equals-wildcards`
 ```
 
 ```text response
-files: 0  lines: 0  matches: 0  result: r1
+files: 0  lines: 0  result: r1
 funnel:
   path ~ 'docs/**'                       1
   and name = '*.MD' /i                   0
@@ -130,7 +130,7 @@ Fixture: `equals-wildcards`
 ```
 
 ```text response
-files: 0  lines: 0  matches: 0  result: r1
+files: 0  lines: 0  result: r1
 funnel:
   name = '*.rs'                          0
 ```
