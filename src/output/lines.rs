@@ -643,6 +643,35 @@ mod tests {
     use crate::content::Content;
     use crate::query::ast::CondId;
 
+    #[test]
+    fn plain_lines_cut_around_their_parts() {
+        let line = "ä".repeat(20) + "XY" + &"ö".repeat(20);
+        // under the limit: whole
+        assert_eq!(cut_plain(&line, &[40..42], 42), line);
+        // (12 − 2) / 2 = 5 characters on both sides; the ranges are bytes
+        assert_eq!(
+            cut_plain(&line, &[40..42], 12),
+            format!("…{}XY{}…", "ä".repeat(5), "ö".repeat(5))
+        );
+        // a part of no characters: 12 / 2 = 6 on both sides
+        assert_eq!(
+            cut_plain(&line, &[41..41], 12),
+            format!("…{}X|Y{}…", "ä".repeat(5), "ö".repeat(5)).replace('|', "")
+        );
+        // (22 − 3) / 4 = 4: a window at the start has no `…` before it
+        assert_eq!(
+            cut_plain(&line, &[0..2, 40..42], 22),
+            format!("{}…{}XY{}…", "ä".repeat(5), "ä".repeat(4), "ö".repeat(4))
+        );
+        // windows which overlap are one
+        assert_eq!(
+            cut_plain(&line, &[30..32, 40..42], 22),
+            format!("…{}XY{}…", "ä".repeat(9), "ö".repeat(4))
+        );
+        // without a part: its first characters
+        assert_eq!(cut_plain(&line, &[], 20), format!("{}…", "ä".repeat(20)));
+    }
+
     /// The matched lines without context.
     fn render_plain(c: &Content, fragments: &[Fragment]) -> String {
         let blocks =

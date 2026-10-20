@@ -344,7 +344,7 @@ pub(crate) fn compile(spec: &Spec, query: &Query) -> Result<Vec<Rule>, Report> {
     Ok(rules)
 }
 
-/// A run of changed lines of a file (TOOLS.md#result-5): the old lines from `line`, the new ones from `new_line`.
+/// A run of changed lines of a file (TOOLS.md#result-6): the old lines from `line`, the new ones from `new_line`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Change {
     pub line: usize,
@@ -962,14 +962,19 @@ mod tests {
                 Change {
                     line: 1,
                     old: vec!["a1".into()],
+                    old_parts: vec![vec![1..2]],
                     new_line: 1,
                     new: vec!["aX".into()],
+                    new_parts: vec![vec![1..2]],
                 },
                 Change {
                     line: 3,
                     old: vec!["c1".into(), "d1".into()],
+                    old_parts: vec![vec![1..2], vec![1..2]],
                     new_line: 3,
                     new: vec!["cY".into(), "Z".into(), "d".into()],
+                    // the deleted `1` of `d1` is a part of no characters
+                    new_parts: vec![vec![1..2], vec![0..1], vec![1..1]],
                 },
             ]
         );
@@ -980,15 +985,22 @@ mod tests {
             [Change {
                 line: 1,
                 old: vec!["one".into(), "two".into()],
+                old_parts: vec![vec![2..3], vec![0..1]],
                 new_line: 1,
                 new: vec!["one-two".into()],
+                new_parts: vec![vec![2..5]],
             }]
         );
         // an insertion at the end of a line
-        assert_eq!(
-            changes(&content, &[replacement(13..13, "!")])[0].new,
-            ["three!"]
-        );
+        let inserted = &changes(&content, &[replacement(13..13, "!")])[0];
+        assert_eq!(inserted.new, ["three!"]);
+        assert_eq!(inserted.old_parts, [vec![5..5]]);
+        assert_eq!(inserted.new_parts, [vec![5..6]]);
+        // two matches in one line, the second one shifted by the first one
+        let content = Content::from_text("ab cd ab\n".into());
+        let two = &changes(&content, &[replacement(0..2, "xyz"), replacement(6..8, "")])[0];
+        assert_eq!(two.old_parts, [vec![0..2, 6..8]]);
+        assert_eq!(two.new_parts, [vec![0..3, 7..7]]);
     }
 
     #[test]

@@ -934,6 +934,7 @@ mod tests {
             old: vec!["a".into(), "b".into()],
             new_line: 2,
             new: vec!["A".into()],
+            ..crate::replace::Change::default()
         };
         let outcome = Outcome {
             acted: vec![
@@ -971,6 +972,42 @@ mod tests {
         );
         assert_eq!(json["more_lines"], json!(2));
         assert!(json["files"][2].get("changes").is_none());
+    }
+
+    #[test]
+    fn long_changed_lines_cut_in_text_only() {
+        let old = format!("{}old{}", "a".repeat(30), "b".repeat(30));
+        let new = format!("{}new text{}", "a".repeat(30), "b".repeat(30));
+        let change = crate::replace::Change {
+            line: 1,
+            old: vec![old.clone(), "short".into()],
+            old_parts: vec![vec![30..33], vec![0..5]],
+            new_line: 1,
+            new: vec![new.clone()],
+            new_parts: vec![vec![30..38]],
+        };
+        let mut outcome = Outcome {
+            acted: vec![Acted {
+                shown: PathBuf::from("x.txt"),
+                matches: Some(1),
+                changes: vec![change],
+                ..Acted::default()
+            }],
+            selected: 1,
+            max_lines: Some(100),
+            max_line_length: Some(23),
+            ..Outcome::default()
+        };
+        // (23 − 3) / 2 = 10 and (23 − 8) / 2 = 7 characters on both sides
+        assert_eq!(
+            outcome.to_text("replaced", false, 2),
+            "replaced: 1  matches: 1\n\nx.txt  matches: 1\n-1:…aaaaaaaaaaoldbbbbbbbbbb…\n-2:short\n+1:…aaaaaaanew textbbbbbbb…\n"
+        );
+        let json: Value = serde_json::from_str(&outcome.to_json("replaced", 2)).unwrap();
+        assert_eq!(json["files"][0]["changes"][0]["old"][0], json!(old));
+        assert_eq!(json["files"][0]["changes"][0]["new"][0], json!(new));
+        outcome.max_line_length = None;
+        assert!(outcome.to_text("replaced", false, 2).contains(&format!("+1:{new}\n")));
     }
 
     #[test]
