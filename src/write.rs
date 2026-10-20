@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 
 use crate::cache::Stamp;
 use crate::error::{ErrorCode, Report};
-use crate::output::{display_path, split};
+use crate::output::{dir_name, display_path, split};
 use crate::query::did_you_mean;
 use crate::recycle::TrashError;
 use crate::request;
@@ -315,6 +315,8 @@ pub(crate) struct Outcome {
     pub selected: usize,
     /// `replace`: the most changed lines shown; `None` for the other tools.
     pub max_lines: Option<usize>,
+    /// The only working directory, written once in the `in:` line (TOOLS.md#one-working-directory-of-a-write-tool).
+    pub in_dir: Option<PathBuf>,
 }
 
 /// How a write tool acts on the entries.
@@ -463,6 +465,26 @@ impl Outcome {
         self.selected > 0 && self.done() == 0
     }
 
+    /// The paths of the entries, the targets and the warnings relative to the only working directory `dir`, a target
+    /// outside of it with `..`; `line`: the directory is written once in the `in:` line.
+    pub(crate) fn relative_to(&mut self, dir: &Path, line: bool) {
+        for acted in &mut self.acted {
+            acted.shown = relative(&acted.shown, dir);
+            if let Some(to) = &acted.to {
+                acted.to = Some(relative(to, dir));
+            }
+        }
+        self.warnings.strip_prefix(dir);
+        self.in_dir = line.then(|| dir.to_path_buf());
+    }
+
+    /// The working directory of the `in:` line: when the response has entries or warnings about entries.
+    fn shown_dir(&self) -> Option<&Path> {
+        self.in_dir
+            .as_deref()
+            .filter(|_| !self.acted.is_empty() || self.warnings.has_paths())
+    }
+
     /// The text format of the spec version `spec`: the header with the count named `verb` (`deleted`), the entries,
     /// the warnings. In spec 2 the header of a dry run starts with `dry run  would delete:` (TOOLS.md#dry-run).
     pub(crate) fn to_text(&self, verb: &str, group_dirs: bool, spec: u32) -> String {
@@ -492,6 +514,9 @@ impl Outcome {
             out.push_str("  dry run");
         }
         out.push('\n');
+        if let Some(dir) = self.shown_dir() {
+            let _ = writeln!(out, "in: {}", dir_name(dir));
+        }
         if !self.acted.is_empty() {
             out.push('\n');
             let mut lines = self.max_lines.unwrap_or(usize::MAX);
@@ -584,6 +609,9 @@ impl Outcome {
         if self.dry_run {
             doc.insert("dry_run".into(), json!(true));
         }
+        if let Some(dir) = self.shown_dir() {
+            doc.insert("dirs".into(), json!([dir_name(dir)]));
+        }
         let mut lines = self.max_lines.unwrap_or(usize::MAX);
         let mut more = 0;
         if !self.acted.is_empty() {
@@ -653,6 +681,24 @@ impl Outcome {
         }
         Value::Object(doc).to_string()
     }
+}
+
+/// `path` relative to `base`, both without the file system: stripped of it, or with `..` for every component of
+/// `base` which `path` doesn't share.
+pub(crate) fn relative(path: &Path, base: &Path) -> PathBuf {
+    if let Ok(rel) = path.strip_prefix(base) {
+        return rel.to_path_buf();
+    }
+    let path = crate::paths::normalize(path);
+    let base = crate::paths::normalize(base);
+    let common = path
+        .components()
+        .zip(base.components())
+        .take_while(|(a, b)| a == b)
+        .count();
+    let mut out: PathBuf = base.components().skip(common).map(|_| "..").collect();
+    out.extend(path.components().skip(common));
+    out
 }
 
 /// The verb of a count of a write tool: `deleted` → `delete`, `copied` → `copy`.
@@ -925,6 +971,88 @@ mod tests {
         );
         assert_eq!(json["more_lines"], json!(2));
         assert!(json["files"][2].get("changes").is_none());
+    }
+
+    #[test]
+    fn one_working_directory_is_written_once() {
+        let dir = PathBuf::from("w/proj");
+        let outcome = || {
+            let mut outcome = Outcome {
+                acted: vec![
+                    Acted {
+                        shown: dir.join("src/a.rs"),
+                        to: Some(PathBuf::from("w/other/a.rs")),
+                        ..Acted::default()
+                    },
+                    Acted {
+                        shown: dir.join("src/b.rs"),
+                        to: Some(dir.join("lib/b.rs")),
+                        ..Acted::default()
+                    },
+                ],
+                skipped: 1,
+                selected: 3,
+                ..Outcome::default()
+            };
+            outcome
+                .warnings
+                .add(WarningCode::FileChanged, dir.join("src/c.rs"), false);
+            outcome
+        };
+        let sep = std::path::MAIN_SEPARATOR;
+        let mut once = outcome();
+        once.relative_to(&dir, true);
+        assert_eq!(
+            once.to_text("renamed", true, 2),
+            format!(
+                "renamed: 2  skipped: 1\nin: w{sep}proj{sep}\n\nsrc{sep}\na.rs -> ..{sep}other{sep}a.rs\nb.rs -> lib{sep}b.rs\n\nwarning: file_changed (1): src{sep}c.rs\n"
+            )
+        );
+        let json: Value = serde_json::from_str(&once.to_json("renamed", 2)).unwrap();
+        assert_eq!(json["dirs"], json!([format!("w{sep}proj{sep}")]));
+        assert_eq!(json["files"][0]["path"], json!(format!("src{sep}a.rs")));
+        assert_eq!(
+            json["files"][0]["to"],
+            json!(format!("..{sep}other{sep}a.rs"))
+        );
+        let mut without_line = outcome();
+        without_line.relative_to(&dir, false);
+        assert!(
+            without_line
+                .to_text("renamed", true, 2)
+                .starts_with(&format!("renamed: 2  skipped: 1\n\nsrc{sep}\n"))
+        );
+        assert!(
+            serde_json::from_str::<Value>(&without_line.to_json("renamed", 2)).unwrap()["dirs"]
+                .is_null()
+        );
+        let mut empty = Outcome::default();
+        empty.relative_to(&dir, true);
+        assert_eq!(empty.to_text("deleted", true, 2), "deleted: 0\n");
+        assert!(
+            serde_json::from_str::<Value>(&empty.to_json("deleted", 2)).unwrap()["dirs"].is_null()
+        );
+    }
+
+    #[test]
+    fn relative_targets() {
+        let base = Path::new("w/proj");
+        assert_eq!(
+            relative(Path::new("w/proj/src/a.rs"), base),
+            Path::new("src/a.rs")
+        );
+        assert_eq!(
+            relative(Path::new("w/other/a.rs"), base),
+            Path::new("../other/a.rs")
+        );
+        assert_eq!(
+            relative(Path::new("x/a.rs"), base),
+            Path::new("../../x/a.rs")
+        );
+        assert_eq!(
+            relative(Path::new("w/proj/a.rs"), Path::new("w/x/../proj")),
+            Path::new("a.rs")
+        );
     }
 
     #[test]
