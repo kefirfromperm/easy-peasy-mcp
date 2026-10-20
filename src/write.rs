@@ -1,5 +1,6 @@
 //! The write tools: their arguments, the selection, acting on it and the response (TOOLS.md#write-tools).
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -315,6 +316,9 @@ pub(crate) struct Outcome {
     pub selected: usize,
     /// `replace`: the most changed lines shown; `None` for the other tools.
     pub max_lines: Option<usize>,
+    /// `replace`: the changed lines longer than this are cut around the change in the text format (TOOLS.md#result-6);
+    /// `None`: whole.
+    pub max_line_length: Option<usize>,
     /// The only working directory, written once in the `in:` line (TOOLS.md#one-working-directory-of-a-write-tool).
     pub in_dir: Option<PathBuf>,
 }
@@ -555,23 +559,16 @@ impl Outcome {
                 }
                 out.push('\n');
                 for change in &acted.changes {
-                    let old = change
-                        .old
-                        .iter()
-                        .enumerate()
-                        .map(|(i, l)| ('-', change.line + i, l));
-                    let new = change
-                        .new
-                        .iter()
-                        .enumerate()
-                        .map(|(i, l)| ('+', change.new_line + i, l));
-                    for (sign, n, line) in old.chain(new) {
+                    for (sign, n, line, parts) in change.lines() {
                         if lines == 0 {
                             more += 1;
-                        } else {
-                            lines -= 1;
-                            let _ = writeln!(out, "{sign}{n}:{line}");
+                            continue;
                         }
+                        lines -= 1;
+                        let line = self.max_line_length.map_or(Cow::Borrowed(line), |max| {
+                            Cow::Owned(crate::output::cut_plain(line, parts, max))
+                        });
+                        let _ = writeln!(out, "{sign}{n}:{line}");
                     }
                 }
             }
@@ -1007,7 +1004,11 @@ mod tests {
         assert_eq!(json["files"][0]["changes"][0]["old"][0], json!(old));
         assert_eq!(json["files"][0]["changes"][0]["new"][0], json!(new));
         outcome.max_line_length = None;
-        assert!(outcome.to_text("replaced", false, 2).contains(&format!("+1:{new}\n")));
+        assert!(
+            outcome
+                .to_text("replaced", false, 2)
+                .contains(&format!("+1:{new}\n"))
+        );
     }
 
     #[test]

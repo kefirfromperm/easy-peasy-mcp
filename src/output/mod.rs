@@ -15,6 +15,7 @@ pub mod facets;
 mod funnel;
 mod json;
 mod lines;
+pub(crate) use lines::cut_plain;
 mod listing;
 mod meta;
 pub mod omit;

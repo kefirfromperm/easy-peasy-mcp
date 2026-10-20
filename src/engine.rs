@@ -533,12 +533,18 @@ impl Engine {
             ),
         };
         let max_lines = settings.whole(Key::MaxLines);
+        // spec 1 writes the changed lines whole unless the request sets their length (TOOLS.md#result-6)
+        let asked = arguments
+            .get("output")
+            .is_some_and(|o| o.get("max_line_length").is_some());
+        let max_line_length = (version >= 2 || asked).then(|| settings.whole(Key::MaxLineLength));
         let outcome = if timed_out {
             // nothing is changed when the selection is incomplete
             let mut outcome = write::Outcome {
                 dry_run: write.dry_run,
                 selected: entries.len(),
                 max_lines: Some(max_lines),
+                max_line_length,
                 ..write::Outcome::default()
             };
             outcome.warnings.add_global(WarningCode::Timeout);
@@ -560,6 +566,7 @@ impl Engine {
                     dry_run: write.dry_run,
                     expect_matches: spec.expect_matches,
                     max_lines,
+                    max_line_length,
                 },
             )?
         };

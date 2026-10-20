@@ -535,7 +535,12 @@ fn write_cut(
 ) -> bool {
     let (start, end) = content.line_range(i);
     let from = (start + skip).min(end);
-    let Some(windows) = windows(content.text(), parts, from..end, max) else {
+    let ranges: Vec<Range<usize>> = parts
+        .iter()
+        .filter(|p| p.range.start < end && p.range.end > from)
+        .map(|p| p.range.start.max(from)..p.range.end.min(end))
+        .collect();
+    let Some(windows) = windows(content.text(), &ranges, from..end, max) else {
         write_styled(out, content, parts, i, skip, highlight);
         return false;
     };
@@ -554,12 +559,32 @@ fn write_cut(
     true
 }
 
+/// The line `line` cut to windows around the byte ranges `parts` of it when it is longer than `max` characters,
+/// `…` where characters are left out (OUTPUT.md#long-lines); a part may have no characters.
+pub(crate) fn cut_plain(line: &str, parts: &[Range<usize>], max: usize) -> String {
+    let Some(windows) = windows(line, parts, 0..line.len(), max) else {
+        return line.to_string();
+    };
+    let mut out = String::new();
+    for (n, window) in windows.iter().enumerate() {
+        if n > 0 || window.start > 0 {
+            out.push('…');
+        }
+        out.push_str(&line[window.clone()]);
+    }
+    if windows.last().is_some_and(|w| w.end < line.len()) {
+        out.push('…');
+    }
+    out
+}
+
 /// The byte ranges of the line `line` which are shown when it is longer than `max` characters: windows around the
-/// parts in it, each with `(max − their characters) / (2 × parts)` characters on both sides, merged when they touch;
-/// without parts its first `max` characters. `None` when the line is shown whole.
+/// parts (byte ranges inside the line, in their order), each with `(max − their characters) / (2 × parts)`
+/// characters on both sides, merged when they touch; without parts its first `max` characters. `None` when the line
+/// is shown whole.
 fn windows(
     text: &str,
-    parts: &[Part],
+    parts: &[Range<usize>],
     line: Range<usize>,
     max: usize,
 ) -> Option<Vec<Range<usize>>> {
@@ -576,13 +601,7 @@ fn windows(
     let char_of = |byte: usize| offsets.partition_point(|&o| o < byte);
     let in_line: Vec<(usize, usize)> = parts
         .iter()
-        .filter(|p| p.range.start < line.end && p.range.end > line.start)
-        .map(|p| {
-            (
-                char_of(p.range.start.max(line.start)),
-                char_of(p.range.end.min(line.end)),
-            )
-        })
+        .map(|p| (char_of(p.start), char_of(p.end)))
         .collect();
     if in_line.is_empty() {
         let start = line.start..offsets[max];
@@ -644,6 +663,8 @@ mod tests {
     use crate::query::ast::CondId;
 
     #[test]
+    // a list of one byte range is meant: the parts of a line
+    #[allow(clippy::single_range_in_vec_init)]
     fn plain_lines_cut_around_their_parts() {
         let line = "ä".repeat(20) + "XY" + &"ö".repeat(20);
         // under the limit: whole
