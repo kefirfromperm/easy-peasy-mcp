@@ -1,6 +1,6 @@
 # Task 154: The legend of a `line(...)` without one entry per sub-condition
 
-Status: in progress
+Status: implemented, see [154__SUMMARY__LINE_LEGEND.md](154__SUMMARY__LINE_LEGEND.md)
 
 Depends on: task 143, task 146
 
