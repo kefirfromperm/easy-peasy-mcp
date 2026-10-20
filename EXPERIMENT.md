@@ -434,3 +434,50 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   output: the extra cost is not in the search responses. No new tasks.
 - **Merged:** A (the configured `path_style`, `show` and `omit` of `find` respected, 9 examples on the fixture of
   task 148), with a commit that corrects the deviations of its summary. Version 0.154.0.
+
+### Run 8 — task 158 the counts of the only file are not repeated, server 0.154.0, 2026-10-20
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 156K | 156K |
+| Tool calls | 96 | 92 |
+| Time | 19.0 min | 20.6 min |
+| Search output received | ~25–30K chars (1 `get_config`, 29 `find`: 3 errors, 3 batches of two; no write tool); 32 Read | ~95–100K chars (~32 search commands: ~17 `grep`, ~10 `sed -n`, `ls`, `awk`, `head`/`cat`/`wc`; no Read); ~25K of it OUTPUT.md sections, ~17K example failures, ~12K one `ls` of absolute paths |
+| Commits | 6 | 7 (a red-tests commit) |
+| Diff | 25 files, +465/−99 (src: 2 files, +68/−9) | 27 files, +574/−93 (src: 4 files, +148/−2) |
+| Examples | 6 (E158.1–E158.6) | 7 (E158.1–E158.7) |
+| Tests | 396 pass (all targets) | 396 pass (all targets) |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ once: `cargo build \| tail -20` | ✅ |
+
+Total tokens are the whole run (reading, thinking, editing, cargo), not the search output alone.
+
+- **Base:** both worktrees started on 935cc85, the current master.
+- **Quality:** the same rule, spec section `OUTPUT.md#one-file` and the same earlier examples changed (13 example
+  files and `tests/mcp_stdio.rs` byte for byte the same, E155.6 cursor and E155.7 size included): in spec 2 text
+  format the only file of the whole result (not of a page) is written by its whole path, without `file_counts` and
+  without a directory header; with `omit = ["counts"]` it keeps its counts; `show = ["file_counts"]` brings them back;
+  JSON, spec 1 and `since` unchanged. They differ in:
+  - `count_by = line` (out of scope in the task): A applies the rule (`Cargo.toml` and its line counts), recorded as a
+    deviation; B leaves it unchanged and has an example of it
+  - `show = "all"`: B writes the spec 1 layout (`./` and the counts), as the spec of `show = "all"` says; A keeps the
+    whole path ("a layout of spec 2"), only the counts come back. Both reproduced on the built binaries
+  - code: A adds `Differ::one_file` and `FileCounts` to the omit rules in `src/output/omit.rs`, `group_dirs` off in
+    `src/engine.rs` (with `#[allow(clippy::struct_excessive_bools)]`); B adds `output::OneFile` to `Response` and
+    applies it in `push_file`, which adds a line to every test constructor of `Response`
+  - B extends a prose line of OUTPUT.md that was already over 120 columns
+- **A's friction:**
+  - `line(text has 'fn ' /w)` found nothing: a `/w` value ending with a space can never match (as grep `-w`); the
+    funnel shows 0 without a hint (reproduced)
+  - `traversal.ignore_files = false` → `must be a list of strings`, no hint that `[]` turns the files off
+    (reproduced); `traversal.gitignore` lists the valid keys
+  - an escaped quote in a query failed with `unexpected_token`: not reproduced (the JSON escaping of the agent)
+  - `max_output_per_file` cut a heading listing after `max_matches_per_file` was raised; `⇥N` lines without
+    context (both as specified); test logs in the scratchpad are outside the allowed roots (written to `target/`)
+  - the task's own repetition seen in almost every one-file response
+- **B's friction:** a first fix script rewrote ~110 spec 1 example files (reverted; spec 1 files needed a
+  `grep -L`); the examples test stops at the first failing step, so a grep of its log under-reported; the worktree
+  guard refused a `sed` loop with computed ranges, a heredoc with `git` and a pattern with "hash"; the batch cursor
+  change took several greps through three files and a python FNV check.
+- **Outcome:** a tie: the same tokens (156.0K vs 155.8K), A +4 tool calls and −1.6 min, with less than a third of B's
+  search output. B's branch keeps to the task's scope (`count_by = line`) and to the spec of `show = "all"`.
