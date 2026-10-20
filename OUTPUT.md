@@ -131,7 +131,8 @@ main.rs  lines: 1  matches: 1
   detail without their conditions: in the order of `sort`, under [directory headers](#directory-groups) with
   `group_dirs`, with their counts, `(cut)`, the encoding and, with `meta` and `path_fragments`, their metadata and
   path fragments; no legend, no conditions are listed. `count_by = file` is the same as `detail = files` with
-  `omit = ["legend", "conditions"]`
+  `omit = ["legend", "conditions"]`. In spec 2 the only file of a result is written as its path alone, see
+  [One file](#one-file)
 - `line`: under every file its matched lines, one per line, indented by two spaces: `  42: 2`, the line number and
   the number of matches which start in the line. A line touched only by a multiline match which starts in an
   earlier line has `0`: `  211: 0`; the counts of the lines of a file add up to its `matches`. No text of the lines,
@@ -581,8 +582,7 @@ and comments.
 ```
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 3:pub ⟦fn load(⟧path: &str) -> String {
 4-    let raw = read(path);
 5-    if raw.is_empty() {
@@ -681,8 +681,7 @@ with its line number, like `grep -o`:
 ```
 files: 1  lines: 2  result: r1
 
-./
-lib.rs  lines: 2
+lib.rs
 1:load_config
 5:parse
 ```
@@ -1345,9 +1344,10 @@ A plain `find` gets the parts the agent reads and pays nothing for the others. I
   [`groups`](#shown-groups) `match_ids` instead only when the list has more than one reference; `gaps`
   only with context lines (`before` or `after` above 0, or `after = "block"`) or without `line_numbers` (the line
   numbers show the gaps); `match_counts` (text format) only when a matched line of the result has another number of
-  matches than one, see [One match per line](#one-match-per-line); the `⇥N` of `indent` only where the indentation changes, see [Dedent](#dedent); the
-  working directory of `dir` once in the `in:` line when it is the only one and absolute, see
-  [One working directory](#one-working-directory)
+  matches than one, see [One match per line](#one-match-per-line); the counts of a file and its directory header
+  only with more than one file in the result, see [One file](#one-file); the `⇥N` of `indent` only where the
+  indentation changes, see [Dedent](#dedent); the working directory of `dir` once in the `in:` line when it is the
+  only one and absolute, see [One working directory](#one-working-directory)
 - `show` (a list of parts or `"all"`, a request option and a configuration key, default `[]`) brings parts back: a
   part in `show` is written whatever `omit` and the rules say; `show = "all"` is the output of spec 1, and a list with
   `"all"` among its items (`["all"]`) is `"all"`, like in `omit`. Another value is
@@ -1518,6 +1518,40 @@ main.rs  lines: 1
 ```
 
 With one more `unwrap(` in line 2 of `lib.rs` every count is written, as in
+[Counts per file and per line](#counts-per-file-and-per-line).
+
+#### One file
+
+A search to confirm one place or a count in one file finds one file. Then its `lines: N  matches: N` repeats the
+totals of the header, and its directory header (`./` for a file directly in the working directory) costs a line of
+its own. So in spec 2 the text format writes the only file of a result as its path alone:
+
+- the file line leaves out the part `file_counts`: the header has the same numbers. It is left out only when the header
+  writes the counts: with `omit = ["counts"]` the file keeps them
+- the file is written without a [directory header](#directory-groups), with its path relative to the working
+  directory (to the `in:` line when there is one): `TOOLS.md`, `src/output/mod.rs`. The rest of the line is unchanged:
+  the conditions, `(cut)`, the encoding, the metadata; the lines of `lines` detail follow it as always
+- in `files` and `lines` detail and in `count` detail with `count_by = file`; `count_by = line` is unchanged: its file
+  line comes with the counts of its lines
+- "the result" is all its matched files, as in [The same everywhere](#the-same-everywhere): a page of a
+  [cursor](#pagination) or `max_files` which lists one file of several doesn't change the response. With `since` the
+  response is unchanged: its files are the differences, written with their marks
+- the JSON format is unchanged: its fields are read by code, and every file has `lines` and `matches`
+- `show = ["file_counts"]` writes the counts; `show = "all"` and `"version": 1` write the counts and the directory
+  header, as spec 1 does
+
+```json
+{ "dirs": ["/home/me/app/.claude/worktrees/agent-1"], "query": "path ~ 'TOOLS.md' and text has 'indent'", "output": { "detail": "count", "count_by": "file" } }
+```
+
+```
+files: 1  lines: 12  matches: 18  result: r1
+in: /home/me/app/.claude/worktrees/agent-1/
+
+TOOLS.md
+```
+
+With two files every file has its counts and its directory header, as in
 [Counts per file and per line](#counts-per-file-and-per-line).
 
 ## Result ids

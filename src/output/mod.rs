@@ -260,6 +260,17 @@ pub struct Response<'a> {
     pub spec: u32,
     /// `⇥N` only where the indentation changes (OUTPUT.md#dedent): spec 2 unless `show` has `indent`.
     pub carry_indent: bool,
+    /// Spec 2: the only file of the result written as its path alone (OUTPUT.md#one-file).
+    pub one_file: OneFile,
+}
+
+/// What the text format leaves out of the only file of a result (OUTPUT.md#one-file).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct OneFile {
+    /// The file is written without its directory header, with its path relative to the working directory.
+    pub path: bool,
+    /// The file is written without `lines: N  matches: N` when the header writes the counts.
+    pub counts: bool,
 }
 
 /// The separator of output paths on this platform.
@@ -464,13 +475,14 @@ impl Response<'_> {
         current: &mut Option<String>,
     ) {
         let change = self.change(index);
+        let alone = self.alone();
         if let Some(change) = change {
             let _ = write!(out, "{} {}", change.mark(), display_found(file));
             if change == Change::Removed {
                 out.push('\n');
                 return;
             }
-        } else if self.group_dirs {
+        } else if self.group_dirs && !alone.path {
             let (dir, name) = split_found(file);
             if current.as_deref() != Some(dir.as_str()) {
                 out.push_str(&dir);
@@ -494,7 +506,7 @@ impl Response<'_> {
         if let Some(m) = file
             .matches
             .as_ref()
-            .filter(|_| !self.omit.has(Part::FileCounts))
+            .filter(|_| !self.omit.has(Part::FileCounts) && !alone.counts)
         {
             let _ = write!(out, "  lines: {}", m.lines);
             if !self.omit.has(Part::MatchCounts) {
@@ -594,6 +606,18 @@ impl Response<'_> {
                 }
             }
             Highlight::None => {}
+        }
+    }
+
+    /// What the text format leaves out of the only file of the result (OUTPUT.md#one-file): nothing with
+    /// `count_by = line`, the counts only when the header writes them.
+    fn alone(&self) -> OneFile {
+        if self.detail == Detail::Count && self.count_by == CountBy::Line {
+            return OneFile::default();
+        }
+        OneFile {
+            path: self.one_file.path,
+            counts: self.one_file.counts && !self.omit.has(Part::Counts),
         }
     }
 
@@ -1063,6 +1087,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text();
         let s = SEP;
@@ -1111,6 +1136,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         };
         assert_eq!(
             response.to_text(),
@@ -1149,6 +1175,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text();
         let s = SEP;
@@ -1203,6 +1230,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text();
         let s = SEP;
@@ -1244,6 +1272,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text();
         let s = SEP;
@@ -1302,6 +1331,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text();
         assert_eq!(
@@ -1358,6 +1388,7 @@ mod tests {
             in_dirs: None,
             spec,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text()
     }
@@ -1427,6 +1458,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text()
     }
@@ -1502,6 +1534,7 @@ mod tests {
                 in_dirs: None,
                 spec: 1,
                 carry_indent: false,
+                one_file: crate::output::OneFile::default(),
             }
             .to_text()
         };
@@ -1561,6 +1594,7 @@ mod tests {
                 in_dirs: None,
                 spec: 1,
                 carry_indent: false,
+                one_file: crate::output::OneFile::default(),
             }
             .to_text()
         };
@@ -1604,6 +1638,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text();
         assert_eq!(text, "files: 0  lines: 0  matches: 0  result: r1\n");
@@ -1647,6 +1682,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         };
         let listing = Listing::without_lines(response.listed(), &response.limits);
         let cursor = response.next_cursor(&listing)?;
@@ -1703,6 +1739,7 @@ mod tests {
             in_dirs: None,
             spec: 1,
             carry_indent: false,
+            one_file: crate::output::OneFile::default(),
         }
         .to_text()
     }
@@ -1728,6 +1765,106 @@ mod tests {
         assert_eq!(
             line_counts(&[Part::MatchCounts, Part::LineNumbers]),
             "files: 1  lines: 3\n\nf  lines: 3\n"
+        );
+    }
+
+    /// The text of the only file `src/f` with two matches in line 1, grouped by directory, under the rule `one_file`.
+    fn one_file_text(
+        detail: Detail,
+        count_by: CountBy,
+        omit: &[Part],
+        one_file: OneFile,
+    ) -> String {
+        let content = crate::content::Content::from_bytes(b"a x x\nb\n");
+        let fragment = |start: usize, end: usize| Fragment {
+            range: start..end,
+            ids: vec![(1, CondId::Number(1))],
+            escape: None,
+            groups: Vec::new(),
+        };
+        let fragments = vec![fragment(2, 3), fragment(4, 5)];
+        let lines = matched_lines(&content, &fragments);
+        let files = [Found {
+            matches: Some(crate::search::FileMatches {
+                content,
+                fragments,
+                lines,
+            }),
+            ..found("src/f")
+        }];
+        Response {
+            detail,
+            count_by,
+            blocks: BlockOptions::default(),
+            group_dirs: true,
+            group_repeated: 3,
+            repeated_locations: 3,
+            highlight: Highlight::Markers("⟦", "⟧"),
+            time_zone: jiff::tz::TimeZone::UTC,
+            page: Page::default(),
+            funnel: None,
+            hints: Vec::new(),
+            facets: Vec::new(),
+            facet_limit: 8,
+            budget: None,
+            since: None,
+            limits: Limits::default(),
+            result_id: None,
+            legend: &[],
+            files: &files,
+            warnings: &Warnings::default(),
+            timed_out: false,
+            omit: Omit::from_parts(&[&[Part::Conditions, Part::MatchIds][..], omit].concat()),
+            in_dirs: None,
+            spec: 2,
+            carry_indent: false,
+            one_file,
+        }
+        .to_text()
+    }
+
+    #[test]
+    fn one_file_alone() {
+        let both = OneFile {
+            path: true,
+            counts: true,
+        };
+        let head = "files: 1  lines: 1  matches: 2\n\n";
+        assert_eq!(
+            one_file_text(Detail::Files, CountBy::Total, &[], both),
+            format!("{head}src/f\n")
+        );
+        assert_eq!(
+            one_file_text(Detail::Count, CountBy::File, &[], both),
+            format!("{head}src/f\n")
+        );
+        assert_eq!(
+            one_file_text(Detail::Lines, CountBy::Total, &[], both),
+            format!("{head}src/f\n1:a ⟦#1:x⟧ ⟦#1:x⟧\n")
+        );
+        // the path alone, the counts brought back by `show`
+        let path = OneFile {
+            path: true,
+            counts: false,
+        };
+        assert_eq!(
+            one_file_text(Detail::Files, CountBy::Total, &[], path),
+            format!("{head}src/f  lines: 1  matches: 2\n")
+        );
+        // the header without counts: the file keeps them
+        assert_eq!(
+            one_file_text(Detail::Files, CountBy::Total, &[Part::Counts], both),
+            "src/f  lines: 1  matches: 2\n"
+        );
+        // count_by = line is unchanged
+        assert_eq!(
+            one_file_text(Detail::Count, CountBy::Line, &[], both),
+            format!("{head}src/\nf  lines: 1  matches: 2\n  1: 2\n")
+        );
+        // the rule off
+        assert_eq!(
+            one_file_text(Detail::Files, CountBy::Total, &[], OneFile::default()),
+            format!("{head}src/\nf  lines: 1  matches: 2\n")
         );
     }
 

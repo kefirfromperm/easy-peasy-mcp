@@ -1145,6 +1145,12 @@ impl Engine {
             }
         }
         strip_in_dirs(in_dirs.as_deref().filter(|_| !one_dir), &mut files, None);
+        // spec 2: the only file of a result as its path alone; with `since` the files are the differences
+        let alone = spec >= 2 && files.len() == 1 && since.is_none() && show != Omit::all();
+        let one_file = output::OneFile {
+            path: alone,
+            counts: alone && !show.has(Part::FileCounts),
+        };
         let (files, since) = shown_files(since, files, omit, in_dirs.as_deref());
         let (limits, budget) = if in_file {
             file_limits(settings, request)
@@ -1185,6 +1191,7 @@ impl Engine {
             in_dirs: in_dirs.as_deref(),
             spec,
             carry_indent: spec >= 2 && !show.has(Part::Indent),
+            one_file,
         };
         let (text, response) = match budget {
             Some(budget) => {

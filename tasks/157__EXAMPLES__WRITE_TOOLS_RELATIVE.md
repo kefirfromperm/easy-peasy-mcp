@@ -202,7 +202,6 @@ b.rs -> lib/b.bak.rs
 files: 1  lines: 0  result: r1
 in: <fixture>/other/
 
-./
 a.rs
 ```
 

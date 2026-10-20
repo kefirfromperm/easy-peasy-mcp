@@ -143,8 +143,7 @@ files: 1  lines: 2  result: r1
 #3 text has 'unwrap('
 #4 text has 'TODO'
 
-src/
-main.rs  lines: 2
+src/main.rs
 ⇥4
 2:let cfg = load().⟦#2,#3:unwrap(⟧);
 3:// ⟦#2,#4:TODO⟧ handle the error

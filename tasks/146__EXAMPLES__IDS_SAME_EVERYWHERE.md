@@ -231,8 +231,7 @@ main.rs  [#1 #2]  lines: 1
 ```text response
 files: 1  lines: 1  result: r3
 
-src/
-main.rs  lines: 1
+src/main.rs
 ⇥4
 3:// ⟦#2:TODO⟧ handle the error
 ```

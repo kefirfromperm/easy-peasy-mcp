@@ -256,8 +256,7 @@ warnings left out: binary_skipped (1)
 files: 1  lines: 1  result: r2
 in: <fixture>/proj/
 
-src/
-a.rs  lines: 1
+src/a.rs
 2:⟦fn⟧ a() { cache(); }
 ```
 

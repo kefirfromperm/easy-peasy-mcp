@@ -35,8 +35,7 @@ Fixture: `shared-walk`
 ```text response
 == defs ==  files: 1  lines: 1  result: r1
 
-src/
-a.rs  lines: 1
+src/a.rs
 1:⟦fn parse_query(⟧) {}
 
 warnings left out: decode_errors (1)
@@ -65,8 +64,7 @@ Fixture: `shared-walk`
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-a.rs  lines: 1
+src/a.rs
 1:⟦fn parse_query(⟧) {}
 
 warnings left out: decode_errors (1)

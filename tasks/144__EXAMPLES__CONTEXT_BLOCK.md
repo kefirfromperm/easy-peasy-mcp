@@ -30,8 +30,7 @@ The body of the function and its closing line.
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 3:pub ⟦fn load(⟧path: &str) -> String {
 4-    let raw = read(path);
 5-    if raw.is_empty() {
@@ -54,8 +53,7 @@ are not part of the block, the blank line 7 inside it is skipped as a blank cont
 ```text response
 files: 1  lines: 1  result: r1
 
-./
-app.py  lines: 1
+app.py
 4:⟦def load(⟧path):
 5-    with open(path) as f:
 6-        data = f.read()
@@ -74,8 +72,7 @@ The text after the heading isn't indented: the heading opens no block and gets n
 ```text response
 files: 1  lines: 1  result: r1
 
-./
-README.md  lines: 1
+README.md
 3:⟦## Usage⟧
 ```
 
@@ -93,8 +90,7 @@ files: 1  lines: 2  result: r1
 #1 text has 'fn load('
 #2 text has 'is_empty'
 
-src/
-lib.rs  lines: 2
+src/lib.rs
 3:pub ⟦#1:fn load(⟧path: &str) -> String {
 4-    let raw = read(path);
 5:    if raw.⟦#2:is_empty⟧() {
@@ -116,8 +112,7 @@ The block of the `if` ends with its closing line; the block is dedented as alway
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 ⇥4
 5:if raw.⟦is_empty⟧() {
 6-    return String::new();
@@ -137,8 +132,7 @@ markers would outgrow the one character of the lines, so `highlight = auto` writ
 ```text response
 files: 1  lines: 3  result: r1
 
-src/
-lib.rs  lines: 3
+src/lib.rs
 9:}
 --
 13:}
@@ -159,8 +153,7 @@ the function.
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 15:pub ⟦fn parse(⟧
 16-    text: &str,
 17-) -> Vec<String> {
@@ -182,8 +175,7 @@ The lines 15-19 have 90 characters, line 20 would make 108: the lines 20 and 21 
 ```text response
 files: 1  lines: 1  result: r1  truncated: yes (max_output_per_file)
 
-src/
-lib.rs  lines: 1  (cut)
+src/lib.rs  (cut)
 15:pub ⟦fn parse(⟧
 16-    text: &str,
 17-) -> Vec<String> {
@@ -202,8 +194,7 @@ Fixture: `block`
 ```text response
 files: 1  lines: 1  result: r1  truncated: yes (max_output_per_file)
 
-src/
-lib.rs  lines: 1  (cut)
+src/lib.rs  (cut)
 15:pub ⟦fn parse(⟧
 16-    text: &str,
 17-) -> Vec<String> {
@@ -252,8 +243,7 @@ The first matched line is listed with its whole block, the next ones are left fo
 ```text response
 files: 1  lines: 3  result: r1  truncated: yes (max_lines)  next cursor: eyJ2IjoxLCJoIjoiYzdiZjc3YzQiLCJmIjowLCJtIjoxLCJ0IjpbMSwzLDNdfQ
 
-src/
-lib.rs  lines: 3
+src/lib.rs
 3:pub ⟦fn load(⟧path: &str) -> String {
 4-    let raw = read(path);
 5-    if raw.is_empty() {
@@ -275,8 +265,7 @@ Two lines before the matched line, the block after it.
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 3-pub fn load(path: &str) -> String {
 4-    let raw = read(path);
 5:    if raw.⟦is_empty⟧() {
@@ -294,8 +283,7 @@ Fixture: `block`
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 5:    if raw.⟦is_empty⟧() {
 6-        return String::new();
 7-    }
@@ -314,8 +302,7 @@ level 2 of the budget, they do.
 ```text response
 files: 1  lines: 3  result: r1  truncated: yes (budget)
 
-src/
-lib.rs  lines: 3
+src/lib.rs
 3:pub ⟦fn load(⟧path: &str) -> String {
 --
 11:⟦fn read(⟧path: &str) -> String {
@@ -356,8 +343,7 @@ after = "block"    # was (not set)
 ```text response
 files: 1  lines: 1  result: r1
 
-src/
-lib.rs  lines: 1
+src/lib.rs
 ⇥4
 5:if raw.⟦is_empty⟧() {
 6-    return String::new();

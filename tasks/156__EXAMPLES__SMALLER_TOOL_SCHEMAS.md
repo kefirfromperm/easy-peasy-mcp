@@ -219,8 +219,7 @@ Fixture: `smaller-schemas`
 ```text response
 files: 1  lines: 0  result: r1
 
-spec/
-colour_spec.rs
+spec/colour_spec.rs
 ```
 
 2. a single string

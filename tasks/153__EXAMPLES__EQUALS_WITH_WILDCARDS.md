@@ -97,8 +97,7 @@ Platform: `linux`
 ```text response
 files: 1  lines: 0  result: r1
 
-src/
-*.rs
+src/*.rs
 ```
 
 ## E153.5 Inside a larger query, with a modifier

@@ -1,6 +1,6 @@
 # Task 158: The counts of the only file are not repeated
 
-Status: not implemented
+Status: implemented, see [158__SUMMARY__ONE_FILE_COUNTS.md](158__SUMMARY__ONE_FILE_COUNTS.md)
 
 Depends on: task 136, task 141
 

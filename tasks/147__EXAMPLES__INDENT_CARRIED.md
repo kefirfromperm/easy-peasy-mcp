@@ -49,8 +49,7 @@ Fixture: `indent`
 ```text response
 files: 1  lines: 4  result: r1
 
-src/
-mixed.rs  lines: 4
+src/mixed.rs
 ⇥4
 2:⟦let⟧ x = 1;
 ⇥8
@@ -73,8 +72,7 @@ Both blocks have the indentation 4: one `⇥4`, the gap between them as always.
 ```text response
 files: 1  lines: 2  result: r1
 
-src/
-deep.rs  lines: 2
+src/deep.rs
 ⇥4
 2-fn f() {
 3:    ⟦let⟧ a = 1;
@@ -95,8 +93,7 @@ Fixture: `indent`
 ```text response
 files: 1  lines: 4  result: r1
 
-src/
-mixed.rs  lines: 4
+src/mixed.rs
 2:⟦let⟧ x = 1;
 4:⟦let⟧ y = x;
 6:⟦let⟧ z = x;
@@ -196,8 +193,7 @@ Fixture: `indent`
 ```text response
 files: 1  lines: 4  result: r1
 
-src/
-mixed.rs  lines: 4
+src/mixed.rs
 ⇥4
 2:⟦let⟧ x = 1;
 ⇥8

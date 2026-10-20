@@ -46,8 +46,7 @@ files: 1  lines: 2  result: r1
 #2 text has 'unwrap('
 #3 text has 'TODO'
 
-src/
-main.rs  lines: 2
+src/main.rs
 ⇥4
 2:let cfg = load().⟦#1,#2:unwrap(⟧);
 3:// ⟦#1,#3:TODO⟧ handle the error
@@ -128,8 +127,7 @@ Fixture: `omit`
 ```text response
 files: 1  lines: 2  result: r1
 
-src/
-lib.rs  lines: 2
+src/lib.rs
 ⇥4
 2:let raw = read().⟦unwrap(⟧);
 4:parse(&text).⟦unwrap(⟧)
