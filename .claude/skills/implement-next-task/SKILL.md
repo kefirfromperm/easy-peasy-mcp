@@ -1,6 +1,6 @@
 ---
 name: implement-next-task
-description: Implement the next not implemented task of easy-peasy-mcp from tasks/README.md, end to end - branch, examples, plan, red tests, code, summary, version bump, merge to master, reinstall. Use when the user says "implement the next task" or names a task number to implement.
+description: Implement the next not implemented task of easy-peasy-mcp from tasks/README.md, end to end - branch, examples, plan, red tests, code, summary, version bump, merge to master, push, reinstall. Use when the user says "implement the next task" or names a task number to implement.
 ---
 
 # Implement the next task
@@ -51,7 +51,8 @@ A bug or a token saving found in easy-peasy becomes a new task right away (AGENT
    ```
 2. Try the release binary over MCP stdio with a request that shows the new behaviour.
 3. `git switch master && git merge --no-ff task/N-name -m "Merge task N: <title>"` — without waiting to be asked.
-4. `./install.sh --build`, check that `easy-peasy-mcp --version` names the version of `Cargo.toml`.
+4. `git push origin master` — agent worktrees start from `origin/HEAD`.
+5. `./install.sh --build`, check that `easy-peasy-mcp --version` names the version of `Cargo.toml`.
 
 ## 5. Report
 

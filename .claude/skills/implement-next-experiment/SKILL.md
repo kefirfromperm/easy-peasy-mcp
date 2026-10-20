@@ -47,6 +47,7 @@ tooling log. Then, for each branch:
 
 1. Review the chosen branch line by line; run the definition of done (AGENTS.md#definition-of-done) on it.
 2. `git merge --no-ff BRANCH -m "Merge task N: <title>"`, rename the branch to `task/N-name`.
-3. `./install.sh --build`, check the version, tell the user to reconnect through `/mcp`.
-4. Remove both worktrees (check they have no uncommitted changes first), delete the other arm's branch (tell the user
+3. `git push origin master` — agent worktrees start from `origin/HEAD`, so the next run starts on this merge.
+4. `./install.sh --build`, check the version, tell the user to reconnect through `/mcp`.
+5. Remove both worktrees (check they have no uncommitted changes first), delete the other arm's branch (tell the user
    its last commit, to restore it) and the `worktree-agent-*` branches of this run only.

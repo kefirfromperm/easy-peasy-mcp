@@ -432,7 +432,9 @@ And for a task:
 - the branch is merged into `master` only when the [definition of done](#definition-of-done) is met
 - as soon as the task is ready (the summary commit is done) and all the checks of the definition of done are green, the
   agent merges the branch into `master` with `git merge --no-ff` (`Merge task N: <title>`), without waiting to be asked
-- right after the merge, the agent builds and installs the new version from `master`, so the developer's machine always
+- right after the merge, the agent pushes `master` (`git push origin master`): agent worktrees start from
+  `origin/HEAD`, so an unpushed `master` sends them to an old commit
+- then the agent builds and installs the new version from `master`, so the developer's machine always
   runs the latest server: `./install.sh --build` (`install.bat --build` on Windows), then checks that
   `easy-peasy-mcp --version` names the version of `Cargo.toml`; the install keeps a running server on its old binary,
   so the agent tells the user to restart the MCP server (`/mcp` in Claude Code) to use the new one

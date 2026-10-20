@@ -47,7 +47,8 @@ absolute, which costs tokens (see task 148, which writes such a directory once).
 
 The agent worktree can start on an old commit, not on `master` (run 2: both started on 6ff6d67, task 130, without
 the task file). Both agents noticed it and ran `git reset --hard master` on their branch first; check `git log -1` of
-each branch base when comparing.
+each branch base when comparing. The cause (run 5): a worktree starts from `origin/HEAD`, and `master` had not been
+pushed since that commit; from run 6 `master` is pushed after every merge, before the build and install.
 
 ## Prompts
 
