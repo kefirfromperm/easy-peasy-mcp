@@ -1354,12 +1354,17 @@ mod tests {
 
     #[test]
     fn the_lookup_order() {
+        // `XDG_CONFIG_HOME` counts only when it is absolute on the host
+        let (xdg, platform) = if cfg!(windows) {
+            (r"C:\xdg", r"C:\xdg\easy-peasy-mcp\config.toml")
+        } else {
+            ("/xdg", "/xdg/easy-peasy-mcp/config.toml")
+        };
         let all = [
             ("EASY_PEASY_CONFIG", "env.toml"),
-            ("XDG_CONFIG_HOME", "/xdg"),
+            ("XDG_CONFIG_HOME", xdg),
             ("HOME", "/home/me"),
         ];
-        let platform = "/xdg/easy-peasy-mcp/config.toml";
         assert_eq!(
             found(Some("cli.toml"), &all, "linux", &[platform]),
             Some(PathBuf::from("cli.toml"))
@@ -1368,7 +1373,7 @@ mod tests {
             found(None, &all, "linux", &[platform]),
             Some(PathBuf::from("env.toml"))
         );
-        let no_env = [("EASY_PEASY_CONFIG", ""), ("XDG_CONFIG_HOME", "/xdg")];
+        let no_env = [("EASY_PEASY_CONFIG", ""), ("XDG_CONFIG_HOME", xdg)];
         assert_eq!(
             found(None, &no_env, "linux", &[platform]),
             Some(PathBuf::from(platform))
@@ -1745,7 +1750,7 @@ mod tests {
     fn roots_are_resolved() {
         let tmp = std::env::temp_dir().join(format!("ep-roots-{}", std::process::id()));
         std::fs::create_dir_all(tmp.join("home/proj")).unwrap();
-        let start = std::fs::canonicalize(&tmp).unwrap();
+        let start = crate::paths::canonicalize(&tmp).unwrap();
         let home = start.join("home");
         let roots = |cli: &[&str]| {
             let cli: Vec<String> = cli.iter().map(ToString::to_string).collect();
