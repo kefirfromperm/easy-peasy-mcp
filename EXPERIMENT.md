@@ -483,3 +483,44 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   search output. B's branch keeps to the task's scope (`count_by = line`) and to the spec of `show = "all"`.
 - **Merged:** B, with a commit that wraps an OUTPUT.md line at 120 columns. Version 0.155.0. Tasks 163 (a hint for
   `/w` with a value that starts or ends with a space) and 164 (a hint for `false` given to a list option).
+
+### Run 9 — task 159 long changed lines of `replace` cut around the change, server 0.155.0, 2026-10-20
+
+| | A: easy-peasy only | B: grep/sed/find |
+|---|---|---|
+| Total agent tokens | 176K | 151K |
+| Tool calls | 89 | 72 |
+| Time | 17.5 min | 15.7 min |
+| Search output received | ~18K chars (1 `get_config`, 20 `find`: 1 error, 4 `replace`: 2 dry runs, 1 error); 23 Read | ~75K chars in all (~32 commands: ~16 `grep`, 4 `sed -n`, 5 `ls`, ~5 `head`/`tail`, `cat`, `awk`; 11 Read); ~10K of it searches, the rest AGENTS.md, TOOLS.md, OUTPUT.md sections |
+| Commits | 7 | 7 |
+| Diff | 18 files, +613/−40 (src: 6 files, +208/−29) | 17 files, +592/−46 (src: 6 files, +207/−36) |
+| Examples | 8 (E159.1–E159.8) | 8 (E159.1–E159.8, a new fixture `long-lines`) |
+| Tests | 398 pass (all targets) | 398 pass (all targets) |
+| Clippy, fmt | ✅ | ✅ |
+| Kept to its tool rules | ❌ ~5 slips: `wc -l`, `head` on `git log`/`git diff`, `grep`/`head`/`tail` on cargo output | ✅ |
+
+Total tokens are the whole run (reading, thinking, editing, cargo), not the search output alone.
+
+- **Base:** both worktrees started on f9d5168, the current master.
+- **Quality:** almost the same code: `Change.old_parts` / `new_parts` (the byte ranges of the matches and of the new
+  texts in each line, a deleted match an empty part), a helper `parts_in`, `windows` of `src/output/lines.rs` taking
+  byte ranges, a shared `cut_plain`, `Outcome.max_line_length`, `max_line_length` in the `replace` schema without a
+  description (with one the schema is over the 1900 characters of `schemas_stay_small`, both found). They differ in:
+  - JSON: A cuts `old` and `new` like the text, without a `"cut"` flag (`find`'s JSON has one), so code can't tell a
+    cut line; B keeps them whole, as the task suggested ("its fields are read by code")
+  - spec 1: A always writes the lines whole and ignores a `max_line_length` of the request; B cuts them when the
+    request sets it (the field is new, spec 1's default unchanged)
+  - the spec: A writes a section of its own, TOOLS.md#long-changed-lines, with a worked example; B puts the rule
+    into the `replace` result bullets (TOOLS.md#result-6, the anchor of the 7th "Result" heading) and one line in
+    OUTPUT.md#long-lines, fixes a stale `result-5` comment and leaves two TOOLS.md prose lines over 120 columns
+- **A's friction:**
+  - a `replace` dry run on `Cargo.toml` and `Cargo.lock` silently selected only `Cargo.toml`
+    (`traversal.skip_generated`): task 161, already written in run 6
+  - `near(line(...), ...)` → `nested_line` with a clear hint (reproduced, as specified); `max_matches_per_file = 10`
+    cut heading lists, `files` detail writes `lines:`, `count_by = file` without `matches:` when they equal the
+    lines, `⇥N` lines (all as specified); the scratchpad is outside the allowed roots (out of scope)
+- **B's friction:** the anchor of the 7th "#### Result" in TOOLS.md counted by hand; broad greps of OUTPUT.md mostly
+  irrelevant; spec sections read by guessed `sed -n` ranges of 6–22K characters; the worktree guard refused a `cd`
+  with a heredoc and a `for` loop around `sed`.
+- **Outcome:** B cheaper: A cost +16% tokens, +24% tool calls and +1.8 min, with a quarter of B's search output.
+  No new tasks.
