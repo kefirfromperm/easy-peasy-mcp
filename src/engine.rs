@@ -2296,13 +2296,14 @@ mod tests {
     #[test]
     fn one_working_directory_is_written_once() {
         let dir = |p: &str| (PathBuf::from(p), PathBuf::from(p));
-        let one = [dir("/w")];
+        let abs = if cfg!(windows) { r"C:\w" } else { "/w" };
+        let one = [dir(abs)];
         let two = [dir("/w"), dir("other")];
         let none = Omit::default();
         let show_dir = Omit::from_parts(&[Part::Dir]);
         assert_eq!(
             in_dirs("relative", 2, none, &one),
-            Some(vec![PathBuf::from("/w")])
+            Some(vec![PathBuf::from(abs)])
         );
         assert_eq!(in_dirs("relative", 1, none, &one), None, "spec 1");
         assert_eq!(in_dirs("relative", 2, none, &two), None, "several");

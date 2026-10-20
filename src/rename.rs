@@ -602,8 +602,11 @@ mod tests {
             &trashed,
         )
         .unwrap_err();
+        let sep = std::path::MAIN_SEPARATOR;
         assert!(
-            error.contains("  d/ -> c.ts/: a directory is never replaced\n"),
+            error.contains(&format!(
+                "  d{sep} -> c.ts{sep}: a directory is never replaced\n"
+            )),
             "{error}"
         );
         assert!(trashed.borrow().is_empty());
@@ -794,9 +797,12 @@ mod tests {
             &trashed,
         )
         .unwrap_err();
+        let sep = std::path::MAIN_SEPARATOR;
         assert_eq!(
             error,
-            "error[copy_conflict]: targets conflict; nothing was changed\n  d/ -> d/sub/d/: the target is inside the copied directory\n  hint: on_conflict = \"skip\" copies the other files\n"
+            format!(
+                "error[copy_conflict]: targets conflict; nothing was changed\n  d{sep} -> d{sep}sub{sep}d{sep}: the target is inside the copied directory\n  hint: on_conflict = \"skip\" copies the other files\n"
+            )
         );
         // a sibling which starts with the same name is not inside
         let error = run_as(
