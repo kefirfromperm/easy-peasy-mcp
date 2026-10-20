@@ -171,8 +171,7 @@ Fixture: `query-groups`
 ```text response
 files: 1  lines: 2  result: r1
 
-./
-lib.rs  lines: 2
+lib.rs
 1:pub fn ⟦load⟧_config(path: &Path) -> Config {
 5:fn ⟦parse⟧(path: &Path) -> Config {
 ```
@@ -190,8 +189,7 @@ Fixture: `query-groups`
 ```text response
 files: 1  lines: 1  result: r1
 
-./
-lib.rs  lines: 1
+lib.rs
 ⇥4
 6:⟦todo⟧!()
 ```

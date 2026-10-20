@@ -312,8 +312,7 @@ Fixture: `gaps`
 ```text response
 files: 1  lines: 2  result: r1
 
-./
-far.rs  lines: 2
+far.rs
 1:a.⟦unwrap(⟧);
 6:f.⟦unwrap(⟧);
 ```
@@ -326,8 +325,7 @@ far.rs  lines: 2
 ```text response
 files: 1  lines: 2  result: r2
 
-./
-far.rs  lines: 2
+far.rs
 1:a.⟦unwrap(⟧);
 2-b
 --
@@ -394,7 +392,6 @@ The header says that the search stopped, and the line of the omitted warnings na
 ```text response
 files: 1  lines: 0  result: r1  truncated: yes (timeout)
 
-./
 sub/
 
 warnings left out: timeout

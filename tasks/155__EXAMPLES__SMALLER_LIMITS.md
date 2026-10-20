@@ -243,8 +243,7 @@ Fixture: `smaller-limits`
 ```text response
 files: 1  lines: 15  result: r1  truncated: yes (max_matches_per_file)
 
-./
-one.txt  lines: 15  (cut)
+one.txt  (cut)
 1:⟦TODO⟧ one step 1
 2:⟦TODO⟧ one step 2
 3:⟦TODO⟧ one step 3
@@ -265,8 +264,7 @@ one.txt  lines: 15  (cut)
 ```text response
 files: 1  lines: 15  result: r2
 
-./
-one.txt  lines: 15
+one.txt
 1:⟦TODO⟧ one step 1
 2:⟦TODO⟧ one step 2
 3:⟦TODO⟧ one step 3
@@ -419,8 +417,7 @@ f25.txt  lines: 5
 ```text response
 files: 1  lines: 15  result: r2
 
-./
-one.txt  lines: 15
+one.txt
 1:⟦TODO⟧ one step 1
 2:⟦TODO⟧ one step 2
 3:⟦TODO⟧ one step 3
@@ -522,8 +519,7 @@ Every query has the default limits of spec 2: `one.txt` is cut after 10 matches,
 ```text response
 == one ==  files: 1  lines: 15  result: r1  truncated: yes (max_matches_per_file)
 
-./
-one.txt  lines: 15  (cut)
+one.txt  (cut)
 1:⟦TODO⟧ one step 1
 2:⟦TODO⟧ one step 2
 3:⟦TODO⟧ one step 3
@@ -534,7 +530,7 @@ one.txt  lines: 15  (cut)
 8:⟦TODO⟧ one step 8
 9:⟦TODO⟧ one step 9
 10:⟦TODO⟧ one step 10
-== all ==  files: 26  lines: 140  result: r2  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiMjE0YjBjNTAiLCJmIjoyMCwidCI6WzI2LDE0MCwxNDBdfQ
+== all ==  files: 26  lines: 140  result: r2  truncated: yes (max_files)  next cursor: eyJ2IjoxLCJoIjoiZDUyYjJkNWQiLCJmIjoyMCwidCI6WzI2LDE0MCwxNDBdfQ
 
 ./
 one.txt  lines: 15
@@ -615,13 +611,12 @@ f25.txt  lines: 5
 ```
 ```text response
 files: 1  lines: 15  result: r2
-written: <output_dir>/one.txt  lines: 19  bytes: 427
+written: <output_dir>/one.txt  lines: 18  bytes: 413
 ```
 ```text file one.txt
 files: 1  lines: 15  result: r2
 
-./
-one.txt  lines: 15
+one.txt
 1:⟦TODO⟧ one step 1
 2:⟦TODO⟧ one step 2
 3:⟦TODO⟧ one step 3
