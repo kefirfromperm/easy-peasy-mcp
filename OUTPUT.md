@@ -1450,9 +1450,9 @@ just written. So in spec 2 a written legend lists only these conditions, in the 
 
 "The response" is the whole result, as in [The same everywhere](#the-same-everywhere): the ids of the matched files
 of every page, also of a line which `auto` writes without markers; the ids of a shown match with `groups` are its
-references. A legend left with no entry is not written. So a
-condition which only selects files (`lang = rust`) and the conditions inside a `line( ... )`, `near( ... )` or a
-bracket group are listed only where an id of theirs is written:
+references. A legend left with no entry is not written. So a condition which only selects files (`lang = rust`) and
+the conditions inside a `line( ... )`, `near( ... )` or a bracket group are listed only where an id of theirs is
+written:
 
 ```json
 { "query": "name ~ '*.rs' and line(text has 'unwrap(' or text has 'TODO')" }
@@ -1475,8 +1475,8 @@ main.rs  lines: 2
 3:// ⟦#2,#4:TODO⟧ handle the error
 ```
 
-With `highlight = "none"` no id is written: no legend, unless a condition has a label, which stays alone. `show = ["legend"]` writes every condition, as in spec 1;
-`"version": 1` is unchanged.
+With `highlight = "none"` no id is written: no legend, unless a condition has a label, which stays alone.
+`show = ["legend"]` writes every condition, as in spec 1; `"version": 1` is unchanged.
 
 #### One match per line
 
