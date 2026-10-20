@@ -253,16 +253,33 @@ pub fn slashed(example: &Example) -> bool {
     cfg!(windows) && example.platform.is_none()
 }
 
-/// A JSON value with every `\` of its strings read as `/`.
+/// A JSON value with every `\` of its strings and keys read as `/`.
 pub fn slashed_json(value: Value) -> Value {
     match value {
         Value::String(s) => Value::String(s.replace('\\', "/")),
         Value::Array(items) => Value::Array(items.into_iter().map(slashed_json).collect()),
-        Value::Object(map) => {
-            Value::Object(map.into_iter().map(|(k, v)| (k, slashed_json(v))).collect())
-        }
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(k, v)| (k.replace('\\', "/"), slashed_json(v)))
+                .collect(),
+        ),
         other => other,
     }
+}
+
+/// The summary of a JSON output file with its `bytes` as if every `\` of the file were `/`: one byte where JSON
+/// escapes `\` with two.
+fn slashed_bytes(mut summary: Value) -> Value {
+    let file = summary["file"]
+        .as_str()
+        .filter(|f| Path::new(f).extension().is_some_and(|e| e == "json"));
+    let escapes = file
+        .and_then(|f| fs::read_to_string(f).ok())
+        .map(|text| text.matches(r"\\").count() as u64);
+    if let (Some(escapes), Some(bytes)) = (escapes, summary["bytes"].as_u64()) {
+        summary["bytes"] = Value::from(bytes - escapes);
+    }
+    summary
 }
 
 /// Whether `actual` is the text or the JSON document (`json` blocks) of the block `expected` of `example`.
@@ -281,7 +298,7 @@ pub fn same_response(example: &Example, info: &str, expected: &str, actual: &str
         ) else {
             return false;
         };
-        slashed_json(want) == slashed_json(got) && !actual.trim_end().contains('\n')
+        slashed_json(want) == slashed_json(slashed_bytes(got)) && !actual.trim_end().contains('\n')
     } else {
         actual.replace('\\', "/") == expected.replace('\\', "/")
     }
@@ -316,8 +333,8 @@ pub struct Example {
     pub id: String,
     pub file: String,
     pub fixture: Option<String>,
-    /// The only platform the example runs on, from a line `` Platform: `linux` ``.
-    pub platform: Option<String>,
+    /// The only platforms the example runs on, from a line `` Platform: `linux` `` (or `` `linux`, `macos` ``).
+    pub platform: Option<Vec<String>>,
     /// The duration of every read of a file's content, from a line `` Slow reads: `2s` ``.
     pub slow_reads: Option<std::time::Duration>,
     /// The current spec version of the server, from a line `` Spec: `1` `` of the examples file (AGENTS.md).
@@ -335,7 +352,7 @@ impl Example {
     pub fn runs_here(&self) -> bool {
         self.platform
             .as_deref()
-            .is_none_or(|p| p == std::env::consts::OS)
+            .is_none_or(|p| p.iter().any(|p| p == std::env::consts::OS))
     }
 }
 
@@ -436,8 +453,10 @@ fn parse_file(file: &str, text: &str, examples: &mut Vec<Example>, fixtures: &mu
             }
         } else if let Some(rest) = line.strip_prefix("Platform: ") {
             if section == Section::Example {
-                let name = rest.trim().trim_matches('`').to_string();
-                examples.last_mut().unwrap().platform = Some(name);
+                let names = rest
+                    .split(',')
+                    .map(|n| n.trim().trim_matches('`').to_string());
+                examples.last_mut().unwrap().platform = Some(names.collect());
             }
         } else if let Some(rest) = line.strip_prefix("Fixture: ") {
             if section == Section::Example {

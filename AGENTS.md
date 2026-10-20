@@ -189,7 +189,7 @@ Fixture: `small-rust`
   unless the env block sets them; `<fixture>` works in the env and stderr blocks too. A `text stderr exit <code>` block is what the binary prints to stderr before it exits with that
   code; without it the server must start, and the `json request` blocks that follow (`json request get_config` for
   another tool) are sent to it over MCP. A line
-  `` Platform: `linux` `` (or `macos`, `windows`) runs the example only there
+  `` Platform: `linux` `` (or `macos`, `windows`, or a list: `` `linux`, `macos` ``) runs the example only there
 - a startup example can also be a JSON-RPC exchange after `initialize`: a `json send` block is a message sent as it
   is; a `json receive` block waits (at most 10 seconds) for a message which matches it and no earlier `json receive`
   took — the block is a subset of the message, a string `*` matches any value and a `*` inside a string any

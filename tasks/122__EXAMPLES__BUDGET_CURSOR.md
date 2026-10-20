@@ -164,9 +164,11 @@ client.rs  [#1]
 
 ## E122.3 In JSON
 
-19 files fit in 300 tokens; the rest, 18 files, fit on the second page.
+19 files fit in 300 tokens; the rest, 18 files, fit on the second page. Not on Windows: JSON escapes every `\` of its
+paths with two characters, so fewer files fit.
 
 Fixture: `spec-output-many`
+Platform: `linux`, `macos`
 
 1. `find`
 
