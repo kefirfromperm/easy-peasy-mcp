@@ -1618,6 +1618,69 @@ mod tests {
     }
 
     #[test]
+    fn tilde_instead_of_equals_for_a_wildcard_pattern() {
+        assert_eq!(
+            variations("name = '*.rs'")[0].1,
+            ["name = '*.rs' /i", "name has '*.rs'", "name ~ '*.rs'"]
+        );
+        assert_eq!(
+            variations("path = 'src/**' /i")[0].1,
+            ["path has 'src/**' /i", "path ~ 'src/**' /i"]
+        );
+        assert_eq!(
+            variations("name = 'a?.{rs,md}' /i")[0].1.last().unwrap(),
+            "name ~ 'a?.{rs,md}' /i"
+        );
+        assert_eq!(
+            variations("name = '[ab].rs'")[0].1.last().unwrap(),
+            "name ~ '[ab].rs'"
+        );
+        assert!(
+            !variations("name = 'a.rs'")[0]
+                .1
+                .iter()
+                .any(|v| v.contains('~'))
+        );
+        assert_eq!(variations("name ~ '*.rs'")[0].1, ["name ~ '*.rs' /i"]);
+        assert!(
+            !variations("text = '*'")[0]
+                .1
+                .iter()
+                .any(|v| v.contains('~'))
+        );
+        let steps = parse("name = '*.rs'", &SENSITIVE)
+            .unwrap()
+            .funnel
+            .unwrap()
+            .steps;
+        assert_eq!(steps[0].variations[2].target, Target::Name);
+    }
+
+    #[test]
+    fn no_lookup_for_a_wildcard_pattern() {
+        let lookup = |q: &str| {
+            parse(q, &SENSITIVE).unwrap().funnel.unwrap().steps[0]
+                .lookup
+                .clone()
+        };
+        assert_eq!(lookup("name = '*.rs'"), None);
+        assert_eq!(lookup("path = '**/x.rs'"), None);
+        assert_eq!(lookup("path starts 'src/*/'"), None);
+        assert_eq!(
+            lookup("path = 'src/x.rs'"),
+            Some(Lookup::Dir("src".to_string()))
+        );
+        assert_eq!(
+            lookup("path = 'src/*.rs'"),
+            Some(Lookup::Dir("src".to_string()))
+        );
+        assert_eq!(
+            lookup("name = 'x.rs'"),
+            Some(Lookup::Name("x.rs".to_string()))
+        );
+    }
+
+    #[test]
     fn the_fuzzy_steps() {
         let step = |q: &str| parse(q, &SENSITIVE).unwrap().funnel.unwrap().steps;
         let name = step("name ~~ 'cfg'");
