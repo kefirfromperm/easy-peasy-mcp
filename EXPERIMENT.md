@@ -481,3 +481,5 @@ Total tokens are the whole run (reading, thinking, editing, cargo), not the sear
   change took several greps through three files and a python FNV check.
 - **Outcome:** a tie: the same tokens (156.0K vs 155.8K), A +4 tool calls and −1.6 min, with less than a third of B's
   search output. B's branch keeps to the task's scope (`count_by = line`) and to the spec of `show = "all"`.
+- **Merged:** B, with a commit that wraps an OUTPUT.md line at 120 columns. Version 0.155.0. Tasks 163 (a hint for
+  `/w` with a value that starts or ends with a space) and 164 (a hint for `false` given to a list option).
